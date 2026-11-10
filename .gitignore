@@ -1,0 +1,9 @@
+# Kit Nexxia — à compléter selon le projet
+.env
+.env.*
+!.env.example
+.playwright-cli/
+qa-screenshots/
+.claude/settings.local.json
+.claude/agent-memory/
+graphify-out/cache/

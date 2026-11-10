@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(rm -rf *)",
+      "Bash(supabase db push*)",
+      "Bash(supabase db reset --linked*)"
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "firecrawl@claude-plugins-official": true,
+    "gsap-skills@gsap-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "gsap-skills": {
+      "source": {
+        "source": "github",
+        "repo": "greensock/gsap-skills"
+      }
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.ts|*.tsx|*.js|*.jsx|*.astro) pnpm exec prettier --write \"$f\" >/dev/null 2>&1; out=$(pnpm exec eslint --fix \"$f\" 2>&1) || { echo \"$out\" | tail -n 20 >&2; exit 2; } ;; esac"
+          }
+        ]
+      }
+    ]
+  }
+}
