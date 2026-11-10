@@ -5,15 +5,15 @@
 ## Où on en est
 - Feature en cours : socle — `docs/features/socle/spec.md` (brouillon, pas encore de plan)
 - Tâches faites : 0 — aucun code d'application dans le repo
-- Dernière action : repo créé depuis le kit, docs adaptées à BeMyBrain (Next.js + Neon), feuille de route et ADR 001 à 004 écrits
+- Dernière action : ADR-002 réécrit (RLS dès le socle), ADR-003 accepté (auth gérée de Neon, doc vérifiée), ADR-005 ajouté (production + previews, staging prêt)
 
 ## Prochaine étape (copier dans la prochaine session)
-`/feature socle` — la spec existe déjà dans docs/features/socle/spec.md : la relire avec Antoine, trancher ses questions ouvertes, puis écrire le plan.
+`/feature socle` — la spec existe déjà dans docs/features/socle/spec.md : la relire avec Antoine, trancher ses 4 questions ouvertes, puis écrire le plan. Ne pas rediscuter les ADR 001 à 005.
 
 ## Skills et agents pour la suite
 1. `explorer` : rien à cartographier côté code ; lire `docs/architecture.md`, `docs/roadmap.md` et les ADR.
 2. `writing-plans` pour `docs/features/socle/plan.md`, puis `subagent-driven-development` avec `implementer` / `reviewer`.
-3. `security-auditor` sur les tâches d'auth et de session, puis `/qa socle`.
+3. `security-auditor` sur les tâches d'auth, de session et de RLS, puis `/qa socle`.
 
 ## Attention
 - Tests rouges : aucun (pas de tests encore)
