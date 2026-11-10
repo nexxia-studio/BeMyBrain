@@ -1,0 +1,20 @@
+---
+paths:
+  - "drizzle/**"
+  - "src/db/**"
+  - "src/modules/**/queries.ts"
+  - "src/modules/**/mutations.ts"
+  - "**/*.sql"
+---
+# Règles Neon / Postgres / Drizzle
+
+- Toute table métier : `id uuid default gen_random_uuid()`, `workspace_id uuid NOT NULL REFERENCES workspaces(id)`, `created_at timestamptz default now()`, `updated_at timestamptz`.
+- Accès aux données uniquement via `src/modules/<module>/queries.ts` (lectures) et `mutations.ts` (écritures). Chaque fonction prend `workspaceId` en premier argument et filtre dessus. Jamais de requête Drizzle dans un composant ou une route.
+- Le `workspaceId` vient de la session serveur, jamais du client (paramètre d'URL, body, cookie lisible).
+- Montants : `integer` suffixé `_cents`. Statuts : `text` + `CHECK (status IN (...))`, pas d'enum Postgres.
+- Index : sur chaque FK, et sur `(workspace_id, <colonne filtrée>)` pour les listes.
+- Migrations : générées par `pnpm db:generate`, un fichier par changement, jamais modifié après application. Rollback = nouvelle migration. `drizzle-kit push` interdit hors base locale.
+- Environnements : une branche Neon par preview Vercel. La branche `main` de Neon = production ; on n'y écrit jamais à la main.
+- Routes appelées de l'extérieur (webhooks, exports Apple Santé, agrégateur bancaire) : valider le body avec zod, vérifier la signature ou le jeton avant tout, répondre vite et traiter ensuite.
+- Liens de partage publics (ex. liste de courses) : jeton aléatoire long, révocable, limité à une ressource. Jamais l'identifiant de la ressource seul.
+- RLS : pas en V1 (un seul compte). Obligatoire avant l'ouverture multi-comptes, voir ADR-002.
