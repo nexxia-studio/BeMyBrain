@@ -15,13 +15,18 @@ Validée par Antoine le 2026-11-10. Un module = une `/feature`. L'encodage manue
 Hors périmètre pour l'instant : habitudes, routines, journal, bloc-notes, deep work.
 
 ## Notes par module (décisions déjà prises)
-- **To-do** : une to-do existe déjà (Perso / Trustup / Nexxia). Elle est migrée dans BeMyBrain, pas réécrite à l'aveugle. Repo source à confirmer par Antoine.
+- **To-do** : une to-do existe déjà (Perso / Trustup / Nexxia). Elle est migrée dans BeMyBrain, pas réécrite à l'aveugle. Repo source : `nexxia-studio/todo-perso-pro` (confirmé le 2026-11-11).
 - **Liste de courses** : modifiable par une personne externe via un lien, sans compte.
 - **Budget** : règle 50/20/20/10 (essentiels, non-essentiels, investissements, épargne), écart affiché en % et en €. Chaque ligne est saisie une seule fois ; le récap se calcule.
 - **Mobilier** : valeur résiduelle = prix d'achat × (1 − âge / durée de vie théorique), avec un plancher à 0 €. Jamais de valeur négative.
 - **Assurances** : une fiche par contrat (maison, santé, famille, voiture…) avec garanties, prime, échéance, et comparaison avec l'offre d'un autre assureur.
 - **Assistant IA** : accès en lecture à toutes les données du workspace via les fonctions de lecture des modules (ADR-004).
 - **WhatsApp** (demandé le 2026-11-10) : parler à BeMyBrain depuis WhatsApp, via Hermes Agent (agent open source de Nous Research, licence MIT). Hermes tourne sur un petit serveur à part, pas sur Vercel, et accède aux données par les mêmes fonctions que l'assistant IA (ADR-004). Lecture d'abord ; écritures limitées à une liste courte (ajouter une tâche, un article de courses). Dépend de l'assistant IA.
+- **Liste de courses, mode hors ligne** : le mode hors ligne (service worker) se traite avec la liste de courses, pas avant (ADR-008).
+- **Analytics** (BRAIN-26) : PostHog à l'ouverture multi-comptes, à la place d'Umami.
+- **Slack** (BRAIN-27) : second canal de Hermes Agent, après WhatsApp, avec les mêmes fonctions (ADR-004).
+- **App mobile native** (BRAIN-28) : après quelques mois de web app installable, si l'usage le justifie (ADR-008).
+- **Super-admin** (BRAIN-29) : gestion des clients, paiements et tarifs, à l'ouverture des abonnements.
 
 ## Intégrations : ce qui est possible
 | Source | État au 2026-11-10 | Approche |

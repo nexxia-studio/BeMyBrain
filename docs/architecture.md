@@ -39,6 +39,7 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 Les intégrations de données (banque, Strava, Apple Santé, Home Assistant…) sont décrites dans `docs/roadmap.md`.
 
 ## Environnements
+- Région : Neon et Vercel à Francfort (ADR-005). Projets déjà existants.
 - Local : `pnpm dev` + branche Neon de développement.
 - Preview : une URL Vercel et une branche Neon par pull request. Tests et `/qa` se font ici.
 - Production : branche `main`, à créer au `/feature socle`.

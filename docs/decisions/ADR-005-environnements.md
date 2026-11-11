@@ -10,6 +10,8 @@ Au lancement, deux niveaux :
 - **Production** : branche git `main`, projet Vercel en production, branche Neon `main`.
 - **Preview** : une URL Vercel et une branche Neon jetable par pull request. C'est là que se font les tests et `/qa`.
 
+Région : Neon et Vercel sont en Europe, à Francfort (projets existants, confirmé par Antoine le 2026-11-11). Tout environnement ajouté reste dans cette région.
+
 Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter en une heure : une branche Neon `staging` durable, un environnement Vercel « staging » avec son domaine et ses variables.
 
 ## Règles pour rester prêt

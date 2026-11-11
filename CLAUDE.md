@@ -46,7 +46,7 @@
 
 ## Design
 - Direction : liquid glass + grille bento, références dans `docs/design/references/`. Charte : DESIGN.md (Impeccable). Contexte produit : PRODUCT.md. Méthode et goût : skill `nexxia-design` (se déclenche seul ; méthode, curseurs, sourcing, `references/anti-slop.md`). Ne jamais inventer une couleur ou une police hors DESIGN.md.
-- Une bibliothèque d'animation par arbre (table du § 5 de `nexxia-design`). Avant de livrer une UI : anti-slop puis `/impeccable critique`.
+- Animation : ADR-006 (Motion pour l'interface, GSAP pour les moments signature). Avant de livrer une UI : anti-slop puis `/impeccable critique`.
 
 ## Format des réponses
 - Antoine est technique mais lit en responsable produit : réponses ≤ 10 lignes hors code, vocabulaire produit, le détail technique va dans les fichiers ou sur demande.

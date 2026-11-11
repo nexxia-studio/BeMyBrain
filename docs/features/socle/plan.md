@@ -56,7 +56,7 @@
   - Fini quand : tests verts, la page d'accueil de la tâche 2 passe par les messages.
 
 - [ ] **4. Créer le projet Neon et le rôle restreint** [manuel]
-  - Actions : projet Neon (région UE), branche `main` = production, branche `dev` pour le local ; activer Neon Auth sur `main` ; rôle `app_backend` (LOGIN, sans BYPASSRLS) ; vérifier que `auth.user_id()` répond.
+  - Actions : projet Neon existant (Francfort), branche `main` = production, branche `dev` pour le local ; activer Neon Auth sur `main` ; rôle `app_backend` (LOGIN, sans BYPASSRLS) ; vérifier que `auth.user_id()` répond.
   - Antoine met les connexions dans son `.env` local (jamais dans le chat ni le repo).
   - Fini quand : `DATABASE_URL`, `DATABASE_AUTHENTICATED_URL`, `NEON_AUTH_*` existent pour `dev`, et `auth.user_id()` répond sur `dev`.
 
@@ -131,7 +131,7 @@
   - Fini quand : tests verts.
 
 - [ ] **17. Vercel, previews et CI** [manuel] + code (BRAIN-4)
-  - Manuel : projet Vercel relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement, `pnpm db:migrate` au build.
+  - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement, `pnpm db:migrate` au build.
   - Code : `.github/workflows/ci.yml` — lint, typecheck, tests unitaires (dont textes en dur et parité des clés), tests d'isolation sur une branche Neon créée pour le run puis supprimée.
   - Test : ouvrir une pull request de contrôle.
   - Fini quand : la PR a sa preview, sa branche Neon et une CI verte ; `main` déploie en production.
