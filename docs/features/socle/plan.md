@@ -1,6 +1,6 @@
 # Plan — Socle
 
-**Spec** : `spec.md` · **Branche** : `feat/socle` · **Créé le** : 2026-11-11 · **Révisé le** : 2026-11-11 (ADR-006, 007, 008) · **Tickets** : BRAIN-2 à BRAIN-7
+**Spec** : `spec.md` · **Branche** : `feat/socle` · **Créé le** : 2026-11-11 · **Révisé le** : 2026-11-11 (ADR-006 à 009, Sentry) · **Tickets** : BRAIN-2 à BRAIN-7
 
 <!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
 <!-- [security] = security-auditor passe après le reviewer. -->
@@ -19,6 +19,9 @@
 - **Inscription publique** : désactivée dans la config Neon Auth de chaque branche ; le compte d'Antoine est créé à la main.
 - **Domaine** : sous-domaine Vercel. L'URL publique n'existe que dans les variables d'environnement.
 - **Thème** : sombre d'abord, couleurs en tokens.
+- **Région** : Neon et Vercel déjà à Francfort (ADR-005). Projet Sentry en région UE.
+- **Erreurs** : `@sentry/nextjs` dans l'app ; alertes vers un canal Slack par réglage Sentry (aucun code). Aucune donnée personnelle envoyée (`sendDefaultPii: false`, pas de corps de requête).
+- **Registre d'actions** (ADR-009) : `src/modules/actions/`, sans React ni Next. Chaque action : `name`, `description` (clé i18n), `params` (zod), `access` (`read`/`write`), `run(ctx, params)`. La palette passe par une Server Action unique.
 
 ## Dépendances nouvelles (justification, constitution 7)
 - `next`, `react`, `tailwindcss`, shadcn/ui — ADR-001.
@@ -31,11 +34,13 @@
 - `motion` — ADR-006, interactions.
 - `gsap`, `@gsap/react` — ADR-006, moments signature.
 - `vitest`, `@playwright/test` — CLAUDE.md.
+- `@sentry/nextjs` — remontée des erreurs (demande d'Antoine du 2026-11-11).
+- `cmdk` (via le composant Command de shadcn/ui) — palette de commandes : clavier, recherche et accessibilité déjà résolus.
 - Aucune bibliothèque PWA (ADR-008) ; aucune bibliothèque pour le test des textes en dur (API `typescript` déjà présente).
 
 ## Tâches
 
-- [ ] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–008** (BRAIN-2)
+- [ ] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2)
   - Fichiers : `.claude/agents/security-auditor.md`, `.claude/agents/explorer.md`, `.claude/skills/feature/SKILL.md`, `.claude/rules/frontend.md`, `.claude/rules/tests.md`, `docs/features/_template/plan.md`, `docs/instructions-projet-claude-ai.md`, `docs/gotchas.md`
   - Contenu : RLS Neon (`auth.user_id()`, rôle restreint, `app.is_workspace_member`) ; `[security]` sur `drizzle/`, `src/db/`, l'auth et la session ; `frontend.md` passe à `paths: src/app/**, src/components/**`, retire TanStack Query, react-hook-form et Vite, ajoute : textes via `next-intl` uniquement, Motion / GSAP selon ADR-006, aucune règle métier dans un composant ; `tests.md` remplace `supabase start` par « branche Neon de test via `DATABASE_TEST_URL` » ; `gotchas.md` retire la ligne Edge Function et ajoute le hook eslint (tâche 2).
   - Test : `grep -ri supabase . --exclude-dir=.git` ne renvoie que l'ADR-001 et l'ADR-003.
@@ -140,8 +145,20 @@
   - Actions : après le seed de production, restaurer `main` à un instant passé sur une branche de test, lire le workspace d'Antoine, supprimer la branche. Noter la fenêtre de restauration de la formule Neon.
   - Fini quand : procédure et date de vérification écrites dans un runbook dans `docs/`.
 
+- [ ] **19. Brancher Sentry et l'alerte Slack** [manuel] + code (BRAIN-4)
+  - Code : `sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation.ts`, `src/instrumentation-client.ts`, `src/app/global-error.tsx`, `next.config.ts` (`withSentryConfig`), `.env.example` (`SENTRY_DSN`, `SENTRY_AUTH_TOKEN` pour les source maps, `SENTRY_ENVIRONMENT`). DSN par variable uniquement ; `sendDefaultPii: false` ; environnement = production ou preview.
+  - Manuel : projet Sentry (région UE) ; intégration Slack de l'organisation Sentry ; règle d'alerte « nouvelle erreur ou régression en production » vers le canal Slack choisi par Antoine. Aucun code pour l'alerte.
+  - Test à écrire d'abord : `src/lib/sentry-options.test.ts` — « sendDefaultPii est faux et l'environnement vient de la variable » ; « sans SENTRY_DSN, l'app démarre et n'envoie rien ».
+  - Fini quand : une erreur volontaire sur une preview apparaît dans Sentry, et une erreur sur la production arrive dans le canal Slack.
+
+- [ ] **20. Registre d'actions et palette de commandes** [security] (BRAIN-7, ADR-009)
+  - Fichiers : `src/modules/actions/registry.ts`, `src/modules/actions/types.ts`, `src/modules/core/actions.ts`, `src/app/(app)/actions.ts` (Server Action unique `runAction`), `src/components/command-palette/`, `messages/*.json`
+  - Registre sans React ni Next (règle eslint de la tâche 2). Actions du socle : `core.listContexts` (`read`), `core.setLocale` (`write`, réutilise `setMemberLocale`). `runAction(name, params)` : `requireSession()` → recherche dans le registre → validation zod → `run`. Nom inconnu ou paramètres invalides → erreur générique, rien d'exécuté. Palette : ⌘K / Ctrl+K sur desktop, bouton dans la barre basse sur mobile ; navigation (tableau de bord, réglages) en raccourcis hors registre ; textes traduits ; ouverture en Motion.
+  - Test à écrire d'abord : `src/modules/actions/registry.test.ts` — « chaque action déclare name, description, params et access » ; « deux actions ne partagent pas un name » ; « des paramètres invalides n'appellent pas run » ; « une action write sans workspaceId refuse de s'exécuter » ; `e2e/palette.spec.ts` — « depuis la palette, passer en anglais change la langue de l'interface ».
+  - Fini quand : tests verts.
+
 ## Ordre et dépendances
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11. La tâche 12 peut se faire à tout moment avant la 13. 12 → 13 → 14 → 15 → 16. 17 dès que 5 est fait, au plus tard avant `/qa`. 18 après le premier déploiement en production.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11. La tâche 12 peut se faire à tout moment avant la 13. 12 → 13 → 14 → 15 → 16. 17 dès que 5 est fait, au plus tard avant `/qa`. 18 après le premier déploiement en production. 19 après 17. 20 après 16.
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->

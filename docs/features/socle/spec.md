@@ -33,6 +33,9 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 - [ ] Quand une date, un nombre ou un montant s'affiche, alors il est formaté selon la langue choisie.
 - [ ] Quand un texte d'interface est écrit en dur dans un composant, ou qu'une clé manque dans une des deux langues, alors un test automatisé échoue.
 - [ ] Quand Antoine ouvre l'app dans Safari iOS ou Chrome Android, alors il peut l'ajouter à l'écran d'accueil et elle s'ouvre en plein écran, avec son icône et son nom (ADR-008).
+- [ ] Quand une erreur se produit en production, alors elle apparaît dans Sentry et une alerte arrive dans le canal Slack choisi, sans donnée personnelle dans l'événement.
+- [ ] Quand Antoine ouvre la palette de commandes (⌘K, ou bouton sur mobile), alors il peut naviguer et lancer les actions du registre ; une action aux paramètres invalides ne s'exécute pas (ADR-009).
+- [ ] Quand on lit le registre d'actions, alors chaque action déclare nom, description, paramètres validés et lecture ou écriture, et le registre n'importe ni React ni Next (ADR-009).
 - [ ] Quand on cherche une règle métier dans `src/components/` ou `src/app/`, alors on n'en trouve aucune : elle est dans `src/modules/` (ADR-008).
 
 ## Scénarios utilisateur (joués par /qa)
@@ -41,6 +44,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 3. **Accès refusé** — un visiteur non connecté ouvre une URL interne, obtient l'écran de connexion et rien d'autre. Variante mobile : non.
 4. **Changer de langue** — Antoine ouvre ses réglages, passe en anglais, voit toute l'interface en anglais avec dates et nombres au format anglais, recharge, se reconnecte : l'anglais est conservé. Variante mobile : oui.
 5. **Installer l'app** — sur mobile, le navigateur propose l'ajout à l'écran d'accueil (manifeste valide, icônes présentes, affichage plein écran). Variante mobile : oui uniquement.
+6. **Palette de commandes** — Antoine ouvre la palette, cherche « langue », lance le changement vers l'anglais : l'interface passe en anglais. Variante mobile : oui (bouton).
 
 ## Données et sécurité
 - Tables touchées : `workspaces`, `workspace_members` (dont `locale`, ADR-007), `contexts` (nouvelles), plus les tables de l'auth retenue.
@@ -50,7 +54,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 - Argent / paiement concerné : non. Les tâches d'auth, de session et de RLS sont marquées `[security]`.
 
 ## UI
-- Écrans concernés : connexion, coque (navigation, bascule Privé / Pro, filtre de contexte), tableau de bord bento avec tuiles vides, réglages (langue).
+- Écrans concernés : connexion, coque (navigation, bascule Privé / Pro, filtre de contexte, palette de commandes), tableau de bord bento avec tuiles vides, réglages (langue).
 - Maquette : aucune. Références : `docs/design/references/finance-glass.webp` et `maison-bento.webp`.
 - Contraintes : DESIGN.md et PRODUCT.md à produire en première tâche (Impeccable + skill `nexxia-design`). Direction liquid glass, grille bento. Animation : Motion pour les interactions, GSAP pour les moments signature (ADR-006). Textes en FR/EN (ADR-007). Mobile d'abord, installable (ADR-008).
 
