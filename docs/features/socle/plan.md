@@ -42,7 +42,7 @@
 
 ## Tâches
 
-- [ ] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2)
+- [x] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2)
   - Fichiers : `.claude/agents/security-auditor.md`, `.claude/agents/explorer.md`, `.claude/skills/feature/SKILL.md`, `.claude/rules/frontend.md`, `.claude/rules/tests.md`, `docs/features/_template/plan.md`, `docs/instructions-projet-claude-ai.md`, `docs/gotchas.md`
   - Contenu : RLS Neon (`auth.user_id()`, rôle restreint, `app.is_workspace_member`) ; `[security]` sur `drizzle/`, `src/db/`, l'auth et la session ; `frontend.md` passe à `paths: src/app/**, src/components/**`, retire TanStack Query, react-hook-form et Vite, ajoute : textes via `next-intl` uniquement, Motion / GSAP selon ADR-006, aucune règle métier dans un composant ; `tests.md` remplace `supabase start` par « branche Neon de test via `DATABASE_TEST_URL` » ; `gotchas.md` retire la ligne Edge Function et ajoute le hook eslint (tâche 2).
   - Test : `grep -ril supabase . --exclude-dir=.git` ne renvoie que : l'ADR-001, l'ADR-003, `CLAUDE.md` (garde-fou « Pas de Supabase »), `docs/features/socle/plan.md` (texte de cette tâche) et `docs/instructions-projet-claude-ai.md` (outils Nexxia hors BeMyBrain).
