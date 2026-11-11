@@ -154,7 +154,7 @@
   - Fini quand : tests verts.
 
 - [ ] **17. Vercel, previews et CI** [manuel] + code (BRAIN-4)
-  - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement, `pnpm db:migrate` au build.
+  - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement. Production : `pnpm db:migrate` par GitHub Actions au merge dans `main`, avant le déploiement ; accès propriétaire de prod uniquement en secret GitHub (environnement protégé), jamais dans Vercel (ADR-010). Previews : migration de leur propre branche.
   - Code : `.github/workflows/ci.yml` — lint, typecheck, tests unitaires (dont textes en dur et parité des clés), tests d'isolation sur une branche Neon créée pour le run puis supprimée.
   - Test : ouvrir une pull request de contrôle.
   - Fini quand : la PR a sa preview, sa branche Neon et une CI verte ; `main` déploie en production.

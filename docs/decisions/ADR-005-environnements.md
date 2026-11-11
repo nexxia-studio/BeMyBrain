@@ -16,7 +16,7 @@ Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter
 
 ## Règles pour rester prêt
 - Aucune URL, aucun identifiant d'environnement dans le code : tout passe par des variables d'environnement, listées dans `.env.example`.
-- Les migrations s'appliquent par une commande unique, la même pour tous les environnements, lancée au déploiement.
+- Les migrations s'appliquent par une commande unique, la même pour tous les environnements, lancée au déploiement. Pour la production : par GitHub Actions au merge dans `main` (ADR-010).
 - Les données de départ (seed) sont rejouables sans doublon et ne contiennent aucune donnée personnelle.
 - L'auth a une URL par environnement (ADR-003).
 
