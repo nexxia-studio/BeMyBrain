@@ -55,7 +55,7 @@
   - Test : `grep -ril supabase . --exclude-dir=.git` ne renvoie que : l'ADR-001, l'ADR-003, `CLAUDE.md` (garde-fou « Pas de Supabase »), `docs/features/socle/plan.md` (texte de cette tâche) et `docs/instructions-projet-claude-ai.md` (outils Nexxia hors BeMyBrain).
   - Fini quand : la recherche est propre et le security-auditor décrit le modèle Neon de ce plan.
 
-- [ ] **2. Créer l'app Next.js et l'outillage** (BRAIN-4)
+- [x] **2. Créer l'app Next.js et l'outillage** (BRAIN-4)
   - Fichiers : `package.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `vitest.config.mts`, `playwright.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `.gitignore`
   - Ordre imposé : scaffold (`pnpm create next-app`, App Router, TS, Tailwind, `src/`) et `pnpm install` en Bash **avant** toute édition de `.ts` — le hook PostToolUse lance eslint et bloque tant qu'il n'est pas installé. Ajouter `node_modules/`, `.next/`, `test-results/`, `playwright-report/` à `.gitignore`. Initialiser shadcn/ui. Scripts : `dev`, `test`, `lint`, `typecheck`, `e2e`.
   - Frontières (ADR-002, ADR-008) dans `eslint.config.mjs`, règle `no-restricted-imports` : `src/app/**` et `src/components/**` n'importent ni `drizzle-orm` ni `@/db/*` ; `src/modules/**` n'importe ni `react` ni `next/*`.
