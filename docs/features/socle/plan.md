@@ -23,6 +23,8 @@
 - **Région** : Neon et Vercel déjà à Francfort (ADR-005). Projet Sentry en région UE.
 - **Erreurs** : `@sentry/nextjs` dans l'app ; alertes vers un canal Slack par réglage Sentry (aucun code). Aucune donnée personnelle envoyée (`sendDefaultPii: false`, pas de corps de requête).
 - **Registre d'actions** (ADR-009) : `src/modules/actions/`, sans React ni Next. Chaque action : `name`, `description` (clé i18n), `params` (zod), `access` (`read`/`write`), `run(ctx, params)`. La palette passe par une Server Action unique.
+- **Cache Components** : non adopté dans le socle (lecture de cookies serveur partout, app derrière login) ; à réévaluer à Next 17.
+- **Primitives UI** : shadcn/ui en style `base-nova` (Base UI, pas Radix), défaut actuel de shadcn ; à confirmer avant la tâche 12. Vérifier à la tâche 20 que le composant Command existe en base-nova (sinon `cmdk` seul).
 
 ## Dépendances nouvelles (justification, constitution 7)
 - `next`, `react`, `tailwindcss`, shadcn/ui — ADR-001.
@@ -36,6 +38,11 @@
 - `gsap`, `@gsap/react` — ADR-006, moments signature.
 - `vitest`, `@playwright/test` — CLAUDE.md.
 - `@testing-library/react`, `jsdom` — tests de composants avec Vitest (`frontend.md`, tâche 2).
+- `@testing-library/dom` — dépendance pair de `@testing-library/react`.
+- `prettier` — appelé par le hook PostToolUse sur chaque fichier édité.
+- `@types/node` ^24 — Node 24 LTS sur Vercel, exigé par vitest 5.
+- `@tailwindcss/turbopack` — loader Tailwind v4 pour Turbopack (scaffold Next).
+- Via shadcn init (ADR-001) : `@base-ui/react`, `class-variance-authority`, `cn`, `lucide-react`, `shadcn`, `tw-animate-css` (ce dernier limité aux primitives de `src/components/ui/`, cf. ADR-006).
 - `@sentry/nextjs` — remontée des erreurs (demande d'Antoine du 2026-11-11).
 - `cmdk` (via le composant Command de shadcn/ui) — palette de commandes : clavier, recherche et accessibilité déjà résolus.
 - Aucune bibliothèque PWA (ADR-008) ; aucune bibliothèque pour le test des textes en dur (API `typescript` déjà présente).
@@ -49,8 +56,8 @@
   - Fini quand : la recherche est propre et le security-auditor décrit le modèle Neon de ce plan.
 
 - [ ] **2. Créer l'app Next.js et l'outillage** (BRAIN-4)
-  - Fichiers : `package.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `vitest.config.ts`, `playwright.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `.gitignore`
-  - Ordre imposé : scaffold (`pnpm create next-app`, App Router, TS, Tailwind, `src/`) et `pnpm install` en Bash **avant** toute édition de `.ts` — le hook PostToolUse lance eslint et bloque tant qu'il n'est pas installé. Ajouter `node_modules/`, `.next/`, `test-results/`, `playwright-report/` à `.gitignore`. Initialiser shadcn/ui. Scripts : `dev`, `test`, `lint`, `typecheck`, `e2e`, `db:generate`, `db:migrate`.
+  - Fichiers : `package.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `vitest.config.mts`, `playwright.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `.gitignore`
+  - Ordre imposé : scaffold (`pnpm create next-app`, App Router, TS, Tailwind, `src/`) et `pnpm install` en Bash **avant** toute édition de `.ts` — le hook PostToolUse lance eslint et bloque tant qu'il n'est pas installé. Ajouter `node_modules/`, `.next/`, `test-results/`, `playwright-report/` à `.gitignore`. Initialiser shadcn/ui. Scripts : `dev`, `test`, `lint`, `typecheck`, `e2e`.
   - Frontières (ADR-002, ADR-008) dans `eslint.config.mjs`, règle `no-restricted-imports` : `src/app/**` et `src/components/**` n'importent ni `drizzle-orm` ni `@/db/*` ; `src/modules/**` n'importe ni `react` ni `next/*`.
   - Test à écrire d'abord : `src/app/page.test.tsx` — « affiche la page d'accueil sans erreur » ; `tests/lint/boundaries.test.ts` — « eslint refuse un import de @/db dans un composant ».
   - Fini quand : `pnpm lint`, `pnpm typecheck`, `pnpm test` passent.
@@ -68,7 +75,7 @@
   - Fini quand : `DATABASE_URL`, `DATABASE_AUTHENTICATED_URL`, `NEON_AUTH_*` existent pour `dev`, et `auth.user_id()` répond sur `dev`.
 
 - [ ] **5. Brancher Drizzle, les migrations et `.env.example`** (BRAIN-4)
-  - Fichiers : `drizzle.config.ts`, `src/db/client.ts`, `src/env.ts`, `.env.example`, `drizzle/0000_*.sql`
+  - Fichiers : `drizzle.config.ts`, `src/db/client.ts`, `src/env.ts`, `.env.example`, `drizzle/0000_*.sql`, `package.json` (scripts `db:generate` et `db:migrate` avec drizzle-kit)
   - `src/env.ts` valide les variables avec zod au démarrage. `src/db/client.ts` expose `adminDb` (migrations, seed) et `withUserDb(token, fn)` (vérifie le jeton, ouvre la transaction, injecte les claims). `db:migrate` = commande unique, la même partout.
   - `.env.example` liste aussi, sans valeur, `DATABASE_TEST_URL` (propriétaire, branche de test) et `DATABASE_TEST_AUTHENTICATED_URL` (`app_backend`, branche de test), utilisées par les tests d'isolation (tâche 6).
   - Test à écrire d'abord : `src/env.test.ts` — « refuse de démarrer si DATABASE_AUTHENTICATED_URL manque » ; `src/db/client.test.ts` — « refuse un jeton à la signature invalide sans ouvrir de transaction ».

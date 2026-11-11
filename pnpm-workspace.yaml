@@ -1,3 +1,6 @@
+# Scripts d'installation refusés (pnpm n'exécute que ceux listés à true).
+# sharp et unrs-resolver livrent leurs binaires précompilés via des dépendances optionnelles ;
+# leur script postinstall ne sert qu'à compiler depuis les sources, inutile ici et code tiers exécuté en moins.
 allowBuilds:
   sharp: false
   unrs-resolver: false

@@ -21,3 +21,4 @@ Au § 5 de `nexxia-design` : GSAP sert ici à des moments signature, pas seuleme
 ## Conséquences
 - Deux dépendances d'animation ; GSAP hors du bundle initial.
 - Le `reviewer` refuse un élément animé par les deux, ou une animation sans repli pour `prefers-reduced-motion`.
+- `tw-animate-css` (apporté par shadcn) reste limité aux animations d'entrée/sortie des primitives de `src/components/ui/` ; jamais sur un élément animé par Motion ou GSAP.
