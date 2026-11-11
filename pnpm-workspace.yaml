@@ -7,3 +7,5 @@ allowBuilds:
   # Dépendances de next-intl (extraction de messages, non utilisée) ; binaires précompilés via dépendances optionnelles.
   "@parcel/watcher": false
   "@swc/core": false
+  # Dépendance de drizzle-kit ; binaire précompilé via @esbuild/<plateforme> (dépendance optionnelle), le postinstall ne fait que le vérifier.
+  esbuild: false

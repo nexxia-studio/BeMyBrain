@@ -33,4 +33,52 @@ describe("frontières d'import", () => {
 
     expect(errors).toHaveLength(1);
   });
+
+  it("eslint refuse un import de @/db/admin dans src/modules", async () => {
+    const code =
+      'import { adminDb } from "@/db/admin";\nexport const x = adminDb;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint refuse un import relatif de db/admin dans un composant", async () => {
+    const code =
+      'import { adminDb } from "../db/admin";\nexport const x = adminDb;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/components/boundary-probe.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint refuse la fabrique interne de withUserDb dans src/modules", async () => {
+    const code =
+      'import { createWithUserDb } from "@/db/user-db";\nexport const x = createWithUserDb;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint autorise withUserDb dans src/modules", async () => {
+    const code =
+      'import { withUserDb } from "@/db/client";\nexport const x = withUserDb;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors).toHaveLength(0);
+  });
 });
