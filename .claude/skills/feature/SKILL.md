@@ -20,7 +20,7 @@ Montre la spec par blocs et attends validation explicite d'Antoine.
 
 ## 3. Plan
 Utilise le skill `writing-plans` (superpowers). Écris `docs/features/<nom>/plan.md` : tâches de 1–2 h max, chacune avec fichiers touchés, test à écrire, critère de fin.
-Si une tâche touche `supabase/`, une migration ou un paiement, marque-la `[security]` : la session principale devra dispatcher `security-auditor` après le reviewer sur cette tâche (rien ne le fait automatiquement).
+Si une tâche touche `drizzle/`, `src/db/`, l'auth, la session, une policy, `src/modules/actions/` ou un paiement, marque-la `[security]` : la session principale devra dispatcher `security-auditor` après le reviewer sur cette tâche (rien ne le fait automatiquement).
 
 ## 4. Handoff
 Mets à jour `docs/handoff.md` : feature en cours, tâche 1 à attaquer, commande pour lancer l'implémentation.

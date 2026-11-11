@@ -10,7 +10,7 @@ Tu es un explorateur de code. Convention stricte : **tu ne modifies rien** — B
 ## Méthode
 1. Si `graphify-out/` existe, interroge le graphe (`graphify query "<sujet>"`) avant de parcourir les fichiers.
 2. Cherche par concept (grep sur les noms métier) puis par chemin. Lis des extraits, pas des fichiers entiers.
-3. Pour une table Supabase : repère la migration qui la crée, ses policies RLS, et les Edge Functions qui la touchent.
+3. Pour une table : repère la migration qui la crée (`drizzle/`), son schéma et ses policies RLS (`src/db/schema/`), et les fonctions de `src/modules/` qui la lisent ou l'écrivent.
 4. Regarde `git log --oneline -20 -- <chemin>` pour voir ce qui a bougé récemment et pourquoi.
 
 ## Format de retour (max 40 lignes)

@@ -11,9 +11,9 @@
   - Test à écrire d'abord : `[fichier.test.ts]` — « [comportement] »
   - Fini quand : [critère observable]
 - [ ] **2. [Verbe + objet]** [security]
-  - Fichiers : `supabase/migrations/[…].sql`
-  - Test : [test RLS : un autre tenant ne voit rien]
-  - Fini quand : migration appliquée en local, types régénérés, test vert
+  - Fichiers : `src/db/schema/[module].ts`, `drizzle/[…].sql` (générée par `pnpm db:generate`)
+  - Test à écrire d'abord : `tests/db/isolation-[module].test.ts` (branche de test, connexion `app_backend`, claims posés à la main) — « l'utilisateur du workspace B ne lit ni n'écrit rien chez A »
+  - Fini quand : migration appliquée sur la branche de test, RLS + une policy par verbe, test vert
 - [ ] **3. …**
 
 ## Corrections QA
