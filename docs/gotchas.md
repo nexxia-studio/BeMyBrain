@@ -13,3 +13,6 @@
 - Montant faux de quelques centimes après calcul → float côté JS → stocker et calculer en entiers `_cents`, formater seulement à l'affichage.
 - Enum Postgres impossible à modifier sans migration lourde → utiliser `text` + `CHECK (col IN (...))`.
 - Formulaire de contact spammé → ajouter honeypot + rate limit + vérification du temps de remplissage ; tester en local, jamais sur le formulaire en prod.
+- Branche Neon créée sans le rôle ou la config d'auth attendus → une branche copie rôles, données et réglages Neon Auth de son parent **au moment de sa création ou de son reset** → créer rôles et réglages sur `production` d'abord, puis créer ou resetter les branches filles.
+- `auth.uid()` / `auth.user_id()` introuvables → l'extension `pg_session_jwt` n'est pas installée par Neon Auth seul → `CREATE EXTENSION IF NOT EXISTS pg_session_jwt` en migration.
+- Rôle Postgres créé par la console ou l'API Neon → il hérite de `neon_superuser`, qui contourne la RLS → créer le rôle de l'app en SQL (`CREATE ROLE … LOGIN NOBYPASSRLS`).

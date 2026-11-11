@@ -12,7 +12,9 @@
 - **Deux connexions** : `DATABASE_URL` (propriétaire, migrations et seed uniquement) et `DATABASE_AUTHENTICATED_URL` (rôle `app_backend`, LOGIN, sans BYPASSRLS). Le rôle est créé dans Neon (mot de passe hors du code) ; ses droits (GRANT) sont posés par migration.
 - **Connexions de test** : une branche Neon de test, deux URL. `DATABASE_TEST_URL` (propriétaire) prépare les deux workspaces ; `DATABASE_TEST_AUTHENTICATED_URL` (rôle `app_backend`) exécute les assertions d'isolation. Jamais `main`.
 - **Appartenance sans récursion** : les policies appellent `app.is_workspace_member(workspace_id)`, fonction `SECURITY DEFINER`, `search_path` figé, propriétaire = rôle des migrations.
-- **Lien utilisateur** : `workspace_members.user_id` = identifiant de l'utilisateur Neon Auth (`sub` du jeton). Type exact (`text` ou `uuid`) vérifié à la tâche 6 sur le schéma `neon_auth`.
+- **Lien utilisateur** : `workspace_members.user_id uuid` = identifiant de l'utilisateur Neon Auth (`neon_auth.user.id`, uuid ; `sub` du jeton). Les policies utilisent `auth.uid()` (uuid). Vérifié sur `dev` le 2026-11-12.
+- **Extension `pg_session_jwt`** : fournit `auth.uid()` / `auth.user_id()`, qui lisent `request.jwt.claims` posé par `set_config` (vérifié sur `dev`). Absente par défaut : `CREATE EXTENSION IF NOT EXISTS pg_session_jwt` dans la migration custom de la tâche 6.
+- **Projet Neon** : `bemybrain` (Francfort, Postgres 18), branches `production`, `dev` (local), `test` (tests d'isolation). Rôle `app_backend` créé sur `production` (LOGIN, sans BYPASSRLS, sans appartenance à `neon_superuser`) et hérité par `dev` et `test`.
 - **Choix Privé / Pro et filtre de contexte** : cookies lus côté serveur (`bmb_side`, `bmb_contexts`). Préférence d'affichage, pas une donnée métier.
 - **Langue** (ADR-007) : `next-intl` sans routage i18n. Source de vérité : `workspace_members.locale` ; recopiée dans le cookie `NEXT_LOCALE` à la connexion et au changement, lu par `src/i18n/request.ts`. Avant connexion : `Accept-Language`, puis `fr`.
 - **Animation** (ADR-006) : Motion pour interactions et changements d'état ; GSAP pour les moments signature, dans `src/components/signature/`, chargés par `next/dynamic`. Un élément n'est jamais animé par les deux. Gestes répétés instantanés.
@@ -71,7 +73,7 @@
   - Test à écrire d'abord : « échoue sur un composant de test contenant un texte en dur » ; « fr.json et en.json ont exactement les mêmes clés » ; « un cookie NEXT_LOCALE=de retombe sur fr » ; « une même date s'affiche « 11 novembre 2026 » en fr et « November 11, 2026 » en en ».
   - Fini quand : tests verts, la page d'accueil de la tâche 2 passe par les messages.
 
-- [ ] **4. Créer le projet Neon et le rôle restreint** [manuel]
+- [x] **4. Créer le projet Neon et le rôle restreint** [manuel]
   - Actions : nouveau projet Neon `bemybrain` (Francfort ; ne pas toucher `my-first-project`), branche `production` (défaut Neon), branche `dev` pour le local ; activer Neon Auth sur `production` ; rôle `app_backend` (LOGIN, sans BYPASSRLS) ; vérifier que `auth.user_id()` répond.
   - Antoine met les connexions dans son `.env` local (jamais dans le chat ni le repo).
   - Fini quand : `DATABASE_URL`, `DATABASE_AUTHENTICATED_URL`, `NEON_AUTH_*` existent pour `dev`, et `auth.user_id()` répond sur `dev`.
@@ -84,7 +86,7 @@
   - Fini quand : `pnpm db:migrate` passe sur `dev`, tests verts, aucune URL ni identifiant de projet dans le code (`grep` sur `neon.tech`, `vercel.app`).
 
 - [ ] **6. Tables `workspaces`, `workspace_members`, `contexts` avec RLS** [security] (BRAIN-6)
-  - Fichiers : `src/db/schema/core.ts`, `drizzle/0001_*.sql` (générée), `drizzle/0002_*.sql` (custom : fonction `app.is_workspace_member`, GRANT à `app_backend`, révocation des droits par défaut)
+  - Fichiers : `src/db/schema/core.ts`, `drizzle/0001_*.sql` (générée), `drizzle/0002_*.sql` (custom : `CREATE EXTENSION IF NOT EXISTS pg_session_jwt`, fonction `app.is_workspace_member`, GRANT à `app_backend`, révocation des droits par défaut)
   - Colonnes selon `neon.md`. `contexts.kind` : `text` + `CHECK (kind IN ('private','pro'))`. `workspace_members.role` : `text` + `CHECK (role IN ('owner','member'))`. `workspace_members.locale` : `text NOT NULL DEFAULT 'fr'` + `CHECK (locale IN ('fr','en'))`. Index sur chaque FK et `(workspace_id, kind)`. RLS activée dans la même migration que chaque `CREATE TABLE`, une policy par verbe pour `app_backend`, jamais `FOR ALL` ni `USING (true)`. Un membre ne modifie que sa propre ligne (`locale`).
   - Test à écrire d'abord : `tests/db/isolation-core.test.ts` (données préparées via `DATABASE_TEST_URL`, assertions via `DATABASE_TEST_AUTHENTICATED_URL` en `app_backend`, claims posés à la main, aucun filtre applicatif) — « l'utilisateur du workspace B ne lit aucune ligne du workspace A », « ne peut ni insérer, ni modifier, ni supprimer chez A », « sans claims, ne lit rien », « ne peut pas modifier la locale d'un autre membre ».
   - Fini quand : les tests passent et la migration s'applique à neuf sur une branche vide.
@@ -102,7 +104,8 @@
   - Fini quand : tests verts.
 
 - [ ] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5)
-  - Actions : connexion e-mail + mot de passe, inscription publique désactivée, domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
+  - Déjà fait le 2026-11-12 sur `production`, `dev` et `test` : inscription publique fermée, connexion Google partagée retirée.
+  - Reste : retirer `localhost` des origines autorisées sur `production` ; domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
   - Fini quand : Antoine se connecte sur `dev` via Neon Auth et la réponse au point « preview » est notée dans `docs/gotchas.md`.
 
 - [ ] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
