@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 import { jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
+import { z } from "zod";
 
 // Seul point du code qui injecte une identité dans la base (ADR-002, plan socle).
 // Interne à src/db : l'app passe par withUserDb de ./client (garde eslint).
@@ -34,7 +35,8 @@ export function createTokenVerifier(
     } catch (cause) {
       throw new InvalidTokenError({ cause });
     }
-    if (typeof payload.sub !== "string" || payload.sub === "") {
+    // sub = neon_auth.user.id (uuid), lu par auth.uid() dans les policies.
+    if (!z.uuid().safeParse(payload.sub).success) {
       throw new InvalidTokenError();
     }
     return payload as VerifiedClaims;

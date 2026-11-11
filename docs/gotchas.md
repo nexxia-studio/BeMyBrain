@@ -16,3 +16,8 @@
 - Branche Neon créée sans le rôle ou la config d'auth attendus → une branche copie rôles, données et réglages Neon Auth de son parent **au moment de sa création ou de son reset** → créer rôles et réglages sur `production` d'abord, puis créer ou resetter les branches filles.
 - `auth.uid()` / `auth.user_id()` introuvables → l'extension `pg_session_jwt` n'est pas installée par Neon Auth seul → `CREATE EXTENSION IF NOT EXISTS pg_session_jwt` en migration.
 - Rôle Postgres créé par la console ou l'API Neon → il hérite de `neon_superuser`, qui contourne la RLS → créer le rôle de l'app en SQL (`CREATE ROLE … LOGIN NOBYPASSRLS`).
+- `pnpm add -D drizzle-kit` échoue `ERR_PNPM_IGNORED_BUILDS` sur esbuild → postinstall qui ne fait que vérifier le binaire précompilé → `esbuild: false` dans `allowBuilds` de `pnpm-workspace.yaml`.
+- Avertissement `configLoader: 'native'` de Vite → `vitest.config.mts` importe un `.ts` du projet (CommonJS sans `"type": "module"`) → ne pas importer de `.ts` du projet dans la config Vitest, recopier les quelques lignes.
+- Test jose qui échoue en jsdom (WebCrypto, `Uint8Array` d'un autre realm) → environnement par défaut `jsdom` → `// @vitest-environment node` en tête du fichier.
+- `drizzle-kit migrate` affiche « '@neondatabase/serverless' can only connect … through a websocket » → simple avertissement, Node ≥ 24 fournit `WebSocket` en global → sans effet, ne rien installer.
+- Négation `!@/db/client` sans effet dans `no-restricted-imports` → motifs gitignore : un chemin dont le parent (`@/db`) est exclu ne peut pas être ré-inclus → utiliser l'option `regex` d'ESLint 9.

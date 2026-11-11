@@ -14,9 +14,12 @@ function getInstance() {
   if (instance) return instance;
   const env = getAppEnv();
   // Rôle app_backend : LOGIN, sans BYPASSRLS, soumis à la RLS.
-  const db = drizzle({
-    client: new Pool({ connectionString: env.DATABASE_AUTHENTICATED_URL }),
+  const pool = new Pool({ connectionString: env.DATABASE_AUTHENTICATED_URL });
+  // Message générique : ni URL, ni claims, ni détail de l'erreur du pilote.
+  pool.on("error", () => {
+    console.error("Erreur sur une connexion inactive du pool app_backend.");
   });
+  const db = drizzle({ client: pool });
   const jwksUrl = new URL(env.NEON_AUTH_JWKS_URL);
   const verify = createTokenVerifier(createRemoteJWKSet(jwksUrl), {
     // raccourci: issuer = origine du JWKS, comme l'exemple de la doc Neon « RLS query execution » ;

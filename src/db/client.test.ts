@@ -16,6 +16,7 @@ import {
   InvalidTokenError,
   type UserDb,
   type UserTx,
+  type VerifiedClaims,
 } from "./user-db";
 
 const ISSUER = "https://auth.example.test";
@@ -81,23 +82,38 @@ describe("withUserDb", () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it("refuse un jeton dont le sub n'est pas un uuid", async () => {
+    const { db, transaction } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const token = await signToken(trusted.privateKey, {
+      sub: "pas-un-uuid",
+      role: "authenticated",
+    });
+
+    const run = withUserDb(token, async () => "lu");
+
+    await expect(run).rejects.toBeInstanceOf(InvalidTokenError);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it("injecte les claims vérifiés dans la transaction", async () => {
     const { db, tx } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
-    const token = await signToken(trusted.privateKey);
+    const verified: VerifiedClaims = { sub: USER_ID, marker: "verifie" };
+    const stubVerify = vi.fn(async () => verified);
+    const withUserDb = createWithUserDb({ verify: stubVerify, db });
     const fn = vi.fn(async (received: UserTx) => {
       expect(tx.execute).toHaveBeenCalledTimes(1);
       return received;
     });
 
-    const result = await withUserDb(token, fn);
+    const result = await withUserDb("jeton-brut", fn);
 
+    expect(stubVerify).toHaveBeenCalledWith("jeton-brut");
     const query = new PgDialect().sqlToQuery(
       tx.execute.mock.calls[0][0] as SQL,
     );
     expect(query.sql).toBe("select set_config('request.jwt.claims', $1, true)");
-    const claims = JSON.parse(query.params[0] as string);
-    expect(claims).toMatchObject({ sub: USER_ID, iss: ISSUER });
+    expect(query.params).toStrictEqual([JSON.stringify(verified)]);
     expect(result).toBe(tx);
   });
 });

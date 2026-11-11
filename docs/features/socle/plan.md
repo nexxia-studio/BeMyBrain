@@ -7,7 +7,7 @@
 <!-- [manuel] = action dans Neon ou Vercel, faite par la session principale (MCP) après accord d'Antoine, ou par Antoine. L'implementer n'a pas accès à ces comptes. -->
 
 ## Décisions prises dans ce plan
-- **Identité transmise à la base** (question 1 de la spec, ADR-002) : jeton de Neon Auth. Le serveur vérifie la signature du jeton (`jose` + JWKS de Neon Auth), puis, dans une transaction ouverte avec le rôle restreint, injecte les claims vérifiés via `set_config('request.jwt.claims', …, true)`. Les policies lisent `auth.user_id()`. Une seule fonction fait cette injection : `withUserDb()` dans `src/db/client.ts`. Source : doc Neon « Run RLS queries with Drizzle ORM », vérifiée le 2026-11-11.
+- **Identité transmise à la base** (question 1 de la spec, ADR-002) : jeton de Neon Auth. Le serveur vérifie la signature du jeton (`jose` + JWKS de Neon Auth), puis, dans une transaction ouverte avec le rôle restreint, injecte les claims vérifiés via `set_config('request.jwt.claims', …, true)`. Les policies lisent `auth.uid()` (uuid). Une seule fonction fait cette injection : `withUserDb()` dans `src/db/client.ts` (fabrique testable dans `src/db/user-db.ts`). Source : doc Neon « Run RLS queries with Drizzle ORM », vérifiée le 2026-11-11.
   - Précision : en mode serveur, c'est le serveur qui vérifie la signature, pas la base. La garantie vient de ce qu'un seul point du code injecte une identité, et seulement depuis un jeton vérifié.
 - **Deux connexions** : `DATABASE_URL` (propriétaire, migrations et seed uniquement) et `DATABASE_AUTHENTICATED_URL` (rôle `app_backend`, LOGIN, sans BYPASSRLS). Le rôle est créé dans Neon (mot de passe hors du code) ; ses droits (GRANT) sont posés par migration.
 - **Connexions de test** : une branche Neon de test, deux URL. `DATABASE_TEST_URL` (propriétaire) prépare les deux workspaces ; `DATABASE_TEST_AUTHENTICATED_URL` (rôle `app_backend`) exécute les assertions d'isolation. Jamais `main`.
@@ -78,9 +78,10 @@
   - Antoine met les connexions dans son `.env` local (jamais dans le chat ni le repo).
   - Fini quand : `DATABASE_URL`, `DATABASE_AUTHENTICATED_URL`, `NEON_AUTH_*` existent pour `dev`, et `auth.user_id()` répond sur `dev`.
 
-- [ ] **5. Brancher Drizzle, les migrations et `.env.example`** (BRAIN-4)
-  - Fichiers : `drizzle.config.ts`, `src/db/client.ts`, `src/env.ts`, `.env.example`, `drizzle/0000_*.sql`, `package.json` (scripts `db:generate` et `db:migrate` avec drizzle-kit)
-  - `src/env.ts` valide les variables avec zod au démarrage. `src/db/client.ts` expose `adminDb` (migrations, seed) et `withUserDb(token, fn)` (vérifie le jeton, ouvre la transaction, injecte les claims). `db:migrate` = commande unique, la même partout.
+- [x] **5. Brancher Drizzle, les migrations et `.env.example`** (BRAIN-4)
+  - Fichiers : `drizzle.config.ts`, `src/db/client.ts`, `src/db/user-db.ts`, `src/db/admin.ts`, `src/db/schema/app.ts`, `src/env.ts`, `.env.example`, `drizzle/0000_*.sql`, `package.json` (scripts `db:generate` et `db:migrate` avec drizzle-kit)
+  - `src/env.ts` valide les variables avec zod au premier accès (l'app n'exige jamais `DATABASE_URL`). `src/db/client.ts` expose `withUserDb(token, fn)` (vérifie le jeton — signature JWKS, EdDSA, `exp`, `sub` uuid —, ouvre la transaction `app_backend`, injecte les claims vérifiés). L'injection testable (`createWithUserDb`, `createTokenVerifier`) vit dans `src/db/user-db.ts` ; `adminDb` (propriétaire, migrations et seed) dans `src/db/admin.ts`. eslint interdit `db/admin` et `db/user-db` hors de `src/db`, des scripts et des tests. `db:migrate` = commande unique, la même partout.
+  - En test, `vitest.config.mts` fait pointer `DATABASE_URL` et `DATABASE_AUTHENTICATED_URL` sur la branche test (ou les supprime).
   - `.env.example` liste aussi, sans valeur, `DATABASE_TEST_URL` (propriétaire, branche de test) et `DATABASE_TEST_AUTHENTICATED_URL` (`app_backend`, branche de test), utilisées par les tests d'isolation (tâche 6).
   - Test à écrire d'abord : `src/env.test.ts` — « refuse de démarrer si DATABASE_AUTHENTICATED_URL manque » ; `src/db/client.test.ts` — « refuse un jeton à la signature invalide sans ouvrir de transaction ».
   - Fini quand : `pnpm db:migrate` passe sur `dev`, tests verts, aucune URL ni identifiant de projet dans le code (`grep` sur `neon.tech`, `vercel.app`).
@@ -111,12 +112,13 @@
 - [ ] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
   - Fichiers : `src/lib/auth/` (client et serveur Neon Auth), `src/app/(auth)/login/page.tsx`, `src/middleware.ts`, `src/app/(app)/layout.tsx`, `messages/*.json`
   - Toute route sous `(app)` sans session valide → redirection vers `/login`. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
+  - Jeton : figer `iss` sur un vrai jeton, ajouter la vérification d'`audience`, tests « refuse un iss étranger » et « refuse une audience étrangère » (TODO de `src/db/client.ts`).
   - Test à écrire d'abord : `e2e/acces-refuse.spec.ts` (scénario 3) — « un visiteur non connecté qui ouvre /dashboard voit l'écran de connexion et rien d'autre » ; `src/middleware.test.ts` — « laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session ».
   - Fini quand : tests verts, connexion réelle d'Antoine sur `dev`.
 
 - [ ] **11. Résoudre le workspace et la langue depuis la session** [security] (BRAIN-5, BRAIN-6)
   - Fichiers : `src/lib/session.ts`, `src/lib/locale-cookie.ts`
-  - `requireSession()` renvoie `{ userId, workspaceId, token }` depuis la session serveur uniquement. Utilisateur sans workspace → page d'erreur sobre, pas de création automatique. À la connexion, la locale du membre est recopiée dans `NEXT_LOCALE`.
+  - `requireSession()` renvoie `{ userId, workspaceId, token }` depuis la session serveur uniquement. Utilisateur sans workspace → page d'erreur sobre, pas de création automatique. À la connexion, la locale du membre est recopiée dans `NEXT_LOCALE`. Réévaluer `server-only` sur `src/lib/auth/`.
   - Test à écrire d'abord : « sans session, lève une redirection vers /login » ; « un utilisateur sans appartenance n'obtient aucun workspace » ; « après connexion, le cookie NEXT_LOCALE vaut la locale enregistrée ».
   - Fini quand : tests verts.
 
