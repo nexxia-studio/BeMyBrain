@@ -9,6 +9,9 @@ Index lu par Claude au démarrage (via `@docs/README.md` dans CLAUDE.md). Une li
 | `architecture.md` | Modules, tables, flux principaux, intégrations | Avant une spec, avant un changement de schéma |
 | `roadmap.md` | Phases, décisions par module, état des intégrations | Avant de spécifier un nouveau module |
 | `decisions/` | ADR : une décision structurante par fichier | Avant de proposer un choix déjà tranché |
+| `decisions/ADR-006-animation-motion-et-gsap.md` | Motion pour l'interface, GSAP pour les moments signature | Avant toute animation |
+| `decisions/ADR-007-multilingue-fr-en.md` | Interface FR/EN avec next-intl, aucun texte en dur | Avant tout texte d'interface |
+| `decisions/ADR-008-pwa-mobile-d-abord.md` | Web app installable, mobile d'abord, logique hors des composants | Avant tout écran |
 | `features/<nom>/` | `spec.md`, `plan.md`, `qa-report.md` d'une feature | Pendant la feature |
 | `features/_template/` | Modèles de spec et de plan | Au `/feature` |
 | `design/references/` | Visuels de référence (liquid glass, bento) | Avant DESIGN.md et toute UI |

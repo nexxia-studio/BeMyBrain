@@ -22,7 +22,7 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 | Table | Tenant | Rôle | Notes |
 | --- | --- | --- | --- |
 | `workspaces` | — | un compte | |
-| `workspace_members` | `workspace_id` | lien utilisateur ↔ workspace, rôle | rôle en `text` + CHECK |
+| `workspace_members` | `workspace_id` | lien utilisateur ↔ workspace, rôle, langue | `role` et `locale` en `text` + CHECK (ADR-007) |
 | `contexts` | `workspace_id` | Privé, Trustup, Nexxia… | `kind` : `private` ou `pro` ; l'utilisateur crée les siens |
 
 ## Flux critiques
