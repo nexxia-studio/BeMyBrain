@@ -45,4 +45,35 @@ describe("resolveLocale", () => {
 
     expect(locale).toBe("fr");
   });
+  it("fr;q=0.5,en;q=0.9 donne en", () => {
+    const input = { cookie: undefined, acceptLanguage: "fr;q=0.5,en;q=0.9" };
+
+    const locale = resolveLocale(input);
+
+    expect(locale).toBe("en");
+  });
+
+  it("* seul donne fr", () => {
+    const input = { cookie: undefined, acceptLanguage: "*" };
+
+    const locale = resolveLocale(input);
+
+    expect(locale).toBe("fr");
+  });
+
+  it("en;q=0 donne fr", () => {
+    const input = { cookie: undefined, acceptLanguage: "en;q=0" };
+
+    const locale = resolveLocale(input);
+
+    expect(locale).toBe("fr");
+  });
+
+  it("un cookie NEXT_LOCALE=EN est normalisé en en", () => {
+    const input = { cookie: "EN", acceptLanguage: null };
+
+    const locale = resolveLocale(input);
+
+    expect(locale).toBe("en");
+  });
 });

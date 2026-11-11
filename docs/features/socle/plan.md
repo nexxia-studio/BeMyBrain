@@ -24,6 +24,8 @@
 - **Erreurs** : `@sentry/nextjs` dans l'app ; alertes vers un canal Slack par réglage Sentry (aucun code). Aucune donnée personnelle envoyée (`sendDefaultPii: false`, pas de corps de requête).
 - **Registre d'actions** (ADR-009) : `src/modules/actions/`, sans React ni Next. Chaque action : `name`, `description` (clé i18n), `params` (zod), `access` (`read`/`write`), `run(ctx, params)`. La palette passe par une Server Action unique.
 - **Cache Components** : non adopté dans le socle (lecture de cookies serveur partout, app derrière login) ; à réévaluer à Next 17.
+- **Fuseau horaire** : `Europe/Brussels` pour tous (src/i18n/config.ts) ; fuseau par utilisateur à prévoir au passage multi-comptes (BRAIN-26).
+- **Textes hors JSX** (toast, erreurs de Server Action, chaînes dans des .ts) : couverts par revue jusqu'à la tâche 20, où la convention « toast et erreurs ne reçoivent que t(...) » sera testée.
 - **Primitives UI** : shadcn/ui en style `base-nova` (Base UI, pas Radix), défaut actuel de shadcn ; à confirmer avant la tâche 12. Vérifier à la tâche 20 que le composant Command existe en base-nova (sinon `cmdk` seul).
 
 ## Dépendances nouvelles (justification, constitution 7)
@@ -142,7 +144,7 @@
 - [ ] **16. Réglages : choix de la langue** (BRAIN-7, ADR-007)
   - Fichiers : `src/app/(app)/settings/page.tsx`, `src/app/(app)/settings/actions.ts`, `src/components/settings/locale-picker.tsx`
   - Server Action : `requireSession()` → `setMemberLocale` → mise à jour de `NEXT_LOCALE` → rafraîchissement. URL inchangée.
-  - Test à écrire d'abord : `e2e/changer-de-langue.spec.ts` (scénario 4, desktop + mobile) — « après passage en anglais, rechargement et reconnexion, l'interface est en anglais et une date s'affiche au format anglais ».
+  - Test à écrire d'abord : `e2e/changer-de-langue.spec.ts` (scénario 4, desktop + mobile) — « après passage en anglais, rechargement et reconnexion, l'interface est en anglais (`html[lang="en"]`) et une date s'affiche au format anglais ».
   - Fini quand : tests verts.
 
 - [ ] **17. Vercel, previews et CI** [manuel] + code (BRAIN-4)

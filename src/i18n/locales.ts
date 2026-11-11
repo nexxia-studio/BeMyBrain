@@ -36,7 +36,8 @@ export function resolveLocale({
   cookie: string | null | undefined;
   acceptLanguage: string | null | undefined;
 }): AppLocale {
-  if (isLocale(cookie)) return cookie;
+  const fromCookie = cookie?.trim().toLowerCase();
+  if (isLocale(fromCookie)) return fromCookie;
 
   const fromHeader = acceptLanguage
     ? parseAcceptLanguage(acceptLanguage).find(isLocale)

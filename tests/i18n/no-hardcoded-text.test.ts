@@ -1,68 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-const TEXT_ATTRIBUTES = new Set(["aria-label", "title", "alt", "placeholder"]);
+import { findHardcodedText } from "./hardcoded-text";
 
 // Exceptions explicites, au format "chemin/relatif.tsx:ligne". Vide par principe (ADR-007).
 const EXCEPTIONS: readonly string[] = [];
-
-export type HardcodedText = { file: string; line: number; text: string };
-
-function isLiteral(
-  node: ts.Node,
-): node is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
-  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
-}
-
-export function findHardcodedText(
-  source: string,
-  file: string,
-): HardcodedText[] {
-  const sourceFile = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
-  const found: HardcodedText[] = [];
-  const report = (node: ts.Node, text: string) => {
-    const { line } = sourceFile.getLineAndCharacterOfPosition(
-      node.getStart(sourceFile),
-    );
-    found.push({ file, line: line + 1, text });
-  };
-
-  const visit = (node: ts.Node) => {
-    if (ts.isJsxText(node)) {
-      const text = node.getText(sourceFile).trim();
-      if (text !== "") report(node, text);
-    }
-    if (
-      ts.isJsxAttribute(node) &&
-      TEXT_ATTRIBUTES.has(node.name.getText(sourceFile))
-    ) {
-      const init = node.initializer;
-      const literal =
-        init &&
-        ts.isJsxExpression(init) &&
-        init.expression &&
-        isLiteral(init.expression)
-          ? init.expression
-          : init && ts.isStringLiteral(init)
-            ? init
-            : undefined;
-      if (literal && literal.text.trim() !== "") report(literal, literal.text);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-
-  return found;
-}
 
 function listTsxFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -107,6 +51,47 @@ describe("aucun texte d'interface en dur", () => {
     expect(found).toEqual([
       { file: "Close.tsx", line: 2, text: "Fermer" },
       { file: "Close.tsx", line: 2, text: "Fermer" },
+    ]);
+  });
+
+  it("signale un littéral entre accolades en enfant JSX", () => {
+    const source = `export function Hello({ name }: { name: string }) {
+  return (
+    <p>
+      {"Bonjour"}
+      <>{\`Bonjour \${name}\`}</>
+    </p>
+  );
+}`;
+
+    const found = findHardcodedText(source, "Hello.tsx");
+
+    expect(found).toEqual([
+      { file: "Hello.tsx", line: 4, text: "Bonjour" },
+      { file: "Hello.tsx", line: 5, text: "Bonjour" },
+    ]);
+  });
+
+  it('ignore {" "} entre deux expressions', () => {
+    const source = `export function Hello({ t }: { t: (k: string) => string }) {
+  return <p>{t("a")}{" "}{\` \`}{t("b")}</p>;
+}`;
+
+    const found = findHardcodedText(source, "Hello.tsx");
+
+    expect(found).toEqual([]);
+  });
+
+  it("signale un attribut label littéral", () => {
+    const source = `export function Option() {
+  return <option label="Français" aria-valuetext="trois" />;
+}`;
+
+    const found = findHardcodedText(source, "Option.tsx");
+
+    expect(found).toEqual([
+      { file: "Option.tsx", line: 2, text: "Français" },
+      { file: "Option.tsx", line: 2, text: "trois" },
     ]);
   });
 
