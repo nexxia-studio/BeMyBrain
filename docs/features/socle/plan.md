@@ -64,7 +64,7 @@
   - Test à écrire d'abord : `src/app/page.test.tsx` — « affiche la page d'accueil sans erreur » ; `tests/lint/boundaries.test.ts` — « eslint refuse un import de @/db dans un composant ».
   - Fini quand : `pnpm lint`, `pnpm typecheck`, `pnpm test` passent.
 
-- [ ] **3. Poser le multilingue FR/EN** (ADR-007)
+- [x] **3. Poser le multilingue FR/EN** (ADR-007)
   - Fichiers : `src/i18n/request.ts`, `src/i18n/locales.ts`, `messages/fr.json`, `messages/en.json`, `next.config.ts` (plugin next-intl), `src/app/layout.tsx`, `tests/i18n/no-hardcoded-text.test.ts`, `tests/i18n/messages-parity.test.ts`
   - `next-intl` sans routage i18n (doc officielle « without i18n routing »). Locale lue dans le cookie `NEXT_LOCALE`, sinon `Accept-Language`, sinon `fr` ; valeur hors `fr`/`en` ignorée. `<html lang>` suit la locale.
   - Test « texte en dur » : parcourt `src/**/*.tsx` avec l'API `typescript`, échoue sur tout `JSXText` non vide et sur tout littéral dans `aria-label`, `title`, `alt`, `placeholder`. Liste d'exceptions explicite et vide au départ.
@@ -72,7 +72,7 @@
   - Fini quand : tests verts, la page d'accueil de la tâche 2 passe par les messages.
 
 - [ ] **4. Créer le projet Neon et le rôle restreint** [manuel]
-  - Actions : projet Neon existant (Francfort), branche `main` = production, branche `dev` pour le local ; activer Neon Auth sur `main` ; rôle `app_backend` (LOGIN, sans BYPASSRLS) ; vérifier que `auth.user_id()` répond.
+  - Actions : nouveau projet Neon `bemybrain` (Francfort ; ne pas toucher `my-first-project`), branche `production` (défaut Neon), branche `dev` pour le local ; activer Neon Auth sur `production` ; rôle `app_backend` (LOGIN, sans BYPASSRLS) ; vérifier que `auth.user_id()` répond.
   - Antoine met les connexions dans son `.env` local (jamais dans le chat ni le repo).
   - Fini quand : `DATABASE_URL`, `DATABASE_AUTHENTICATED_URL`, `NEON_AUTH_*` existent pour `dev`, et `auth.user_id()` répond sur `dev`.
 
@@ -102,7 +102,7 @@
   - Fini quand : tests verts.
 
 - [ ] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5)
-  - Actions : connexion e-mail + mot de passe, inscription publique désactivée, domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `main` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `main` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
+  - Actions : connexion e-mail + mot de passe, inscription publique désactivée, domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
   - Fini quand : Antoine se connecte sur `dev` via Neon Auth et la réponse au point « preview » est notée dans `docs/gotchas.md`.
 
 - [ ] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
@@ -154,7 +154,7 @@
   - Fini quand : la PR a sa preview, sa branche Neon et une CI verte ; `main` déploie en production.
 
 - [ ] **18. Vérifier la restauration de la production** [manuel] (BRAIN-4)
-  - Actions : après le seed de production, restaurer `main` à un instant passé sur une branche de test, lire le workspace d'Antoine, supprimer la branche. Noter la fenêtre de restauration de la formule Neon.
+  - Actions : après le seed de production, restaurer la branche Neon `production` à un instant passé sur une branche de test, lire le workspace d'Antoine, supprimer la branche. Noter la fenêtre de restauration de la formule Neon.
   - Fini quand : procédure et date de vérification écrites dans un runbook dans `docs/`.
 
 - [ ] **19. Brancher Sentry et l'alerte Slack** [manuel] + code (BRAIN-4)

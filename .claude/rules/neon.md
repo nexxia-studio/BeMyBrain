@@ -14,7 +14,7 @@ paths:
 - Montants : `integer` suffixé `_cents`. Statuts : `text` + `CHECK (status IN (...))`, pas d'enum Postgres.
 - Index : sur chaque FK, et sur `(workspace_id, <colonne filtrée>)` pour les listes.
 - Migrations : générées par `pnpm db:generate`, un fichier par changement, jamais modifié après application. Rollback = nouvelle migration. `drizzle-kit push` interdit hors base locale.
-- Environnements : une branche Neon par preview Vercel. La branche `main` de Neon = production ; on n'y écrit jamais à la main.
+- Environnements : une branche Neon par preview Vercel. La branche `production` de Neon = production ; on n'y écrit jamais à la main.
 - Routes appelées de l'extérieur (webhooks, exports Apple Santé, agrégateur bancaire) : valider le body avec zod, vérifier la signature ou le jeton avant tout, répondre vite et traiter ensuite.
 - Liens de partage publics (ex. liste de courses) : jeton aléatoire long, révocable, limité à une ressource. Jamais l'identifiant de la ressource seul.
 - RLS (ADR-002) : `ENABLE ROW LEVEL SECURITY` dans la même migration que `CREATE TABLE`. Une policy par verbe (SELECT / INSERT / UPDATE / DELETE), jamais `FOR ALL`, jamais `USING (true)`. Filtre : appartenance de l'utilisateur connecté au `workspace_id` de la ligne. Policies déclarées dans le schéma Drizzle (`pgPolicy` / `crudPolicy`).

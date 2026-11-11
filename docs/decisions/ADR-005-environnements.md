@@ -7,10 +7,10 @@ Tant que l'app sert un seul utilisateur, un staging permanent n'apporte rien. Il
 
 ## Décision
 Au lancement, deux niveaux :
-- **Production** : branche git `main`, projet Vercel en production, branche Neon `main`.
+- **Production** : branche git `main`, projet Vercel en production, branche Neon `production` (nom par défaut de Neon).
 - **Preview** : une URL Vercel et une branche Neon jetable par pull request. C'est là que se font les tests et `/qa`.
 
-Région : Neon et Vercel sont en Europe, à Francfort (projets existants, confirmé par Antoine le 2026-11-11). Tout environnement ajouté reste dans cette région.
+Région : Neon et Vercel en Europe, à Francfort (confirmé par Antoine le 2026-11-11). Projet Neon `bemybrain` créé au socle (le projet `my-first-project` du compte n'est pas celui de BeMyBrain). Tout environnement ajouté reste dans cette région.
 
 Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter en une heure : une branche Neon `staging` durable, un environnement Vercel « staging » avec son domaine et ses variables.
 
@@ -26,4 +26,4 @@ Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter
 
 ## Conséquences
 - Le ticket d'ouverture multi-comptes (BRAIN-26) inclut la création du staging.
-- La branche Neon `main` contient les vraies données d'Antoine dès le premier jour : sauvegarde et restauration à vérifier dans le socle.
+- La branche Neon `production` contient les vraies données d'Antoine dès le premier jour : sauvegarde et restauration à vérifier dans le socle.
