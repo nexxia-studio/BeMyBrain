@@ -1,5 +1,13 @@
 // Curseurs nexxia-design : VARIANCE, MOTION, DENSITY fixés avec DESIGN.md (tâche 12).
-// raccourci: page provisoire sans contenu ni texte — remplacée par le tableau de bord (tâche 15), textes via next-intl (tâche 3).
+// raccourci: page provisoire réduite au nom de l'app — remplacée par le tableau de bord (tâche 15).
+import { useTranslations } from "next-intl";
+
 export default function Home() {
-  return <main className="min-h-dvh bg-background text-foreground" />;
+  const t = useTranslations("app");
+
+  return (
+    <main className="min-h-dvh bg-background text-foreground">
+      <h1>{t("name")}</h1>
+    </main>
+  );
 }
