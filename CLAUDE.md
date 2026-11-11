@@ -12,8 +12,8 @@
 ## Stack
 - App : Next.js (App Router) + React + TypeScript, Tailwind + shadcn/ui. Voir ADR-001.
 - Données : Neon (Postgres) + Drizzle ORM, migrations versionnées dans `drizzle/`. Pas de Supabase sur ce projet.
-- Auth : voir ADR-003 (proposé, à trancher au `/feature socle`).
-- Hébergement : Vercel (previews avec une branche Neon par preview, tâches planifiées Vercel Cron).
+- Auth : Managed Better Auth de Neon (ADR-003). Double authentification pas encore disponible : à revérifier avant la banque.
+- Hébergement : Vercel. Production + previews (une branche Neon par preview) ; staging prêt à brancher, pas créé (ADR-005). Tâches planifiées : Vercel Cron.
 - Package manager : pnpm. Tests : Vitest + Playwright.
 - Commandes : `pnpm dev` · `pnpm test` · `pnpm vitest run <fichier>` · `pnpm lint` · `pnpm typecheck` · `pnpm e2e` · `pnpm db:generate` · `pnpm db:migrate`
 
@@ -22,7 +22,7 @@
 2. Rien ne se code sans spec. Specs et plans vivent dans `docs/features/<nom>/` (spec.md, plan.md), pas dans `docs/superpowers/`.
 3. TDD (skill `test-driven-development`). Pas de code sans test correspondant.
 4. Fini = `reviewer` OK + `/qa` OK. « Ça devrait marcher » n'est pas un état.
-5. Multi-comptes : toute table métier porte `workspace_id NOT NULL`. Aucune lecture ni écriture hors des fonctions de `src/modules/<module>/`, qui reçoivent le `workspaceId` de la session. RLS Postgres obligatoire avant l'ouverture multi-comptes (ADR-002).
+5. Multi-comptes, double verrou (ADR-002) : toute table métier porte `workspace_id NOT NULL` + RLS activée dans la même migration, une policy par verbe. Et aucune lecture ni écriture hors des fonctions de `src/modules/<module>/`, qui filtrent sur le `workspaceId` de la session. Chaque module a un test d'isolation entre deux workspaces.
 6. Argent en entiers `_cents`. Enums → CHECK constraints. Jamais de float monétaire.
 7. Pas de nouvelle dépendance sans justification dans le plan. Pas de couche d'abstraction « au cas où ».
 8. Secrets uniquement en variables d'environnement. Jamais dans le code, les docs ou les commits.

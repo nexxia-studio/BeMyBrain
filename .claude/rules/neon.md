@@ -17,4 +17,6 @@ paths:
 - Environnements : une branche Neon par preview Vercel. La branche `main` de Neon = production ; on n'y écrit jamais à la main.
 - Routes appelées de l'extérieur (webhooks, exports Apple Santé, agrégateur bancaire) : valider le body avec zod, vérifier la signature ou le jeton avant tout, répondre vite et traiter ensuite.
 - Liens de partage publics (ex. liste de courses) : jeton aléatoire long, révocable, limité à une ressource. Jamais l'identifiant de la ressource seul.
-- RLS : pas en V1 (un seul compte). Obligatoire avant l'ouverture multi-comptes, voir ADR-002.
+- RLS (ADR-002) : `ENABLE ROW LEVEL SECURITY` dans la même migration que `CREATE TABLE`. Une policy par verbe (SELECT / INSERT / UPDATE / DELETE), jamais `FOR ALL`, jamais `USING (true)`. Filtre : appartenance de l'utilisateur connecté au `workspace_id` de la ligne. Policies déclarées dans le schéma Drizzle (`pgPolicy` / `crudPolicy`).
+- L'app se connecte avec le rôle restreint soumis à la RLS. Le rôle propriétaire (`DATABASE_URL` des migrations) ne sert jamais à répondre à une requête utilisateur.
+- Test d'isolation obligatoire par module : deux workspaces, lecture et écriture croisées refusées au niveau de la base.

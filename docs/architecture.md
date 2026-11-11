@@ -5,6 +5,7 @@
 ## Vue d'ensemble
 Application Next.js (App Router) hébergée sur Vercel. Données dans une seule base Neon (Postgres), accédée côté serveur avec Drizzle.
 Un compte = un `workspace`. V1 : un seul workspace (Antoine). Aucun paiement en V1.
+Isolation entre comptes par double verrou : RLS dans la base + filtre dans le code (ADR-002). Connexion : Managed Better Auth de Neon (ADR-003).
 Chaque module métier vit dans `src/modules/<module>/` et expose ses lectures et écritures ; l'interface ne parle jamais à la base directement.
 
 ## Modules
@@ -39,5 +40,6 @@ Les intégrations de données (banque, Strava, Apple Santé, Home Assistant…) 
 
 ## Environnements
 - Local : `pnpm dev` + branche Neon de développement.
-- Preview : une URL Vercel et une branche Neon par pull request.
-- Production : à créer au `/feature socle`.
+- Preview : une URL Vercel et une branche Neon par pull request. Tests et `/qa` se font ici.
+- Production : branche `main`, à créer au `/feature socle`.
+- Staging : pas créé ; prêt à brancher au moment du multi-comptes (ADR-005).
