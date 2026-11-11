@@ -18,8 +18,9 @@ Tu es auditeur sécurité pour une app multi-comptes sur Neon (Postgres) + Drizz
 - Chaque table métier nouvelle ou modifiée a `workspace_id NOT NULL` et `ENABLE ROW LEVEL SECURITY` dans la même migration que son `CREATE TABLE`.
 - Une policy par verbe (SELECT, INSERT, UPDATE, DELETE) pour `app_backend`. `FOR ALL` ou `USING (true)` = bloquant. INSERT et UPDATE ont un `WITH CHECK`.
 - Le filtre passe par `auth.user_id()` + `app.is_workspace_member()`. Toute autre fonction `SECURITY DEFINER` est justifiée, a un `search_path` figé et filtre elle-même.
+- Seule exception (ADR-002) : la policy d'un lien de partage public. Jeton aléatoire long, révocable, limité à une ressource ; jamais l'identifiant de la ressource seul.
 - Les vues et jointures ne contournent pas la RLS (`security_invoker` sur les vues).
-- `app_backend` n'a ni BYPASSRLS ni la propriété d'une table. Les GRANT sont posés par migration, au plus juste ; les droits par défaut sont révoqués.
+- `app_backend` n'a ni BYPASSRLS ni la propriété d'une table. Les GRANT sont posés par migration, au plus juste ; `REVOKE ALL … FROM PUBLIC` sur les schémas `public` et `app`.
 - Aucun appel à `set_config('request.jwt.claims', …)` ni `SET ROLE` hors de `withUserDb()`. Aucun claim injecté sans jeton vérifié (signature, émetteur, expiration).
 - `DATABASE_URL` (propriétaire) n'est importé que par la config Drizzle, les migrations et le seed. Jamais par une route, une Server Action ou un module.
 - Le `workspaceId` vient de la session serveur, jamais du client (URL, body, cookie lisible, paramètre d'action).
@@ -45,7 +46,8 @@ Tu es auditeur sécurité pour une app multi-comptes sur Neon (Postgres) + Drizz
 - Variables validées au démarrage (`src/env.ts`). Aucune variable serveur préfixée `NEXT_PUBLIC_`.
 
 ## Outils (branche de test uniquement)
-- Pour tester une policy : `psql "$DATABASE_TEST_URL"` connecté en `app_backend`, puis dans une transaction `SELECT set_config('request.jwt.claims', '{"sub":"<utilisateur d'un autre workspace>"}', true);`. Vérifie que la lecture renvoie 0 ligne et qu'INSERT, UPDATE et DELETE échouent ou n'affectent rien.
+- Deux URL sur la branche de test : `DATABASE_TEST_URL` (propriétaire) prépare les deux workspaces ; `DATABASE_TEST_AUTHENTICATED_URL` (rôle `app_backend`) sert aux assertions.
+- Pour tester une policy : `psql "$DATABASE_TEST_AUTHENTICATED_URL"`, puis dans une transaction `SELECT set_config('request.jwt.claims', '{"sub":"<utilisateur d'un autre workspace>"}', true);`. Vérifie que la lecture renvoie 0 ligne et qu'INSERT, UPDATE et DELETE échouent ou n'affectent rien.
 - Sans claims : vérifie que `app_backend` ne lit rien.
 - Inventaire : `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';` et `SELECT * FROM pg_policies;`.
 

@@ -10,6 +10,7 @@
 - **Identité transmise à la base** (question 1 de la spec, ADR-002) : jeton de Neon Auth. Le serveur vérifie la signature du jeton (`jose` + JWKS de Neon Auth), puis, dans une transaction ouverte avec le rôle restreint, injecte les claims vérifiés via `set_config('request.jwt.claims', …, true)`. Les policies lisent `auth.user_id()`. Une seule fonction fait cette injection : `withUserDb()` dans `src/db/client.ts`. Source : doc Neon « Run RLS queries with Drizzle ORM », vérifiée le 2026-11-11.
   - Précision : en mode serveur, c'est le serveur qui vérifie la signature, pas la base. La garantie vient de ce qu'un seul point du code injecte une identité, et seulement depuis un jeton vérifié.
 - **Deux connexions** : `DATABASE_URL` (propriétaire, migrations et seed uniquement) et `DATABASE_AUTHENTICATED_URL` (rôle `app_backend`, LOGIN, sans BYPASSRLS). Le rôle est créé dans Neon (mot de passe hors du code) ; ses droits (GRANT) sont posés par migration.
+- **Connexions de test** : une branche Neon de test, deux URL. `DATABASE_TEST_URL` (propriétaire) prépare les deux workspaces ; `DATABASE_TEST_AUTHENTICATED_URL` (rôle `app_backend`) exécute les assertions d'isolation. Jamais `main`.
 - **Appartenance sans récursion** : les policies appellent `app.is_workspace_member(workspace_id)`, fonction `SECURITY DEFINER`, `search_path` figé, propriétaire = rôle des migrations.
 - **Lien utilisateur** : `workspace_members.user_id` = identifiant de l'utilisateur Neon Auth (`sub` du jeton). Type exact (`text` ou `uuid`) vérifié à la tâche 6 sur le schéma `neon_auth`.
 - **Choix Privé / Pro et filtre de contexte** : cookies lus côté serveur (`bmb_side`, `bmb_contexts`). Préférence d'affichage, pas une donnée métier.
@@ -34,6 +35,7 @@
 - `motion` — ADR-006, interactions.
 - `gsap`, `@gsap/react` — ADR-006, moments signature.
 - `vitest`, `@playwright/test` — CLAUDE.md.
+- `@testing-library/react`, `jsdom` — tests de composants avec Vitest (`frontend.md`, tâche 2).
 - `@sentry/nextjs` — remontée des erreurs (demande d'Antoine du 2026-11-11).
 - `cmdk` (via le composant Command de shadcn/ui) — palette de commandes : clavier, recherche et accessibilité déjà résolus.
 - Aucune bibliothèque PWA (ADR-008) ; aucune bibliothèque pour le test des textes en dur (API `typescript` déjà présente).
@@ -43,7 +45,7 @@
 - [ ] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2)
   - Fichiers : `.claude/agents/security-auditor.md`, `.claude/agents/explorer.md`, `.claude/skills/feature/SKILL.md`, `.claude/rules/frontend.md`, `.claude/rules/tests.md`, `docs/features/_template/plan.md`, `docs/instructions-projet-claude-ai.md`, `docs/gotchas.md`
   - Contenu : RLS Neon (`auth.user_id()`, rôle restreint, `app.is_workspace_member`) ; `[security]` sur `drizzle/`, `src/db/`, l'auth et la session ; `frontend.md` passe à `paths: src/app/**, src/components/**`, retire TanStack Query, react-hook-form et Vite, ajoute : textes via `next-intl` uniquement, Motion / GSAP selon ADR-006, aucune règle métier dans un composant ; `tests.md` remplace `supabase start` par « branche Neon de test via `DATABASE_TEST_URL` » ; `gotchas.md` retire la ligne Edge Function et ajoute le hook eslint (tâche 2).
-  - Test : `grep -ri supabase . --exclude-dir=.git` ne renvoie que l'ADR-001 et l'ADR-003.
+  - Test : `grep -ril supabase . --exclude-dir=.git` ne renvoie que : l'ADR-001, l'ADR-003, `CLAUDE.md` (garde-fou « Pas de Supabase »), `docs/features/socle/plan.md` (texte de cette tâche) et `docs/instructions-projet-claude-ai.md` (outils Nexxia hors BeMyBrain).
   - Fini quand : la recherche est propre et le security-auditor décrit le modèle Neon de ce plan.
 
 - [ ] **2. Créer l'app Next.js et l'outillage** (BRAIN-4)
@@ -68,13 +70,14 @@
 - [ ] **5. Brancher Drizzle, les migrations et `.env.example`** (BRAIN-4)
   - Fichiers : `drizzle.config.ts`, `src/db/client.ts`, `src/env.ts`, `.env.example`, `drizzle/0000_*.sql`
   - `src/env.ts` valide les variables avec zod au démarrage. `src/db/client.ts` expose `adminDb` (migrations, seed) et `withUserDb(token, fn)` (vérifie le jeton, ouvre la transaction, injecte les claims). `db:migrate` = commande unique, la même partout.
+  - `.env.example` liste aussi, sans valeur, `DATABASE_TEST_URL` (propriétaire, branche de test) et `DATABASE_TEST_AUTHENTICATED_URL` (`app_backend`, branche de test), utilisées par les tests d'isolation (tâche 6).
   - Test à écrire d'abord : `src/env.test.ts` — « refuse de démarrer si DATABASE_AUTHENTICATED_URL manque » ; `src/db/client.test.ts` — « refuse un jeton à la signature invalide sans ouvrir de transaction ».
   - Fini quand : `pnpm db:migrate` passe sur `dev`, tests verts, aucune URL ni identifiant de projet dans le code (`grep` sur `neon.tech`, `vercel.app`).
 
 - [ ] **6. Tables `workspaces`, `workspace_members`, `contexts` avec RLS** [security] (BRAIN-6)
   - Fichiers : `src/db/schema/core.ts`, `drizzle/0001_*.sql` (générée), `drizzle/0002_*.sql` (custom : fonction `app.is_workspace_member`, GRANT à `app_backend`, révocation des droits par défaut)
   - Colonnes selon `neon.md`. `contexts.kind` : `text` + `CHECK (kind IN ('private','pro'))`. `workspace_members.role` : `text` + `CHECK (role IN ('owner','member'))`. `workspace_members.locale` : `text NOT NULL DEFAULT 'fr'` + `CHECK (locale IN ('fr','en'))`. Index sur chaque FK et `(workspace_id, kind)`. RLS activée dans la même migration que chaque `CREATE TABLE`, une policy par verbe pour `app_backend`, jamais `FOR ALL` ni `USING (true)`. Un membre ne modifie que sa propre ligne (`locale`).
-  - Test à écrire d'abord : `tests/db/isolation-core.test.ts` (contre `DATABASE_TEST_URL`, connexion `app_backend`, claims posés à la main, aucun filtre applicatif) — « l'utilisateur du workspace B ne lit aucune ligne du workspace A », « ne peut ni insérer, ni modifier, ni supprimer chez A », « sans claims, ne lit rien », « ne peut pas modifier la locale d'un autre membre ».
+  - Test à écrire d'abord : `tests/db/isolation-core.test.ts` (données préparées via `DATABASE_TEST_URL`, assertions via `DATABASE_TEST_AUTHENTICATED_URL` en `app_backend`, claims posés à la main, aucun filtre applicatif) — « l'utilisateur du workspace B ne lit aucune ligne du workspace A », « ne peut ni insérer, ni modifier, ni supprimer chez A », « sans claims, ne lit rien », « ne peut pas modifier la locale d'un autre membre ».
   - Fini quand : les tests passent et la migration s'applique à neuf sur une branche vide.
 
 - [ ] **7. Script de départ rejouable** (BRAIN-6)
