@@ -1,24 +1,26 @@
 import { z } from "zod";
 
+// Imports relatifs : ce fichier est aussi chargé par drizzle.config.ts, hors alias tsconfig.
+import { assertSameHost } from "./db/production-guard";
+
+const httpsUrl = () => z.url({ protocol: /^https$/ });
+
 // Variables lues par l'app au runtime. L'URL propriétaire (DATABASE_URL) n'y figure pas :
 // l'app ne parle à la base qu'avec le rôle restreint app_backend (ADR-002).
+// Les variables des migrations vivent dans src/db/migration-env.ts.
 const appEnvSchema = z.object({
   DATABASE_AUTHENTICATED_URL: z.url(),
-  NEON_AUTH_BASE_URL: z.url(),
-  NEON_AUTH_JWKS_URL: z.url(),
-});
-
-// Variables réservées aux migrations et au seed (rôle propriétaire).
-const migrationEnvSchema = z.object({
-  DATABASE_URL: z.url(),
+  NEON_AUTH_BASE_URL: httpsUrl(),
+  NEON_AUTH_JWKS_URL: httpsUrl(),
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;
-export type MigrationEnv = z.infer<typeof migrationEnvSchema>;
+export type EnvSource = Record<string, string | undefined>;
 
-type Source = Record<string, string | undefined>;
-
-function parse<T extends z.ZodType>(schema: T, source: Source): z.infer<T> {
+export function parseEnv<T extends z.ZodType>(
+  schema: T,
+  source: EnvSource,
+): z.infer<T> {
   const result = schema.safeParse(source);
   if (result.success) return result.data;
   // Seuls le nom de la variable et la nature du problème sortent : jamais la valeur.
@@ -33,12 +35,11 @@ function parse<T extends z.ZodType>(schema: T, source: Source): z.infer<T> {
   );
 }
 
-export function parseAppEnv(source: Source): AppEnv {
-  return parse(appEnvSchema, source);
-}
-
-export function parseMigrationEnv(source: Source): MigrationEnv {
-  return parse(migrationEnvSchema, source);
+export function parseAppEnv(source: EnvSource): AppEnv {
+  const env = parseEnv(appEnvSchema, source);
+  // Si l'URL propriétaire est aussi définie (local), elle doit viser la même branche.
+  assertSameHost(source, "DATABASE_URL", "DATABASE_AUTHENTICATED_URL");
+  return env;
 }
 
 let appEnv: AppEnv | undefined;
@@ -47,9 +48,4 @@ let appEnv: AppEnv | undefined;
 export function getAppEnv(): AppEnv {
   appEnv ??= parseAppEnv(process.env);
   return appEnv;
-}
-
-/** Variables des migrations et du seed. Jamais appelé par l'app. */
-export function getMigrationEnv(): MigrationEnv {
-  return parseMigrationEnv(process.env);
 }

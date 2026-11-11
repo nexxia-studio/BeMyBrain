@@ -13,6 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createTokenVerifier,
   createWithUserDb,
+  DatabaseError,
   InvalidTokenError,
   type UserDb,
   type UserTx,
@@ -96,9 +97,27 @@ describe("withUserDb", () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it("injecte les claims vérifiés dans la transaction", async () => {
+  it("ne garde de la cause jose qu'un code, sans chaîner l'erreur", async () => {
+    const { db } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const forged = await signToken(attacker.privateKey);
+
+    const error = await withUserDb(forged, async () => "lu").catch((e) => e);
+
+    expect(error).toBeInstanceOf(InvalidTokenError);
+    expect(error.cause).toBeUndefined();
+    expect(error.code).toBe("ERR_JWS_SIGNATURE_VERIFICATION_FAILED");
+  });
+
+  it("n'injecte que sub, role et exp des claims vérifiés", async () => {
     const { db, tx } = fakeDb();
-    const verified: VerifiedClaims = { sub: USER_ID, marker: "verifie" };
+    const verified: VerifiedClaims = {
+      sub: USER_ID,
+      role: "authenticated",
+      exp: 1763848395,
+      email: "personne@example.test",
+      marker: "verifie",
+    };
     const stubVerify = vi.fn(async () => verified);
     const withUserDb = createWithUserDb({ verify: stubVerify, db });
     const fn = vi.fn(async (received: UserTx) => {
@@ -113,7 +132,35 @@ describe("withUserDb", () => {
       tx.execute.mock.calls[0][0] as SQL,
     );
     expect(query.sql).toBe("select set_config('request.jwt.claims', $1, true)");
-    expect(query.params).toStrictEqual([JSON.stringify(verified)]);
+    expect(query.params).toStrictEqual([
+      JSON.stringify({ sub: USER_ID, role: "authenticated", exp: 1763848395 }),
+    ]);
     expect(result).toBe(tx);
+  });
+
+  it("une erreur SQL ne laisse passer ni params ni claims dans le message", async () => {
+    const { db, tx } = fakeDb();
+    const sqlError = Object.assign(
+      new Error(`Failed query: select 1 params: ${USER_ID},secret-param`),
+      { query: "select 1", params: [USER_ID, "secret-param"], code: "42501" },
+    );
+    tx.execute.mockRejectedValueOnce(sqlError);
+    const withUserDb = createWithUserDb({
+      verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+      db,
+    });
+
+    const error = await withUserDb("jeton-brut", async () => "lu").catch(
+      (e) => e,
+    );
+
+    expect(error).toBeInstanceOf(DatabaseError);
+    expect(error.cause).toBeUndefined();
+    expect(error).not.toHaveProperty("params");
+    expect(error).not.toHaveProperty("query");
+    const visible = `${error.message} ${error.stack} ${JSON.stringify(error)}`;
+    expect(visible).not.toContain(USER_ID);
+    expect(visible).not.toContain("secret-param");
+    expect(error.code).toBe("42501");
   });
 });

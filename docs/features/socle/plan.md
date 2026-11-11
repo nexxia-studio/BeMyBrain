@@ -113,6 +113,7 @@
   - Fichiers : `src/lib/auth/` (client et serveur Neon Auth), `src/app/(auth)/login/page.tsx`, `src/middleware.ts`, `src/app/(app)/layout.tsx`, `messages/*.json`
   - Toute route sous `(app)` sans session valide → redirection vers `/login`. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
   - Jeton : figer `iss` sur un vrai jeton, ajouter la vérification d'`audience`, tests « refuse un iss étranger » et « refuse une audience étrangère » (TODO de `src/db/client.ts`).
+  - Les JWKS sont propres à chaque branche (kid différents vérifiés le 2026-11-12) ; figer `iss` exact et `aud` par variable d'environnement.
   - Test à écrire d'abord : `e2e/acces-refuse.spec.ts` (scénario 3) — « un visiteur non connecté qui ouvre /dashboard voit l'écran de connexion et rien d'autre » ; `src/middleware.test.ts` — « laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session ».
   - Fini quand : tests verts, connexion réelle d'Antoine sur `dev`.
 

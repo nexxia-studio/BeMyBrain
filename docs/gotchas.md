@@ -21,3 +21,5 @@
 - Test jose qui échoue en jsdom (WebCrypto, `Uint8Array` d'un autre realm) → environnement par défaut `jsdom` → `// @vitest-environment node` en tête du fichier.
 - `drizzle-kit migrate` affiche « '@neondatabase/serverless' can only connect … through a websocket » → simple avertissement, Node ≥ 24 fournit `WebSocket` en global → sans effet, ne rien installer.
 - Négation `!@/db/client` sans effet dans `no-restricted-imports` → motifs gitignore : un chemin dont le parent (`@/db`) est exclu ne peut pas être ré-inclus → utiliser l'option `regex` d'ESLint 9.
+- Migration appliquée sur la mauvaise branche → `.env` local visant `production` → garde-fou `NEON_PRODUCTION_HOST` dans drizzle.config.ts ; vérifier l'hôte de chaque URL.
+- Règle eslint d'un fichier qui « disparaît » → en flat config, la dernière config qui pose une règle remplace ses options → chaque config spécifique reprend les motifs communs (`commonPatterns`, `commonSyntax`).
