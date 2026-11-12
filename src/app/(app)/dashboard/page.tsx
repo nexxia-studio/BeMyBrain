@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <main className="flex-1 px-4">
+    <main className="flex-1">
       <h1 className="text-2xl font-semibold tracking-tight leading-tight">
         {t("title")}
       </h1>

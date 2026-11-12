@@ -58,6 +58,9 @@
   --radius-xl: 20px;
   --radius-bar: 30px;
 
+  /* Largeur max du contenu de la coque (DESIGN.md § 4). */
+  --container-content: 1400px;
+
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -134,6 +137,10 @@
   --spacing-safe-right: var(--safe-right);
   --spacing-safe-bottom: var(--safe-bottom);
   --spacing-safe-left: var(--safe-left);
+  --spacing-page-top: var(--page-top);
+  --spacing-tabbar-offset: var(--tabbar-offset);
+  --spacing-tabbar-reserve: var(--tabbar-reserve);
+  --color-pill-active: var(--pill-active);
 }
 
 :root {
@@ -197,6 +204,8 @@
   --row-bg: rgb(255 255 255 / 0.5);
   --track: rgb(27 32 51 / 0.09);
   --pill-track: rgb(27 32 51 / 0.07);
+  /* Élément actif d'une pilule ou de la navigation : blanc + shadow-raised. */
+  --pill-active: var(--white);
   --on-primary-muted: rgb(255 255 255 / 0.86);
   --on-primary-lead: rgb(255 255 255 / 0.9);
   --on-primary-surface: rgb(255 255 255 / 0.16);
@@ -231,6 +240,13 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Coque (DESIGN.md § 5–6) : haut de page, barre d'onglets flottante et réserve du contenu sous elle
+     (hauteur de la barre : bouton d'ajout 56 + padding 2 × 8 + bord 2 × 1 = 74 px ; + 16 px d'air). */
+  --page-top: max(16px, var(--safe-top));
+  --tabbar-height: 74px;
+  --tabbar-offset: max(26px, calc(var(--safe-bottom) + 8px));
+  --tabbar-reserve: calc(var(--tabbar-height) + var(--tabbar-offset) + 16px);
 
   /* Calques. */
   --z-halo: -1;

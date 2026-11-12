@@ -49,5 +49,25 @@
     "title": "Something went wrong",
     "body": "The service is temporarily unavailable. Try again in a moment.",
     "retry": "Try again"
+  },
+  "shell": {
+    "navigation": "Main navigation",
+    "home": "Home",
+    "sideTitle": {
+      "private": "Personal life",
+      "pro": "Work life"
+    },
+    "side": {
+      "label": "Side shown",
+      "private": "Personal",
+      "pro": "Work"
+    },
+    "contexts": {
+      "label": "Contexts shown",
+      "all": "{count, plural, =2 {Both} other {All}}"
+    },
+    "search": "Search or add",
+    "searchShortcut": "⌘K",
+    "quickAdd": "Quick add"
   }
 }
