@@ -42,3 +42,6 @@
 - Test de mémoïsation qui passe toujours ou jamais → sous Vitest, `cache` de React vient de la build cliente et ne mémoïse jamais → charger la build `react.react-server` et poser un dispatcher de cache par requête simulée (`src/lib/session.test.ts`).
 - Mock de `react` jamais chargé dans un test → un `import { cache }` inutilisé est retiré à la transformation → le harnais importe `react` lui-même (`await import("react")`).
 - `Cannot find package 'server-only'` sous Vitest → le paquet n'est pas installé : Next l'aliase au build (Turbopack et webpack) → alias `server-only` → `next/dist/compiled/server-only/empty.js` dans `vitest.config.mts`, aucune dépendance ajoutée.
+- Bouton « Réessayer » d'une page d'erreur qui ne recharge pas les données → en Next 16, la prop de `error.tsx` est `retry` ; `reset` ne fait que re-rendre sans refaire les requêtes → appeler `retry()`.
+- `redirect()` (ou `notFound()`) sans effet, page rendue malgré tout → un try/catch autour du code qui l'appelle avale l'erreur de contrôle de Next → `unstable_rethrow(error)` en tête du catch.
+- Variable CSS « vide » dans un utilitaire Tailwind v4 → `@theme inline { --x: var(--x) }` se référence lui-même → nommer autrement la variable de `:root` (`--radius-tile: var(--tile-radius)`).
