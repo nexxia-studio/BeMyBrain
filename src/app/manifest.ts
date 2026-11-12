@@ -5,7 +5,11 @@ import { HOME_PATH } from "@/lib/auth/routes";
 import { BACKGROUND_COLOR, THEME_COLOR } from "@/lib/theme";
 import { defaultLocale } from "@/i18n/locales";
 
-import messages from "../../messages/fr.json";
+import en from "../../messages/en.json";
+import fr from "../../messages/fr.json";
+
+// Indexé par defaultLocale : changer la langue par défaut change aussi le manifeste.
+const messagesByLocale = { fr, en };
 
 // Manifeste de la PWA (ADR-008), statique : textes de la langue par défaut, sans lire la requête
 // (getTranslations passerait par request.ts, qui lit cookies et Accept-Language).
@@ -13,7 +17,7 @@ import messages from "../../messages/fr.json";
 export default function manifest(): MetadataRoute.Manifest {
   const t = createTranslator({
     locale: defaultLocale,
-    messages,
+    messages: messagesByLocale[defaultLocale],
     namespace: "app",
   });
 

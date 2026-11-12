@@ -20,8 +20,9 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-// viewportFit "cover" : en standalone iOS, la page passe sous l'encoche et la barre d'accueil ;
-// la coque (tâche 14) s'en écarte avec --safe-top / --safe-bottom (globals.css, DESIGN.md § 9).
+// viewportFit "cover" : en standalone iOS, la page s'étend sous la barre d'accueil et, en paysage,
+// sous l'encoche ; la barre d'état reste opaque (statusBarStyle "default", --safe-top = 0 en portrait).
+// La coque (tâche 14) s'en écarte avec --safe-bottom et les côtés (globals.css, DESIGN.md § 9).
 export const viewport: Viewport = {
   themeColor: THEME_COLOR,
   colorScheme: "light",

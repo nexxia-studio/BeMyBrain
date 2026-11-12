@@ -10,6 +10,7 @@ import { THEME_COLOR } from "@/lib/theme";
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 const layout = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
 const design = readFileSync(join(process.cwd(), "DESIGN.md"), "utf8");
+const icon = readFileSync(join(process.cwd(), "docs/design/icon.svg"), "utf8");
 
 // Couleurs de base de la référence (les alphas sont libres : rgb(r g b / a)).
 const REFERENCE_RGB = new Set([
@@ -124,5 +125,14 @@ describe("charte dans globals.css", () => {
     const mist = css.match(/--mist\s*:\s*(#[0-9a-fA-F]{6})/)?.[1];
     expect(mist).toBeDefined();
     expect(THEME_COLOR.toLowerCase()).toBe(mist?.toLowerCase());
+  });
+
+  it("les couleurs de docs/design/icon.svg appartiennent à la palette", () => {
+    const colors = declaredColors(icon.replace(/<!--[\s\S]*?-->/g, ""));
+
+    const outside = colors.filter((rgb) => !REFERENCE_RGB.has(rgb));
+
+    expect(colors.length).toBeGreaterThan(0);
+    expect(outside).toEqual([]);
   });
 });

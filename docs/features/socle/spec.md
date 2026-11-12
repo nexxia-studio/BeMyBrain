@@ -43,7 +43,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 2. **Bascule Privé / Pro** — Antoine part du tableau de bord, passe en Pro, filtre sur Nexxia, recharge la page, retrouve le même état. Variante mobile : oui.
 3. **Accès refusé** — un visiteur non connecté ouvre une URL interne, obtient l'écran de connexion et rien d'autre. Variante mobile : non.
 4. **Changer de langue** — Antoine ouvre ses réglages, passe en anglais, voit toute l'interface en anglais avec dates et nombres au format anglais, recharge, se reconnecte : l'anglais est conservé. Variante mobile : oui.
-5. **Installer l'app** — sur mobile, le navigateur propose l'ajout à l'écran d'accueil (manifeste valide, icônes présentes, affichage plein écran). Variante mobile : oui uniquement.
+5. **Installer l'app** — sur mobile, le navigateur propose l'ajout à l'écran d'accueil (manifeste valide, icônes présentes, affichage plein écran). Variante mobile : oui uniquement. Pour `/qa` : sur la preview HTTPS, iPhone (Safari) et Android (Chrome) ; vérifier le plein écran iOS (sinon `apple-mobile-web-app-capable` via `metadata.other`).
 6. **Palette de commandes** — Antoine ouvre la palette, cherche « langue », lance le changement vers l'anglais : l'interface passe en anglais. Variante mobile : oui (bouton).
 
 ## Données et sécurité

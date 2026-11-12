@@ -225,7 +225,8 @@
   --space-today: 22px;
   --space-page: 16px;
 
-  /* Zones sûres iOS (viewportFit "cover", DESIGN.md § 9) : 0 hors encoche et hors standalone. */
+  /* Zones sûres iOS (viewportFit "cover", DESIGN.md § 9) : bas et côtés utiles ; haut à 0 en portrait
+     tant que la barre d'état est « default ». 0 hors iOS. */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);

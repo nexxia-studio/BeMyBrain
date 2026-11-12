@@ -45,3 +45,6 @@
 - Bouton « Réessayer » d'une page d'erreur qui ne recharge pas les données → en Next 16, la prop de `error.tsx` est `retry` ; `reset` ne fait que re-rendre sans refaire les requêtes → appeler `retry()`.
 - `redirect()` (ou `notFound()`) sans effet, page rendue malgré tout → un try/catch autour du code qui l'appelle avale l'erreur de contrôle de Next → `unstable_rethrow(error)` en tête du catch.
 - Variable CSS « vide » dans un utilitaire Tailwind v4 → `@theme inline { --x: var(--x) }` se référence lui-même → nommer autrement la variable de `:root` (`--radius-tile: var(--tile-radius)`).
+- `Page.getInstallabilityErrors` renvoie `in-incognito` sous Playwright → `browser.newPage()` ouvre un contexte éphémère, assimilé à la navigation privée → auditer avec `chromium.launchPersistentContext(dossierTemporaire)`.
+- Pas de `apple-mobile-web-app-capable` dans le `<head>` malgré `appleWebApp.capable: true` → Next 16 n'émet que `mobile-web-app-capable` → vérifier le plein écran sur un iPhone ; si absent, ajouter la balise via `metadata.other`.
+- Texte en mauvaise langue malgré `getTranslations({ locale: "fr" })` → notre `src/i18n/request.ts` renvoie sa propre locale (cookie, Accept-Language), qui l'emporte → pour un texte à langue fixe (manifeste), `createTranslator({ locale, messages })` de next-intl.
