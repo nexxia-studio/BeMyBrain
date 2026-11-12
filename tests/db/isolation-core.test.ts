@@ -303,15 +303,22 @@ describe("isolation des tables workspaces, workspace_members, contexts (RLS, app
   });
 
   it("peut modifier sa propre locale", async () => {
-    const locale = await asUser(f.userA2, async (db) => {
-      const result = await db.query(
-        "update workspace_members set locale = 'en' where user_id = $1 returning locale",
+    const locales = await asUser(f.userA2, async (db) => {
+      const read = () =>
+        db
+          .query("select locale from workspace_members where user_id = $1", [
+            f.userA2,
+          ])
+          .then((result) => result.rows.map((row) => row.locale));
+      const before = await read();
+      await db.query(
+        "update workspace_members set locale = 'fr' where user_id = $1",
         [f.userA2],
       );
-      return result.rows.map((row) => row.locale);
+      return { before, after: await read() };
     });
 
-    expect(locale).toEqual(["en"]);
+    expect(locales).toEqual({ before: ["en"], after: ["fr"] });
   });
 
   it("ne peut pas modifier son propre rôle", async () => {

@@ -412,4 +412,13 @@ describe("frontières d'import", () => {
 
     expect(errors).toEqual([]);
   });
+
+  it("eslint refuse un import des helpers de test dans src/db/migration-env.ts", async () => {
+    const code =
+      'import { createOwnerPool } from "../../tests/factories/core";\nexport const x = createOwnerPool;\n';
+
+    const errors = await restrictedImportRules(code, "src/db/migration-env.ts");
+
+    expect(errors).toHaveLength(1);
+  });
 });

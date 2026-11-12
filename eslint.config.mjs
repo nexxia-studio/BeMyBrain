@@ -150,6 +150,14 @@ const dbBoundaries = {
   },
 };
 
+// migration-env.ts lit DATABASE_URL (exempté ci-dessus) mais n'importe pas plus les helpers de tests/.
+const migrationEnvBoundaries = {
+  files: ["src/db/migration-env.ts"],
+  rules: {
+    "no-restricted-syntax": ["error", ...testsImportSyntax],
+  },
+};
+
 const uiBoundaries = {
   files: ["src/app/**", "src/components/**"],
   rules: {
@@ -235,6 +243,7 @@ const eslintConfig = defineConfig([
   ...nextTs,
   srcBoundaries,
   dbBoundaries,
+  migrationEnvBoundaries,
   uiBoundaries,
   moduleBoundaries,
   libBoundaries,
