@@ -6,7 +6,11 @@ import { getAppEnv } from "@/env";
 
 import { createTokenVerifier, createWithUserDb, type UserTx } from "./user-db";
 
-export { InvalidTokenError, type UserTx } from "./user-db";
+export {
+  IdentityNotAppliedError,
+  InvalidTokenError,
+  type UserTx,
+} from "./user-db";
 
 let instance: ReturnType<typeof createWithUserDb> | undefined;
 

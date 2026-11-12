@@ -28,3 +28,4 @@
 - `CREATE FUNCTION … LANGUAGE sql` échoue « relation does not exist » → le corps est vérifié à la création → ordre des migrations : tables, puis fonctions, puis policies.
 - `SET ROLE app_backend` refusé au propriétaire → PG16+ : appartenance sans option SET → tester avec la connexion `app_backend` elle-même (`DATABASE_TEST_AUTHENTICATED_URL`).
 - `ALTER DEFAULT PRIVILEGES IN SCHEMA app REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` sans effet → un droit par défaut par schéma ne retire pas un droit global → forme globale, sans `IN SCHEMA`.
+- Fonction d'extension inutilisable par `app_backend` après un `CREATE EXTENSION` → les fonctions dont `proowner` est `neondb_owner` tombent sous le REVOKE par défaut global de 0005 → après chaque `CREATE EXTENSION`, vérifier `proowner` des fonctions créées et poser un GRANT EXECUTE explicite si besoin.

@@ -176,6 +176,66 @@ describe("isolation des tables workspaces, workspace_members, contexts (RLS, app
     expect(deleted).toBe(0);
   });
 
+  it.each([
+    ["DO NOTHING", "do nothing"],
+    ["DO UPDATE", "do update set position = excluded.position"],
+  ])(
+    "INSERT … ON CONFLICT %s avec le workspace_id de A est refusé et ne révèle pas si le nom existe",
+    async (_label, action) => {
+      const attempt = (name: string) =>
+        asUser(f.userB, (db) =>
+          db.query(
+            `insert into contexts (workspace_id, name, kind) values ($1, $2, 'pro')
+             on conflict (workspace_id, name) ${action}`,
+            [f.workspaceA, name],
+          ),
+        ).catch((error) => error.code);
+
+      const codes = await Promise.all([
+        attempt(`ctx-A-${f.run}`),
+        attempt(`absent-${f.run}`),
+      ]);
+
+      expect(codes).toEqual([INSUFFICIENT_PRIVILEGE, INSUFFICIENT_PRIVILEGE]);
+    },
+  );
+
+  it("UPDATE … RETURNING sur un contexte de A ne renvoie rien à l'utilisateur de B", async () => {
+    const rows = await asUser(f.userB, async (db) => {
+      const result = await db.query(
+        "update contexts set position = 9 where id = $1 returning id, name, workspace_id",
+        [f.contextA],
+      );
+      return result.rows;
+    });
+
+    expect(rows).toEqual([]);
+  });
+
+  it("DELETE … RETURNING sur un contexte de A ne renvoie rien à l'utilisateur de B", async () => {
+    const rows = await asUser(f.userB, async (db) => {
+      const result = await db.query(
+        "delete from contexts where id = $1 returning id, name, workspace_id",
+        [f.contextA],
+      );
+      return result.rows;
+    });
+
+    expect(rows).toEqual([]);
+  });
+
+  it("un utilisateur de B qui appelle app.is_workspace_member(A) obtient false", async () => {
+    const answers = await asUser(f.userB, async (db) => {
+      const result = await db.query(
+        "select app.is_workspace_member($1) as a, app.is_workspace_member($2) as b",
+        [f.workspaceA, f.workspaceB],
+      );
+      return result.rows[0];
+    });
+
+    expect(answers).toEqual({ a: false, b: true });
+  });
+
   it("l'utilisateur de B ne peut pas déplacer un contexte de B vers A", async () => {
     const move = asUser(f.userB, (db) =>
       db.query("update contexts set workspace_id = $1 where id = $2", [

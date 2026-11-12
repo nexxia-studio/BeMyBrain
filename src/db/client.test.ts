@@ -14,6 +14,7 @@ import {
   createTokenVerifier,
   createWithUserDb,
   DatabaseError,
+  IdentityNotAppliedError,
   InvalidTokenError,
   type UserDb,
   type UserTx,
@@ -51,7 +52,10 @@ function signToken(
 }
 
 function fakeDb() {
-  const tx = { execute: vi.fn().mockResolvedValue(undefined) };
+  // Par défaut, la vérification d'identité réussit (applied = true).
+  const tx = {
+    execute: vi.fn().mockResolvedValue({ rows: [{ applied: true }] }),
+  };
   const transaction = vi.fn(async (fn: (tx: UserTx) => Promise<unknown>) =>
     fn(tx as unknown as UserTx),
   );
@@ -109,11 +113,11 @@ describe("withUserDb", () => {
     expect(error.code).toBe("ERR_JWS_SIGNATURE_VERIFICATION_FAILED");
   });
 
-  it("n'injecte que sub, role et exp des claims vérifiés", async () => {
+  it("n'injecte que sub, exp et un role constant, quel que soit le role du jeton", async () => {
     const { db, tx } = fakeDb();
     const verified: VerifiedClaims = {
       sub: USER_ID,
-      role: "authenticated",
+      role: "service_role",
       exp: 1763848395,
       email: "personne@example.test",
       marker: "verifie",
@@ -121,7 +125,7 @@ describe("withUserDb", () => {
     const stubVerify = vi.fn(async () => verified);
     const withUserDb = createWithUserDb({ verify: stubVerify, db });
     const fn = vi.fn(async (received: UserTx) => {
-      expect(tx.execute).toHaveBeenCalledTimes(2);
+      expect(tx.execute).toHaveBeenCalledTimes(3);
       return received;
     });
 
@@ -138,7 +142,7 @@ describe("withUserDb", () => {
     expect(result).toBe(tx);
   });
 
-  it("charge pg_session_jwt avant de poser les claims", async () => {
+  it("amorce pg_session_jwt, pose les claims, puis vérifie l'identité appliquée avant fn", async () => {
     const { db, tx } = fakeDb();
     const withUserDb = createWithUserDb({
       verify: async () => ({ sub: USER_ID, role: "authenticated" }),
@@ -147,14 +151,41 @@ describe("withUserDb", () => {
 
     await withUserDb("jeton-brut", async () => "lu");
 
-    const sqls = tx.execute.mock.calls.map(
-      ([query]) => new PgDialect().sqlToQuery(query as SQL).sql,
+    const queries = tx.execute.mock.calls.map(([query]) =>
+      new PgDialect().sqlToQuery(query as SQL),
     );
-    expect(sqls).toEqual([
+    expect(queries.map((q) => q.sql)).toEqual([
       "select app.current_user_id()",
       "select set_config('request.jwt.claims', $1, true)",
+      "select app.current_user_id() = $1::uuid as applied",
     ]);
+    expect(queries[2].params).toStrictEqual([USER_ID]);
   });
+
+  it.each([
+    ["différente", false],
+    ["NULL", null],
+  ])(
+    "refuse d'exécuter fn si l'identité appliquée est %s, sans claims dans l'erreur",
+    async (_label, applied) => {
+      const { db, tx } = fakeDb();
+      tx.execute
+        .mockResolvedValueOnce({ rows: [{ current_user_id: null }] })
+        .mockResolvedValueOnce({ rows: [{ set_config: "" }] })
+        .mockResolvedValueOnce({ rows: [{ applied }] });
+      const withUserDb = createWithUserDb({
+        verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+        db,
+      });
+      const fn = vi.fn(async () => "lu");
+
+      const error = await withUserDb("jeton-brut", fn).catch((e) => e);
+
+      expect(error).toBeInstanceOf(IdentityNotAppliedError);
+      expect(fn).not.toHaveBeenCalled();
+      expect(`${error.message} ${error.stack}`).not.toContain(USER_ID);
+    },
+  );
 
   it("une erreur SQL ne laisse passer ni params ni claims dans le message", async () => {
     const { db, tx } = fakeDb();
