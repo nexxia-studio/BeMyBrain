@@ -15,6 +15,7 @@ import {
 
 // Tables du socle (ADR-002, plan socle tâche 6). RLS activée dans la migration de chaque CREATE TABLE.
 // Droits d'app_backend et fonctions d'appartenance : drizzle/0002 (migration SQL), policies : drizzle/0003.
+// Trigger updated_at, droits par colonne sur contexts, droits par défaut des fonctions : drizzle/0005.
 // Policies pour app_backend seul, une par verbe autorisé ; un verbe sans GRANT n'a pas de policy
 // (refusé par absence de GRANT, voir 0002). Jamais FOR ALL ni USING (true).
 // Pas de FORCE ROW LEVEL SECURITY : le propriétaire a BYPASSRLS sur Neon, qui l'emporte sur FORCE.
@@ -105,6 +106,8 @@ export const contexts = pgTable(
   (t) => [
     // (workspace_id, kind) : listes par côté Privé / Pro, et index de la FK workspace_id (colonne de tête).
     index("contexts_workspace_id_kind_idx").on(t.workspaceId, t.kind),
+    // Pas deux contextes de même nom dans un workspace (UI et upsert du seed, tâche 7).
+    unique("contexts_workspace_name_unique").on(t.workspaceId, t.name),
     check("contexts_kind_check", sql`${t.kind} in ('private', 'pro')`),
     pgPolicy("contexts_select", {
       for: "select",

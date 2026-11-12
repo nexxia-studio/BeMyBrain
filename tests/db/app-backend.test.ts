@@ -16,6 +16,16 @@ if (!url) {
 const USER_ID = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 const claims: VerifiedClaims = { sub: USER_ID, role: "authenticated" };
 
+/**
+ * Endpoint direct (sans -pooler) : chaque connexion ouvre un backend Postgres neuf,
+ * où pg_session_jwt n'est pas encore chargée.
+ */
+function directUrl(): string {
+  const direct = new URL(url!);
+  direct.hostname = direct.hostname.replace(/^([^.]+)-pooler\./, "$1.");
+  return direct.toString();
+}
+
 // Un pool à une seule connexion par test : ce qui suit la transaction relit la même connexion.
 async function withSingleConnection<T>(run: (pool: Pool) => Promise<T>) {
   const pool = new Pool({ connectionString: url, max: 1 });
@@ -50,9 +60,7 @@ describe("withUserDb sur la branche de test", () => {
   it("sur un backend Postgres neuf, l'identité est visible dès la première transaction", async () => {
     // Endpoint direct (sans -pooler) : une connexion neuve = un backend neuf, où pg_session_jwt
     // n'est pas encore chargée (voir withUserDb).
-    const direct = new URL(url);
-    direct.hostname = direct.hostname.replace(/^([^.]+)-pooler\./, "$1.");
-    const pool = new Pool({ connectionString: direct.toString(), max: 1 });
+    const pool = new Pool({ connectionString: directUrl(), max: 1 });
 
     const uid = await withUserDbOn(pool)("jeton-déjà-vérifié", async (tx) => {
       const result = await tx.execute<{ uid: string | null }>(
@@ -62,6 +70,29 @@ describe("withUserDb sur la branche de test", () => {
     }).finally(() => pool.end());
 
     expect(uid).toBe(USER_ID);
+  });
+
+  it("pg_session_jwt perd les claims au premier appel d'un backend neuf — si ce test échoue, Neon a corrigé l'extension : l'appel d'amorçage de withUserDb (src/db/user-db.ts) peut être retiré", async () => {
+    const pool = new Pool({ connectionString: directUrl(), max: 1 });
+    const client = await pool.connect();
+
+    let uid: string | null;
+    try {
+      await client.query("begin");
+      await client.query("select set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify(claims),
+      ]);
+      const result = await client.query(
+        "select app.current_user_id()::text as uid",
+      );
+      uid = result.rows[0].uid;
+    } finally {
+      await client.query("rollback").catch(() => undefined);
+      client.release();
+      await pool.end();
+    }
+
+    expect(uid).toBeNull();
   });
 
   it("ne laisse aucun claim sur la connexion après la transaction", async () => {

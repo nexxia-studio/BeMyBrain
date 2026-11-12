@@ -23,3 +23,8 @@
 - Négation `!@/db/client` sans effet dans `no-restricted-imports` → motifs gitignore : un chemin dont le parent (`@/db`) est exclu ne peut pas être ré-inclus → utiliser l'option `regex` d'ESLint 9.
 - Migration appliquée sur la mauvaise branche → `.env` local visant `production` → garde-fou `NEON_PRODUCTION_HOST` dans drizzle.config.ts ; vérifier l'hôte de chaque URL.
 - Règle eslint d'un fichier qui « disparaît » → en flat config, la dernière config qui pose une règle remplace ses options → chaque config spécifique reprend les motifs communs (`commonPatterns`, `commonSyntax`).
+- `auth.uid()` renvoie NULL à la première transaction d'une connexion, puis fonctionne → `pg_session_jwt` se charge au premier appel et efface la valeur posée par `set_config(…, true)` plus tôt dans la transaction → appeler `select app.current_user_id()` AVANT `set_config` (fait par `withUserDb`) ; test témoin dans `tests/db/app-backend.test.ts`.
+- `GRANT USAGE ON SCHEMA auth TO app_backend` sans effet ni erreur → le schéma `auth` de `pg_session_jwt` appartient à `cloud_admin` → passer par des fonctions `SECURITY DEFINER` du schéma `app` (`app.current_user_id()`).
+- `CREATE FUNCTION … LANGUAGE sql` échoue « relation does not exist » → le corps est vérifié à la création → ordre des migrations : tables, puis fonctions, puis policies.
+- `SET ROLE app_backend` refusé au propriétaire → PG16+ : appartenance sans option SET → tester avec la connexion `app_backend` elle-même (`DATABASE_TEST_AUTHENTICATED_URL`).
+- `ALTER DEFAULT PRIVILEGES IN SCHEMA app REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` sans effet → un droit par défaut par schéma ne retire pas un droit global → forme globale, sans `IN SCHEMA`.

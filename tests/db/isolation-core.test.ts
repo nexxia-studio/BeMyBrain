@@ -3,9 +3,9 @@ import { Pool, type PoolClient } from "@neondatabase/serverless";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-  createCoreFixture,
   deleteCoreFixture,
-  type CoreFixture,
+  insertCoreFixture,
+  newCoreFixture,
 } from "../factories/core";
 
 // Isolation au niveau de la base (ADR-002) : assertions en app_backend, claims posés à la main,
@@ -21,20 +21,21 @@ if (!ownerUrl || !backendUrl) {
 
 const INSUFFICIENT_PRIVILEGE = "42501"; // GRANT absent ou WITH CHECK de la RLS
 const CHECK_VIOLATION = "23514";
+const UNIQUE_VIOLATION = "23505";
 
-let owner: Pool;
-let backend: Pool;
-let f: CoreFixture;
+const owner = new Pool({ connectionString: ownerUrl, max: 1 });
+const backend = new Pool({ connectionString: backendUrl, max: 2 });
+const f = newCoreFixture();
 
-beforeAll(async () => {
-  owner = new Pool({ connectionString: ownerUrl, max: 1 });
-  backend = new Pool({ connectionString: backendUrl, max: 2 });
-  f = await createCoreFixture(owner);
-});
+beforeAll(() => insertCoreFixture(owner, f));
 
+// Exécuté même si insertCoreFixture échoue à mi-chemin : suppression par les identifiants générés plus haut.
 afterAll(async () => {
-  if (f) await deleteCoreFixture(owner, f);
-  await Promise.all([owner?.end(), backend?.end()]);
+  try {
+    await deleteCoreFixture(owner, f);
+  } finally {
+    await Promise.all([owner.end(), backend.end()]);
+  }
 });
 
 /**
@@ -55,6 +56,18 @@ async function asUser<T>(
         JSON.stringify({ sub, role: "authenticated" }),
       ]);
     }
+    return await run(client);
+  } finally {
+    await client.query("rollback").catch(() => undefined);
+    client.release();
+  }
+}
+
+/** Transaction propriétaire toujours annulée (vérifications de contraintes et de catalogue). */
+async function asOwner<T>(run: (db: PoolClient) => Promise<T>): Promise<T> {
+  const client = await owner.connect();
+  try {
+    await client.query("begin");
     return await run(client);
   } finally {
     await client.query("rollback").catch(() => undefined);
@@ -319,6 +332,106 @@ describe("isolation des tables workspaces, workspace_members, contexts (RLS, app
     });
   });
 
+  it("modifier sa locale renseigne updated_at", async () => {
+    const fresh = await asUser(f.userA2, async (db) => {
+      const result = await db.query(
+        `update workspace_members set locale = 'en' where user_id = $1
+         returning updated_at is not null and updated_at >= now() - interval '1 minute' as fresh`,
+        [f.userA2],
+      );
+      return result.rows.map((row) => row.fresh);
+    });
+
+    expect(fresh).toEqual([true]);
+  });
+
+  it("modifier un contexte renseigne updated_at", async () => {
+    const fresh = await asUser(f.userA, async (db) => {
+      const result = await db.query(
+        `update contexts set position = 2 where id = $1
+         returning updated_at is not null and updated_at >= now() - interval '1 minute' as fresh`,
+        [f.contextA],
+      );
+      return result.rows.map((row) => row.fresh);
+    });
+
+    expect(fresh).toEqual([true]);
+  });
+
+  it("updated_at d'un workspace est renseigné à la modification (propriétaire)", async () => {
+    const fresh = await asOwner(async (db) => {
+      const result = await db.query(
+        `update workspaces set name = name where id = $1
+         returning updated_at is not null and updated_at >= now() - interval '1 minute' as fresh`,
+        [f.workspaceA],
+      );
+      return result.rows.map((row) => row.fresh);
+    });
+
+    expect(fresh).toEqual([true]);
+  });
+
+  it.each([
+    ["created_at", "now()"],
+    ["updated_at", "now()"],
+    ["id", "gen_random_uuid()"],
+    ["workspace_id", "workspace_id"],
+  ])(
+    "un membre ne peut pas modifier la colonne %s d'un contexte de son workspace",
+    async (column, value) => {
+      const update = asUser(f.userA, (db) =>
+        db.query(`update contexts set ${column} = ${value} where id = $1`, [
+          f.contextA,
+        ]),
+      );
+
+      await expect(update).rejects.toMatchObject({
+        code: INSUFFICIENT_PRIVILEGE,
+      });
+    },
+  );
+
+  it.each(["id", "created_at", "updated_at"])(
+    "un membre ne peut pas fixer la colonne %s à la création d'un contexte",
+    async (column) => {
+      const value = column === "id" ? "gen_random_uuid()" : "now()";
+
+      const insert = asUser(f.userA, (db) =>
+        db.query(
+          `insert into contexts (workspace_id, name, kind, ${column}) values ($1, 'x', 'pro', ${value})`,
+          [f.workspaceA],
+        ),
+      );
+
+      await expect(insert).rejects.toMatchObject({
+        code: INSUFFICIENT_PRIVILEGE,
+      });
+    },
+  );
+
+  it("deux contextes de même nom dans un workspace sont refusés", async () => {
+    const insert = asUser(f.userA, (db) =>
+      db.query(
+        "insert into contexts (workspace_id, name, kind) values ($1, $2, 'pro')",
+        [f.workspaceA, `ctx-A-${f.run}`],
+      ),
+    );
+
+    await expect(insert).rejects.toMatchObject({ code: UNIQUE_VIOLATION });
+  });
+
+  it("un même nom de contexte est autorisé dans deux workspaces", async () => {
+    const inserted = await asOwner(async (db) => {
+      const result = await db.query(
+        `insert into contexts (workspace_id, name, kind) values ($1, $3, 'pro'), ($2, $3, 'pro')`,
+        [f.workspaceA, f.workspaceB, `commun-${f.run}`],
+      );
+      return result.rowCount;
+    });
+
+    expect(inserted).toBe(2);
+  });
+
   it("la RLS est active sur les trois tables, sans policy FOR ALL ni USING (true), et seulement pour app_backend", async () => {
     const catalog = await owner.query(`
       select
@@ -334,5 +447,62 @@ describe("isolation des tables workspaces, workspace_members, contexts (RLS, app
     `);
 
     expect(catalog.rows[0]).toEqual({ rls_tables: 3, bad_policies: 0 });
+  });
+});
+
+describe("fonctions du schéma app", () => {
+  it("aucune fonction du schéma app n'est exécutable par PUBLIC", async () => {
+    const executableByPublic = await owner.query(`
+      select p.oid::regprocedure::text as fn
+      from pg_proc p
+      where p.pronamespace = 'app'::regnamespace
+        and (p.proacl is null
+             or exists (select 1 from aclexplode(p.proacl) a
+                        where a.grantee = 0 and a.privilege_type = 'EXECUTE'))
+    `);
+
+    expect(executableByPublic.rows).toEqual([]);
+  });
+
+  it("une fonction créée plus tard par le rôle des migrations n'est pas exécutable par PUBLIC", async () => {
+    const acl = await asOwner(async (db) => {
+      await db.query(
+        "create function app.probe_default_acl() returns int language sql as 'select 1'",
+      );
+      const result = await db.query(
+        `select exists (
+           select 1 from pg_proc p
+           where p.oid = 'app.probe_default_acl()'::regprocedure
+             and (p.proacl is null
+                  or exists (select 1 from aclexplode(p.proacl) a
+                             where a.grantee = 0 and a.privilege_type = 'EXECUTE'))
+         ) as public_execute`,
+      );
+      return result.rows[0].public_execute;
+    });
+
+    expect(acl).toBe(false);
+  });
+
+  it("les fonctions d'identité sont SECURITY DEFINER avec search_path figé", async () => {
+    const functions = await owner.query(`
+      select p.oid::regprocedure::text as fn, p.prosecdef as definer, p.proconfig as config
+      from pg_proc p
+      where p.oid in ('app.current_user_id()'::regprocedure, 'app.is_workspace_member(uuid)'::regprocedure)
+      order by 1
+    `);
+
+    expect(functions.rows).toEqual([
+      {
+        fn: "app.current_user_id()",
+        definer: true,
+        config: ['search_path=""'],
+      },
+      {
+        fn: "app.is_workspace_member(uuid)",
+        definer: true,
+        config: ['search_path=""'],
+      },
+    ]);
   });
 });

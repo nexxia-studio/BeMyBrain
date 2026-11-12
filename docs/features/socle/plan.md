@@ -7,12 +7,12 @@
 <!-- [manuel] = action dans Neon ou Vercel, faite par la session principale (MCP) après accord d'Antoine, ou par Antoine. L'implementer n'a pas accès à ces comptes. -->
 
 ## Décisions prises dans ce plan
-- **Identité transmise à la base** (question 1 de la spec, ADR-002) : jeton de Neon Auth. Le serveur vérifie la signature du jeton (`jose` + JWKS de Neon Auth), puis, dans une transaction ouverte avec le rôle restreint, injecte les claims vérifiés via `set_config('request.jwt.claims', …, true)`. Les policies lisent `auth.uid()` (uuid). Une seule fonction fait cette injection : `withUserDb()` dans `src/db/client.ts` (fabrique testable dans `src/db/user-db.ts`). Source : doc Neon « Run RLS queries with Drizzle ORM », vérifiée le 2026-11-11.
+- **Identité transmise à la base** (question 1 de la spec, ADR-002) : jeton de Neon Auth. Le serveur vérifie la signature du jeton (`jose` + JWKS de Neon Auth), puis, dans une transaction ouverte avec le rôle restreint, injecte les claims vérifiés via `set_config('request.jwt.claims', …, true)`, précédé d'un appel d'amorçage `select app.current_user_id()` (sinon `pg_session_jwt`, chargée au premier appel d'un backend neuf, efface les claims locaux). Les policies passent par `app.current_user_id()` et `app.is_workspace_member()`, fonctions `SECURITY DEFINER` sur `auth.uid()` (uuid) : le schéma `auth` appartient à `cloud_admin` et reste inaccessible à `app_backend` (GRANT ignoré). Une seule fonction fait cette injection : `withUserDb()` dans `src/db/client.ts` (fabrique testable dans `src/db/user-db.ts`). Source : doc Neon « Run RLS queries with Drizzle ORM », vérifiée le 2026-11-11.
   - Précision : en mode serveur, c'est le serveur qui vérifie la signature, pas la base. La garantie vient de ce qu'un seul point du code injecte une identité, et seulement depuis un jeton vérifié.
 - **Deux connexions** : `DATABASE_URL` (propriétaire, migrations et seed uniquement) et `DATABASE_AUTHENTICATED_URL` (rôle `app_backend`, LOGIN, sans BYPASSRLS). Le rôle est créé dans Neon (mot de passe hors du code) ; ses droits (GRANT) sont posés par migration.
 - **Connexions de test** : une branche Neon de test, deux URL. `DATABASE_TEST_URL` (propriétaire) prépare les deux workspaces ; `DATABASE_TEST_AUTHENTICATED_URL` (rôle `app_backend`) exécute les assertions d'isolation. Jamais `main`.
 - **Appartenance sans récursion** : les policies appellent `app.is_workspace_member(workspace_id)`, fonction `SECURITY DEFINER`, `search_path` figé, propriétaire = rôle des migrations.
-- **Lien utilisateur** : `workspace_members.user_id uuid` = identifiant de l'utilisateur Neon Auth (`neon_auth.user.id`, uuid ; `sub` du jeton). Les policies utilisent `auth.uid()` (uuid). Vérifié sur `dev` le 2026-11-12.
+- **Lien utilisateur** : `workspace_members.user_id uuid` = identifiant de l'utilisateur Neon Auth (`neon_auth.user.id`, uuid ; `sub` du jeton). Les policies le comparent à `app.current_user_id()` (SECURITY DEFINER sur `auth.uid()`, uuid ; schéma `auth` inaccessible à `app_backend`). Vérifié sur `dev` le 2026-11-12.
 - **Extension `pg_session_jwt`** : fournit `auth.uid()` / `auth.user_id()`, qui lisent `request.jwt.claims` posé par `set_config` (vérifié sur `dev`). Absente par défaut : `CREATE EXTENSION IF NOT EXISTS pg_session_jwt` dans la migration custom de la tâche 6.
 - **Projet Neon** : `bemybrain` (Francfort, Postgres 18), branches `production`, `dev` (local), `test` (tests d'isolation). Rôle `app_backend` créé sur `production` (LOGIN, sans BYPASSRLS, sans appartenance à `neon_superuser`) et hérité par `dev` et `test`.
 - **Choix Privé / Pro et filtre de contexte** : cookies lus côté serveur (`bmb_side`, `bmb_contexts`). Préférence d'affichage, pas une donnée métier.
@@ -86,15 +86,21 @@
   - Test à écrire d'abord : `src/env.test.ts` — « refuse de démarrer si DATABASE_AUTHENTICATED_URL manque » ; `src/db/client.test.ts` — « refuse un jeton à la signature invalide sans ouvrir de transaction ».
   - Fini quand : `pnpm db:migrate` passe sur `dev`, tests verts, aucune URL ni identifiant de projet dans le code (`grep` sur `neon.tech`, `vercel.app`).
 
-- [ ] **6. Tables `workspaces`, `workspace_members`, `contexts` avec RLS** [security] (BRAIN-6)
-  - Fichiers : `src/db/schema/core.ts`, `drizzle/0001_*.sql` (générée), `drizzle/0002_*.sql` (custom : `CREATE EXTENSION IF NOT EXISTS pg_session_jwt`, fonction `app.is_workspace_member`, GRANT à `app_backend`, révocation des droits par défaut)
+- [x] **6. Tables `workspaces`, `workspace_members`, `contexts` avec RLS** [security] (BRAIN-6)
+  - Fichiers : `src/db/schema/core.ts`, `tests/db/isolation-core.test.ts`, `tests/factories/core.ts`, script `db:migrate:test` (`MIGRATION_TARGET=test`).
+  - Migrations (une fonction `LANGUAGE sql` vérifie son corps à la création : tables, puis fonctions, puis policies) :
+    - `0001_core_tables` (générée) : tables, CHECK, index, FK, `ENABLE ROW LEVEL SECURITY` ;
+    - `0002_rls_functions_and_grants` (custom) : `pg_session_jwt`, `app.current_user_id()` et `app.is_workspace_member()`, REVOKE PUBLIC sur `public`, `app` et les fonctions, GRANT au plus juste à `app_backend` (verbes sans GRANT commentés « refusé par absence de GRANT ») ;
+    - `0003_core_policies` (générée) : une policy par verbe autorisé, `TO app_backend` ;
+    - `0004_contexts_unique_name` (générée) : unique `(workspace_id, name)` sur `contexts` ;
+    - `0005_updated_at_and_column_grants` (custom) : trigger `updated_at` sur les trois tables, INSERT/UPDATE par colonne sur `contexts`, droits par défaut des fonctions sans EXECUTE pour PUBLIC.
   - Colonnes selon `neon.md`. `contexts.kind` : `text` + `CHECK (kind IN ('private','pro'))`. `workspace_members.role` : `text` + `CHECK (role IN ('owner','member'))`. `workspace_members.locale` : `text NOT NULL DEFAULT 'fr'` + `CHECK (locale IN ('fr','en'))`. Index sur chaque FK et `(workspace_id, kind)`. RLS activée dans la même migration que chaque `CREATE TABLE`, une policy par verbe pour `app_backend`, jamais `FOR ALL` ni `USING (true)`. Un membre ne modifie que sa propre ligne (`locale`).
   - Test à écrire d'abord : `tests/db/isolation-core.test.ts` (données préparées via `DATABASE_TEST_URL`, assertions via `DATABASE_TEST_AUTHENTICATED_URL` en `app_backend`, claims posés à la main, aucun filtre applicatif) — « l'utilisateur du workspace B ne lit aucune ligne du workspace A », « ne peut ni insérer, ni modifier, ni supprimer chez A », « sans claims, ne lit rien », « ne peut pas modifier la locale d'un autre membre ».
   - Fini quand : les tests passent et la migration s'applique à neuf sur une branche vide.
 
 - [ ] **7. Script de départ rejouable** (BRAIN-6)
   - Fichiers : `scripts/seed.ts`, `package.json` (script `db:seed`)
-  - Crée le workspace, l'appartenance owner de l'utilisateur désigné par `SEED_OWNER_USER_ID`, et les contextes Privé (`private`), Trustup et Nexxia (`pro`). Les noms de contextes sont du contenu utilisateur : non traduits. Aucune donnée personnelle dans le code. Upsert : zéro doublon au second passage.
+  - Crée le workspace, l'appartenance owner de l'utilisateur désigné par `SEED_OWNER_USER_ID`, et les contextes Privé (`private`), Trustup et Nexxia (`pro`). Les noms de contextes sont du contenu utilisateur : non traduits. Aucune donnée personnelle dans le code. Upsert : zéro doublon au second passage. `contexts` unique `(workspace_id, name)` ; le workspace est retrouvé par l'appartenance owner de `SEED_OWNER_USER_ID` (pas d'unicité sur `workspaces`). Connexion propriétaire : les triggers posent `updated_at`.
   - Test à écrire d'abord : `scripts/seed.test.ts` — « lancé deux fois, le seed produit un workspace et trois contextes ».
   - Fini quand : test vert, seed passé sur `dev`.
 

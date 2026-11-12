@@ -6,6 +6,8 @@ import type { Pool } from "@neondatabase/serverless";
 // Identifiants aléatoires par run : deux runs simultanés ne se marchent pas dessus.
 
 export type CoreFixture = {
+  /** suffixe des noms, unique par run */
+  run: string;
   workspaceA: string;
   workspaceB: string;
   /** owner de A */
@@ -18,9 +20,10 @@ export type CoreFixture = {
   contextB: string;
 };
 
-export async function createCoreFixture(owner: Pool): Promise<CoreFixture> {
-  const run = randomUUID().slice(0, 8);
-  const f: CoreFixture = {
+/** Identifiants du run, générés AVANT toute insertion : le nettoyage les connaît même si l'insertion échoue. */
+export function newCoreFixture(): CoreFixture {
+  return {
+    run: randomUUID().slice(0, 8),
     workspaceA: randomUUID(),
     workspaceB: randomUUID(),
     userA: randomUUID(),
@@ -29,7 +32,13 @@ export async function createCoreFixture(owner: Pool): Promise<CoreFixture> {
     contextA: randomUUID(),
     contextB: randomUUID(),
   };
+}
 
+export async function insertCoreFixture(
+  owner: Pool,
+  f: CoreFixture,
+): Promise<void> {
+  const { run } = f;
   await owner.query(
     "insert into workspaces (id, name) values ($1, $2), ($3, $4)",
     [f.workspaceA, `test-A-${run}`, f.workspaceB, `test-B-${run}`],
@@ -51,10 +60,12 @@ export async function createCoreFixture(owner: Pool): Promise<CoreFixture> {
       `ctx-B-${run}`,
     ],
   );
-  return f;
 }
 
-/** Supprime tout ce que la fixture a créé, y compris ce que les tests ont ajouté dans ses workspaces. */
+/**
+ * Supprime par identifiants tout ce que la fixture a pu créer (même partiellement),
+ * y compris ce que les tests ont ajouté dans ses workspaces.
+ */
 export async function deleteCoreFixture(
   owner: Pool,
   f: CoreFixture,
