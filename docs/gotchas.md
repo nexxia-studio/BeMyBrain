@@ -29,3 +29,4 @@
 - `SET ROLE app_backend` refusé au propriétaire → PG16+ : appartenance sans option SET → tester avec la connexion `app_backend` elle-même (`DATABASE_TEST_AUTHENTICATED_URL`).
 - `ALTER DEFAULT PRIVILEGES IN SCHEMA app REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` sans effet → un droit par défaut par schéma ne retire pas un droit global → forme globale, sans `IN SCHEMA`.
 - Fonction d'extension inutilisable par `app_backend` après un `CREATE EXTENSION` → les fonctions dont `proowner` est `neondb_owner` tombent sous le REVOKE par défaut global de 0005 → après chaque `CREATE EXTENSION`, vérifier `proowner` des fonctions créées et poser un GRANT EXECUTE explicite si besoin.
+- `pnpm exec tsx` introuvable alors que tsx est dans `node_modules/.pnpm` → pnpm n'expose que les binaires des dépendances déclarées → déclarer le paquet dans `package.json` (même version que l'arbre, aucun paquet ajouté).

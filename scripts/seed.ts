@@ -14,24 +14,14 @@ import { loadEnvFileIfPresent } from "../src/lib/load-env-file";
 
 export const DEFAULT_WORKSPACE_NAME = "BeMyBrain";
 
-// Noms des entreprises d'Antoine, contenu utilisateur : non traduits.
+// Contenu utilisateur par défaut : non traduit.
 export const DEFAULT_CONTEXTS = [
   { name: "Privé", kind: "private", position: 0 },
   { name: "Trustup", kind: "pro", position: 1 },
   { name: "Nexxia", kind: "pro", position: 2 },
 ] as const;
 
-type SeedContext = {
-  name: string;
-  kind: "private" | "pro";
-  position: number;
-};
-
-type SeedOptions = {
-  ownerUserId: string;
-  workspaceName?: string;
-  contexts?: readonly SeedContext[];
-};
+type SeedOptions = { ownerUserId: string };
 
 // Tout pilote drizzle Postgres convient (adminDb en CLI, pool de la branche test en test).
 type SeedDb = NeonDatabase<Record<string, never>>;
@@ -44,11 +34,7 @@ type SeedDb = NeonDatabase<Record<string, never>>;
  */
 export async function seedWorkspace(
   db: SeedDb,
-  {
-    ownerUserId,
-    workspaceName = DEFAULT_WORKSPACE_NAME,
-    contexts: seedContexts = DEFAULT_CONTEXTS,
-  }: SeedOptions,
+  { ownerUserId }: SeedOptions,
 ): Promise<{ workspaceId: string; created: boolean }> {
   return db.transaction(async (tx) => {
     // Deux seeds simultanés pour le même propriétaire : le second attend, puis retrouve le workspace.
@@ -71,7 +57,7 @@ export async function seedWorkspace(
 
     const [workspace] = await tx
       .insert(workspaces)
-      .values({ name: workspaceName })
+      .values({ name: DEFAULT_WORKSPACE_NAME })
       .returning({ id: workspaces.id });
     await tx.insert(workspaceMembers).values({
       workspaceId: workspace.id,
@@ -79,11 +65,11 @@ export async function seedWorkspace(
       role: "owner",
       locale: "fr",
     });
-    if (seedContexts.length > 0) {
-      await tx
-        .insert(contexts)
-        .values(seedContexts.map((c) => ({ ...c, workspaceId: workspace.id })));
-    }
+    await tx
+      .insert(contexts)
+      .values(
+        DEFAULT_CONTEXTS.map((c) => ({ ...c, workspaceId: workspace.id })),
+      );
     return { workspaceId: workspace.id, created: true };
   });
 }
@@ -105,6 +91,24 @@ export function parseSeedEnv(source: EnvSource): { ownerUserId: string } {
   return { ownerUserId: parseEnv(seedEnvSchema, source).SEED_OWNER_USER_ID };
 }
 
+const SQLSTATE = /^[0-9A-Z]{5}$/;
+
+/**
+ * Message d'échec du seed : générique (une erreur du pilote peut citer l'hôte ou l'utilisateur),
+ * complété du SQLSTATE s'il existe, sur l'erreur ou sur sa cause (drizzle enveloppe l'erreur du pilote).
+ */
+export function seedFailureMessage(error: unknown): string {
+  const base = "Seed en échec : erreur de la base, transaction annulée.";
+  for (let e: unknown = error, depth = 0; e && depth < 3; depth++) {
+    const code = (e as { code?: unknown }).code;
+    if (typeof code === "string" && SQLSTATE.test(code)) {
+      return `${base} SQLSTATE ${code}.`;
+    }
+    e = (e as { cause?: unknown }).cause;
+  }
+  return base;
+}
+
 async function main(): Promise<void> {
   loadEnvFileIfPresent();
   // Erreurs des garde-fous : messages maison, sans valeur de variable.
@@ -118,9 +122,8 @@ async function main(): Promise<void> {
         ? "Seed : workspace et contextes créés."
         : "Seed : workspace déjà présent, rien à faire.",
     );
-  } catch {
-    // Message générique : une erreur du pilote peut citer l'hôte ou l'utilisateur.
-    throw new Error("Seed en échec : erreur de la base, transaction annulée.");
+  } catch (error) {
+    throw new Error(seedFailureMessage(error));
   } finally {
     await adminDb.$client.end();
   }

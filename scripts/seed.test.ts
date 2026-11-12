@@ -5,7 +5,7 @@ import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { parseSeedEnv, seedWorkspace } from "./seed";
+import { parseSeedEnv, seedFailureMessage, seedWorkspace } from "./seed";
 
 // Seed contre la branche Neon test, connexion propriétaire (comme le vrai seed).
 // Chaque test utilise des propriétaires aléatoires ; tout ce qui leur appartient est supprimé à la fin.
@@ -17,7 +17,7 @@ if (!ownerUrl) {
   );
 }
 
-const pool = new Pool({ connectionString: ownerUrl, max: 1 });
+const pool = new Pool({ connectionString: ownerUrl, max: 3 });
 const db = drizzle({ client: pool });
 const owners: string[] = [];
 
@@ -101,6 +101,19 @@ describe("seed rejouable", () => {
     ]);
   });
 
+  it("deux seeds simultanés pour le même propriétaire produisent un seul workspace", async () => {
+    const owner = newOwner();
+
+    const [a, b] = await Promise.all([
+      seedWorkspace(db, { ownerUserId: owner }),
+      seedWorkspace(db, { ownerUserId: owner }),
+    ]);
+
+    expect(b.workspaceId).toBe(a.workspaceId);
+    expect(await workspacesOf(owner)).toHaveLength(1);
+    expect(await contextsOf(a.workspaceId)).toHaveLength(3);
+  });
+
   it("un second utilisateur owner obtient son propre workspace", async () => {
     const ownerA = newOwner();
     const ownerB = newOwner();
@@ -125,10 +138,10 @@ describe("variables du seed", () => {
 
   it("refuse un SEED_OWNER_USER_ID qui n'est pas un uuid", () => {
     const check = () =>
-      parseSeedEnv({ ...local, SEED_OWNER_USER_ID: "antoine" });
+      parseSeedEnv({ ...local, SEED_OWNER_USER_ID: "not-a-uuid" });
 
     expect(check).toThrow(/SEED_OWNER_USER_ID/);
-    expect(check).not.toThrow(/antoine/);
+    expect(check).not.toThrow(/not-a-uuid/);
   });
 
   it("refuse un SEED_OWNER_USER_ID absent", () => {
@@ -167,5 +180,38 @@ describe("variables du seed", () => {
     expect(parseSeedEnv({ ...local, SEED_OWNER_USER_ID: id })).toEqual({
       ownerUserId: id,
     });
+  });
+});
+
+describe("message d'erreur du seed", () => {
+  it("ajoute le SQLSTATE d'une erreur de la base, sans son message", () => {
+    const error = Object.assign(new Error("connexion à ep-secret refusée"), {
+      code: "23505",
+    });
+
+    const message = seedFailureMessage(error);
+
+    expect(message).toMatch(/23505/);
+    expect(message).not.toMatch(/ep-secret/);
+  });
+
+  it("lit le SQLSTATE dans la cause d'une erreur enveloppée par drizzle", () => {
+    const error = new Error("Failed query", {
+      cause: Object.assign(new Error("détail"), { code: "42501" }),
+    });
+
+    expect(seedFailureMessage(error)).toMatch(/42501/);
+  });
+
+  it("n'ajoute rien qui ne soit pas un SQLSTATE de 5 caractères", () => {
+    const error = Object.assign(new Error("hôte introuvable"), {
+      code: "ENOTFOUND ep-secret",
+    });
+
+    const message = seedFailureMessage(error);
+
+    expect(message).toBe(
+      "Seed en échec : erreur de la base, transaction annulée.",
+    );
   });
 });
