@@ -3,6 +3,8 @@ import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 import { jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
 import { z } from "zod";
 
+import { DomainError } from "@/lib/errors";
+
 // Seul point du code qui injecte une identité dans la base (ADR-002, plan socle).
 // Interne à src/db : l'app passe par withUserDb de ./client (garde eslint).
 
@@ -121,8 +123,13 @@ export function createWithUserDb(deps: {
         return fn(tx);
       });
     } catch (error) {
-      if (error instanceof IdentityNotAppliedError) throw error;
-      // raccourci: toute erreur de fn est masquée aussi (message fixe + SQLSTATE) — distinguer les erreurs métier quand les modules en lèveront (tâche 8).
+      // Erreurs métier des modules : message = code, sans donnée (contrat de DomainError), donc non masquées.
+      if (
+        error instanceof IdentityNotAppliedError ||
+        error instanceof DomainError
+      )
+        throw error;
+      // Tout le reste (pilote, Drizzle, erreur imprévue de fn) : message fixe + SQLSTATE.
       throw new DatabaseError(sqlStateOf(error));
     }
   };

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { Pool } from "@neondatabase/serverless";
+import { Pool } from "@neondatabase/serverless";
 
 // Données des tests d'isolation, créées avec le rôle propriétaire (DATABASE_TEST_URL).
 // Identifiants aléatoires par run : deux runs simultanés ne se marchent pas dessus.
@@ -19,6 +19,11 @@ export type CoreFixture = {
   contextA: string;
   contextB: string;
 };
+
+/** Pool propriétaire de la branche test (DATABASE_TEST_URL), pour préparer et nettoyer la fixture. */
+export function createOwnerPool(ownerUrl: string): Pool {
+  return new Pool({ connectionString: ownerUrl, max: 1 });
+}
 
 /** Identifiants du run, générés AVANT toute insertion : le nettoyage les connaît même si l'insertion échoue. */
 export function newCoreFixture(): CoreFixture {
@@ -77,4 +82,24 @@ export async function deleteCoreFixture(
     [ids],
   );
   await owner.query("delete from workspaces where id = any($1)", [ids]);
+}
+
+export type ContextRow = {
+  name: string;
+  kind: "private" | "pro";
+  position: number | null;
+};
+
+/** Ajoute des contextes à un workspace de la fixture (supprimés par deleteCoreFixture). */
+export async function insertContexts(
+  owner: Pool,
+  workspaceId: string,
+  rows: ContextRow[],
+): Promise<void> {
+  for (const row of rows) {
+    await owner.query(
+      "insert into contexts (workspace_id, name, kind, position) values ($1, $2, $3, $4)",
+      [workspaceId, row.name, row.kind, row.position],
+    );
+  }
 }

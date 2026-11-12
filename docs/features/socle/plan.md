@@ -109,7 +109,7 @@
   - Tests : `scripts/seed.test.ts` contre la branche test (`DATABASE_TEST_URL`) — « lancé deux fois, le seed produit un workspace et trois contextes », « ne recrée pas un contexte renommé ni ne remet en place un contexte réordonné », « un second utilisateur owner obtient son propre workspace », refus d'un uuid invalide ou absent, de la production en local, de `MIGRATION_TARGET`.
   - Seed sur `dev` après la tâche 9 (le compte d'Antoine, donc `SEED_OWNER_USER_ID`, n'existe qu'à ce moment) ; seed de production par la CI (ADR-010, tâche 17).
 
-- [ ] **8. Module `core` : lectures et écritures filtrées** [security] (BRAIN-6)
+- [x] **8. Module `core` : lectures et écritures filtrées** [security] (BRAIN-6)
   - Fichiers : `src/modules/core/queries.ts`, `src/modules/core/mutations.ts`, `src/modules/core/core.test.ts`
   - Lectures : `getWorkspaceForUser`, `listContexts(workspaceId, { side })`, `getMemberLocale(workspaceId, userId)`. Écriture : `setMemberLocale(workspaceId, userId, locale)` (locale validée par zod). Chaque fonction prend `workspaceId` en premier argument, filtre dessus, passe par `withUserDb`, n'importe ni React ni Next. Toute création de workspace par le module core pose elle-même les contextes (le seed ne les recrée pas).
   - Test à écrire d'abord : « `listContexts` côté Pro renvoie Trustup et Nexxia, pas Privé » ; « un workspaceId étranger renvoie une liste vide » ; « `setMemberLocale` refuse `de` ».

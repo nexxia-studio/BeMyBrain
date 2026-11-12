@@ -10,6 +10,8 @@ import {
 } from "jose";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { DomainError } from "@/lib/errors";
+
 import {
   createTokenVerifier,
   createWithUserDb,
@@ -211,5 +213,37 @@ describe("withUserDb", () => {
     expect(visible).not.toContain(USER_ID);
     expect(visible).not.toContain("secret-param");
     expect(error.code).toBe("42501");
+  });
+
+  it("une erreur métier traverse withUserDb sans devenir DatabaseError", async () => {
+    const { db } = fakeDb();
+    const withUserDb = createWithUserDb({
+      verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+      db,
+    });
+    class ProbeError extends DomainError {}
+    const thrown = new ProbeError("probe_failed");
+
+    const error = await withUserDb("jeton-brut", async () => {
+      throw thrown;
+    }).catch((e) => e);
+
+    expect(error).toBe(thrown);
+    expect(error.code).toBe("probe_failed");
+  });
+
+  it("une erreur quelconque de fn reste masquée en DatabaseError", async () => {
+    const { db } = fakeDb();
+    const withUserDb = createWithUserDb({
+      verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+      db,
+    });
+
+    const error = await withUserDb("jeton-brut", async () => {
+      throw new Error(`détail ${USER_ID}`);
+    }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(DatabaseError);
+    expect(`${error.message} ${error.stack}`).not.toContain(USER_ID);
   });
 });

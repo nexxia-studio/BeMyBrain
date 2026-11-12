@@ -368,4 +368,15 @@ describe("frontières d'import", () => {
 
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it("eslint refuse un import de react dans src/modules/core", async () => {
+    const code = 'import { cache } from "react";\nexport const x = cache;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/core/queries.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
 });
