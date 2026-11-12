@@ -18,17 +18,27 @@ function stubReducedMotion(reduce: boolean) {
   }));
 }
 
-function setup() {
+type SideValue = "private" | "pro";
+
+/** Monte le moment signature ; `side` peut déjà différer du côté initial (bascule avant chargement). */
+function setup(
+  side: SideValue = "private",
+  initialSide: SideValue = "private",
+) {
   const thumbRef = createRef<HTMLSpanElement>();
   const thumb = document.createElement("span");
   document.body.append(thumb);
   thumbRef.current = thumb;
-  const view = render(
-    <SideSwitchSignature thumbRef={thumbRef} side="private" />,
+  const element = (current: SideValue) => (
+    <SideSwitchSignature
+      thumbRef={thumbRef}
+      initialSide={initialSide}
+      side={current}
+    />
   );
-  const switchTo = (side: "private" | "pro") =>
-    view.rerender(<SideSwitchSignature thumbRef={thumbRef} side={side} />);
-  return { switchTo };
+  const view = render(element(side));
+  const switchTo = (next: SideValue) => view.rerender(element(next));
+  return { switchTo, thumb, unmount: view.unmount };
 }
 
 let from: ReturnType<typeof vi.spyOn>;
@@ -40,6 +50,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  gsap.globalTimeline.clear();
   from.mockRestore();
   vi.unstubAllGlobals();
 });
@@ -85,5 +96,22 @@ describe("moment signature de la bascule Privé / Pro", () => {
     switchTo("pro");
 
     expect(from).not.toHaveBeenCalled();
+  });
+
+  it("une bascule faite avant le chargement de GSAP pose le marqueur et joue la glissade", () => {
+    setup("pro", "private");
+
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(SIDE_SWITCH_SIGNATURE_KEY)).not.toBeNull();
+  });
+
+  it("un démontage pendant la glissade ne laisse aucune animation active", () => {
+    const { switchTo, thumb, unmount } = setup();
+    switchTo("pro");
+    expect(gsap.getTweensOf(thumb)).toHaveLength(1);
+
+    unmount();
+
+    expect(gsap.getTweensOf(thumb)).toHaveLength(0);
   });
 });

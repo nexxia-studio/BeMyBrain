@@ -71,6 +71,10 @@ export default defineConfig({
     // (tests serveur), même alias vers la variante vide.
     alias: {
       "server-only": "next/dist/compiled/server-only/empty.js",
+      // Le « main » de @gsap/react est un UMD qui fait require("gsap") : sous Vitest, il chargerait la build
+      // CommonJS de gsap, un autre exemplaire que celui du code testé (son contexte ne verrait aucun tween).
+      // Next lit son champ « module » (ESM) : même entrée ici.
+      "@gsap/react": "@gsap/react/src/index.js",
     },
   },
   test: {

@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import {
   useOptimistic,
   useRef,
+  useState,
   useSyncExternalStore,
   useTransition,
 } from "react";
@@ -48,6 +49,9 @@ type SideSwitchProps = {
 export function SideSwitch({ side }: SideSwitchProps) {
   const t = useTranslations("shell.side");
   const [shownSide, setShownSide] = useOptimistic(side);
+  // Côté au montage : le moment signature, chargé après l'hydratation, s'y compare pour voir aussi une
+  // bascule faite avant son chargement.
+  const [initialSide] = useState(side);
   const [pending, startTransition] = useTransition();
   const thumbRef = useRef<HTMLSpanElement>(null);
   const signaturePending = useSyncExternalStore(
@@ -104,7 +108,11 @@ export function SideSwitch({ side }: SideSwitchProps) {
           );
         })}
         {signaturePending ? (
-          <SideSwitchSignature thumbRef={thumbRef} side={shownSide} />
+          <SideSwitchSignature
+            thumbRef={thumbRef}
+            initialSide={initialSide}
+            side={shownSide}
+          />
         ) : null}
       </div>
     </div>

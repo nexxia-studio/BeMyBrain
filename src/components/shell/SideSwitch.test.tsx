@@ -11,8 +11,8 @@ vi.mock("@/lib/preferences-actions", () => ({ setSide }));
 // Le moment signature est chargé à la demande : on ne vérifie ici que s'il est monté.
 vi.mock("next/dynamic", () => ({
   default: () =>
-    function SignatureProbe() {
-      signatureRendered();
+    function SignatureProbe(props: { initialSide: string; side: string }) {
+      signatureRendered({ initialSide: props.initialSide, side: props.side });
       return null;
     },
 }));
@@ -75,5 +75,16 @@ describe("bascule Privé / Pro", () => {
     renderSwitch("private");
 
     expect(signatureRendered).not.toHaveBeenCalled();
+  });
+
+  it("transmet au moment signature le côté initial et le côté choisi", () => {
+    renderSwitch("private");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pro" }));
+
+    expect(signatureRendered).toHaveBeenLastCalledWith({
+      initialSide: "private",
+      side: "pro",
+    });
   });
 });

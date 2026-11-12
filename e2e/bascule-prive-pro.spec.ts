@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createTranslator } from "next-intl";
 
 import fr from "../messages/fr.json";
 import { watchCspViolations } from "./csp";
@@ -7,6 +8,10 @@ import { signIn } from "./session";
 // Scénario 2 de la spec socle (bascule Privé / Pro), desktop et mobile. Les contextes Pro sont ceux du
 // seed de la branche visée (Trustup, Nexxia : scripts/seed.ts).
 test.use({ locale: "fr-FR" });
+
+const t = createTranslator({ locale: "fr", messages: fr });
+// Deux contextes Pro dans le seed : libellé « tous » au pluriel =2.
+const BOTH = t("shell.contexts.all", { count: 2 });
 
 test.beforeEach(async ({ context }) => {
   await context.clearCookies();
@@ -20,7 +25,7 @@ test("passe en Pro, filtre sur Nexxia, recharge et retrouve le même état", asy
   await signIn(page);
   const side = page.getByRole("group", { name: fr.shell.side.label });
   const filter = page.getByRole("group", { name: fr.shell.contexts.label });
-  const both = filter.getByRole("button", { name: "Les deux" });
+  const both = filter.getByRole("button", { name: BOTH });
   const nexxia = filter.getByRole("button", { name: "Nexxia" });
 
   await side.getByRole("button", { name: fr.shell.side.pro }).click();
