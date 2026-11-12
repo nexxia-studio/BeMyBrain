@@ -5,6 +5,7 @@ import { contexts, workspaceMembers, workspaces } from "@/db/schema/core";
 import type { AppLocale } from "@/i18n/locales";
 
 import {
+  contextFilterSchema,
   localeSchema,
   parseInput,
   sideSchema,
@@ -63,7 +64,7 @@ export async function listContexts(
   tx: UserTx,
 ): Promise<Context[]> {
   const workspace = parseInput(uuidSchema, workspaceId);
-  const side = parseInput(sideSchema, filter.side);
+  const { side } = parseInput(contextFilterSchema, filter);
   const rows = await tx
     .select({
       id: contexts.id,
@@ -81,7 +82,7 @@ export async function listContexts(
   }));
 }
 
-/** Langue d'un membre du workspace, ou null s'il n'en est pas membre (ou que la RLS le masque). */
+/** Langue de l'utilisateur de la session dans le workspace ; null si userId n'est pas lui ou n'est pas membre. */
 export async function getMemberLocale(
   workspaceId: string,
   userId: string,
@@ -96,6 +97,8 @@ export async function getMemberLocale(
       and(
         eq(workspaceMembers.workspaceId, workspace),
         eq(workspaceMembers.userId, user),
+        // Sa propre langue seulement (l'assistant ne lit pas celle d'un co-membre que la RLS laisse voir).
+        eq(workspaceMembers.userId, sql`(select app.current_user_id())`),
       ),
     )
     .limit(1);

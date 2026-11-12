@@ -379,4 +379,37 @@ describe("frontières d'import", () => {
 
     expect(errors).toHaveLength(1);
   });
+
+  it.each(["src/modules/core/leak.ts", "src/app/page-leak.ts"])(
+    "eslint refuse un import des helpers de test depuis %s",
+    async (filePath) => {
+      const code =
+        'import { createTestUserDb } from "../../../tests/factories/as-user";\nexport const x = createTestUserDb;\n';
+
+      const errors = await restrictedImportRules(code, filePath);
+
+      expect(errors).toHaveLength(1);
+    },
+  );
+
+  it("eslint refuse un import des helpers de test par l'alias @/", async () => {
+    const code =
+      'import { createTestUserDb } from "@/../tests/factories/as-user";\nexport const x = createTestUserDb;\n';
+
+    const errors = await restrictedImportRules(code, "src/lib/leak.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint autorise les helpers de test dans un fichier de test de src/modules", async () => {
+    const code =
+      'import { createTestUserDb } from "../../../tests/factories/as-user";\nexport const x = createTestUserDb;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/core/x.test.ts",
+    );
+
+    expect(errors).toEqual([]);
+  });
 });

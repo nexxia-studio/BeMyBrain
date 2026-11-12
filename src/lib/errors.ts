@@ -1,3 +1,5 @@
+const CODE_FORMAT = /^[a-z][a-z0-9_]{0,63}$/;
+
 /**
  * Erreur métier levée par un module (src/modules/<module>/) : traverse withUserDb sans être masquée
  * en DatabaseError, et peut être interceptée par l'UI (qui n'a pas accès à @/db).
@@ -8,8 +10,11 @@
  */
 export abstract class DomainError extends Error {
   readonly code: string;
+  // Un seul paramètre : ni cause, ni champ libre. Un code hors format (ex. avec une valeur
+  // utilisateur concaténée) est remplacé, pour qu'aucune donnée ne traverse withUserDb.
   constructor(code: string) {
-    super(code);
-    this.code = code;
+    const safe = CODE_FORMAT.test(code) ? code : "invalid_error_code";
+    super(safe);
+    this.code = safe;
   }
 }

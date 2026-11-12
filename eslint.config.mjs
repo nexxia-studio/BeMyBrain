@@ -109,7 +109,25 @@ const commonSyntax = [
   },
 ];
 
-const restrictedSyntax = (...extra) => ["error", ...commonSyntax, ...extra];
+// Helpers de test (tests/factories : withUserDb sans vérification de jeton, pools propriétaires) :
+// interdits au code de prod de src/, relatif ou par alias. Les *.test.ts{x} de src/ les gardent (testFileSyntax).
+const TESTS_SOURCE = "/(^|\\u002F)tests(\\u002F|$)/";
+const testsImportMessage =
+  "Les helpers de tests/ sont réservés aux fichiers *.test.ts : le code de prod ne les importe pas.";
+const testsImportSyntax = [
+  `ImportDeclaration[source.value=${TESTS_SOURCE}]`,
+  `ExportNamedDeclaration[source.value=${TESTS_SOURCE}]`,
+  `ExportAllDeclaration[source.value=${TESTS_SOURCE}]`,
+  `ImportExpression[source.value=${TESTS_SOURCE}]`,
+  `CallExpression[callee.name='require'][arguments.0.value=${TESTS_SOURCE}]`,
+].map((selector) => ({ selector, message: testsImportMessage }));
+
+const restrictedSyntax = (...extra) => [
+  "error",
+  ...commonSyntax,
+  ...testsImportSyntax,
+  ...extra,
+];
 
 const srcBoundaries = {
   files: ["src/**"],
@@ -124,7 +142,11 @@ const dbBoundaries = {
   files: ["src/db/**"],
   ignores: ["src/db/migration-env.ts"],
   rules: {
-    "no-restricted-syntax": ["error", ...processEnvDatabaseUrl],
+    "no-restricted-syntax": [
+      "error",
+      ...processEnvDatabaseUrl,
+      ...testsImportSyntax,
+    ],
   },
 };
 
@@ -160,6 +182,17 @@ const moduleBoundaries = {
   },
 };
 
+const libReexportSyntax = [
+  {
+    selector: `ExportNamedDeclaration[source.value=${DB_SOURCE}]`,
+    message: "Pas de ré-export de src/db depuis src/lib (ADR-002).",
+  },
+  {
+    selector: `ExportAllDeclaration[source.value=${DB_SOURCE}]`,
+    message: "Pas de ré-export de src/db depuis src/lib (ADR-002).",
+  },
+];
+
 // src/lib (auth, session, préférences) ne touche pas la base et ne la ré-exporte pas : il passe par src/modules.
 const libBoundaries = {
   files: ["src/lib/**"],
@@ -172,18 +205,30 @@ const libBoundaries = {
       },
       relativeDbImports,
     ),
-    "no-restricted-syntax": restrictedSyntax(
-      {
-        selector: `ExportNamedDeclaration[source.value=${DB_SOURCE}]`,
-        message: "Pas de ré-export de src/db depuis src/lib (ADR-002).",
-      },
-      {
-        selector: `ExportAllDeclaration[source.value=${DB_SOURCE}]`,
-        message: "Pas de ré-export de src/db depuis src/lib (ADR-002).",
-      },
-    ),
+    "no-restricted-syntax": restrictedSyntax(...libReexportSyntax),
   },
 };
+
+// Fichiers de test de src/ : mêmes règles de syntaxe, sauf l'interdiction des helpers de tests/.
+// Placé après les autres configs (la dernière qui pose une règle l'emporte).
+const TEST_FILES = ["src/**/*.test.ts", "src/**/*.test.tsx"];
+const testFileSyntax = [
+  {
+    files: TEST_FILES,
+    ignores: ["src/db/**", "src/lib/**"],
+    rules: { "no-restricted-syntax": ["error", ...commonSyntax] },
+  },
+  {
+    files: TEST_FILES.map((glob) => glob.replace("src/", "src/lib/")),
+    rules: {
+      "no-restricted-syntax": ["error", ...commonSyntax, ...libReexportSyntax],
+    },
+  },
+  {
+    files: TEST_FILES.map((glob) => glob.replace("src/", "src/db/")),
+    rules: { "no-restricted-syntax": ["error", ...processEnvDatabaseUrl] },
+  },
+];
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -193,6 +238,7 @@ const eslintConfig = defineConfig([
   uiBoundaries,
   moduleBoundaries,
   libBoundaries,
+  ...testFileSyntax,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

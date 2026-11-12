@@ -14,6 +14,10 @@ export type TestUserDb = {
 };
 
 export function createTestUserDb(backendUrl: string): TestUserDb {
+  // Filet : ce withUserDb ne vérifie aucun jeton ; il ne doit jamais tourner hors des tests.
+  if (!process.env.VITEST) {
+    throw new Error("createTestUserDb est réservé aux tests Vitest.");
+  }
   const pool = new Pool({ connectionString: backendUrl, max: 2 });
   const withUserDb = createWithUserDb({
     verify: async (userId) => ({ sub: userId, role: "authenticated" }),

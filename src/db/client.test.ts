@@ -246,4 +246,21 @@ describe("withUserDb", () => {
     expect(error).toBeInstanceOf(DatabaseError);
     expect(`${error.message} ${error.stack}`).not.toContain(USER_ID);
   });
+
+  it("un code d'erreur métier hors format ne traverse pas tel quel", async () => {
+    const { db } = fakeDb();
+    const withUserDb = createWithUserDb({
+      verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+      db,
+    });
+    class ProbeError extends DomainError {}
+
+    const error = await withUserDb("jeton-brut", async () => {
+      throw new ProbeError("not_found:a@b.c");
+    }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(ProbeError);
+    expect(error.code).toBe("invalid_error_code");
+    expect(`${error.message} ${error.stack}`).not.toContain("a@b.c");
+  });
 });

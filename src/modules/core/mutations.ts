@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import type { UserTx } from "@/db/client";
 import { workspaceMembers } from "@/db/schema/core";
@@ -31,6 +31,8 @@ export async function setMemberLocale(
       and(
         eq(workspaceMembers.workspaceId, workspace),
         eq(workspaceMembers.userId, user),
+        // Sa propre ligne seulement, comme la policy workspace_members_update_own.
+        eq(workspaceMembers.userId, sql`(select app.current_user_id())`),
       ),
     )
     .returning({ locale: workspaceMembers.locale });

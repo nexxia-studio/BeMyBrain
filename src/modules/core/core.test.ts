@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import type { UserTx } from "@/db/client";
 import { DomainError } from "@/lib/errors";
 
 import { createTestUserDb } from "../../../tests/factories/as-user";
@@ -16,6 +17,7 @@ import {
 } from "../../../tests/factories/core";
 import { CoreError } from "./errors";
 import { setMemberLocale } from "./mutations";
+import { renderSql } from "../../../tests/factories/render-sql";
 import { getMemberLocale, getWorkspaceForUser, listContexts } from "./queries";
 
 // Module core contre la branche Neon test : withUserDb réel en rôle app_backend (tests/factories/as-user.ts),
@@ -111,6 +113,17 @@ describe("listContexts", () => {
     expect(contexts.map((c) => c.name)).toEqual(["Trustup", "Nexxia"]);
   });
 
+  it("refuse un filtre absent", async () => {
+    const run = db.asUser(f.userA, (tx) =>
+      listContexts(f.workspaceA, undefined as unknown as { side: "pro" }, tx),
+    );
+
+    await expect(run).rejects.toMatchObject({
+      name: "CoreError",
+      code: "invalid_input",
+    });
+  });
+
   it("refuse un côté inconnu", async () => {
     const run = db.asUser(f.userA, (tx) =>
       listContexts(f.workspaceA, { side: "perso" as unknown as "pro" }, tx),
@@ -183,6 +196,25 @@ describe("getMemberLocale", () => {
     expect(locales).toEqual(["fr", "en"]);
   });
 
+  it("getMemberLocale(A, userA) vaut fr alors qu'un co-membre est en en", async () => {
+    const own = await db.asUser(f.userA, (tx) =>
+      getMemberLocale(f.workspaceA, f.userA, tx),
+    );
+    const coMember = await db.asUser(f.userA2, (tx) =>
+      getMemberLocale(f.workspaceA, f.userA2, tx),
+    );
+
+    expect([own, coMember]).toEqual(["fr", "en"]);
+  });
+
+  it("un membre ne lit pas la langue d'un co-membre", async () => {
+    const locale = await db.asUser(f.userA2, (tx) =>
+      getMemberLocale(f.workspaceA, f.userA, tx),
+    );
+
+    expect(locale).toBeNull();
+  });
+
   it("renvoie null pour un membre d'un workspace étranger", async () => {
     const locale = await db.asUser(f.userB, (tx) =>
       getMemberLocale(f.workspaceA, f.userA, tx),
@@ -194,12 +226,12 @@ describe("getMemberLocale", () => {
 
 describe("setMemberLocale", () => {
   it("passe à en puis relit en", async () => {
-    const applied = await db.asUser(f.userA2, (tx) =>
-      setMemberLocale(f.workspaceA, f.userA2, "en", tx),
+    const applied = await db.asUser(f.userB, (tx) =>
+      setMemberLocale(f.workspaceB, f.userB, "en", tx),
     );
 
-    const reread = await db.asUser(f.userA2, (tx) =>
-      getMemberLocale(f.workspaceA, f.userA2, tx),
+    const reread = await db.asUser(f.userB, (tx) =>
+      getMemberLocale(f.workspaceB, f.userB, tx),
     );
     expect([applied, reread]).toEqual(["en", "en"]);
   });
@@ -228,13 +260,13 @@ describe("setMemberLocale", () => {
   });
 
   it("sur un autre workspace ne touche rien et lève l'erreur métier", async () => {
-    const run = db.asUser(f.userB, (tx) =>
-      setMemberLocale(f.workspaceA, f.userB, "en", tx),
+    const run = db.asUser(f.userA, (tx) =>
+      setMemberLocale(f.workspaceB, f.userA, "en", tx),
     );
 
     await expect(run).rejects.toBeInstanceOf(CoreError);
-    const locale = await db.asUser(f.userB, (tx) =>
-      getMemberLocale(f.workspaceB, f.userB, tx),
+    const locale = await db.asUser(f.userA, (tx) =>
+      getMemberLocale(f.workspaceA, f.userA, tx),
     );
     expect(locale).toBe("fr");
   });
@@ -249,5 +281,29 @@ describe("setMemberLocale", () => {
       name: "CoreError",
       code: "member_not_found",
     });
+  });
+});
+
+describe("setMemberLocale (requête générée)", () => {
+  it("filtre explicitement sur le workspace, le userId et l'utilisateur de la session, en plus de la RLS", async () => {
+    let where: unknown;
+    const tx = {
+      update: () => ({
+        set: () => ({
+          where: (condition: unknown) => {
+            where = condition;
+            return { returning: async () => [{ locale: "en" }] };
+          },
+        }),
+      }),
+    } as unknown as UserTx;
+
+    await setMemberLocale(f.workspaceA, f.userA, "en", tx);
+
+    const query = renderSql(where);
+    expect(query.sql).toBe(
+      '("workspace_members"."workspace_id" = $1 and "workspace_members"."user_id" = $2 and "workspace_members"."user_id" = (select app.current_user_id()))',
+    );
+    expect(query.params).toEqual([f.workspaceA, f.userA]);
   });
 });

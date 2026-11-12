@@ -12,7 +12,7 @@ export type CoreFixture = {
   workspaceB: string;
   /** owner de A */
   userA: string;
-  /** member de A */
+  /** member de A, locale en dès l'insertion (les autres sont en fr) */
   userA2: string;
   /** owner de B */
   userB: string;
@@ -52,8 +52,8 @@ export async function insertCoreFixture(
     [f.workspaceA, `test-A-${run}`, f.workspaceB, `test-B-${run}`],
   );
   await owner.query(
-    `insert into workspace_members (workspace_id, user_id, role) values
-      ($1, $2, 'owner'), ($1, $3, 'member'), ($4, $5, 'owner')`,
+    `insert into workspace_members (workspace_id, user_id, role, locale) values
+      ($1, $2, 'owner', 'fr'), ($1, $3, 'member', 'en'), ($4, $5, 'owner', 'fr')`,
     [f.workspaceA, f.userA, f.userA2, f.workspaceB, f.userB],
   );
   await owner.query(
