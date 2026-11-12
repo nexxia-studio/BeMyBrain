@@ -1,11 +1,17 @@
 // @vitest-environment node
-import { RequestCookiesAdapter } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+import {
+  MutableRequestCookiesAdapter,
+  RequestCookiesAdapter,
+} from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import { RequestCookies } from "next/dist/server/web/spec-extension/cookies";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const request = vi.hoisted(() => ({
   headers: new Headers(),
-  cookies: null as unknown as { set: (...args: never[]) => unknown },
+  cookies: null as unknown as {
+    set: (...args: never[]) => unknown;
+    getAll: () => { name: string; value: string }[];
+  },
 }));
 
 vi.mock("next/headers", () => ({
@@ -48,14 +54,20 @@ function sessionResponse() {
 
 /** Magasin de cookies d'un rendu de Server Component : le vrai, scellé par Next. */
 function renderCookieStore() {
-  return RequestCookiesAdapter.seal(new RequestCookies(new Headers()));
+  return RequestCookiesAdapter.seal(new RequestCookies(request.headers));
+}
+
+/** Magasin de cookies d'une action (écriture espionnée), lu depuis les cookies de la requête. */
+function actionCookieStore() {
+  const cookies = new RequestCookies(request.headers);
+  return { getAll: () => cookies.getAll(), set: vi.fn() };
 }
 
 beforeEach(() => {
   vi.stubEnv("NEON_AUTH_BASE_URL", BASE_URL);
   vi.stubEnv("NEON_AUTH_COOKIE_SECRET", "s".repeat(32));
   request.headers = new Headers({ cookie: `${SESSION_COOKIE}=opaque` });
-  request.cookies = { set: vi.fn() };
+  request.cookies = actionCookieStore();
 });
 
 afterEach(() => {
@@ -99,6 +111,7 @@ describe("session serveur", () => {
 
   it("laisse passer toute autre erreur d'écriture de cookie", async () => {
     request.cookies = {
+      ...actionCookieStore(),
       set: () => {
         throw new TypeError("panne inattendue");
       },
@@ -168,6 +181,23 @@ describe("session serveur", () => {
 
     expect(token).toBe("eyJ.jwt.signe");
     expect(String(fetchMock.mock.calls[0][0])).toBe(`${BASE_URL}/token`);
+  });
+
+  it("getSessionToken envoie les cookies posés plus tôt dans la même action (juste après la connexion)", async () => {
+    request.headers = new Headers();
+    const store = MutableRequestCookiesAdapter.wrap(new RequestCookies(request.headers));
+    store.set(SESSION_COOKIE, "neuf");
+    request.cookies = store;
+    const fetchMock = vi.fn<(url: string | URL, init?: RequestInit) => Promise<Response>>(
+      async () => Response.json({ token: "eyJ.jwt.signe" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const token = await getSessionToken();
+
+    expect(token).toBe("eyJ.jwt.signe");
+    const sent = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(sent.get("cookie")).toBe(`${SESSION_COOKIE}=neuf`);
   });
 
   it("getSessionToken renvoie null sans session", async () => {

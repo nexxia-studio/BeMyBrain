@@ -11,7 +11,10 @@ const cookieStore = vi.hoisted(() => ({
   set: vi.fn(),
 }));
 
+const syncSessionLocale = vi.hoisted(() => vi.fn());
+
 vi.mock("./server", () => ({ getAuth: () => fakeAuth }));
+vi.mock("@/lib/session", () => ({ syncSessionLocale }));
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
@@ -62,6 +65,26 @@ describe("connexion", () => {
       email: EMAIL,
       password: "motdepasse",
     });
+  });
+
+  it("après connexion réussie, recopie la langue enregistrée avant de rediriger", async () => {
+    fakeAuth.signIn.email.mockResolvedValue({ data: {}, error: null });
+
+    const run = signIn(null, form({ email: EMAIL, password: "motdepasse" }));
+
+    await expect(run).rejects.toThrow("REDIRECT:/dashboard");
+    expect(syncSessionLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it("ne touche pas à la langue si la connexion échoue", async () => {
+    fakeAuth.signIn.email.mockResolvedValue({
+      data: null,
+      error: { status: 401 },
+    });
+
+    await signIn(null, form({ email: EMAIL, password: "faux" }));
+
+    expect(syncSessionLocale).not.toHaveBeenCalled();
   });
 
   it("renvoie un message générique sans le message de l'auth, et garde l'e-mail saisi", async () => {

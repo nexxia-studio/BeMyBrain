@@ -1,15 +1,31 @@
 // Curseurs nexxia-design : VARIANCE, MOTION, DENSITY fixés avec DESIGN.md (tâche 12).
-// raccourci: page vide, cible de la redirection après connexion — tableau de bord bento à la tâche 15.
+// raccourci: page réduite au titre et au workspace résolu (preuve de la tâche 11) — tableau de bord bento à la tâche 15.
 import { getTranslations } from "next-intl/server";
 
+import { requireSession } from "@/lib/session";
+
 export default async function DashboardPage() {
-  const t = await getTranslations("dashboard");
+  // Mémoïsée par requête : le layout l'a déjà appelée, pas de seconde vérification.
+  const [session, t] = await Promise.all([
+    requireSession(),
+    getTranslations("dashboard"),
+  ]);
 
   return (
     <main className="flex-1 px-4">
       <h1 className="text-2xl font-semibold tracking-tight leading-tight">
         {t("title")}
       </h1>
+      <p className="text-sm text-muted-foreground">
+        {t.rich("workspace", {
+          // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit.
+          name: () => (
+            <span data-testid="workspace-name" className="text-foreground">
+              {session.workspaceName}
+            </span>
+          ),
+        })}
+      </p>
     </main>
   );
 }

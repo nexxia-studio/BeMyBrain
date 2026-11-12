@@ -1,7 +1,10 @@
+// `server-only` : fourni par Next (alias du compilateur vers next/dist/compiled/server-only), pas de
+// dépendance ajoutée. Ce module lit le secret des cookies : jamais dans un bundle client.
+import "server-only";
+
 import { createNeonAuth } from "@neon/auth/next/server";
 import {
   createAuthServer,
-  extractNeonAuthCookies,
   resolveNeonAuthLogging,
   type RequestContext,
 } from "@neon/auth/server";
@@ -9,8 +12,6 @@ import { cookies, headers } from "next/headers";
 import { connection } from "next/server";
 
 import { getAuthEnv } from "@/env";
-
-// raccourci: pas de `server-only` (paquet non installé) — réévalué à la tâche 11 (plan socle).
 
 type AuthResult<T> = Promise<{
   data: T | null;
@@ -68,21 +69,42 @@ export function getAuth(): Auth {
 const RENDER_COOKIE_WRITE =
   /^Cookies can only be modified in a Server Action or Route Handler/;
 
+/** Vrai si `error` est le refus de Next d'écrire un cookie pendant un rendu de Server Component. */
+export function isRenderCookieWriteError(error: unknown): boolean {
+  return error instanceof Error && RENDER_COOKIE_WRITE.test(error.message);
+}
+
+// Préfixe des cookies du SDK @neon/auth (session_token, local.session_data, session_challenge).
+const AUTH_COOKIE_PREFIX = "__Secure-neon-auth";
+
+/**
+ * Cookies Neon Auth envoyés à l'auth, lus dans le magasin de cookies de Next et non dans l'en-tête :
+ * dans une action, il reflète ceux posés plus tôt dans la même requête (JWT demandé juste après la
+ * connexion). Valeurs décodées, comme `extractNeonAuthCookies` du SDK.
+ */
+function authCookies(cookieStore: Awaited<ReturnType<typeof cookies>>) {
+  return cookieStore
+    .getAll()
+    .filter(({ name, value }) => name.startsWith(AUTH_COOKIE_PREFIX) && value)
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+}
+
 /**
  * Contexte de requête de l'instance de lecture : même chose que l'adaptateur Next du SDK, sauf que
- * l'écriture d'un cookie pendant un rendu est ignorée (le proxy porte le renouvellement de session).
+ * l'écriture d'un cookie pendant un rendu est ignorée (le proxy porte le renouvellement de session),
+ * et que les cookies viennent du magasin de Next (voir authCookies).
  * Toute autre erreur d'écriture remonte.
  */
 async function readContext(): Promise<RequestContext> {
   const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
   return {
-    getCookies: () => extractNeonAuthCookies(headerStore),
+    getCookies: () => authCookies(cookieStore),
     setCookie(name, value, options) {
       try {
         cookieStore.set(name, value, options);
       } catch (error) {
-        if (error instanceof Error && RENDER_COOKIE_WRITE.test(error.message))
-          return;
+        if (isRenderCookieWriteError(error)) return;
         throw error;
       }
     },

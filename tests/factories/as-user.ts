@@ -1,7 +1,11 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
-import { createWithUserDb, type UserTx } from "../../src/db/user-db";
+import {
+  createWithUserDb,
+  type UserIdentity,
+  type UserTx,
+} from "../../src/db/user-db";
 
 // withUserDb réel (amorçage pg_session_jwt, set_config, vérification d'identité) sur la branche test,
 // en rôle app_backend (DATABASE_TEST_AUTHENTICATED_URL). Seule la vérification du jeton est remplacée :
@@ -9,7 +13,10 @@ import { createWithUserDb, type UserTx } from "../../src/db/user-db";
 // en production : le nettoyage passe par deleteCoreFixture.
 
 export type TestUserDb = {
-  asUser<T>(userId: string, fn: (tx: UserTx) => Promise<T>): Promise<T>;
+  asUser<T>(
+    userId: string,
+    fn: (tx: UserTx, identity: UserIdentity) => Promise<T>,
+  ): Promise<T>;
   end(): Promise<void>;
 };
 

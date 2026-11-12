@@ -3,6 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { syncSessionLocale } from "@/lib/session";
+
 import { HOME_PATH, LOGIN_PATH } from "./routes";
 import {
   requestResetSchema,
@@ -84,6 +86,8 @@ export async function signIn(
       email,
     };
   }
+  // Langue enregistrée du membre → NEXT_LOCALE, avant le premier rendu de l'app (ADR-007).
+  await syncSessionLocale();
   redirect(HOME_PATH);
 }
 

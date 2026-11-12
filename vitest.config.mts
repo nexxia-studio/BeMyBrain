@@ -65,7 +65,14 @@ for (const [name, testName] of [
 }
 
 export default defineConfig({
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    // `server-only` n'est pas une dépendance : Next l'aliase vers son exemplaire compilé. Sous Vitest
+    // (tests serveur), même alias vers la variante vide.
+    alias: {
+      "server-only": "next/dist/compiled/server-only/empty.js",
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],

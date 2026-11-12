@@ -18,7 +18,12 @@ import {
 import { CoreError } from "./errors";
 import { setMemberLocale } from "./mutations";
 import { renderSql } from "../../../tests/factories/render-sql";
-import { getMemberLocale, getWorkspaceForUser, listContexts } from "./queries";
+import {
+  getMemberLocale,
+  getMembership,
+  getWorkspaceForUser,
+  listContexts,
+} from "./queries";
 
 // Module core contre la branche Neon test : withUserDb réel en rôle app_backend (tests/factories/as-user.ts),
 // fixture préparée par le propriétaire. Double verrou : filtre applicatif + RLS.
@@ -174,6 +179,29 @@ describe("getWorkspaceForUser", () => {
     );
 
     expect(workspace).toBeNull();
+  });
+});
+
+describe("getMembership", () => {
+  it("un utilisateur sans appartenance n'obtient aucun workspace", async () => {
+    const stranger = randomUUID();
+
+    const membership = await db.asUser(stranger, (tx) =>
+      getMembership(stranger, tx),
+    );
+
+    expect(membership).toEqual({ workspace: null, locale: null });
+  });
+
+  it("renvoie le workspace et la locale enregistrée du membre", async () => {
+    const membership = await db.asUser(f.userA2, (tx) =>
+      getMembership(f.userA2, tx),
+    );
+
+    expect(membership).toEqual({
+      workspace: { id: f.workspaceA, name: `test-A-${f.run}` },
+      locale: "en",
+    });
   });
 });
 

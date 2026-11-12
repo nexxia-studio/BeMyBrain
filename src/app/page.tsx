@@ -1,13 +1,8 @@
-// Curseurs nexxia-design : VARIANCE, MOTION, DENSITY fixés avec DESIGN.md (tâche 12).
-// raccourci: page provisoire réduite au nom de l'app — remplacée par le tableau de bord (tâche 15).
-import { useTranslations } from "next-intl";
+import { redirect } from "next/navigation";
 
+import { HOME_PATH } from "@/lib/auth/routes";
+
+// raccourci: page provisoire — l'accueil de l'app est le tableau de bord (protégé par requireSession).
 export default function Home() {
-  const t = useTranslations("app");
-
-  return (
-    <main className="min-h-dvh bg-background text-foreground">
-      <h1>{t("name")}</h1>
-    </main>
-  );
+  redirect(HOME_PATH);
 }

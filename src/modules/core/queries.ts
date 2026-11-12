@@ -106,3 +106,22 @@ export async function getMemberLocale(
   // CHECK workspace_members_locale_check : locale ∈ ('fr', 'en').
   return locale === undefined ? null : localeSchema.parse(locale);
 }
+
+export type Membership = {
+  workspace: Workspace | null;
+  locale: AppLocale | null;
+};
+
+/**
+ * Workspace et langue de l'utilisateur de la session, lus dans la même transaction (requireSession).
+ * Sans appartenance : `{ workspace: null, locale: null }`, rien n'est créé.
+ */
+export async function getMembership(
+  userId: string,
+  tx: UserTx,
+): Promise<Membership> {
+  const workspace = await getWorkspaceForUser(userId, tx);
+  if (!workspace) return { workspace: null, locale: null };
+  const locale = await getMemberLocale(workspace.id, userId, tx);
+  return { workspace, locale };
+}

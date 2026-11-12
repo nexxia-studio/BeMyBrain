@@ -199,6 +199,19 @@ describe("withUserDb", () => {
     expect(result).toBe(tx);
   });
 
+  it("fn reçoit le sub du jeton vérifié comme userId", async () => {
+    const { db } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const token = await signToken(trusted.privateKey);
+
+    const userId = await withUserDb(
+      token,
+      async (_tx, identity) => identity.userId,
+    );
+
+    expect(userId).toBe(USER_ID);
+  });
+
   it("amorce pg_session_jwt, pose les claims, puis vérifie l'identité appliquée avant fn", async () => {
     const { db, tx } = fakeDb();
     const withUserDb = createWithUserDb({

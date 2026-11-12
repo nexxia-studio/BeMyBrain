@@ -4,11 +4,17 @@ import { createRemoteJWKSet } from "jose";
 
 import { getAppEnv } from "@/env";
 
-import { createTokenVerifier, createWithUserDb, type UserTx } from "./user-db";
+import {
+  createTokenVerifier,
+  createWithUserDb,
+  type UserIdentity,
+  type UserTx,
+} from "./user-db";
 
 export {
   IdentityNotAppliedError,
   InvalidTokenError,
+  type UserIdentity,
   type UserTx,
 } from "./user-db";
 
@@ -37,10 +43,11 @@ function getInstance() {
 /**
  * Exécute `fn` dans une transaction du rôle app_backend, avec les claims du jeton
  * Neon Auth vérifié (signature JWKS, issuer, audience, exp, sub) exposés à la RLS via auth.uid().
+ * `fn` reçoit aussi `{ userId }` = le `sub` vérifié : seule source fiable de l'utilisateur courant.
  */
 export function withUserDb<T>(
   token: string,
-  fn: (tx: UserTx) => Promise<T>,
+  fn: (tx: UserTx, identity: UserIdentity) => Promise<T>,
 ): Promise<T> {
   return getInstance()(token, fn);
 }

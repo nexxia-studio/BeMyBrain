@@ -1,31 +1,18 @@
-import { render, screen } from "@testing-library/react";
-import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it } from "vitest";
+// @vitest-environment node
+import { describe, expect, it, vi } from "vitest";
 
-import messages from "../../messages/fr.json";
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  }),
+}));
 
 import Home from "./page";
 
-function renderHome() {
-  return render(
-    <NextIntlClientProvider locale="fr" messages={messages}>
-      <Home />
-    </NextIntlClientProvider>,
-  );
-}
+describe("page d'accueil provisoire", () => {
+  it("redirige vers /dashboard", () => {
+    const run = () => Home();
 
-describe("page d'accueil", () => {
-  it("affiche la page d'accueil sans erreur", () => {
-    renderHome();
-
-    expect(screen.getByRole("main")).toBeDefined();
-  });
-
-  it("affiche le nom de l'app depuis les messages", () => {
-    renderHome();
-
-    expect(
-      screen.getByRole("heading", { level: 1, name: messages.app.name }),
-    ).toBeDefined();
+    expect(run).toThrow("REDIRECT:/dashboard");
   });
 });

@@ -12,6 +12,8 @@ export type UserDb = NeonDatabase;
 export type UserTx = Parameters<Parameters<UserDb["transaction"]>[0]>[0];
 export type VerifiedClaims = JWTPayload & { sub: string };
 export type VerifyToken = (token: string) => Promise<VerifiedClaims>;
+/** Identité de la transaction : le `sub` du jeton vérifié, jamais une valeur fournie par l'appelant. */
+export type UserIdentity = { userId: string };
 
 /**
  * Jeton refusé. Message fixe, sans cause chaînée (l'erreur jose peut porter le payload) :
@@ -97,7 +99,7 @@ export function createWithUserDb(deps: {
 }) {
   return async function withUserDb<T>(
     token: string,
-    fn: (tx: UserTx) => Promise<T>,
+    fn: (tx: UserTx, identity: UserIdentity) => Promise<T>,
   ): Promise<T> {
     // Vérification AVANT toute connexion : un jeton refusé n'ouvre pas de transaction.
     const claims = await deps.verify(token);
@@ -123,7 +125,7 @@ export function createWithUserDb(deps: {
         );
         if (check.rows[0]?.applied !== true)
           throw new IdentityNotAppliedError();
-        return fn(tx);
+        return fn(tx, { userId: claims.sub });
       });
     } catch (error) {
       // Erreurs métier des modules : message = code, sans donnée (contrat de DomainError), donc non masquées.

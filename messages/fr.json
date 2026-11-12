@@ -38,6 +38,11 @@
     }
   },
   "dashboard": {
-    "title": "Tableau de bord"
+    "title": "Tableau de bord",
+    "workspace": "Espace de travail : <name></name>"
+  },
+  "noWorkspace": {
+    "title": "Aucun espace de travail",
+    "body": "Ce compte n'est rattaché à aucun espace de travail. Connecte-toi avec un autre compte."
   }
 }

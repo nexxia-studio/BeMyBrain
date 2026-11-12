@@ -1,0 +1,65 @@
+import "server-only";
+
+import { redirect } from "next/navigation";
+import { cache } from "react";
+
+import { getSessionToken } from "@/lib/auth/server";
+import { LOGIN_PATH, NO_WORKSPACE_PATH } from "@/lib/auth/routes";
+import { resolveMembership } from "@/modules/core/membership";
+
+import { syncLocaleCookie } from "./locale-cookie";
+
+export type AppSession = {
+  /** `sub` du JWT vérifié par withUserDb (jamais le cache de getSession()). */
+  userId: string;
+  workspaceId: string;
+  /** Saisi par l'utilisateur : affiché tel quel, jamais traduit. */
+  workspaceName: string;
+  /** JWT Neon Auth à passer à withUserDb par les lectures du rendu. */
+  token: string;
+};
+
+async function loadSession(): Promise<AppSession> {
+  const token = await getSessionToken();
+  if (!token) redirect(LOGIN_PATH);
+
+  // Vérifie le jeton (signature, iss, aud, exp) et lit l'appartenance en une seule transaction.
+  const { userId, workspace, locale } = await resolveMembership(token);
+  // Pas de création automatique ; la page cible est hors de (app) : pas de boucle.
+  if (!workspace) redirect(NO_WORKSPACE_PATH);
+  if (locale) await syncLocaleCookie(locale);
+
+  return {
+    userId,
+    workspaceId: workspace.id,
+    workspaceName: workspace.name,
+    token,
+  };
+}
+
+/**
+ * Session serveur résolue : utilisateur, workspace, JWT. Sans session → /login ; sans workspace →
+ * /no-workspace (les deux par `redirect`, qui interrompt aussi une Server Action).
+ * À appeler dans chaque page de (app), chaque lecture de données et au début de chaque Server Action
+ * non publique (règle frontend.md « Session ») : ni le proxy ni le layout ne suffisent.
+ * Mémoïsée par `cache` de React : le cache vit le temps d'un rendu (une requête) et n'est jamais
+ * partagé entre requêtes ; hors rendu (Server Action), chaque appel refait la vérification.
+ */
+export const requireSession = cache(loadSession);
+
+/**
+ * Juste après une connexion réussie (action signIn) : recopie la langue enregistrée du membre dans
+ * NEXT_LOCALE. Le JWT est obtenu avec les cookies que la connexion vient de poser (magasin de cookies de
+ * l'action). Ne redirige pas et ne lève jamais : un échec n'empêche pas la connexion, la langue sera
+ * recopiée à la prochaine action. Journal sans donnée (ni identifiant, ni message d'erreur).
+ */
+export async function syncSessionLocale(): Promise<void> {
+  try {
+    const token = await getSessionToken();
+    if (!token) return;
+    const { workspace, locale } = await resolveMembership(token);
+    if (workspace && locale) await syncLocaleCookie(locale);
+  } catch {
+    console.warn("[session] langue non recopiée après connexion");
+  }
+}

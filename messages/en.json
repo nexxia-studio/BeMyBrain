@@ -38,6 +38,11 @@
     }
   },
   "dashboard": {
-    "title": "Dashboard"
+    "title": "Dashboard",
+    "workspace": "Workspace: <name></name>"
+  },
+  "noWorkspace": {
+    "title": "No workspace",
+    "body": "This account isn't linked to any workspace. Sign in with another account."
   }
 }
