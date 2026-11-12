@@ -47,6 +47,23 @@ describe("withUserDb sur la branche de test", () => {
     expect(row).toEqual({ who: "app_backend", sub: USER_ID });
   });
 
+  it("sur un backend Postgres neuf, l'identité est visible dès la première transaction", async () => {
+    // Endpoint direct (sans -pooler) : une connexion neuve = un backend neuf, où pg_session_jwt
+    // n'est pas encore chargée (voir withUserDb).
+    const direct = new URL(url);
+    direct.hostname = direct.hostname.replace(/^([^.]+)-pooler\./, "$1.");
+    const pool = new Pool({ connectionString: direct.toString(), max: 1 });
+
+    const uid = await withUserDbOn(pool)("jeton-déjà-vérifié", async (tx) => {
+      const result = await tx.execute<{ uid: string | null }>(
+        sql`select app.current_user_id()::text as uid`,
+      );
+      return result.rows[0].uid;
+    }).finally(() => pool.end());
+
+    expect(uid).toBe(USER_ID);
+  });
+
   it("ne laisse aucun claim sur la connexion après la transaction", async () => {
     const after = await withSingleConnection(async (pool) => {
       await withUserDbOn(pool)("jeton-déjà-vérifié", (tx) =>
@@ -90,5 +107,16 @@ describe("withUserDb sur la branche de test", () => {
       create_public: false,
       create_app: false,
     });
+  });
+
+  it("app_backend ne possède aucune table, vue ni séquence", async () => {
+    const owned = await withSingleConnection(async (pool) => {
+      const result = await pool.query(
+        "select count(*)::int as n from pg_class where relowner = (select oid from pg_roles where rolname = current_user)",
+      );
+      return result.rows[0].n;
+    });
+
+    expect(owned).toBe(0);
   });
 });

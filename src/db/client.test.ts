@@ -121,7 +121,7 @@ describe("withUserDb", () => {
     const stubVerify = vi.fn(async () => verified);
     const withUserDb = createWithUserDb({ verify: stubVerify, db });
     const fn = vi.fn(async (received: UserTx) => {
-      expect(tx.execute).toHaveBeenCalledTimes(1);
+      expect(tx.execute).toHaveBeenCalledTimes(2);
       return received;
     });
 
@@ -129,13 +129,31 @@ describe("withUserDb", () => {
 
     expect(stubVerify).toHaveBeenCalledWith("jeton-brut");
     const query = new PgDialect().sqlToQuery(
-      tx.execute.mock.calls[0][0] as SQL,
+      tx.execute.mock.calls[1][0] as SQL,
     );
     expect(query.sql).toBe("select set_config('request.jwt.claims', $1, true)");
     expect(query.params).toStrictEqual([
       JSON.stringify({ sub: USER_ID, role: "authenticated", exp: 1763848395 }),
     ]);
     expect(result).toBe(tx);
+  });
+
+  it("charge pg_session_jwt avant de poser les claims", async () => {
+    const { db, tx } = fakeDb();
+    const withUserDb = createWithUserDb({
+      verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+      db,
+    });
+
+    await withUserDb("jeton-brut", async () => "lu");
+
+    const sqls = tx.execute.mock.calls.map(
+      ([query]) => new PgDialect().sqlToQuery(query as SQL).sql,
+    );
+    expect(sqls).toEqual([
+      "select app.current_user_id()",
+      "select set_config('request.jwt.claims', $1, true)",
+    ]);
   });
 
   it("une erreur SQL ne laisse passer ni params ni claims dans le message", async () => {

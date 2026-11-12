@@ -92,6 +92,10 @@ export function createWithUserDb(deps: {
     };
     try {
       return await deps.db.transaction(async (tx) => {
+        // Charge pg_session_jwt AVANT set_config : chargée plus tard dans la transaction, la bibliothèque
+        // redéfinit request.jwt.claims et efface la valeur locale (auth.uid() = NULL au premier appel
+        // d'un backend neuf). Constaté sur Neon le 2026-11-12.
+        await tx.execute(sql`select app.current_user_id()`);
         // `true` = portée transaction : les claims disparaissent au COMMIT / ROLLBACK.
         await tx.execute(
           sql`select set_config('request.jwt.claims', ${JSON.stringify(injected)}, true)`,

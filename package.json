@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:test": "MIGRATION_TARGET=test drizzle-kit migrate"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

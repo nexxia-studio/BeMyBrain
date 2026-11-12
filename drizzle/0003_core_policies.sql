@@ -1,0 +1,7 @@
+CREATE POLICY "contexts_select" ON "contexts" AS PERMISSIVE FOR SELECT TO "app_backend" USING (app.is_workspace_member("contexts"."workspace_id"));--> statement-breakpoint
+CREATE POLICY "contexts_insert" ON "contexts" AS PERMISSIVE FOR INSERT TO "app_backend" WITH CHECK (app.is_workspace_member("contexts"."workspace_id"));--> statement-breakpoint
+CREATE POLICY "contexts_update" ON "contexts" AS PERMISSIVE FOR UPDATE TO "app_backend" USING (app.is_workspace_member("contexts"."workspace_id")) WITH CHECK (app.is_workspace_member("contexts"."workspace_id"));--> statement-breakpoint
+CREATE POLICY "contexts_delete" ON "contexts" AS PERMISSIVE FOR DELETE TO "app_backend" USING (app.is_workspace_member("contexts"."workspace_id"));--> statement-breakpoint
+CREATE POLICY "workspace_members_select" ON "workspace_members" AS PERMISSIVE FOR SELECT TO "app_backend" USING (app.is_workspace_member("workspace_members"."workspace_id"));--> statement-breakpoint
+CREATE POLICY "workspace_members_update_own" ON "workspace_members" AS PERMISSIVE FOR UPDATE TO "app_backend" USING ("workspace_members"."user_id" = (select app.current_user_id())) WITH CHECK ("workspace_members"."user_id" = (select app.current_user_id()) and app.is_workspace_member("workspace_members"."workspace_id"));--> statement-breakpoint
+CREATE POLICY "workspaces_select" ON "workspaces" AS PERMISSIVE FOR SELECT TO "app_backend" USING (app.is_workspace_member("workspaces"."id"));
