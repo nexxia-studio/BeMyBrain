@@ -60,4 +60,35 @@ describe("withUserDb sur la branche de test", () => {
 
     expect(after).toBe("");
   });
+
+  it("app_backend n'a ni BYPASSRLS, ni superuser, ni appartenance à neon_superuser, ni droit CREATE sur public et app", async () => {
+    const privileges = await withSingleConnection(async (pool) => {
+      const result = await pool.query(`
+        select
+          r.rolbypassrls as bypass_rls,
+          r.rolsuper as superuser,
+          exists (
+            select 1 from pg_roles s
+            where s.rolname = 'neon_superuser'
+              and pg_has_role(current_user, s.oid, 'MEMBER')
+          ) as neon_superuser,
+          has_schema_privilege('public', 'CREATE') as create_public,
+          coalesce((
+            select has_schema_privilege(n.oid, 'CREATE')
+            from pg_namespace n where n.nspname = 'app'
+          ), false) as create_app
+        from pg_roles r
+        where r.rolname = current_user
+      `);
+      return result.rows[0];
+    });
+
+    expect(privileges).toEqual({
+      bypass_rls: false,
+      superuser: false,
+      neon_superuser: false,
+      create_public: false,
+      create_app: false,
+    });
+  });
 });

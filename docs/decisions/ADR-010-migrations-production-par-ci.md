@@ -9,7 +9,9 @@ Le 2026-11-12, une migration lancée en local a atterri sur la branche Neon `pro
 - Les migrations de production s'appliquent par un workflow GitHub Actions, au merge dans `main`, avant le déploiement Vercel. Même commande `pnpm db:migrate` que partout (ADR-005).
 - L'accès propriétaire de la production n'existe que dans les secrets GitHub (environnement protégé) et dans 1Password. Jamais dans un `.env` local, jamais dans les variables Vercel.
 - En local, `drizzle.config.ts` refuse toute cible égale à `NEON_PRODUCTION_HOST` (garde-fou testé).
-- Les previews migrent leur propre branche Neon ; leur accès propriétaire est limité à cette branche.
+- Les previews migrent aussi par la CI (GitHub Actions), sur leur propre branche Neon ; leur accès propriétaire est limité à cette branche et n'existe que dans la CI.
+- L'intégration Neon–Vercel est configurée pour ne pousser aucune variable propriétaire au runtime Vercel : seulement `DATABASE_AUTHENTICATED_URL` et les variables d'auth (`NEON_AUTH_*`). L'app refuse de démarrer sur Vercel si `DATABASE_URL` est définie (`src/env.ts`).
+- En local et en CI, seule la plateforme fait foi (`GITHUB_ACTIONS=true` ou `VERCEL=1`) ; `CI` seule ne lève pas le garde-fou.
 
 ## Alternatives écartées
 - Migration dans le build Vercel : l'URL propriétaire serait présente au runtime de toutes les fonctions.

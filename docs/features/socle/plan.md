@@ -114,6 +114,7 @@
   - Toute route sous `(app)` sans session valide → redirection vers `/login`. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
   - Jeton : figer `iss` sur un vrai jeton, ajouter la vérification d'`audience`, tests « refuse un iss étranger » et « refuse une audience étrangère » (TODO de `src/db/client.ts`).
   - Les JWKS sont propres à chaque branche (kid différents vérifiés le 2026-11-12) ; figer `iss` exact et `aud` par variable d'environnement.
+  - Aucune route n'appelle `withUserDb` avant que `iss` et `aud` soient figés.
   - Test à écrire d'abord : `e2e/acces-refuse.spec.ts` (scénario 3) — « un visiteur non connecté qui ouvre /dashboard voit l'écran de connexion et rien d'autre » ; `src/middleware.test.ts` — « laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session ».
   - Fini quand : tests verts, connexion réelle d'Antoine sur `dev`.
 
@@ -154,7 +155,7 @@
   - Fini quand : tests verts.
 
 - [ ] **17. Vercel, previews et CI** [manuel] + code (BRAIN-4)
-  - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement. Production : `pnpm db:migrate` par GitHub Actions au merge dans `main`, avant le déploiement ; accès propriétaire de prod uniquement en secret GitHub (environnement protégé), jamais dans Vercel (ADR-010). Previews : migration de leur propre branche.
+  - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement. Production : `pnpm db:migrate` par GitHub Actions au merge dans `main`, avant le déploiement ; accès propriétaire de prod uniquement en secret GitHub (environnement protégé), jamais dans Vercel (ADR-010). Previews : migration de leur propre branche, aussi par la CI. Intégration Neon–Vercel configurée pour ne pousser aucune variable propriétaire au runtime Vercel : seulement `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` (ADR-010).
   - Code : `.github/workflows/ci.yml` — lint, typecheck, tests unitaires (dont textes en dur et parité des clés), tests d'isolation sur une branche Neon créée pour le run puis supprimée.
   - Test : ouvrir une pull request de contrôle.
   - Fini quand : la PR a sa preview, sa branche Neon et une CI verte ; `main` déploie en production.

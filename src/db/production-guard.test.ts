@@ -48,10 +48,10 @@ describe("garde-fou contre la production", () => {
     expect(check).not.toThrow();
   });
 
-  it("autorise la CI sans NEON_PRODUCTION_HOST", () => {
+  it("autorise GitHub Actions sans NEON_PRODUCTION_HOST", () => {
     const env = {
       DATABASE_URL: `postgresql://owner:pw@${PROD_HOST}/app`,
-      CI: "true",
+      GITHUB_ACTIONS: "true",
     };
 
     const check = () => assertNotProductionTarget(env);
@@ -80,5 +80,29 @@ describe("garde-fou contre la production", () => {
 
     expect(check).toThrow(/DATABASE_URL/);
     expect(check).not.toThrow(/pas-une-url-secrete/);
+  });
+
+  it("ne fait plus confiance à CI seule", () => {
+    const env = {
+      DATABASE_URL: `postgresql://owner:pw@${PROD_HOST}/app`,
+      CI: "true",
+    };
+
+    const check = () => assertNotProductionTarget(env);
+
+    expect(check).toThrow(/NEON_PRODUCTION_HOST/);
+  });
+
+  it.each([
+    ["une URL complète", `postgresql://owner:pw@${PROD_HOST}/app`],
+    ["un identifiant", `owner@${PROD_HOST}`],
+    ["un chemin", `${PROD_HOST}/app`],
+  ])("refuse NEON_PRODUCTION_HOST qui contient %s", (_label, value) => {
+    const env = { DATABASE_URL: DEV_URL, NEON_PRODUCTION_HOST: value };
+
+    const check = () => assertNotProductionTarget(env);
+
+    expect(check).toThrow(/NEON_PRODUCTION_HOST/);
+    expect(check).not.toThrow(/ep-prod|example\.test|owner/);
   });
 });

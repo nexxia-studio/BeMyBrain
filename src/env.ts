@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 // Imports relatifs : ce fichier est aussi chargé par drizzle.config.ts, hors alias tsconfig.
+import { parseEnv, type EnvSource } from "./db/parse-env";
 import { assertSameHost } from "./db/production-guard";
 
 const httpsUrl = () => z.url({ protocol: /^https$/ });
@@ -15,27 +16,14 @@ const appEnvSchema = z.object({
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;
-export type EnvSource = Record<string, string | undefined>;
-
-export function parseEnv<T extends z.ZodType>(
-  schema: T,
-  source: EnvSource,
-): z.infer<T> {
-  const result = schema.safeParse(source);
-  if (result.success) return result.data;
-  // Seuls le nom de la variable et la nature du problème sortent : jamais la valeur.
-  const problems = result.error.issues.map((issue) => {
-    const name = issue.path.join(".");
-    const reason =
-      issue.code === "invalid_type" ? "manquante" : "format invalide";
-    return `${name} (${reason})`;
-  });
-  throw new Error(
-    `Variables d'environnement invalides : ${problems.join(", ")}. Voir .env.example.`,
-  );
-}
 
 export function parseAppEnv(source: EnvSource): AppEnv {
+  // L'URL propriétaire n'existe jamais au runtime Vercel (ADR-010).
+  if (source.VERCEL === "1" && source.DATABASE_URL) {
+    throw new Error(
+      "DATABASE_URL est définie au runtime Vercel : retirer cette variable du projet Vercel (ADR-010).",
+    );
+  }
   const env = parseEnv(appEnvSchema, source);
   // Si l'URL propriétaire est aussi définie (local), elle doit viser la même branche.
   assertSameHost(source, "DATABASE_URL", "DATABASE_AUTHENTICATED_URL");

@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { parseEnv, type EnvSource } from "../env";
-
+import { parseEnv, type EnvSource } from "./parse-env";
 import { assertSameHost } from "./production-guard";
 
 // Variables réservées aux migrations et au seed (rôle propriétaire).

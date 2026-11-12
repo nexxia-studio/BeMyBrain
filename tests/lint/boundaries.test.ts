@@ -241,4 +241,131 @@ describe("frontières d'import", () => {
 
     expect(errors).toHaveLength(0);
   });
+
+  it("eslint refuse import { env } de node:process dans src/app", async () => {
+    const code = 'import { env } from "node:process";\nexport const x = env;\n';
+
+    const errors = await restrictedImportRules(code, "src/app/probe.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse import { env } de process dans src/i18n", async () => {
+    const code = 'import { env } from "process";\nexport const x = env;\n';
+
+    const errors = await restrictedImportRules(code, "src/i18n/x.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse globalThis.process.env dans src/modules", async () => {
+    const code = "export const x = globalThis.process.env.ANYTHING;\n";
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse process.env[variable] dans src/app", async () => {
+    const code =
+      'const name = "DATABASE_" + "URL";\nexport const x = process.env[name];\n';
+
+    const errors = await restrictedImportRules(code, "src/app/probe.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse un import dynamique dont la source est une variable", async () => {
+    const code =
+      'const path = "@/db/admin";\nexport const load = () => import(path);\n';
+
+    const errors = await restrictedImportRules(code, "src/i18n/x.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse un import dynamique dont la source est un template literal", async () => {
+    const code =
+      'const name = "admin";\nexport const load = () => import(`@/db/${name}`);\n';
+
+    const errors = await restrictedImportRules(code, "src/i18n/x.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse require vers db/ avec un message ADR-002", async () => {
+    const code = 'export const db = require("@/db/admin");\n';
+
+    const errors = await restrictedImportRules(code, "src/i18n/x.ts");
+
+    expect(errors.some((message) => message.includes("ADR-002"))).toBe(true);
+  });
+
+  it("eslint refuse pg dans src/modules", async () => {
+    const code = 'import { Client } from "pg";\nexport const x = Client;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse postgres dans src/modules", async () => {
+    const code =
+      'import postgres from "postgres";\nexport const x = postgres;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse drizzle-orm/pg-core dans src/modules", async () => {
+    const code =
+      'import { pgTable } from "drizzle-orm/pg-core";\nexport const x = pgTable;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint autorise les opérateurs de drizzle-orm dans src/modules", async () => {
+    const code =
+      'import { and, eq } from "drizzle-orm";\nexport const x = [and, eq];\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it("eslint refuse @/db/client dans src/lib", async () => {
+    const code =
+      'import { withUserDb } from "@/db/client";\nexport const x = withUserDb;\n';
+
+    const errors = await restrictedImportRules(code, "src/lib/probe.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint refuse un import relatif vers db/ dans src/lib", async () => {
+    const code =
+      'import { withUserDb } from "../db/client";\nexport const x = withUserDb;\n';
+
+    const errors = await restrictedImportRules(code, "src/lib/probe.ts");
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
 });

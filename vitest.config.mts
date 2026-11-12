@@ -1,5 +1,11 @@
 import { defineConfig } from "vitest/config";
 
+import {
+  hostOfUrl,
+  isTrustedPlatform,
+  parseHostVariable,
+} from "./scripts/neon-host.mjs";
+
 // Variables des tests d'intégration (DATABASE_TEST_*) ; .env absent en CI, où elles viennent de l'environnement.
 // Même logique que src/lib/load-env-file.ts, recopiée ici : le chargeur natif de Vite refuse l'import d'un .ts CommonJS.
 try {
@@ -9,42 +15,38 @@ try {
 }
 
 // Garde-fou : la branche test est distincte de la branche locale et de la production.
-// Recopie de normalizeNeonHost (src/db/production-guard.ts), même raison que ci-dessus.
+// Logique d'hôte partagée avec src/db/production-guard.ts (scripts/neon-host.mjs, sans .ts).
 // Messages : noms de variables seulement.
-function host(name: string): string | undefined {
+function urlHost(name: string): string | undefined {
   const value = process.env[name];
-  if (!value) return undefined;
-  let hostname: string;
-  try {
-    hostname =
-      name === "NEON_PRODUCTION_HOST" ? value : new URL(value).hostname;
-  } catch {
-    throw new Error(`${name} n'est pas une URL de connexion lisible.`);
-  }
-  const [first, ...rest] = hostname.trim().toLowerCase().split(".");
-  return [first.replace(/-pooler$/, ""), ...rest].join(".");
+  return value ? hostOfUrl(value, name) : undefined;
 }
 
-const testHost = host("DATABASE_TEST_URL");
-const testAuthenticatedHost = host("DATABASE_TEST_AUTHENTICATED_URL");
+const testHost = urlHost("DATABASE_TEST_URL");
+const testAuthenticatedHost = urlHost("DATABASE_TEST_AUTHENTICATED_URL");
 if (testHost || testAuthenticatedHost) {
   if (testHost !== testAuthenticatedHost) {
     throw new Error(
       "DATABASE_TEST_URL et DATABASE_TEST_AUTHENTICATED_URL doivent viser la même branche Neon (test).",
     );
   }
-  if (testHost === host("DATABASE_URL")) {
-    throw new Error(
-      "DATABASE_TEST_URL vise la même branche que DATABASE_URL : tests arrêtés.",
-    );
+  for (const name of ["DATABASE_URL", "DATABASE_AUTHENTICATED_URL"]) {
+    if (testHost === urlHost(name)) {
+      throw new Error(
+        `DATABASE_TEST_URL vise la même branche que ${name} : tests arrêtés.`,
+      );
+    }
   }
-  const productionHost = host("NEON_PRODUCTION_HOST");
-  if (!productionHost && !process.env.CI && process.env.VERCEL !== "1") {
+  const productionHostValue = process.env.NEON_PRODUCTION_HOST;
+  if (!productionHostValue && !isTrustedPlatform(process.env)) {
     throw new Error(
       "NEON_PRODUCTION_HOST manquante : obligatoire en local pour vérifier que DATABASE_TEST_URL ne vise pas la production.",
     );
   }
-  if (testHost === productionHost) {
+  if (
+    productionHostValue &&
+    testHost === parseHostVariable(productionHostValue, "NEON_PRODUCTION_HOST")
+  ) {
     throw new Error(
       "DATABASE_TEST_URL vise NEON_PRODUCTION_HOST : tests arrêtés.",
     );

@@ -87,4 +87,17 @@ describe("variables d'environnement de l'app", () => {
 
     expect(parse).not.toThrow();
   });
+
+  it("refuse de démarrer sur Vercel si DATABASE_URL est définie", () => {
+    const source = {
+      ...validAppEnv,
+      VERCEL: "1",
+      DATABASE_URL: "postgresql://owner:pw@ep-test-123.db.example.test/app",
+    };
+
+    const parse = () => parseAppEnv(source);
+
+    expect(parse).toThrow(/DATABASE_URL/);
+    expect(parse).not.toThrow(/ep-|example|postgres/);
+  });
 });
