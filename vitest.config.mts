@@ -69,6 +69,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],
+    // @neon/auth importe « next/headers » sans extension : Node ESM refuse (next n'a pas de champ
+    // exports). Transformé par Vite, l'import se résout comme dans Next.
+    server: { deps: { inline: ["@neon/auth"] } },
     include: [
       "src/**/*.test.{ts,tsx}",
       "tests/**/*.test.{ts,tsx}",

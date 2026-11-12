@@ -66,13 +66,16 @@ function sqlStateOf(error: unknown): string | undefined {
 
 export function createTokenVerifier(
   keys: JWTVerifyGetKey,
-  options: { issuer: string },
+  options: { issuer: string; audience: string },
 ): VerifyToken {
   return async (token) => {
     let payload: JWTPayload;
     try {
       ({ payload } = await jwtVerify(token, keys, {
+        // iss et aud exacts de la branche (variables d'environnement) : un jeton d'une autre
+        // branche Neon Auth ou destiné à un autre service est refusé.
         issuer: options.issuer,
+        audience: options.audience,
         // Neon Auth signe en EdDSA (Ed25519), vérifié sur le JWKS de dev le 2026-11-12.
         algorithms: ["EdDSA"],
         requiredClaims: ["exp"],

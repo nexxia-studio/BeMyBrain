@@ -2,5 +2,41 @@
   "app": {
     "name": "BeMyBrain",
     "description": "Ton second cerveau : tâches, finances, santé, maison et clients au même endroit."
+  },
+  "auth": {
+    "signOut": "Se déconnecter",
+    "login": {
+      "title": "Connexion",
+      "email": "E-mail",
+      "password": "Mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion…",
+      "forgotPassword": "Mot de passe oublié ?",
+      "resetDone": "Mot de passe enregistré. Tu peux te connecter."
+    },
+    "reset": {
+      "title": "Nouveau mot de passe",
+      "intro": "Saisis ton e-mail : tu recevras un code pour choisir un nouveau mot de passe.",
+      "email": "E-mail",
+      "sendCode": "Recevoir un code",
+      "sending": "Envoi…",
+      "codeSent": "Si un compte existe pour cette adresse, un code vient d'y être envoyé.",
+      "code": "Code reçu par e-mail",
+      "newPassword": "Nouveau mot de passe",
+      "passwordHint": "8 caractères minimum.",
+      "submit": "Enregistrer le mot de passe",
+      "submitting": "Enregistrement…",
+      "backToLogin": "Retour à la connexion"
+    },
+    "errors": {
+      "invalidCredentials": "Identifiants invalides.",
+      "unavailable": "Service momentanément indisponible. Réessaie dans un instant.",
+      "invalidEmail": "Adresse e-mail invalide.",
+      "invalidCode": "Code invalide ou expiré.",
+      "weakPassword": "Le mot de passe doit contenir au moins 8 caractères."
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord"
   }
 }

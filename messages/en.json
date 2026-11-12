@@ -2,5 +2,41 @@
   "app": {
     "name": "BeMyBrain",
     "description": "Your second brain: tasks, finances, health, home and clients in one place."
+  },
+  "auth": {
+    "signOut": "Sign out",
+    "login": {
+      "title": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "forgotPassword": "Forgot password?",
+      "resetDone": "Password saved. You can sign in."
+    },
+    "reset": {
+      "title": "New password",
+      "intro": "Enter your email: you'll get a code to choose a new password.",
+      "email": "Email",
+      "sendCode": "Get a code",
+      "sending": "Sending…",
+      "codeSent": "If an account exists for this address, a code has just been sent to it.",
+      "code": "Code from the email",
+      "newPassword": "New password",
+      "passwordHint": "At least 8 characters.",
+      "submit": "Save password",
+      "submitting": "Saving…",
+      "backToLogin": "Back to sign in"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid credentials.",
+      "unavailable": "Service temporarily unavailable. Try again in a moment.",
+      "invalidEmail": "Invalid email address.",
+      "invalidCode": "Invalid or expired code.",
+      "weakPassword": "Password must be at least 8 characters."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard"
   }
 }

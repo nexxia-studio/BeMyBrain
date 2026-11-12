@@ -24,20 +24,19 @@ function getInstance() {
     console.error("Erreur sur une connexion inactive du pool app_backend.");
   });
   const db = drizzle({ client: pool });
-  const jwksUrl = new URL(env.NEON_AUTH_JWKS_URL);
-  const verify = createTokenVerifier(createRemoteJWKSet(jwksUrl), {
-    // raccourci: issuer = origine du JWKS, comme l'exemple de la doc Neon « RLS query execution » ;
-    // ni iss ni aud ne sont documentés pour Neon Auth et aucun jeton réel n'existe encore — TODO tâche 10 :
-    // décoder un vrai jeton sur dev, figer iss exact et ajouter la vérification d'audience.
-    issuer: jwksUrl.origin,
-  });
+  const verify = createTokenVerifier(
+    createRemoteJWKSet(new URL(env.NEON_AUTH_JWKS_URL)),
+    // Neon Auth pose iss = aud = origine de l'URL Neon Auth de la branche (doc Neon « JWT »,
+    // vérifiée le 2026-11-12) ; figés par variable d'environnement, une valeur par branche.
+    { issuer: env.NEON_AUTH_ISSUER, audience: env.NEON_AUTH_AUDIENCE },
+  );
   instance = createWithUserDb({ verify, db });
   return instance;
 }
 
 /**
  * Exécute `fn` dans une transaction du rôle app_backend, avec les claims du jeton
- * Neon Auth vérifié (signature JWKS, issuer, exp, sub) exposés à la RLS via auth.uid().
+ * Neon Auth vérifié (signature JWKS, issuer, audience, exp, sub) exposés à la RLS via auth.uid().
  */
 export function withUserDb<T>(
   token: string,

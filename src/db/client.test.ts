@@ -24,6 +24,7 @@ import {
 } from "./user-db";
 
 const ISSUER = "https://auth.example.test";
+const AUDIENCE = "https://auth.example.test";
 const USER_ID = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 
 type KeyPair = Awaited<ReturnType<typeof generateKeyPair>>;
@@ -37,17 +38,19 @@ beforeAll(async () => {
   const jwk = await exportJWK(trusted.publicKey);
   verify = createTokenVerifier(
     createLocalJWKSet({ keys: [{ ...jwk, alg: "EdDSA" }] }),
-    { issuer: ISSUER },
+    { issuer: ISSUER, audience: AUDIENCE },
   );
 });
 
 function signToken(
   privateKey: KeyPair["privateKey"],
   claims: JWTPayload = { sub: USER_ID, role: "authenticated" },
+  { issuer = ISSUER, audience = AUDIENCE } = {},
 ) {
   return new SignJWT(claims)
     .setProtectedHeader({ alg: "EdDSA" })
-    .setIssuer(ISSUER)
+    .setIssuer(issuer)
+    .setAudience(audience)
     .setIssuedAt()
     .setExpirationTime("15m")
     .sign(privateKey);
@@ -73,6 +76,58 @@ describe("withUserDb", () => {
     const run = withUserDb(forged, async () => "lu");
 
     await expect(run).rejects.toBeInstanceOf(InvalidTokenError);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("accepte un jeton signé avec l'iss et l'audience attendus", async () => {
+    const token = await signToken(trusted.privateKey);
+
+    const claims = await verify(token);
+
+    expect(claims.sub).toBe(USER_ID);
+  });
+
+  it("refuse un iss étranger", async () => {
+    const { db, transaction } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const token = await signToken(trusted.privateKey, undefined, {
+      issuer: "https://auth.autre-branche.example.test",
+    });
+
+    const error = await withUserDb(token, async () => "lu").catch((e) => e);
+
+    expect(error).toBeInstanceOf(InvalidTokenError);
+    expect(error.code).toBe("ERR_JWT_CLAIM_VALIDATION_FAILED");
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuse une audience étrangère", async () => {
+    const { db, transaction } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const token = await signToken(trusted.privateKey, undefined, {
+      audience: "https://app-tierce.example.test",
+    });
+
+    const error = await withUserDb(token, async () => "lu").catch((e) => e);
+
+    expect(error).toBeInstanceOf(InvalidTokenError);
+    expect(error.code).toBe("ERR_JWT_CLAIM_VALIDATION_FAILED");
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuse un jeton sans audience", async () => {
+    const { db, transaction } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const token = await new SignJWT({ sub: USER_ID, role: "authenticated" })
+      .setProtectedHeader({ alg: "EdDSA" })
+      .setIssuer(ISSUER)
+      .setIssuedAt()
+      .setExpirationTime("15m")
+      .sign(trusted.privateKey);
+
+    const error = await withUserDb(token, async () => "lu").catch((e) => e);
+
+    expect(error).toBeInstanceOf(InvalidTokenError);
     expect(transaction).not.toHaveBeenCalled();
   });
 

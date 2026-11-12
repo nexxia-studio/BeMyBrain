@@ -38,7 +38,7 @@
 - `drizzle-orm`, `drizzle-kit` — ADR-001.
 - `@neondatabase/serverless` — pilote Neon requis pour les transactions de `withUserDb()`.
 - `jose` — vérification du jeton Neon Auth par JWKS.
-- SDK Neon Auth (nom exact du paquet vérifié à la tâche 10) — ADR-003.
+- `@neon/auth` (0.8.2, SDK officiel Neon Auth, vérifié le 2026-11-12 ; l'ancien nom `@neondatabase/auth` est figé en 0.7.0-beta) — ADR-003.
 - `zod` — validation des entrées (règle `neon.md`).
 - `next-intl` — ADR-007.
 - `motion` — ADR-006, interactions.
@@ -124,12 +124,14 @@
   - Fini quand : Antoine se connecte sur `dev` via Neon Auth et la réponse au point « preview » est notée dans `docs/gotchas.md`.
 
 - [ ] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
-  - Fichiers : `src/lib/auth/` (client et serveur Neon Auth), `src/app/(auth)/login/page.tsx`, `src/middleware.ts`, `src/app/(app)/layout.tsx`, `messages/*.json`
-  - Toute route sous `(app)` sans session valide → redirection vers `/login`. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
-  - Jeton : figer `iss` sur un vrai jeton, ajouter la vérification d'`audience`, tests « refuse un iss étranger » et « refuse une audience étrangère » (TODO de `src/db/client.ts`).
-  - Les JWKS sont propres à chaque branche (kid différents vérifiés le 2026-11-12) ; figer `iss` exact et `aud` par variable d'environnement.
-  - Aucune route n'appelle `withUserDb` avant que `iss` et `aud` soient figés.
-  - Test à écrire d'abord : `e2e/acces-refuse.spec.ts` (scénario 3) — « un visiteur non connecté qui ouvre /dashboard voit l'écran de connexion et rien d'autre » ; `src/middleware.test.ts` — « laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session ».
+  - Fichiers : `src/lib/auth/` (`server.ts` : `getAuth`, `getSession`, `getSessionToken` ; `actions.ts` : actions serveur ; `routes.ts` ; `schemas.ts`), `src/proxy.ts` (convention Next 16, remplace `middleware.ts`), `src/app/(auth)/login/page.tsx`, `src/app/(auth)/reset-password/page.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/dashboard/page.tsx`, `src/components/auth/`, `messages/*.json`
+  - Toute route sans session valide → redirection vers `/login` (proxy, puis second verrou dans le layout de `(app)`). Publiques : `/login`, `/reset-password`, `/manifest.webmanifest`, `/icons` ; les assets statiques sont hors du matcher. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
+  - Connexion, déconnexion et réinitialisation passent par des actions serveur (`@neon/auth/next/server`) : pas de client navigateur, pas de route `/api/auth` montée (l'API d'inscription n'est pas exposée par l'app).
+  - Réinitialisation par code e-mail : `emailOtp.sendVerificationOtp({ type: "forget-password" })` puis `emailOtp.resetPassword` ; crée le mot de passe d'un compte qui n'en a pas (Better Auth 1.7). Réponse identique que le compte existe ou non.
+  - Cookies du SDK : `__Secure-neon-auth.*`, toujours `HttpOnly` et `Secure`, `sameSite: "lax"` posé explicitement (la doc Neon annonce `strict`, le code 0.8.2 applique `lax`).
+  - Jeton : `iss` et `aud` vérifiés, figés par `NEON_AUTH_ISSUER` et `NEON_AUTH_AUDIENCE` (= origine de `NEON_AUTH_BASE_URL`, doc Neon « JWT » du 2026-11-05 ; pas de vrai jeton décodé : aucun compte avec mot de passe à ce stade). JWT obtenu par `auth.token()` (endpoint `/token`), jamais `session.token` (jeton opaque). Aucune route n'appelle encore `withUserDb`.
+  - Faits : `src/db/client.test.ts` (« refuse un iss étranger », « refuse une audience étrangère », « refuse un jeton sans audience ») ; `src/proxy.test.ts` (« laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session », cookie forgé, matcher) ; `e2e/acces-refuse.spec.ts` (scénario 3, desktop, vert contre `pnpm dev`).
+  - Reste : connexion réelle d'Antoine sur `dev` (définir le mot de passe par « mot de passe oublié »), puis décoder un vrai jeton (`iss`, `aud`, `alg`, `kid` seulement) pour confirmer `NEON_AUTH_ISSUER` / `NEON_AUTH_AUDIENCE` ; vérifier sur `dev` que l'API d'inscription de Neon Auth refuse et que l'Email OTP est actif.
   - Fini quand : tests verts, connexion réelle d'Antoine sur `dev`.
 
 - [ ] **11. Résoudre le workspace et la langue depuis la session** [security] (BRAIN-5, BRAIN-6)

@@ -13,7 +13,12 @@ export default defineConfig({
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["iPhone 15"] } },
+    // Scénarios sans variante mobile (spec) : tag @desktop, exclus ici.
+    {
+      name: "mobile",
+      use: { ...devices["iPhone 15"] },
+      grepInvert: /@desktop/,
+    },
   ],
   webServer: {
     command: "pnpm dev",
