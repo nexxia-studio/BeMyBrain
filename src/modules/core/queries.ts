@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import type { UserTx } from "@/db/client";
 import { contexts, workspaceMembers, workspaces } from "@/db/schema/core";
@@ -30,6 +30,7 @@ export type Context = {
 /**
  * Premier workspace dont `userId` est membre (created_at puis id), ou null.
  * Exception à « workspaceId en premier » : c'est cette lecture qui le produit (requireSession, tâche 11).
+ * `userId` doit être l'utilisateur de la session (app.current_user_id()) : sinon null, même pour un co-membre.
  */
 export async function getWorkspaceForUser(
   userId: string,
@@ -43,7 +44,13 @@ export async function getWorkspaceForUser(
       workspaceMembers,
       eq(workspaceMembers.workspaceId, workspaces.id),
     )
-    .where(eq(workspaceMembers.userId, user))
+    .where(
+      and(
+        eq(workspaceMembers.userId, user),
+        // userId ne peut désigner que l'utilisateur de la session : la RLS laisse voir les co-membres.
+        eq(workspaceMembers.userId, sql`(select app.current_user_id())`),
+      ),
+    )
     .orderBy(asc(workspaces.createdAt), asc(workspaces.id))
     .limit(1);
   return rows[0] ?? null;
@@ -69,8 +76,8 @@ export async function listContexts(
     .orderBy(asc(contexts.position), asc(contexts.name));
   return rows.map(({ kind, ...rest }) => ({
     ...rest,
-    // CHECK contexts_kind_check : kind ∈ ('private', 'pro').
-    side: kind as Side,
+    // CHECK contexts_kind_check : kind ∈ ('private', 'pro') ; validé quand même, pas de cast.
+    side: sideSchema.parse(kind),
   }));
 }
 

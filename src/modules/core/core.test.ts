@@ -11,6 +11,7 @@ import {
   deleteCoreFixture,
   insertContexts,
   insertCoreFixture,
+  insertDualMember,
   newCoreFixture,
 } from "../../../tests/factories/core";
 import { CoreError } from "./errors";
@@ -34,6 +35,7 @@ const f = newCoreFixture();
 
 beforeAll(async () => {
   await insertCoreFixture(owner, f);
+  await insertDualMember(owner, f);
   // A : ctx-A (private, 0) de la fixture + Trustup et Nexxia (pro). B : ctx-B (pro, 0) + deux pro à égalité.
   await insertContexts(owner, f.workspaceA, [
     { name: "Nexxia", kind: "pro", position: 2 },
@@ -88,14 +90,25 @@ describe("listContexts", () => {
   });
 
   it("un workspaceId étranger renvoie une liste vide", async () => {
-    const contexts = await db.asUser(f.userB, (tx) =>
-      Promise.all([
-        listContexts(f.workspaceA, { side: "pro" }, tx),
-        listContexts(f.workspaceA, { side: "private" }, tx),
-      ]),
-    );
+    const contexts = await db.asUser(f.userB, async (tx) => {
+      const pro = await listContexts(f.workspaceA, { side: "pro" }, tx);
+      const privateSide = await listContexts(
+        f.workspaceA,
+        { side: "private" },
+        tx,
+      );
+      return [pro, privateSide];
+    });
 
     expect(contexts).toEqual([[], []]);
+  });
+
+  it("un membre de A et de B ne voit dans listContexts(A) que les contextes de A", async () => {
+    const contexts = await db.asUser(f.userAB, (tx) =>
+      listContexts(f.workspaceA, { side: "pro" }, tx),
+    );
+
+    expect(contexts.map((c) => c.name)).toEqual(["Trustup", "Nexxia"]);
   });
 
   it("refuse un côté inconnu", async () => {
@@ -124,6 +137,14 @@ describe("getWorkspaceForUser", () => {
     expect(workspace).toEqual({ id: f.workspaceB, name: `test-B-${f.run}` });
   });
 
+  it("un membre ne résout pas le workspace d'un co-membre", async () => {
+    const workspace = await db.asUser(f.userA2, (tx) =>
+      getWorkspaceForUser(f.userA, tx),
+    );
+
+    expect(workspace).toBeNull();
+  });
+
   it("renvoie null pour un utilisateur sans appartenance", async () => {
     const stranger = randomUUID();
 
@@ -150,6 +171,16 @@ describe("getMemberLocale", () => {
     );
 
     expect(locale).toBe("fr");
+  });
+
+  it("getMemberLocale(B) renvoie sa locale de B, pas celle de A", async () => {
+    const locales = await db.asUser(f.userAB, async (tx) => {
+      const inA = await getMemberLocale(f.workspaceA, f.userAB, tx);
+      const inB = await getMemberLocale(f.workspaceB, f.userAB, tx);
+      return [inA, inB];
+    });
+
+    expect(locales).toEqual(["fr", "en"]);
   });
 
   it("renvoie null pour un membre d'un workspace étranger", async () => {

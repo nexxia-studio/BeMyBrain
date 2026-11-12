@@ -16,6 +16,8 @@ export type CoreFixture = {
   userA2: string;
   /** owner de B */
   userB: string;
+  /** member de A (locale fr) ET de B (locale en), inséré seulement par insertDualMember */
+  userAB: string;
   contextA: string;
   contextB: string;
 };
@@ -34,6 +36,7 @@ export function newCoreFixture(): CoreFixture {
     userA: randomUUID(),
     userA2: randomUUID(),
     userB: randomUUID(),
+    userAB: randomUUID(),
     contextA: randomUUID(),
     contextB: randomUUID(),
   };
@@ -82,6 +85,21 @@ export async function deleteCoreFixture(
     [ids],
   );
   await owner.query("delete from workspaces where id = any($1)", [ids]);
+}
+
+/**
+ * Rattache userAB à A (fr) et à B (en). À part d'insertCoreFixture : les tests d'isolation comptent
+ * les membres de chaque workspace et supposent des membres disjoints.
+ */
+export async function insertDualMember(
+  owner: Pool,
+  f: CoreFixture,
+): Promise<void> {
+  await owner.query(
+    `insert into workspace_members (workspace_id, user_id, role, locale) values
+      ($1, $3, 'member', 'fr'), ($2, $3, 'member', 'en')`,
+    [f.workspaceA, f.workspaceB, f.userAB],
+  );
 }
 
 export type ContextRow = {

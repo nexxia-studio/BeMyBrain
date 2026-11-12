@@ -10,5 +10,7 @@ export class CoreError extends DomainError {
   declare readonly code: CoreErrorCode;
   constructor(code: CoreErrorCode) {
     super(code);
+    // En dur : résiste à la minification (voir DomainError).
+    this.name = "CoreError";
   }
 }
