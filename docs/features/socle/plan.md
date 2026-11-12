@@ -24,7 +24,7 @@
 - **Mobile** (ADR-008) : mobile d'abord, PWA installable via `src/app/manifest.ts`, pas de service worker. Logique métier dans `src/modules/` uniquement, sans import de React ni de Next.
 - **Inscription publique** : désactivée dans la config Neon Auth de chaque branche ; le compte d'Antoine est créé à la main.
 - **Domaine** : sous-domaine Vercel. L'URL publique n'existe que dans les variables d'environnement.
-- **Thème** : sombre d'abord, couleurs en tokens.
+- **Thème** : clair d'abord, couleurs en tokens pour le sombre plus tard (révisé le 2026-11-12 : référence visuelle validée par Antoine, `docs/design/references/dashboard-desktop.dc.html` et `dashboard-mobile.dc.html`, source https://claude.ai/artifact/KrmtB4BtQbq1DKpdy7YULD).
 - **Région** : Neon et Vercel déjà à Francfort (ADR-005). Projet Sentry en région UE.
 - **Erreurs** : `@sentry/nextjs` dans l'app ; alertes vers un canal Slack par réglage Sentry (aucun code). Aucune donnée personnelle envoyée (`sendDefaultPii: false`, pas de corps de requête).
 - **Registre d'actions** (ADR-009) : `src/modules/actions/`, sans React ni Next. Chaque action : `name`, `description` (clé i18n), `params` (zod), `access` (`read`/`write`), `run(ctx, params)`. La palette passe par une Server Action unique.
@@ -119,14 +119,14 @@
   - Test à écrire d'abord : « `listContexts` côté Pro renvoie Trustup et Nexxia, pas Privé » ; « un workspaceId étranger renvoie une liste vide » ; « `setMemberLocale` refuse `de` ».
   - Fini quand : tests verts.
 
-- [ ] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5)
+- [x] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5)
   - Déjà fait le 2026-11-12 sur `production`, `dev` et `test` : inscription publique fermée, connexion Google partagée retirée.
   - Fait le 2026-11-12 : `localhost` retiré des origines autorisées sur `production` (gardé sur `dev`) ; compte d'Antoine créé sur `production` (id `2326061b-1e88-46fe-beac-eb0df219eb85`) et sur `dev` (id `9cdcc14d-5d44-45b5-8d8d-47d90a99652f`), sans mot de passe : défini par « mot de passe oublié » (code par e-mail) à la tâche 10 ; seed passé sur `dev` (workspace BeMyBrain, Privé / Trustup / Nexxia), rejoué sans doublon. L'id de production servira de `SEED_OWNER_USER_ID` au seed lancé par GitHub Actions (tâche 17).
   - Reste (tâche 17) : domaine de confiance = URL Vercel de production ; vérifier qu'une preview hérite bien du compte de `production`.
   - Prévu à l'origine : domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
   - Fini quand : Antoine se connecte sur `dev` via Neon Auth et la réponse au point « preview » est notée dans `docs/gotchas.md`.
 
-- [ ] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
+- [x] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
   - Fichiers : `src/lib/auth/` (`server.ts` : `getAuth`, `getSession`, `getSessionToken` ; `actions.ts` : actions serveur ; `routes.ts` ; `schemas.ts`), `src/proxy.ts` (convention Next 16, remplace `middleware.ts`), `src/app/(auth)/login/page.tsx`, `src/app/(auth)/reset-password/page.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/dashboard/page.tsx`, `src/components/auth/`, `messages/*.json`
   - Toute route sans session valide → redirection vers `/login` (proxy, puis second verrou dans le layout de `(app)`). Publiques : `/login`, `/reset-password`, `/manifest.webmanifest`, `/icons` ; les assets statiques sont hors du matcher. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
   - Connexion, déconnexion et réinitialisation passent par des actions serveur (`@neon/auth/next/server`) : pas de client navigateur, pas de route `/api/auth` montée (l'API d'inscription n'est pas exposée par l'app).
@@ -147,7 +147,7 @@
 
 - [ ] **12. Écrire PRODUCT.md et DESIGN.md** (BRAIN-3)
   - Fichiers : `PRODUCT.md`, `DESIGN.md`, `src/app/globals.css` (tokens)
-  - Skill `nexxia-design` + Impeccable, références `docs/design/references/`. Thème sombre, tokens prêts pour le clair. Fixe couleurs, typo (lisible en FR et EN, textes anglais plus courts, français plus longs), rayons, effets de verre, grille bento (mobile d'abord : 1 colonne à 390 px, puis tablette, puis desktop), zones tactiles ≥ 44 px, navigation au pouce. Mouvement : liste des moments signature GSAP et des interactions Motion (ADR-006), durées et easings. Icône d'app et couleur de thème pour la PWA.
+  - Skill `nexxia-design` + Impeccable, références `docs/design/references/`. Référence validée : `docs/design/references/dashboard-*.dc.html` (thème clair). À reprendre : verre dépoli clair (blanc ~58 %, flou 24 px, saturation 150 %, bord blanc 75 %, ombre bleutée douce) sur fond brume bleu-lilas (`#E8ECF5` + halos flous `#AFC0F4` / `#D6C6F2`) ; texte `#1B2033`, secondaire `#535A72` ; une seule tuile pleine indigo (`#3D4FD6`) pour « Aujourd'hui » ; rayons 24 px (barre mobile 30 px, pilules) ; Inter (texte) + Space Grotesk (titres, chiffres) via `next/font`. Tokens prêts pour un thème sombre. Fixe couleurs, typo (lisible en FR et EN, textes anglais plus courts, français plus longs), rayons, effets de verre, grille bento (mobile d'abord : 1 colonne à 390 px, puis tablette, puis desktop), zones tactiles ≥ 44 px, navigation au pouce. Mouvement : liste des moments signature GSAP et des interactions Motion (ADR-006), durées et easings. Icône d'app et couleur de thème pour la PWA.
   - Test : pas de test unitaire (document) ; contrôle `references/anti-slop.md` du skill.
   - Fini quand : Antoine valide DESIGN.md.
 
@@ -158,6 +158,7 @@
   - Fini quand : tests verts, audit d'installabilité Chrome (Lighthouse PWA ou DevTools > Application) sans erreur sur la preview.
 
 - [ ] **14. Coque : navigation et bascule Privé / Pro** (BRAIN-7)
+  - Référence (2026-11-12) : barre latérale gauche avec catégories dépliables sur ordinateur ; bascule Privé / Pro en haut ; sur mobile, barre d'onglets en bas avec le bouton d'ajout au centre (bouton rond indigo, sans action dans le socle hors palette, cf. tâche 20).
   - Fichiers : `src/app/(app)/layout.tsx`, `src/components/shell/`, `src/components/signature/side-switch.tsx`, `src/lib/preferences.ts`
   - Navigation au pouce (barre basse sur mobile, latérale sur desktop). Bascule Privé / Pro ; côté Pro, filtre Trustup / Nexxia / les deux. État dans les cookies `bmb_side` et `bmb_contexts`, lus côté serveur, validés par zod (valeur inconnue → Privé). Interactions en Motion ; l'effet signature de la bascule en GSAP, dans son composant chargé à la demande, joué une seule fois par session : les bascules suivantes sont instantanées.
   - Test à écrire d'abord : `src/lib/preferences.test.ts` — « une valeur de cookie inconnue retombe sur Privé » ; `e2e/bascule-prive-pro.spec.ts` (scénario 2, desktop + mobile) ; « la deuxième bascule ne déclenche aucune animation ».

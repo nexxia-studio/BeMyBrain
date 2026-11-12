@@ -62,5 +62,5 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 Tranchées le 2026-11-11 avec Antoine ; détail dans `plan.md`, § « Décisions prises dans ce plan ».
 - [x] Transmission de l'identité à la base pour la RLS → jeton de Neon Auth, vérifié côté serveur puis injecté dans la transaction ; les policies lisent `auth.user_id()`.
 - [x] Nom de domaine de production → sous-domaine Vercel pour le socle ; domaine dédié plus tard, sans changement de code.
-- [x] Thème → sombre d'abord, couleurs en tokens pour ajouter le clair plus tard.
+- [x] Thème → clair d'abord (référence visuelle validée par Antoine le 2026-11-12 : verre dépoli clair sur brume bleu-lilas), couleurs en tokens pour ajouter le sombre plus tard. Remplace « sombre d'abord » du 2026-11-11.
 - [x] Repo de la to-do existante → `nexxia-studio/todo-perso-pro` sur GitHub, à cartographier au `/feature tasks`.
