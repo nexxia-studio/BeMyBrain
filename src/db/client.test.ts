@@ -10,6 +10,8 @@ import {
 } from "jose";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { notFound, redirect } from "next/navigation";
+
 import { DomainError } from "@/lib/errors";
 
 import {
@@ -299,6 +301,33 @@ describe("withUserDb", () => {
     expect(error).toBe(thrown);
     expect(error.code).toBe("probe_failed");
   });
+
+  it.each([
+    ["redirect", () => redirect("/no-workspace")],
+    ["notFound", () => notFound()],
+  ])(
+    "relance telle quelle l'erreur de contrôle de Next levée par %s dans fn",
+    async (_label, control) => {
+      const { db } = fakeDb();
+      const withUserDb = createWithUserDb({
+        verify: async () => ({ sub: USER_ID, role: "authenticated" }),
+        db,
+      });
+      let thrown: unknown;
+
+      const error = await withUserDb("jeton-brut", async () => {
+        try {
+          control();
+        } catch (e) {
+          thrown = e;
+          throw e;
+        }
+      }).catch((e: unknown) => e);
+
+      expect(error).toBe(thrown);
+      expect(error).not.toBeInstanceOf(DatabaseError);
+    },
+  );
 
   it("une erreur quelconque de fn reste masquée en DatabaseError", async () => {
     const { db } = fakeDb();

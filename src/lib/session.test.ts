@@ -38,7 +38,11 @@ vi.mock("react", () => {
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
 
-import { requireSession, syncSessionLocale } from "./session";
+import {
+  requireSession,
+  requireSessionToken,
+  syncSessionLocale,
+} from "./session";
 
 const JWT_USER = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 const CACHED_USER = "5b1e2c3d-4f50-4a61-8b72-9c83d94ea0fb";
@@ -104,16 +108,39 @@ describe("requireSession", () => {
     expect(syncLocaleCookie).not.toHaveBeenCalled();
   });
 
-  it("renvoie userId, workspace et le JWT (jamais le jeton opaque)", async () => {
+  it("renvoie userId et workspace, résolus depuis le JWT", async () => {
     const session = await inRequest(() => requireSession());
 
     expect(session).toEqual({
       userId: JWT_USER,
       workspaceId: WORKSPACE.id,
       workspaceName: WORKSPACE.name,
-      token: "eyJ.jwt.signe",
     });
     expect(resolveMembership).toHaveBeenCalledWith("eyJ.jwt.signe");
+  });
+
+  it("la session exposée aux pages ne contient pas le jeton, même sérialisée", async () => {
+    const session = await inRequest(() => requireSession());
+
+    expect(JSON.stringify(session)).not.toContain("eyJ.jwt.signe");
+  });
+
+  it("requireSessionToken renvoie le JWT vérifié, sans seconde vérification dans la même requête", async () => {
+    const token = await inRequest(async () => {
+      await requireSession();
+      return requireSessionToken();
+    });
+
+    expect(token).toBe("eyJ.jwt.signe");
+    expect(resolveMembership).toHaveBeenCalledTimes(1);
+  });
+
+  it("requireSessionToken sans session redirige vers /login", async () => {
+    getSessionToken.mockResolvedValue(null);
+
+    const run = inRequest(() => requireSessionToken());
+
+    await expect(run).rejects.toThrow("REDIRECT:/login");
   });
 
   it("le userId est celui du JWT vérifié, pas celui du cache de session", async () => {

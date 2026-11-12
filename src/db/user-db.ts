@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 import { jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { DomainError } from "@/lib/errors";
@@ -128,6 +129,9 @@ export function createWithUserDb(deps: {
         return fn(tx, { userId: claims.sub });
       });
     } catch (error) {
+      // Erreurs de contrôle de Next levées dans fn (redirect, notFound…) : relancées telles quelles,
+      // sinon masquées en DatabaseError (doc Next « unstable_rethrow », 16.4).
+      unstable_rethrow(error);
       // Erreurs métier des modules : message = code, sans donnée (contrat de DomainError), donc non masquées.
       if (
         error instanceof IdentityNotAppliedError ||

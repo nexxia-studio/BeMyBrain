@@ -49,6 +49,15 @@ describe("page sans workspace", () => {
     expect(requireSession).not.toHaveBeenCalled();
   });
 
+  it("auth indisponible : laisse remonter l'erreur (page d'erreur), sans rediriger vers /login", async () => {
+    const unavailable = new Error("Service d'authentification indisponible");
+    getSession.mockRejectedValue(unavailable);
+
+    const run = NoWorkspacePage();
+
+    await expect(run).rejects.toBe(unavailable);
+  });
+
   it("sans session, redirige vers /login", async () => {
     getSession.mockResolvedValue(null);
 

@@ -163,12 +163,51 @@ describe("session serveur", () => {
     expect(session).toBeNull();
   });
 
-  it("renvoie null si l'auth est injoignable", async () => {
+  it("getSession lève « indisponible » si l'auth est injoignable", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
         throw new TypeError("fetch failed");
       }),
+    );
+
+    const run = getSession();
+
+    await expect(run).rejects.toBeInstanceOf(AuthUnavailableError);
+  });
+
+  it.each([
+    ["une erreur 500", 500],
+    ["une limite de tentatives (429)", 429],
+  ])("getSession lève « indisponible » sur %s", async (_label, status) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({}, { status })),
+    );
+
+    const run = getSession();
+
+    await expect(run).rejects.toBeInstanceOf(AuthUnavailableError);
+  });
+
+  it("getSession renvoie null sans cookie de session, sans appeler l'auth", async () => {
+    request.headers = new Headers();
+    request.cookies = actionCookieStore();
+    const fetchMock = vi.fn(async () => sessionResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const session = await getSession();
+
+    expect(session).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("getSession renvoie null quand l'auth refuse la session (401)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ message: "Unauthorized" }, { status: 401 }),
+      ),
     );
 
     const session = await getSession();
@@ -288,5 +327,18 @@ describe("session serveur", () => {
     const token = await getSessionToken();
 
     expect(token).toBeNull();
+  });
+});
+
+describe("configuration de l'auth", () => {
+  it("une configuration invalide n'est pas confondue avec une indisponibilité de l'auth", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEON_AUTH_COOKIE_SECRET", "trop-court");
+    const fresh = await import("./server");
+
+    const error = await fresh.getSessionToken().catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(fresh.AuthUnavailableError);
   });
 });

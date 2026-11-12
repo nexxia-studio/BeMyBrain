@@ -15,14 +15,11 @@ export type AppSession = {
   workspaceId: string;
   /** Saisi par l'utilisateur : affiché tel quel, jamais traduit. */
   workspaceName: string;
-  /**
-   * JWT Neon Auth à passer à withUserDb par les lectures du rendu. Secret de session : ne jamais le
-   * passer à un composant client, ni le journaliser, ni le renvoyer d'une Server Action.
-   */
-  token: string;
 };
 
-async function loadSession(): Promise<AppSession> {
+type ResolvedSession = { session: AppSession; token: string };
+
+async function loadSession(): Promise<ResolvedSession> {
   const token = await getSessionToken();
   if (!token) redirect(LOGIN_PATH);
 
@@ -34,23 +31,36 @@ async function loadSession(): Promise<AppSession> {
   // à la connexion (syncSessionLocale) et au changement de langue (tâche 16).
 
   return {
-    userId,
-    workspaceId: workspace.id,
-    workspaceName: workspace.name,
+    session: { userId, workspaceId: workspace.id, workspaceName: workspace.name },
     token,
   };
 }
 
+// Mémoïsée par `cache` de React : le cache vit le temps d'un rendu (une requête) et n'est jamais
+// partagé entre requêtes ; hors rendu (Server Action), chaque appel refait la vérification.
+const resolveSession = cache(loadSession);
+
 /**
- * Session serveur résolue : utilisateur, workspace, JWT. Sans session → /login ; sans workspace →
- * /no-workspace (les deux par `redirect`, qui interrompt aussi une Server Action). Auth indisponible
- * (AuthUnavailableError) → l'erreur remonte (page d'erreur), jamais /login.
+ * Session serveur résolue : utilisateur et workspace, sans le jeton (rien de secret si elle est
+ * passée à un composant client). Sans session → /login ; sans workspace → /no-workspace (les deux par
+ * `redirect`, qui interrompt aussi une Server Action). Auth indisponible (AuthUnavailableError) →
+ * l'erreur remonte (page d'erreur), jamais /login.
  * À appeler dans chaque page de (app), chaque lecture de données et au début de chaque Server Action
  * non publique (règle frontend.md « Session ») : ni le proxy ni le layout ne suffisent.
- * Mémoïsée par `cache` de React : le cache vit le temps d'un rendu (une requête) et n'est jamais
- * partagé entre requêtes ; hors rendu (Server Action), chaque appel refait la vérification.
  */
-export const requireSession = cache(loadSession);
+export async function requireSession(): Promise<AppSession> {
+  return (await resolveSession()).session;
+}
+
+/**
+ * JWT Neon Auth de la session résolue, à passer à withUserDb par les lectures et écritures serveur
+ * (modules). Mêmes garanties et même cache que requireSession : aucune seconde vérification dans un
+ * rendu. Secret de session : ne jamais le passer à un composant client, le journaliser ni le renvoyer
+ * d'une Server Action.
+ */
+export async function requireSessionToken(): Promise<string> {
+  return (await resolveSession()).token;
+}
 
 /**
  * Juste après une connexion réussie (action signIn) : recopie la langue enregistrée du membre dans

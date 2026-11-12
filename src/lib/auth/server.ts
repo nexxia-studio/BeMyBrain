@@ -149,15 +149,6 @@ export type Session = {
   user: { id: string };
 };
 
-/** Session de la requête courante, ou null. Lecture côté serveur uniquement (cookie signé). */
-export async function getSession(): Promise<Session | null> {
-  // Lecture liée à la requête : jamais pré-rendue au build.
-  await connection();
-  const { data } = await getReadAuth().getSession();
-  const id = data?.user?.id;
-  return typeof id === "string" ? { user: { id } } : null;
-}
-
 type AuthErrorLike = { code?: unknown; status?: unknown } | null | undefined;
 
 /** Panne ou saturation de Neon Auth : transport, 5xx ou limite de tentatives (429). */
@@ -184,27 +175,52 @@ export class AuthUnavailableError extends Error {
 }
 
 /**
- * JWT Neon Auth de la session courante (EdDSA, 15 min), à passer à withUserDb.
- * null = pas de session (aucun cookie de session, ou refus de l'auth : 401…) → /login.
- * Auth indisponible (5xx, 429, réseau) → AuthUnavailableError : une panne ne déconnecte pas.
- * Attention : `session.token` renvoyé par getSession() côté serveur est le jeton de session opaque,
- * pas ce JWT. Le JWT vient de l'endpoint `/token` (plugin JWT de Neon Auth).
+ * Appelle l'auth et sépare les trois issues : réponse (data, éventuellement vide), pas de session (null),
+ * indisponibilité (AuthUnavailableError). Sans cookie de session, n'appelle rien.
+ * Une configuration invalide (variables d'environnement) remonte telle quelle, pour le diagnostic,
+ * au lieu de passer pour une panne de l'auth.
  */
-export async function getSessionToken(): Promise<string | null> {
+async function callAuth<T>(
+  call: (auth: ReadAuth) => AuthResult<T>,
+): Promise<T | null> {
   await connection();
   if (!(await cookies()).get(SESSION_COOKIE)?.value) return null;
-  let result: Awaited<ReturnType<ReadAuth["token"]>>;
-  try {
-    result = await getReadAuth().token();
-  } catch {
-    throw new AuthUnavailableError();
-  }
-  const { data, error } = result;
+  const auth = getReadAuth();
+  // Le SDK renvoie les pannes de transport classées (code NETWORK_*) ; ce qu'il lève est imprévu
+  // (ex. écriture de cookie refusée) et remonte tel quel.
+  const { data, error } = await call(auth);
   if (isAuthUnavailable(error)) {
     throw new AuthUnavailableError(
       typeof error?.status === "number" ? error.status : undefined,
     );
   }
+  return error ? null : data;
+}
+
+/**
+ * Session de la requête courante, ou null (pas de session). Auth indisponible → AuthUnavailableError.
+ * Lecture côté serveur uniquement (cookie signé).
+ */
+export async function getSession(): Promise<Session | null> {
+  // Lecture liée à la requête : jamais pré-rendue au build (connection() dans callAuth).
+  const data = await callAuth(
+    (auth) =>
+      auth.getSession() as AuthResult<{ user?: { id?: unknown } } | null>,
+  );
+  const id = data?.user?.id;
+  return typeof id === "string" ? { user: { id } } : null;
+}
+
+/**
+ * JWT Neon Auth de la session courante (EdDSA, 15 min), à passer à withUserDb.
+ * null = pas de session (aucun cookie de session, ou refus de l'auth : 401…) → /login.
+ * Auth indisponible (5xx, 429, réseau) → AuthUnavailableError : une panne ne déconnecte pas.
+ * Configuration invalide → erreur de configuration, distincte.
+ * Attention : `session.token` renvoyé par getSession() côté serveur est le jeton de session opaque,
+ * pas ce JWT. Le JWT vient de l'endpoint `/token` (plugin JWT de Neon Auth).
+ */
+export async function getSessionToken(): Promise<string | null> {
+  const data = await callAuth((auth) => auth.token());
   const token = data?.token;
   return typeof token === "string" && token !== "" ? token : null;
 }

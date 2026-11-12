@@ -24,7 +24,6 @@ describe("tableau de bord", () => {
       userId: "dc42fa70-09a7-4038-a3bb-f61dda854910",
       workspaceId: "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b",
       workspaceName: "Atelier Monie",
-      token: "eyJ.jwt.signe",
     });
 
     render(await DashboardPage());

@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { findUnguardedActions } from "./unguarded-actions";
+import { findUnguardedActions, isScannedFile } from "./unguarded-actions";
 
 // Actions publiques (appelées sans session par construction), listées par nom : toute nouvelle action
 // de ce fichier doit appeler requireSession ou être ajoutée ici, en revue.
@@ -19,9 +19,7 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) return sourceFiles(path);
-    return /\.(ts|tsx)$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)
-      ? [relative(process.cwd(), path)]
-      : [];
+    return isScannedFile(entry.name) ? [relative(process.cwd(), path)] : [];
   });
 }
 
@@ -34,6 +32,7 @@ function names(source: string, publicActions: string[] = []) {
 describe("garde des Server Actions : formes acceptées", () => {
   it("accepte await requireSession() en première instruction", () => {
     const source = `"use server";
+import { requireSession } from "@/lib/session";
 export async function save() { await requireSession(); return 1; }`;
 
     expect(names(source)).toEqual([]);
@@ -41,6 +40,7 @@ export async function save() { await requireSession(); return 1; }`;
 
   it("accepte const … = await requireSession() en première instruction, et une flèche exportée", () => {
     const source = `"use server";
+import { requireSession } from "@/lib/session";
 export const save = async () => { const { workspaceId } = await requireSession(); return workspaceId; };`;
 
     expect(names(source)).toEqual([]);
@@ -48,6 +48,7 @@ export const save = async () => { const { workspaceId } = await requireSession()
 
   it("ignore les types exportés et les fonctions non exportées", () => {
     const source = `"use server";
+import { requireSession } from "@/lib/session";
 export type State = { ok: boolean };
 function helper() { return 1; }
 export async function run() { await requireSession(); return helper(); }`;
@@ -155,6 +156,81 @@ export async function signIn() { return 1; }
 export async function deleteAccount() { return 1; }`;
 
     expect(names(source, PUBLIC_ACTIONS)).toEqual(["deleteAccount"]);
+  });
+});
+
+describe("garde des Server Actions : origine de requireSession", () => {
+  const guarded = `export async function save() { await requireSession(); return 1; }`;
+
+  it("refuse un fichier qui n'importe pas requireSession", () => {
+    const source = `"use server";
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse un requireSession importé d'un autre module", () => {
+    const source = `"use server";
+import { requireSession } from "./fake-session";
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse un autre export renommé en requireSession", () => {
+    const source = `"use server";
+import { syncSessionLocale as requireSession } from "@/lib/session";
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse une déclaration locale de requireSession, même avec le bon import", () => {
+    const source = `"use server";
+import { requireSession as real } from "@/lib/session";
+const requireSession = async () => ({});
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse un paramètre qui masque requireSession", () => {
+    const source = `"use server";
+import { requireSession } from "@/lib/session";
+export const make = () => {};
+export async function save(requireSession: () => Promise<void>) { await requireSession(); }`;
+
+    expect(names(source)).toEqual(["make", "save"]);
+  });
+});
+
+describe("garde des Server Actions : exports mutables et fichiers parcourus", () => {
+  it("refuse export let et export var, même gardés", () => {
+    const source = `"use server";
+import { requireSession } from "@/lib/session";
+export let save = async () => { await requireSession(); };
+export var remove = async () => { await requireSession(); };`;
+
+    expect(names(source)).toEqual(["save", "remove"]);
+  });
+
+  it("parcourt aussi les .js, .jsx, .mjs, .cjs, .mts et .cts, pas les tests", () => {
+    const files = ["a.ts", "b.tsx", "c.js", "d.jsx", "e.mjs", "f.cjs", "g.mts", "h.cts"];
+
+    const scanned = [...files, "i.test.ts", "j.test.mjs", "k.json", "l.md"].filter(
+      isScannedFile,
+    );
+
+    expect(scanned).toEqual(files);
+  });
+
+  it("repère une action non gardée dans un .mjs", () => {
+    const source = `"use server";
+export async function save() { return 1; }`;
+
+    expect(findUnguardedActions(source, "probe.mjs")).toEqual([
+      { file: "probe.mjs", line: 2, name: "save" },
+    ]);
   });
 });
 

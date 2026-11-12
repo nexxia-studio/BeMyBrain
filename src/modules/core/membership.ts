@@ -1,3 +1,6 @@
+// Défense en plus : accès base, jamais dans un bundle client.
+import "server-only";
+
 import { withUserDb } from "@/db/client";
 
 import { getMembership, type Membership } from "./queries";
