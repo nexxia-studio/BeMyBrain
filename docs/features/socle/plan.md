@@ -118,7 +118,9 @@
 
 - [ ] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5)
   - Déjà fait le 2026-11-12 sur `production`, `dev` et `test` : inscription publique fermée, connexion Google partagée retirée.
-  - Reste : retirer `localhost` des origines autorisées sur `production` ; domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
+  - Fait le 2026-11-12 : `localhost` retiré des origines autorisées sur `production` (gardé sur `dev`) ; compte d'Antoine créé sur `production` (id `2326061b-1e88-46fe-beac-eb0df219eb85`) et sur `dev` (id `9cdcc14d-5d44-45b5-8d8d-47d90a99652f`), sans mot de passe : défini par « mot de passe oublié » (code par e-mail) à la tâche 10 ; seed passé sur `dev` (workspace BeMyBrain, Privé / Trustup / Nexxia), rejoué sans doublon. L'id de production servira de `SEED_OWNER_USER_ID` au seed lancé par GitHub Actions (tâche 17).
+  - Reste (tâche 17) : domaine de confiance = URL Vercel de production ; vérifier qu'une preview hérite bien du compte de `production`.
+  - Prévu à l'origine : domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
   - Fini quand : Antoine se connecte sur `dev` via Neon Auth et la réponse au point « preview » est notée dans `docs/gotchas.md`.
 
 - [ ] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
