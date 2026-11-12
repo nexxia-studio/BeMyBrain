@@ -29,7 +29,7 @@ export function assertSameHost(
 }
 
 /**
- * Refuse une commande drizzle-kit lancée hors plateforme de confiance contre la branche production.
+ * Refuse une commande drizzle-kit ou le seed, lancés hors plateforme de confiance, contre la branche production.
  * Sur GitHub Actions et Vercel, la cible est fixée par l'environnement (ADR-010).
  */
 export function assertNotProductionTarget(source: Source): void {
@@ -37,7 +37,7 @@ export function assertNotProductionTarget(source: Source): void {
   const productionHost = source.NEON_PRODUCTION_HOST;
   if (!productionHost) {
     throw new Error(
-      "NEON_PRODUCTION_HOST manquante : obligatoire en local pour empêcher une migration sur la production. Voir .env.example.",
+      "NEON_PRODUCTION_HOST manquante : obligatoire en local pour empêcher une migration ou un seed sur la production. Voir .env.example.",
     );
   }
   const production = parseHostVariable(productionHost, "NEON_PRODUCTION_HOST");
@@ -45,7 +45,7 @@ export function assertNotProductionTarget(source: Source): void {
   if (!target) return; // signalé par getMigrationEnv
   if (hostOfUrl(target, "DATABASE_URL") === production) {
     throw new Error(
-      "DATABASE_URL vise NEON_PRODUCTION_HOST : migration locale sur la production refusée.",
+      "DATABASE_URL vise NEON_PRODUCTION_HOST : migration ou seed local sur la production refusé.",
     );
   }
 }

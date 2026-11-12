@@ -43,6 +43,7 @@
 - `motion` — ADR-006, interactions.
 - `gsap`, `@gsap/react` — ADR-006, moments signature.
 - `vitest`, `@playwright/test` — CLAUDE.md.
+- `tsx` — exécute `scripts/seed.ts` (imports sans extension, que le type stripping natif de Node refuse). Déjà dans l'arbre via `drizzle-kit` et `vite`, même version : déclaré en direct, aucun paquet ajouté.
 - `@testing-library/react`, `jsdom` — tests de composants avec Vitest (`frontend.md`, tâche 2).
 - `@testing-library/dom` — dépendance pair de `@testing-library/react`.
 - `prettier` — appelé par le hook PostToolUse sur chaque fichier édité.
@@ -100,11 +101,13 @@
   - Test à écrire d'abord : `tests/db/isolation-core.test.ts` (données préparées via `DATABASE_TEST_URL`, assertions via `DATABASE_TEST_AUTHENTICATED_URL` en `app_backend`, claims posés à la main, aucun filtre applicatif) — « l'utilisateur du workspace B ne lit aucune ligne du workspace A », « ne peut ni insérer, ni modifier, ni supprimer chez A », « sans claims, ne lit rien », « ne peut pas modifier la locale d'un autre membre ».
   - Fini quand : les tests passent et la migration s'applique à neuf sur une branche vide.
 
-- [ ] **7. Script de départ rejouable** (BRAIN-6)
-  - Fichiers : `scripts/seed.ts`, `package.json` (script `db:seed`)
-  - Crée le workspace, l'appartenance owner de l'utilisateur désigné par `SEED_OWNER_USER_ID`, et les contextes Privé (`private`), Trustup et Nexxia (`pro`). Les noms de contextes sont du contenu utilisateur : non traduits. Aucune donnée personnelle dans le code. Upsert : zéro doublon au second passage. `contexts` unique `(workspace_id, name)` ; le workspace est retrouvé par l'appartenance owner de `SEED_OWNER_USER_ID` (pas d'unicité sur `workspaces`). Connexion propriétaire : les triggers posent `updated_at`.
-  - Test à écrire d'abord : `scripts/seed.test.ts` — « lancé deux fois, le seed produit un workspace et trois contextes ».
-  - Fini quand : test vert, seed passé sur `dev`.
+- [x] **7. Script de départ rejouable** (BRAIN-6)
+  - Fichiers : `scripts/seed.ts`, `scripts/seed.test.ts`, `package.json` (script `db:seed` = `tsx scripts/seed.ts`), `vitest.config.mts` (inclut `scripts/**/*.test.ts`).
+  - `seedWorkspace(db, { ownerUserId })` : retrouve le workspace par l'appartenance owner de `SEED_OWNER_USER_ID`, sinon crée le workspace « BeMyBrain » (nom générique), l'appartenance owner (locale `fr`) et les contextes de `DEFAULT_CONTEXTS` (Privé `private` 0, Trustup `pro` 1, Nexxia `pro` 2). Une transaction, verrou consultatif par propriétaire. Les noms de contextes sont du contenu utilisateur : non traduits. Aucune donnée personnelle dans le code.
+  - Contextes posés seulement à la création du workspace (pas d'`ON CONFLICT` à chaque passage) : un contexte renommé, réordonné ou supprimé n'est jamais recréé ni remis en place. Le seed ne modifie jamais une ligne existante.
+  - CLI : `.env` chargé, garde-fou `NEON_PRODUCTION_HOST` (même que `drizzle.config.ts`), `SEED_OWNER_USER_ID` validé uuid, puis seulement ouverture d'`adminDb`. `MIGRATION_TARGET` refusée (`adminDb` lit toujours `DATABASE_URL`). Erreurs de la base : message générique.
+  - Tests : `scripts/seed.test.ts` contre la branche test (`DATABASE_TEST_URL`) — « lancé deux fois, le seed produit un workspace et trois contextes », « ne recrée pas un contexte renommé ni ne remet en place un contexte réordonné », « un second utilisateur owner obtient son propre workspace », refus d'un uuid invalide ou absent, de la production en local, de `MIGRATION_TARGET`.
+  - Seed sur `dev` après la tâche 9 (le compte d'Antoine, donc `SEED_OWNER_USER_ID`, n'existe qu'à ce moment) ; seed de production par la CI (ADR-010, tâche 17).
 
 - [ ] **8. Module `core` : lectures et écritures filtrées** [security] (BRAIN-6)
   - Fichiers : `src/modules/core/queries.ts`, `src/modules/core/mutations.ts`, `src/modules/core/core.test.ts`
