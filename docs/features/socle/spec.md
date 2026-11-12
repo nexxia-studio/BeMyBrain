@@ -25,7 +25,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 - [ ] Quand une pull request est ouverte, alors Vercel publie une preview reliée à sa propre branche Neon, et lint, typecheck et tests passent.
 - [ ] Quand on cherche une URL ou un identifiant d'environnement dans le code, alors on n'en trouve aucun : tout est dans les variables listées dans `.env.example`.
 - [ ] Quand la base de production est restaurée à un instant passé sur une branche de test, alors les données d'Antoine y sont lisibles (restauration vérifiée une fois).
-- [ ] Quand l'app est ouverte sur mobile, alors la grille bento passe en une colonne et la navigation reste utilisable au pouce.
+- [ ] Quand l'app est ouverte sur mobile, alors la grille bento passe en une colonne (sauf la paire de tuiles chiffre, DESIGN.md § 8) et la navigation reste utilisable au pouce.
 - [ ] Quand `prefers-reduced-motion` est actif, alors aucune animation décorative ne joue (Motion et GSAP).
 - [ ] Quand Antoine répète un geste (bascule Privé / Pro, filtre, navigation), alors la réponse est instantanée : aucun moment signature ne rejoue (ADR-006).
 - [ ] Quand un élément est animé, alors il l'est par Motion ou par GSAP, jamais par les deux ; GSAP n'est pas dans le bundle initial (ADR-006).
@@ -55,7 +55,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 
 ## UI
 - Écrans concernés : connexion, coque (navigation, bascule Privé / Pro, filtre de contexte, palette de commandes), tableau de bord bento avec tuiles vides, réglages (langue).
-- Maquette : aucune. Références : `docs/design/references/finance-glass.webp` et `maison-bento.webp`.
+- Maquette : aucune. Références : `docs/design/references/dashboard-desktop.dc.html` et `dashboard-mobile.dc.html` (validées par Antoine), puis `finance-glass.webp` et `maison-bento.webp`.
 - Contraintes : DESIGN.md et PRODUCT.md à produire en première tâche (Impeccable + skill `nexxia-design`). Direction liquid glass, grille bento. Animation : Motion pour les interactions, GSAP pour les moments signature (ADR-006). Textes en FR/EN (ADR-007). Mobile d'abord, installable (ADR-008).
 
 ## Questions ouvertes

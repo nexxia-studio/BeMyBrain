@@ -35,6 +35,8 @@ Toutes viennent de la référence. Aucune autre couleur n'entre sans passer par 
 | `--white` | `#FFFFFF` | Texte sur indigo, pilule active, élément actif de la barre latérale |
 | teinte d'ombre | `rgb(38 48 92)` | Ombres bleutées (jamais noires) |
 
+La finance définira ses propres couleurs « positif » et « négatif », à sa spec. La braise ne sert pas à cet usage.
+
 ### Tokens sémantiques et contrastes
 Contrastes WCAG calculés sur le cas le plus défavorable. Pour le verre : verre posé sur le cœur du halo bleu, mobile ou ordinateur. Pour le fond nu (« cœur du halo ») : cœur du halo bleu mobile, à 90 % sur la brume ; le cœur du halo lilas mobile (85 %) est donné quand il compte. Exigences : texte 4,5:1 ; grand texte, icônes et éléments d'interface 3:1.
 
@@ -156,9 +158,11 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
 - Apparition / retrait d'un élément de liste : `opacity` + `y` 8, ressort `bounce: 0`, 0,3 s ; tiroir mobile : ressort `bounce: 0.2`, 0,3 s.
 - Easing CSS commun : `--ease-out-expo` `cubic-bezier(0.16, 1, 0.3, 1)`.
 
+Chaque module peut proposer ses propres moments signature, validés à sa spec, dans les mêmes règles.
+
 **Règles** : gestes répétés (bascule, filtre, navigation) instantanés ; aucune boucle ; `prefers-reduced-motion` → fondus de 0,15 s au plus ou rien (filet global dans `globals.css`, plus les deux bibliothèques). `tw-animate-css` reste limité à l'entrée / sortie des primitives de `src/components/ui/`, jamais sur un élément animé par Motion ou GSAP.
 
-## 8. Décisions hors référence (à valider par Antoine)
+## 8. Décisions hors référence (validées par Antoine le 2026-11-12)
 1. **Erreurs et actions destructives en braise** (`#8A3810`) : la référence n'a pas de rouge ; la braise est sa seule couleur chaude (« + 2 pts » au-dessus de la cible). Elle sert aussi à la pastille Trustup : le texte d'erreur est toujours accompagné d'un libellé, jamais de la couleur seule.
 2. **Bordure des champs en encre secondaire** : la bordure de la référence (encre 12 %) fait 1,26:1, sous les 3:1 exigés pour identifier un champ.
 3. **Libellés des pastilles de chiffres en blanc plein** (référence : blanc 90 %, 4,03:1 sur la pastille, sous 4,5:1).
