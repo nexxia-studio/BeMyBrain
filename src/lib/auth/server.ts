@@ -5,6 +5,7 @@ import "server-only";
 import { createNeonAuth } from "@neon/auth/next/server";
 import {
   createAuthServer,
+  extractNeonAuthCookies,
   resolveNeonAuthLogging,
   type RequestContext,
 } from "@neon/auth/server";
@@ -74,20 +75,33 @@ export function isRenderCookieWriteError(error: unknown): boolean {
   return error instanceof Error && RENDER_COOKIE_WRITE.test(error.message);
 }
 
-// Préfixe des cookies du SDK @neon/auth (session_token, local.session_data, session_challenge).
-const AUTH_COOKIE_PREFIX = "__Secure-neon-auth";
+// Cookie de session du SDK @neon/auth : sans lui, aucune session à demander.
+const SESSION_COOKIE = "__Secure-neon-auth.session_token";
+
+/** Retire les guillemets d'une valeur RFC 6265 « quoted-string », comme le parseur de Better Auth. */
+function unquote(value: string) {
+  return value.length >= 2 && value.startsWith('"') && value.endsWith('"')
+    ? value.slice(1, -1)
+    : value;
+}
 
 /**
  * Cookies Neon Auth envoyés à l'auth, lus dans le magasin de cookies de Next et non dans l'en-tête :
  * dans une action, il reflète ceux posés plus tôt dans la même requête (JWT demandé juste après la
- * connexion). Valeurs décodées, comme `extractNeonAuthCookies` du SDK.
+ * connexion), et pendant un rendu ceux que le proxy a renouvelés. Next a décodé les valeurs : on
+ * reforme un en-tête Cookie (guillemets retirés, valeurs réencodées) et on le passe au parseur du SDK,
+ * pour envoyer exactement ce que `extractNeonAuthCookies` enverrait. Valeurs vides (cookie effacé) ignorées.
  */
 function authCookies(cookieStore: Awaited<ReturnType<typeof cookies>>) {
-  return cookieStore
-    .getAll()
-    .filter(({ name, value }) => name.startsWith(AUTH_COOKIE_PREFIX) && value)
-    .map(({ name, value }) => `${name}=${value}`)
-    .join("; ");
+  return extractNeonAuthCookies(
+    cookieStore
+      .getAll()
+      .filter(({ value }) => value !== "")
+      .map(
+        ({ name, value }) => `${name}=${encodeURIComponent(unquote(value))}`,
+      )
+      .join("; "),
+  );
 }
 
 /**
@@ -144,14 +158,53 @@ export async function getSession(): Promise<Session | null> {
   return typeof id === "string" ? { user: { id } } : null;
 }
 
+type AuthErrorLike = { code?: unknown; status?: unknown } | null | undefined;
+
+/** Panne ou saturation de Neon Auth : transport, 5xx ou limite de tentatives (429). */
+export function isAuthUnavailable(error: AuthErrorLike): boolean {
+  const status = typeof error?.status === "number" ? error.status : 0;
+  return (
+    status >= 500 ||
+    status === 429 ||
+    (typeof error?.code === "string" && error.code.startsWith("NETWORK_"))
+  );
+}
+
 /**
- * JWT Neon Auth de la session courante (EdDSA, 15 min), à passer à withUserDb, ou null.
+ * Neon Auth ne répond pas (panne, 5xx, 429) : la session ne peut être ni confirmée ni refusée.
+ * Mène à la page d'erreur, jamais à /login. Message fixe, sans cause chaînée.
+ */
+export class AuthUnavailableError extends Error {
+  readonly status: number | undefined;
+  constructor(status?: number) {
+    super("Service d'authentification indisponible");
+    this.name = "AuthUnavailableError";
+    this.status = status;
+  }
+}
+
+/**
+ * JWT Neon Auth de la session courante (EdDSA, 15 min), à passer à withUserDb.
+ * null = pas de session (aucun cookie de session, ou refus de l'auth : 401…) → /login.
+ * Auth indisponible (5xx, 429, réseau) → AuthUnavailableError : une panne ne déconnecte pas.
  * Attention : `session.token` renvoyé par getSession() côté serveur est le jeton de session opaque,
  * pas ce JWT. Le JWT vient de l'endpoint `/token` (plugin JWT de Neon Auth).
  */
 export async function getSessionToken(): Promise<string | null> {
   await connection();
-  const { data } = await getReadAuth().token();
+  if (!(await cookies()).get(SESSION_COOKIE)?.value) return null;
+  let result: Awaited<ReturnType<ReadAuth["token"]>>;
+  try {
+    result = await getReadAuth().token();
+  } catch {
+    throw new AuthUnavailableError();
+  }
+  const { data, error } = result;
+  if (isAuthUnavailable(error)) {
+    throw new AuthUnavailableError(
+      typeof error?.status === "number" ? error.status : undefined,
+    );
+  }
   const token = data?.token;
   return typeof token === "string" && token !== "" ? token : null;
 }

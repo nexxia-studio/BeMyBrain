@@ -15,7 +15,10 @@ export type AppSession = {
   workspaceId: string;
   /** Saisi par l'utilisateur : affiché tel quel, jamais traduit. */
   workspaceName: string;
-  /** JWT Neon Auth à passer à withUserDb par les lectures du rendu. */
+  /**
+   * JWT Neon Auth à passer à withUserDb par les lectures du rendu. Secret de session : ne jamais le
+   * passer à un composant client, ni le journaliser, ni le renvoyer d'une Server Action.
+   */
   token: string;
 };
 
@@ -24,10 +27,11 @@ async function loadSession(): Promise<AppSession> {
   if (!token) redirect(LOGIN_PATH);
 
   // Vérifie le jeton (signature, iss, aud, exp) et lit l'appartenance en une seule transaction.
-  const { userId, workspace, locale } = await resolveMembership(token);
+  const { userId, workspace } = await resolveMembership(token);
   // Pas de création automatique ; la page cible est hors de (app) : pas de boucle.
   if (!workspace) redirect(NO_WORKSPACE_PATH);
-  if (locale) await syncLocaleCookie(locale);
+  // Langue : pas de recopie ici (aucune écriture de cookie pendant un rendu). NEXT_LOCALE est recopié
+  // à la connexion (syncSessionLocale) et au changement de langue (tâche 16).
 
   return {
     userId,
@@ -39,7 +43,8 @@ async function loadSession(): Promise<AppSession> {
 
 /**
  * Session serveur résolue : utilisateur, workspace, JWT. Sans session → /login ; sans workspace →
- * /no-workspace (les deux par `redirect`, qui interrompt aussi une Server Action).
+ * /no-workspace (les deux par `redirect`, qui interrompt aussi une Server Action). Auth indisponible
+ * (AuthUnavailableError) → l'erreur remonte (page d'erreur), jamais /login.
  * À appeler dans chaque page de (app), chaque lecture de données et au début de chaque Server Action
  * non publique (règle frontend.md « Session ») : ni le proxy ni le layout ne suffisent.
  * Mémoïsée par `cache` de React : le cache vit le temps d'un rendu (une requête) et n'est jamais

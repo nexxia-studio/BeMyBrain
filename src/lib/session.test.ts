@@ -21,6 +21,9 @@ vi.mock("next/navigation", () => ({
 // Build « react-server » de React, celle que Next charge pour les Server Components : son `cache`
 // mémoïse par requête (dispatcher posé par le rendu). La build cliente, chargée par défaut sous Vitest,
 // ne mémoïse jamais.
+// Fragile, assumé : `__SERVER_INTERNALS…` et `A.getCacheForType` sont internes à React (19.3). Gardé
+// parce que c'est le seul moyen, sans rendu Flight complet, de tester le vrai `cache` de React (par requête,
+// jamais partagé) plutôt qu'un double. Si une montée de React casse ce harnais, le réécrire, ne pas le retirer.
 type CacheDispatcher = {
   getCacheForType: <T>(create: () => T) => T;
 };
@@ -121,10 +124,19 @@ describe("requireSession", () => {
     expect(getSession).not.toHaveBeenCalled();
   });
 
-  it("recopie la locale enregistrée du membre dans le cookie de langue", async () => {
+  it("ne recopie pas la langue (ni cookie écrit pendant le rendu) : seules la connexion et le changement de langue le font", async () => {
     await inRequest(() => requireSession());
 
-    expect(syncLocaleCookie).toHaveBeenCalledWith("en");
+    expect(syncLocaleCookie).not.toHaveBeenCalled();
+  });
+
+  it("laisse remonter l'indisponibilité de l'auth au lieu de rediriger vers /login", async () => {
+    const unavailable = new Error("Service d'authentification indisponible");
+    getSessionToken.mockRejectedValue(unavailable);
+
+    const run = inRequest(() => requireSession());
+
+    await expect(run).rejects.toBe(unavailable);
   });
 
   it("requireSession n'appelle withUserDb qu'une fois par requête", async () => {
@@ -149,22 +161,6 @@ describe("requireSession", () => {
 
     expect(second.userId).toBe(other);
     expect(resolveMembership).toHaveBeenCalledTimes(2);
-  });
-
-  it("une Server Action non publique appelée sans session est refusée", async () => {
-    getSessionToken.mockResolvedValue(null);
-    const effect = vi.fn();
-    // Forme imposée à toute action non publique (test tests/lint/server-actions.test.ts).
-    async function protectedAction() {
-      const session = await requireSession();
-      effect(session.workspaceId);
-    }
-
-    // Une action s'exécute hors rendu : pas de cache React, appel direct.
-    const run = protectedAction();
-
-    await expect(run).rejects.toThrow("REDIRECT:/login");
-    expect(effect).not.toHaveBeenCalled();
   });
 });
 

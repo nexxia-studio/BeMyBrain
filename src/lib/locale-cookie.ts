@@ -21,6 +21,8 @@ export async function syncLocaleCookie(locale: AppLocale): Promise<void> {
       // Lu par next-intl côté serveur seulement.
       httpOnly: true,
       // WebKit refuse un cookie Secure sur http://localhost (gotcha e2e) : Secure en production.
+      // NODE_ENV lu directement, pas via @/env : posé et inliné par Next, pas un secret, et getAppEnv()
+      // exigerait les variables de la base pour une simple écriture de cookie.
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",

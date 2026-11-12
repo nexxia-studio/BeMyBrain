@@ -13,7 +13,10 @@ const cookieStore = vi.hoisted(() => ({
 
 const syncSessionLocale = vi.hoisted(() => vi.fn());
 
-vi.mock("./server", () => ({ getAuth: () => fakeAuth }));
+vi.mock("./server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./server")>()),
+  getAuth: () => fakeAuth,
+}));
 vi.mock("@/lib/session", () => ({ syncSessionLocale }));
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 vi.mock("next/navigation", () => ({

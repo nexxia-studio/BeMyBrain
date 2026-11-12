@@ -4,6 +4,7 @@ import {
   RequestCookiesAdapter,
 } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import { RequestCookies } from "next/dist/server/web/spec-extension/cookies";
+import { extractNeonAuthCookies } from "@neon/auth/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const request = vi.hoisted(() => ({
@@ -11,6 +12,7 @@ const request = vi.hoisted(() => ({
   cookies: null as unknown as {
     set: (...args: never[]) => unknown;
     getAll: () => { name: string; value: string }[];
+    get: (name: string) => { value: string } | undefined;
   },
 }));
 
@@ -20,7 +22,7 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("next/server", () => ({ connection: vi.fn(async () => {}) }));
 
-import { getSession, getSessionToken } from "./server";
+import { AuthUnavailableError, getSession, getSessionToken } from "./server";
 
 const BASE_URL = "https://auth.example.test/neondb/auth";
 const USER_ID = "dc42fa70-09a7-4038-a3bb-f61dda854910";
@@ -60,7 +62,11 @@ function renderCookieStore() {
 /** Magasin de cookies d'une action (écriture espionnée), lu depuis les cookies de la requête. */
 function actionCookieStore() {
   const cookies = new RequestCookies(request.headers);
-  return { getAll: () => cookies.getAll(), set: vi.fn() };
+  return {
+    getAll: () => cookies.getAll(),
+    get: (name: string) => cookies.get(name),
+    set: vi.fn(),
+  };
 }
 
 beforeEach(() => {
@@ -198,6 +204,77 @@ describe("session serveur", () => {
     expect(token).toBe("eyJ.jwt.signe");
     const sent = new Headers(fetchMock.mock.calls[0][1]?.headers);
     expect(sent.get("cookie")).toBe(`${SESSION_COOKIE}=neuf`);
+  });
+
+  it("envoie à l'auth les mêmes cookies que le parseur du SDK (guillemets, %3D)", async () => {
+    request.headers = new Headers({
+      cookie: `${SESSION_COOKIE}="abc%3D.def"; autre=1; __Secure-neon-auth.local.session_data=x%3Dy`,
+    });
+    request.cookies = renderCookieStore();
+    const fetchMock = vi.fn<
+      (url: string | URL, init?: RequestInit) => Promise<Response>
+    >(async () => Response.json({ token: "eyJ.jwt.signe" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSessionToken();
+
+    const sent = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(sent.get("cookie")).toBe(extractNeonAuthCookies(request.headers));
+  });
+
+  it("lit les cookies renouvelés par le proxy, fusionnés dans cookies() et non dans l'en-tête d'origine", async () => {
+    const renewed = new Headers({ cookie: `${SESSION_COOKIE}=renouvele` });
+    request.headers = new Headers({ cookie: `${SESSION_COOKIE}=ancien` });
+    request.cookies = RequestCookiesAdapter.seal(new RequestCookies(renewed));
+    const fetchMock = vi.fn<
+      (url: string | URL, init?: RequestInit) => Promise<Response>
+    >(async () => Response.json({ token: "eyJ.jwt.signe" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSessionToken();
+
+    const sent = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(sent.get("cookie")).toBe(`${SESSION_COOKIE}=renouvele`);
+  });
+
+  it("getSessionToken renvoie null sans cookie de session, sans appeler l'auth", async () => {
+    request.headers = new Headers();
+    request.cookies = actionCookieStore();
+    const fetchMock = vi.fn(async () => Response.json({ token: "x" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const token = await getSessionToken();
+
+    expect(token).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["une erreur 500", () => Response.json({}, { status: 500 })],
+    ["une erreur 503", () => Response.json({}, { status: 503 })],
+    ["une limite de tentatives (429)", () => Response.json({}, { status: 429 })],
+  ])(
+    "getSessionToken lève « indisponible » sur %s, sans rien renvoyer qui mène à /login",
+    async (_label, respond) => {
+      vi.stubGlobal("fetch", vi.fn(async () => respond()));
+
+      const run = getSessionToken();
+
+      await expect(run).rejects.toBeInstanceOf(AuthUnavailableError);
+    },
+  );
+
+  it("getSessionToken lève « indisponible » si l'auth est injoignable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+
+    const run = getSessionToken();
+
+    await expect(run).rejects.toBeInstanceOf(AuthUnavailableError);
   });
 
   it("getSessionToken renvoie null sans session", async () => {

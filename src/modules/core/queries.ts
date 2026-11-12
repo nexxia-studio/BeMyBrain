@@ -113,15 +113,40 @@ export type Membership = {
 };
 
 /**
- * Workspace et langue de l'utilisateur de la session, lus dans la même transaction (requireSession).
+ * Workspace et langue de l'utilisateur de la session (requireSession), en une requête : même choix de
+ * workspace que getWorkspaceForUser (le plus ancien), langue de son appartenance à ce workspace.
  * Sans appartenance : `{ workspace: null, locale: null }`, rien n'est créé.
  */
 export async function getMembership(
   userId: string,
   tx: UserTx,
 ): Promise<Membership> {
-  const workspace = await getWorkspaceForUser(userId, tx);
-  if (!workspace) return { workspace: null, locale: null };
-  const locale = await getMemberLocale(workspace.id, userId, tx);
-  return { workspace, locale };
+  const user = parseInput(uuidSchema, userId);
+  const rows = await tx
+    .select({
+      id: workspaces.id,
+      name: workspaces.name,
+      locale: workspaceMembers.locale,
+    })
+    .from(workspaces)
+    .innerJoin(
+      workspaceMembers,
+      eq(workspaceMembers.workspaceId, workspaces.id),
+    )
+    .where(
+      and(
+        eq(workspaceMembers.userId, user),
+        // Sa propre appartenance seulement (la RLS laisse voir les co-membres).
+        eq(workspaceMembers.userId, sql`(select app.current_user_id())`),
+      ),
+    )
+    .orderBy(asc(workspaces.createdAt), asc(workspaces.id))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return { workspace: null, locale: null };
+  // CHECK workspace_members_locale_check : locale ∈ ('fr', 'en').
+  return {
+    workspace: { id: row.id, name: row.name },
+    locale: localeSchema.parse(row.locale),
+  };
 }

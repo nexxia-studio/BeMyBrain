@@ -11,7 +11,7 @@ import {
   resetPasswordSchema,
   signInSchema,
 } from "./schemas";
-import { getAuth } from "./server";
+import { getAuth, isAuthUnavailable } from "./server";
 
 // Erreurs renvoyées à l'écran : des codes, traduits par le composant. Jamais le message de
 // Neon Auth (il peut dire si un compte existe, ou porter l'adresse saisie).
@@ -33,16 +33,6 @@ type AuthError = { code?: unknown; status?: unknown } | null | undefined;
 
 // Préfixe des cookies du SDK @neon/auth (session_token, local.session_data, session_challenge).
 const AUTH_COOKIE_PREFIX = "__Secure-neon-auth";
-
-/** Panne ou saturation de Neon Auth : transport, 5xx ou limite de tentatives (429). */
-function isUnavailable(error: AuthError) {
-  const status = typeof error?.status === "number" ? error.status : 0;
-  return (
-    status >= 500 ||
-    status === 429 ||
-    (typeof error?.code === "string" && error.code.startsWith("NETWORK_"))
-  );
-}
 
 /**
  * Journal serveur d'un échec : statut HTTP et code d'erreur Neon seulement.
@@ -82,7 +72,7 @@ export async function signIn(
   if (error) {
     logFailure("signIn", error);
     return {
-      error: isUnavailable(error) ? "unavailable" : "invalidCredentials",
+      error: isAuthUnavailable(error) ? "unavailable" : "invalidCredentials",
       email,
     };
   }
@@ -128,7 +118,7 @@ export async function requestPasswordReset(
   });
   if (error) {
     logFailure("requestPasswordReset", error);
-    if (isUnavailable(error))
+    if (isAuthUnavailable(error))
       return { step: "email", email, error: "unavailable" };
   }
   // Toute autre réponse mène à l'étape du code : l'écran ne dit pas si le compte existe.
@@ -161,7 +151,7 @@ export async function resetPassword(
     return {
       step: "code",
       email,
-      error: isUnavailable(error) ? "unavailable" : "invalidCode",
+      error: isAuthUnavailable(error) ? "unavailable" : "invalidCode",
     };
   }
   redirect(`${LOGIN_PATH}?reset=done`);

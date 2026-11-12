@@ -193,6 +193,14 @@ describe("getMembership", () => {
     expect(membership).toEqual({ workspace: null, locale: null });
   });
 
+  it("un membre ne résout pas l'appartenance d'un co-membre", async () => {
+    const membership = await db.asUser(f.userA, (tx) =>
+      getMembership(f.userA2, tx),
+    );
+
+    expect(membership).toEqual({ workspace: null, locale: null });
+  });
+
   it("renvoie le workspace et la locale enregistrée du membre", async () => {
     const membership = await db.asUser(f.userA2, (tx) =>
       getMembership(f.userA2, tx),
