@@ -26,6 +26,7 @@
       "passwordHint": "At least 8 characters.",
       "submit": "Save password",
       "submitting": "Saving…",
+      "resendCode": "Send a new code",
       "backToLogin": "Back to sign in"
     },
     "errors": {

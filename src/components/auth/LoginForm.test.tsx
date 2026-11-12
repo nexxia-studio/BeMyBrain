@@ -42,7 +42,10 @@ describe("formulaire de connexion", () => {
   });
 
   it("affiche « identifiants invalides » quand l'action le renvoie", async () => {
-    signIn.mockResolvedValue({ error: "invalidCredentials" });
+    signIn.mockResolvedValue({
+      error: "invalidCredentials",
+      email: "a@example.test",
+    });
     renderForm();
     fireEvent.change(screen.getByLabelText(messages.auth.login.email), {
       target: { value: "a@example.test" },
@@ -60,5 +63,30 @@ describe("formulaire de connexion", () => {
         messages.auth.errors.invalidCredentials,
       ),
     );
+  });
+
+  it("garde l'e-mail saisi après une erreur", async () => {
+    signIn.mockResolvedValue({
+      error: "invalidCredentials",
+      email: "a@example.test",
+    });
+    renderForm();
+    const email = screen.getByLabelText(
+      messages.auth.login.email,
+    ) as HTMLInputElement;
+    fireEvent.change(email, { target: { value: "a@example.test" } });
+    fireEvent.change(screen.getByLabelText(messages.auth.login.password), {
+      target: { value: "faux" },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.auth.login.submit }),
+    );
+
+    await screen.findByRole("alert");
+    expect(
+      (screen.getByLabelText(messages.auth.login.email) as HTMLInputElement)
+        .value,
+    ).toBe("a@example.test");
   });
 });

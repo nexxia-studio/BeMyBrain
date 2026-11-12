@@ -32,6 +32,9 @@
 - **Fuseau horaire** : `Europe/Brussels` pour tous (src/i18n/config.ts) ; fuseau par utilisateur à prévoir au passage multi-comptes (BRAIN-26).
 - **Textes hors JSX** (toast, erreurs de Server Action, chaînes dans des .ts) : couverts par revue jusqu'à la tâche 20, où la convention « toast et erreurs ne reçoivent que t(...) » sera testée.
 - **Primitives UI** : shadcn/ui en style `base-nova` (Base UI, pas Radix), défaut actuel de shadcn ; à confirmer avant la tâche 12. Vérifier à la tâche 20 que le composant Command existe en base-nova (sinon `cmdk` seul).
+- **Limitation de tentatives** : règle de rate limit du pare-feu Vercel sur les POST vers /login et /reset-password (tâche 17), la limite par IP de Neon Auth ne voyant que les IP de Vercel.
+- **Réinitialisation** : OTP par e-mail ; plan B si le type forget-password n'est pas servi : `requestPasswordReset` par lien + domaine de confiance par environnement.
+- **e2e avec connexion** : cookies `__Secure-` refusés par WebKit sur http://localhost → e2e connectés en Chromium (émulation iPhone) en local, WebKit contre une preview HTTPS ; à appliquer à partir de la tâche 14.
 
 ## Dépendances nouvelles (justification, constitution 7)
 - `next`, `react`, `tailwindcss`, shadcn/ui — ADR-001.
@@ -131,7 +134,8 @@
   - Cookies du SDK : `__Secure-neon-auth.*`, toujours `HttpOnly` et `Secure`, `sameSite: "lax"` posé explicitement (la doc Neon annonce `strict`, le code 0.8.2 applique `lax`).
   - Jeton : `iss` et `aud` vérifiés, figés par `NEON_AUTH_ISSUER` et `NEON_AUTH_AUDIENCE` (= origine de `NEON_AUTH_BASE_URL`, doc Neon « JWT » du 2026-11-05 ; pas de vrai jeton décodé : aucun compte avec mot de passe à ce stade). JWT obtenu par `auth.token()` (endpoint `/token`), jamais `session.token` (jeton opaque). Aucune route n'appelle encore `withUserDb`.
   - Faits : `src/db/client.test.ts` (« refuse un iss étranger », « refuse une audience étrangère », « refuse un jeton sans audience ») ; `src/proxy.test.ts` (« laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session », cookie forgé, matcher) ; `e2e/acces-refuse.spec.ts` (scénario 3, desktop, vert contre `pnpm dev`).
-  - Reste : connexion réelle d'Antoine sur `dev` (définir le mot de passe par « mot de passe oublié »), puis décoder un vrai jeton (`iss`, `aud`, `alg`, `kid` seulement) pour confirmer `NEON_AUTH_ISSUER` / `NEON_AUTH_AUDIENCE` ; vérifier sur `dev` que l'API d'inscription de Neon Auth refuse et que l'Email OTP est actif.
+  - Lecture de session sûre dans un Server Component : `getSession` / `getSessionToken` passent par une instance `createAuthServer` (`@neon/auth/server`) dont l'écriture de cookie ignore la seule erreur « cookies en lecture seule » de Next ; le proxy porte le renouvellement. Journal serveur des échecs d'auth : statut HTTP et code Neon seulement. 5xx et 429 → « service indisponible ». La déconnexion efface les cookies `__Secure-neon-auth.*` quoi qu'il arrive.
+  - Reste : connexion réelle d'Antoine sur `dev` (définir le mot de passe par « mot de passe oublié ») ; connexion réelle, attendre > 5 min, recharger /dashboard : ni 500 ni double appel ; puis décoder un vrai jeton (`iss`, `aud`, `alg`, `kid` seulement) pour confirmer `NEON_AUTH_ISSUER` / `NEON_AUTH_AUDIENCE` ; vérifier sur `dev` que l'API d'inscription de Neon Auth refuse et que l'Email OTP est actif.
   - Fini quand : tests verts, connexion réelle d'Antoine sur `dev`.
 
 - [ ] **11. Résoudre le workspace et la langue depuis la session** [security] (BRAIN-5, BRAIN-6)
@@ -172,6 +176,7 @@
 
 - [ ] **17. Vercel, previews et CI** [manuel] + code (BRAIN-4)
   - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement. Production : `pnpm db:migrate` par GitHub Actions au merge dans `main`, avant le déploiement ; accès propriétaire de prod uniquement en secret GitHub (environnement protégé), jamais dans Vercel (ADR-010). Previews : migration de leur propre branche, aussi par la CI. Intégration Neon–Vercel configurée pour ne pousser aucune variable propriétaire au runtime Vercel : seulement `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` (ADR-010).
+  - Manuel (auth) : ajouter `NEON_AUTH_COOKIE_SECRET` à la main dans Vercel, un par environnement (`openssl rand -base64 32`), avec `NEON_AUTH_ISSUER` et `NEON_AUTH_AUDIENCE` (origine de `NEON_AUTH_BASE_URL` de la branche) ; règle de rate limit du pare-feu Vercel sur les POST vers /login et /reset-password.
   - Code : `.github/workflows/ci.yml` — lint, typecheck, tests unitaires (dont textes en dur et parité des clés), tests d'isolation sur une branche Neon créée pour le run puis supprimée.
   - Test : ouvrir une pull request de contrôle.
   - Fini quand : la PR a sa preview, sa branche Neon et une CI verte ; `main` déploie en production.

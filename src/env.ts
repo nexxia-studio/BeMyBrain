@@ -29,6 +29,16 @@ export function parseAppEnv(source: EnvSource): AppEnv {
     );
   }
   const env = parseEnv(appEnvSchema, source);
+  // Neon Auth pose iss = aud = origine exacte de l'URL Neon Auth : toute autre valeur refuserait
+  // tous les jetons, ou accepterait ceux d'une autre branche. Message : noms de variables seulement.
+  const authOrigin = new URL(env.NEON_AUTH_BASE_URL).origin;
+  for (const name of ["NEON_AUTH_ISSUER", "NEON_AUTH_AUDIENCE"] as const) {
+    if (env[name] !== authOrigin) {
+      throw new Error(
+        `${name} doit valoir exactement l'origine de NEON_AUTH_BASE_URL (schéma et hôte seulement, sans chemin ni barre finale). Voir .env.example.`,
+      );
+    }
+  }
   // Si l'URL propriétaire est aussi définie (local), elle doit viser la même branche.
   assertSameHost(source, "DATABASE_URL", "DATABASE_AUTHENTICATED_URL");
   return env;

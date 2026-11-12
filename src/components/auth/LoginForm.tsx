@@ -31,6 +31,7 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           inputMode="email"
+          defaultValue={state?.email}
           autoCapitalize="none"
           spellCheck={false}
           required

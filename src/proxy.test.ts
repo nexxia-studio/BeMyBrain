@@ -5,12 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import proxy, { config } from "./proxy";
 
-// Posé par le runtime Node de Next avant tout module ; absent sous Vitest. Hissé avant les imports.
-vi.hoisted(async () => {
-  const { AsyncLocalStorage } = await import("node:async_hooks");
-  Object.assign(globalThis, { AsyncLocalStorage });
-});
-
 const ORIGIN = "http://localhost:3000";
 // Jeton de session au nom exact du SDK (`__Secure-neon-auth.session_token`).
 const SESSION_COOKIE = "__Secure-neon-auth.session_token";
@@ -71,6 +65,34 @@ describe("proxy d'authentification", () => {
     expect(fetchMock).toHaveBeenCalled();
     expect(response.status).toBe(307);
     expect(new URL(response.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("laisse passer /dashboard quand l'auth reconnaît la session", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        session: {
+          id: "s1",
+          token: "opaque",
+          userId: "dc42fa70-09a7-4038-a3bb-f61dda854910",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+          createdAt: "2026-11-12T00:00:00.000Z",
+          updatedAt: "2026-11-12T00:00:00.000Z",
+        },
+        user: {
+          id: "dc42fa70-09a7-4038-a3bb-f61dda854910",
+          createdAt: "2026-11-12T00:00:00.000Z",
+          updatedAt: "2026-11-12T00:00:00.000Z",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await proxy(
+      request("/dashboard", `${SESSION_COOKIE}=opaque`),
+    );
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(isAllowed(response)).toBe(true);
   });
 
   it("ne protège pas /reset-password-bis par erreur de préfixe", async () => {

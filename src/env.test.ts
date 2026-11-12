@@ -134,6 +134,32 @@ describe("variables d'environnement de l'app", () => {
   );
 });
 
+describe("iss et aud attendus des jetons", () => {
+  it.each([
+    ["NEON_AUTH_ISSUER", "https://autre-branche.example.test"],
+    ["NEON_AUTH_AUDIENCE", "https://autre-branche.example.test"],
+    ["NEON_AUTH_ISSUER", "https://auth.example.test/app/auth"],
+    ["NEON_AUTH_AUDIENCE", "https://auth.example.test/"],
+  ])(
+    "refuse %s = %s, différent de l'origine de NEON_AUTH_BASE_URL, sans afficher de valeur",
+    (name, value) => {
+      const source = { ...validAppEnv, [name]: value };
+
+      const parse = () => parseAppEnv(source);
+
+      expect(parse).toThrow(new RegExp(`${name}.*NEON_AUTH_BASE_URL`));
+      expect(parse).not.toThrow(/example\.test|https?:/);
+    },
+  );
+
+  it("accepte iss et aud égaux à l'origine de NEON_AUTH_BASE_URL", () => {
+    const env = parseAppEnv(validAppEnv);
+
+    expect(env.NEON_AUTH_ISSUER).toBe("https://auth.example.test");
+    expect(env.NEON_AUTH_AUDIENCE).toBe("https://auth.example.test");
+  });
+});
+
 describe("variables d'environnement de l'auth", () => {
   it("accepte l'URL Neon Auth et un secret de cookie de 32 caractères", () => {
     const env = parseAuthEnv(validAuthEnv);
