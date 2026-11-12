@@ -1,0 +1,65 @@
+# Base des previews (ADR-010) : la CI, pas le build Vercel, crée ou retrouve la branche Neon
+# `preview/<branche-git>` (nom attendu par l'intégration Neon–Vercel), y applique les migrations de la PR,
+# et la supprime à la fermeture de la PR. L'accès propriétaire de la branche n'existe que dans ce job.
+# Les variables de runtime de la preview (DATABASE_AUTHENTICATED_URL, NEON_AUTH_*) ne sont PAS posées ici :
+# voir le plan socle, tâche 17, « Préparé » (décision en attente).
+name: Preview database
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-database-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+  NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+  NEON_DATABASE: ${{ vars.NEON_DATABASE }}
+  NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE }}
+  # Jamais interpolé dans un script : passé par variable d'environnement (injection).
+  HEAD_REF: ${{ github.head_ref }}
+
+jobs:
+  migrate-preview:
+    name: Migrer la base de la preview
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Créer ou retrouver la branche Neon de la preview
+        env:
+          APP_BACKEND_PASSWORD: ${{ secrets.APP_BACKEND_PASSWORD }}
+        run: >
+          node scripts/ci/neon-branch.mjs create "preview/$HEAD_REF"
+          --owner-env DATABASE_URL
+          --app-env DATABASE_AUTHENTICATED_URL
+      - run: pnpm db:migrate
+
+  delete-preview:
+    name: Supprimer la base de la preview
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # Script sans dépendance : pas d'installation.
+      - run: node scripts/ci/neon-branch.mjs delete "preview/$HEAD_REF"

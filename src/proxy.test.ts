@@ -105,6 +105,41 @@ describe("proxy d'authentification", () => {
   });
 });
 
+describe("politique de sécurité du contenu posée par le proxy", () => {
+  function nonceOf(policy: string | null) {
+    return policy?.match(/'nonce-([^']+)'/)?.[1];
+  }
+
+  it("pose sur /login une CSP à nonce, aussi transmise au rendu de la page", async () => {
+    const response = await proxy(request("/login"));
+
+    const policy = response.headers.get("content-security-policy");
+    expect(nonceOf(policy)).toBeTruthy();
+    // Next lit le nonce dans l'en-tête de requête transmis par le proxy.
+    expect(
+      response.headers.get("x-middleware-request-content-security-policy"),
+    ).toBe(policy);
+  });
+
+  it("tire un nonce différent à chaque requête", async () => {
+    const first = await proxy(request("/login"));
+    const second = await proxy(request("/login"));
+
+    expect(nonceOf(first.headers.get("content-security-policy"))).not.toBe(
+      nonceOf(second.headers.get("content-security-policy")),
+    );
+  });
+
+  it("pose aussi la CSP sur la redirection vers /login", async () => {
+    const response = await proxy(request("/dashboard"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("content-security-policy")).toContain(
+      "frame-ancestors 'none'",
+    );
+  });
+});
+
 describe("matcher du proxy", () => {
   it.each([
     "/manifest.webmanifest",

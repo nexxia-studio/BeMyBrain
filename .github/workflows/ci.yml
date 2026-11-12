@@ -1,0 +1,77 @@
+# CI du socle (plan, tâche 17) : lint, types, build, puis toute la suite Vitest (unitaires, textes en dur,
+# parité des clés, isolation RLS) sur une branche Neon créée pour le run depuis production et supprimée ensuite.
+# Les actions tierces sont épinglées par SHA (version en commentaire).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Un nouveau push sur une PR annule le run précédent ; jamais sur main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Lint, types et build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (version : packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # Aucune variable : l'app ne lit son environnement qu'au premier accès, jamais au build.
+      - run: pnpm build
+
+  tests:
+    name: Tests (branche Neon éphémère)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Les secrets ne sont pas transmis aux PR venues d'un fork.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      NEON_DATABASE: ${{ vars.NEON_DATABASE }}
+      NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE }}
+      CI_BRANCH: ci/run-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Branche fille de production (rôle app_backend et mots de passe hérités), expirée par Neon
+      # sous 2 h si la suppression ci-dessous n'a pas tourné. Hôtes, mots de passe et URL masqués
+      # avant d'être écrits dans DATABASE_TEST_URL et DATABASE_TEST_AUTHENTICATED_URL.
+      - name: Créer la branche Neon du run
+        env:
+          APP_BACKEND_PASSWORD: ${{ secrets.APP_BACKEND_PASSWORD }}
+        run: >
+          node scripts/ci/neon-branch.mjs create "$CI_BRANCH"
+          --owner-env DATABASE_TEST_URL
+          --app-env DATABASE_TEST_AUTHENTICATED_URL
+          --ttl-hours 2
+      # Migrations de la PR appliquées par-dessus l'état réel de production.
+      - run: pnpm db:migrate:test
+      - run: pnpm test
+      - name: Supprimer la branche Neon du run
+        if: always()
+        run: node scripts/ci/neon-branch.mjs delete "$CI_BRANCH"

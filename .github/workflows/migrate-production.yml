@@ -1,0 +1,47 @@
+# Migrations et seed de production (ADR-010) : au push sur main, depuis l'environnement GitHub protégé
+# `production`, le seul endroit où existe l'accès propriétaire de la branche Neon production.
+# Ordre avec Vercel : Vercel construit la production en parallèle, mais une « Deployment Check »
+# GitHub (Vercel > Settings > Build and Deployment > Deployment Checks) sur le job « Migrer la production »
+# retient l'attribution du domaine de production jusqu'au succès de ce job. Aucun secret Vercel.
+# Nom du job unique dans le dépôt : Vercel et GitHub identifient les checks par ce nom.
+name: Production
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Une migration à la fois, jamais annulée en cours de route.
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate-production:
+    name: Migrer la production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # GITHUB_ACTIONS=true lève le garde-fou NEON_PRODUCTION_HOST : la cible est fixée par le secret.
+      - name: Migrer
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Rejouable : ne crée le workspace d'Antoine qu'une fois, ne modifie jamais une ligne existante.
+      - name: Seed
+        run: pnpm db:seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SEED_OWNER_USER_ID: ${{ vars.SEED_OWNER_USER_ID }}

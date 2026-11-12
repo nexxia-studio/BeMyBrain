@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import fr from "../messages/fr.json";
+import { watchCspViolations } from "./csp";
 
 // Scénario 3 de la spec socle : desktop seulement (le projet mobile exclut le tag @desktop).
 test.use({ locale: "fr-FR" });
@@ -10,6 +11,7 @@ test(
   { tag: "@desktop" },
   async ({ page, context }) => {
     await context.clearCookies();
+    const violations = await watchCspViolations(page);
 
     await page.goto("/dashboard");
 
@@ -32,5 +34,6 @@ test(
     await expect(page.getByRole("link")).toHaveText([
       fr.auth.login.forgotPassword,
     ]);
+    expect(violations).toEqual([]);
   },
 );

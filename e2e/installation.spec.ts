@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { watchCspViolations } from "./csp";
+
 // Scénario 5 de la spec socle (installer l'app). La proposition d'installation elle-même n'est
 // pas observable en headless : on vérifie ce qui la conditionne (manifeste servi sans session,
 // icônes présentes, liens du document). Chromium desktop seulement (tag @desktop).
@@ -35,6 +37,8 @@ test.describe("installation de l'app", { tag: "@desktop" }, () => {
     page,
     request,
   }) => {
+    const violations = await watchCspViolations(page);
+
     await page.goto("/login");
 
     const hrefs = await page.evaluate(() =>
@@ -52,5 +56,6 @@ test.describe("installation de l'app", { tag: "@desktop" }, () => {
       const response = await request.get(href!, { maxRedirects: 0 });
       expect(response.status(), rel).toBe(200);
     }
+    expect(violations).toEqual([]);
   });
 });
