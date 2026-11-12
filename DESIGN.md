@@ -170,7 +170,9 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
 9. **Mobile en une colonne avec une paire « chiffre »** : la spec dit une colonne, la référence mobile montre deux petites tuiles côte à côte. Retenu : une colonne, sauf la paire de tuiles chiffre.
 
 ## 9. PWA (tâche 13)
-- `theme_color` et `background_color` : `#E8ECF5` (brume ; `THEME_COLOR` dans `src/lib/theme.ts`, déjà posé dans le `viewport` ; la couleur de fond du manifeste arrive à la tâche 13). `apple-mobile-web-app-status-bar-style` : `default` (barre sombre sur fond clair).
+- `theme_color` et `background_color` : `#E8ECF5` (brume ; `THEME_COLOR` et `BACKGROUND_COLOR` dans `src/lib/theme.ts`, lus par le `viewport` et par `src/app/manifest.ts`). `apple-mobile-web-app-status-bar-style` : `default` (barre sombre sur fond clair).
+- Manifeste : `display: standalone`, `start_url: /dashboard`, `scope: /`, nom et description = `app.name` / `app.description` de `messages/fr.json`.
+- **Zones sûres iOS** : `viewportFit: "cover"` ; la page passe sous l'encoche et la barre d'accueil en standalone. Variables `--safe-top`, `--safe-right`, `--safe-bottom`, `--safe-left` (`env(safe-area-inset-*, 0px)`) dans `globals.css`, utilitaires Tailwind `pt-safe-top`, `pb-safe-bottom`, `pl-safe-left`, `pr-safe-right` (ou `calc(var(--safe-bottom) + …)`). La coque (tâche 14) les applique : en-tête sous `--safe-top`, barre d'onglets au-dessus de `--safe-bottom`. Aucun autre composant ne s'en occupe.
 - **Icône d'app** : le logo de la référence. Carré plein indigo `#3D4FD6` à fond perdu ; au centre, le glyphe blanc `#FFFFFF` « étincelle » : un cercle de rayon 3 et huit rayons, sur une grille 24 × 24, trait 2, bouts et angles arrondis, sans remplissage :
   `<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>`
   - 192 et 512 px : coins arrondis à 35 % du côté (14 px sur 40 dans la référence), glyphe à 50 % de la largeur.
@@ -178,6 +180,7 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
   - apple-touch-icon 180 px : carré plein sans arrondi ni transparence (iOS arrondit), glyphe à 50 %.
   - Favicon : même dessin, 32 px, trait épaissi à 2,4 pour rester lisible.
 - Pas de texte dans l'icône. Le nom de l'app vient des messages de la langue par défaut.
+- Source versionnée : `docs/design/icon.svg` (glyphe). Fichiers dérivés : `public/icons/` (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`) et `src/app/favicon.ico`. Régénérer : `node scripts/generate-icons.mjs` (rasterisé par le Chromium de Playwright).
 
 ## 10. Thème sombre (stratégie seulement)
 - Aucune valeur sombre n'est fixée : elles seront tirées d'une référence sombre validée, comme le clair.

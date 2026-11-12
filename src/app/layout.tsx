@@ -20,10 +20,12 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-// viewportFit "cover" et zones sûres iOS : tâche 13, avec la coque qui les gère.
+// viewportFit "cover" : en standalone iOS, la page passe sous l'encoche et la barre d'accueil ;
+// la coque (tâche 14) s'en écarte avec --safe-top / --safe-bottom (globals.css, DESIGN.md § 9).
 export const viewport: Viewport = {
   themeColor: THEME_COLOR,
   colorScheme: "light",
+  viewportFit: "cover",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,6 +34,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t("name"),
     description: t("description"),
+    // PWA iOS (ADR-008) : barre d'état « default » = texte sombre sur fond clair (DESIGN.md § 9).
+    appleWebApp: {
+      capable: true,
+      title: t("name"),
+      statusBarStyle: "default",
+    },
+    icons: {
+      apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
+    },
   };
 }
 

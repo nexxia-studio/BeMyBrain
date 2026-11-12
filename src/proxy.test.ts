@@ -36,6 +36,9 @@ describe("proxy d'authentification", () => {
     "/reset-password",
     "/manifest.webmanifest",
     "/icons/icon-192.png",
+    "/icons/icon-512.png",
+    "/icons/icon-maskable-512.png",
+    "/icons/apple-touch-icon.png",
   ])("laisse passer %s sans session", async (path) => {
     const response = await proxy(request(path));
 
@@ -106,7 +109,11 @@ describe("matcher du proxy", () => {
   it.each([
     "/manifest.webmanifest",
     "/icons/icon-192.png",
+    "/icons/icon-512.png",
+    "/icons/icon-maskable-512.png",
+    "/icons/apple-touch-icon.png",
     "/apple-icon.png",
+    "/apple-touch-icon.png",
     "/favicon.ico",
     "/_next/static/chunks/app.js",
     "/_next/image?url=%2Ficons%2Ficon-192.png&w=64&q=75",
