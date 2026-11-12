@@ -1,6 +1,6 @@
 # Plan — Socle
 
-**Spec** : `spec.md` · **Branche** : `feat/socle` · **Créé le** : 2026-11-11 · **Révisé le** : 2026-11-11 (ADR-006 à 009, Sentry) · **Tickets** : BRAIN-2 à BRAIN-7
+**Spec** : `spec.md` · **Branche** : `feat/socle` · **Créé le** : 2026-11-11 · **Révisé le** : 2026-11-12 (tâches 1 à 10 closes, previews option A ADR-010, projet Vercel à créer) — 2026-11-11 (ADR-006 à 009, Sentry) · **Tickets** : BRAIN-2 à BRAIN-7
 
 <!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
 <!-- [security] = security-auditor passe après le reviewer. -->
@@ -60,84 +60,6 @@
 
 ## Tâches
 
-- [x] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2)
-  - Fichiers : `.claude/agents/security-auditor.md`, `.claude/agents/explorer.md`, `.claude/skills/feature/SKILL.md`, `.claude/rules/frontend.md`, `.claude/rules/tests.md`, `docs/features/_template/plan.md`, `docs/instructions-projet-claude-ai.md`, `docs/gotchas.md`
-  - Contenu : RLS Neon (`auth.user_id()`, rôle restreint, `app.is_workspace_member`) ; `[security]` sur `drizzle/`, `src/db/`, l'auth et la session ; `frontend.md` passe à `paths: src/app/**, src/components/**`, retire TanStack Query, react-hook-form et Vite, ajoute : textes via `next-intl` uniquement, Motion / GSAP selon ADR-006, aucune règle métier dans un composant ; `tests.md` remplace `supabase start` par « branche Neon de test via `DATABASE_TEST_URL` » ; `gotchas.md` retire la ligne Edge Function et ajoute le hook eslint (tâche 2).
-  - Test : `grep -ril supabase . --exclude-dir=.git` ne renvoie que : l'ADR-001, l'ADR-003, `CLAUDE.md` (garde-fou « Pas de Supabase »), `docs/features/socle/plan.md` (texte de cette tâche) et `docs/instructions-projet-claude-ai.md` (outils Nexxia hors BeMyBrain).
-  - Fini quand : la recherche est propre et le security-auditor décrit le modèle Neon de ce plan.
-
-- [x] **2. Créer l'app Next.js et l'outillage** (BRAIN-4)
-  - Fichiers : `package.json`, `tsconfig.json`, `next.config.ts`, `eslint.config.mjs`, `vitest.config.mts`, `playwright.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `.gitignore`
-  - Ordre imposé : scaffold (`pnpm create next-app`, App Router, TS, Tailwind, `src/`) et `pnpm install` en Bash **avant** toute édition de `.ts` — le hook PostToolUse lance eslint et bloque tant qu'il n'est pas installé. Ajouter `node_modules/`, `.next/`, `test-results/`, `playwright-report/` à `.gitignore`. Initialiser shadcn/ui. Scripts : `dev`, `test`, `lint`, `typecheck`, `e2e`.
-  - Frontières (ADR-002, ADR-008) dans `eslint.config.mjs`, règle `no-restricted-imports` : `src/app/**` et `src/components/**` n'importent ni `drizzle-orm` ni `@/db/*` ; `src/modules/**` n'importe ni `react` ni `next/*`.
-  - Test à écrire d'abord : `src/app/page.test.tsx` — « affiche la page d'accueil sans erreur » ; `tests/lint/boundaries.test.ts` — « eslint refuse un import de @/db dans un composant ».
-  - Fini quand : `pnpm lint`, `pnpm typecheck`, `pnpm test` passent.
-
-- [x] **3. Poser le multilingue FR/EN** (ADR-007)
-  - Fichiers : `src/i18n/request.ts`, `src/i18n/locales.ts`, `messages/fr.json`, `messages/en.json`, `next.config.ts` (plugin next-intl), `src/app/layout.tsx`, `tests/i18n/no-hardcoded-text.test.ts`, `tests/i18n/messages-parity.test.ts`
-  - `next-intl` sans routage i18n (doc officielle « without i18n routing »). Locale lue dans le cookie `NEXT_LOCALE`, sinon `Accept-Language`, sinon `fr` ; valeur hors `fr`/`en` ignorée. `<html lang>` suit la locale.
-  - Test « texte en dur » : parcourt `src/**/*.tsx` avec l'API `typescript`, échoue sur tout `JSXText` non vide et sur tout littéral dans `aria-label`, `title`, `alt`, `placeholder`. Liste d'exceptions explicite et vide au départ.
-  - Test à écrire d'abord : « échoue sur un composant de test contenant un texte en dur » ; « fr.json et en.json ont exactement les mêmes clés » ; « un cookie NEXT_LOCALE=de retombe sur fr » ; « une même date s'affiche « 11 novembre 2026 » en fr et « November 11, 2026 » en en ».
-  - Fini quand : tests verts, la page d'accueil de la tâche 2 passe par les messages.
-
-- [x] **4. Créer le projet Neon et le rôle restreint** [manuel]
-  - Actions : nouveau projet Neon `bemybrain` (Francfort ; ne pas toucher `my-first-project`), branche `production` (défaut Neon), branche `dev` pour le local ; activer Neon Auth sur `production` ; rôle `app_backend` (LOGIN, sans BYPASSRLS) ; vérifier que `auth.user_id()` répond.
-  - Antoine met les connexions dans son `.env` local (jamais dans le chat ni le repo).
-  - Fini quand : `DATABASE_URL`, `DATABASE_AUTHENTICATED_URL`, `NEON_AUTH_*` existent pour `dev`, et `auth.user_id()` répond sur `dev`.
-
-- [x] **5. Brancher Drizzle, les migrations et `.env.example`** (BRAIN-4)
-  - Fichiers : `drizzle.config.ts`, `src/db/client.ts`, `src/db/user-db.ts`, `src/db/admin.ts`, `src/db/schema/app.ts`, `src/env.ts`, `.env.example`, `drizzle/0000_*.sql`, `package.json` (scripts `db:generate` et `db:migrate` avec drizzle-kit)
-  - `src/env.ts` valide les variables avec zod au premier accès (l'app n'exige jamais `DATABASE_URL`). `src/db/client.ts` expose `withUserDb(token, fn)` (vérifie le jeton — signature JWKS, EdDSA, `exp`, `sub` uuid —, ouvre la transaction `app_backend`, injecte les claims vérifiés). L'injection testable (`createWithUserDb`, `createTokenVerifier`) vit dans `src/db/user-db.ts` ; `adminDb` (propriétaire, migrations et seed) dans `src/db/admin.ts`. eslint interdit `db/admin` et `db/user-db` hors de `src/db`, des scripts et des tests. `db:migrate` = commande unique, la même partout.
-  - En test, `vitest.config.mts` fait pointer `DATABASE_URL` et `DATABASE_AUTHENTICATED_URL` sur la branche test (ou les supprime).
-  - `.env.example` liste aussi, sans valeur, `DATABASE_TEST_URL` (propriétaire, branche de test) et `DATABASE_TEST_AUTHENTICATED_URL` (`app_backend`, branche de test), utilisées par les tests d'isolation (tâche 6).
-  - Test à écrire d'abord : `src/env.test.ts` — « refuse de démarrer si DATABASE_AUTHENTICATED_URL manque » ; `src/db/client.test.ts` — « refuse un jeton à la signature invalide sans ouvrir de transaction ».
-  - Fini quand : `pnpm db:migrate` passe sur `dev`, tests verts, aucune URL ni identifiant de projet dans le code (`grep` sur `neon.tech`, `vercel.app`).
-
-- [x] **6. Tables `workspaces`, `workspace_members`, `contexts` avec RLS** [security] (BRAIN-6)
-  - Fichiers : `src/db/schema/core.ts`, `tests/db/isolation-core.test.ts`, `tests/factories/core.ts`, script `db:migrate:test` (`MIGRATION_TARGET=test`).
-  - Migrations (une fonction `LANGUAGE sql` vérifie son corps à la création : tables, puis fonctions, puis policies) :
-    - `0001_core_tables` (générée) : tables, CHECK, index, FK, `ENABLE ROW LEVEL SECURITY` ;
-    - `0002_rls_functions_and_grants` (custom) : `pg_session_jwt`, `app.current_user_id()` et `app.is_workspace_member()`, REVOKE PUBLIC sur `public`, `app` et les fonctions, GRANT au plus juste à `app_backend` (verbes sans GRANT commentés « refusé par absence de GRANT ») ;
-    - `0003_core_policies` (générée) : une policy par verbe autorisé, `TO app_backend` ;
-    - `0004_contexts_unique_name` (générée) : unique `(workspace_id, name)` sur `contexts` ;
-    - `0005_updated_at_and_column_grants` (custom) : trigger `updated_at` sur les trois tables, INSERT/UPDATE par colonne sur `contexts`, droits par défaut des fonctions sans EXECUTE pour PUBLIC.
-  - Colonnes selon `neon.md`. `contexts.kind` : `text` + `CHECK (kind IN ('private','pro'))`. `workspace_members.role` : `text` + `CHECK (role IN ('owner','member'))`. `workspace_members.locale` : `text NOT NULL DEFAULT 'fr'` + `CHECK (locale IN ('fr','en'))`. Index sur chaque FK et `(workspace_id, kind)`. RLS activée dans la même migration que chaque `CREATE TABLE`, une policy par verbe pour `app_backend`, jamais `FOR ALL` ni `USING (true)`. Un membre ne modifie que sa propre ligne (`locale`).
-  - Test à écrire d'abord : `tests/db/isolation-core.test.ts` (données préparées via `DATABASE_TEST_URL`, assertions via `DATABASE_TEST_AUTHENTICATED_URL` en `app_backend`, claims posés à la main, aucun filtre applicatif) — « l'utilisateur du workspace B ne lit aucune ligne du workspace A », « ne peut ni insérer, ni modifier, ni supprimer chez A », « sans claims, ne lit rien », « ne peut pas modifier la locale d'un autre membre ».
-  - Fini quand : les tests passent et la migration s'applique à neuf sur une branche vide.
-
-- [x] **7. Script de départ rejouable** (BRAIN-6)
-  - Fichiers : `scripts/seed.ts`, `scripts/seed.test.ts`, `package.json` (script `db:seed` = `tsx scripts/seed.ts`), `vitest.config.mts` (inclut `scripts/**/*.test.ts`).
-  - `seedWorkspace(db, { ownerUserId })` : retrouve le workspace par l'appartenance owner de `SEED_OWNER_USER_ID`, sinon crée le workspace « BeMyBrain » (nom générique), l'appartenance owner (locale `fr`) et les contextes de `DEFAULT_CONTEXTS` (Privé `private` 0, Trustup `pro` 1, Nexxia `pro` 2). Une transaction, verrou consultatif par propriétaire (testé : deux seeds simultanés, un seul workspace). Erreur de la base : message générique + SQLSTATE. Les noms de contextes sont du contenu utilisateur : non traduits. Aucune donnée personnelle dans le code.
-  - Contextes posés seulement à la création du workspace (pas d'`ON CONFLICT` à chaque passage) : un contexte renommé, réordonné ou supprimé n'est jamais recréé ni remis en place. Le seed ne modifie jamais une ligne existante.
-  - CLI : `.env` chargé, garde-fou `NEON_PRODUCTION_HOST` (même que `drizzle.config.ts`), `SEED_OWNER_USER_ID` validé uuid, puis seulement ouverture d'`adminDb`. `MIGRATION_TARGET` refusée (`adminDb` lit toujours `DATABASE_URL`). Erreurs de la base : message générique.
-  - Tests : `scripts/seed.test.ts` contre la branche test (`DATABASE_TEST_URL`) — « lancé deux fois, le seed produit un workspace et trois contextes », « ne recrée pas un contexte renommé ni ne remet en place un contexte réordonné », « un second utilisateur owner obtient son propre workspace », refus d'un uuid invalide ou absent, de la production en local, de `MIGRATION_TARGET`.
-  - Seed sur `dev` après la tâche 9 (le compte d'Antoine, donc `SEED_OWNER_USER_ID`, n'existe qu'à ce moment) ; seed de production par la CI (ADR-010, tâche 17).
-
-- [x] **8. Module `core` : lectures et écritures filtrées** [security] (BRAIN-6)
-  - Fichiers : `src/modules/core/queries.ts`, `src/modules/core/mutations.ts`, `src/modules/core/core.test.ts`
-  - Lectures : `getWorkspaceForUser`, `listContexts(workspaceId, { side })`, `getMemberLocale(workspaceId, userId)`. Écriture : `setMemberLocale(workspaceId, userId, locale)` (locale validée par zod). Chaque fonction prend `workspaceId` en premier argument, filtre dessus, passe par `withUserDb`, n'importe ni React ni Next. Toute création de workspace par le module core pose elle-même les contextes (le seed ne les recrée pas).
-  - Test à écrire d'abord : « `listContexts` côté Pro renvoie Trustup et Nexxia, pas Privé » ; « un workspaceId étranger renvoie une liste vide » ; « `setMemberLocale` refuse `de` ».
-  - Fini quand : tests verts.
-
-- [x] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5)
-  - Déjà fait le 2026-11-12 sur `production`, `dev` et `test` : inscription publique fermée, connexion Google partagée retirée.
-  - Fait le 2026-11-12 : `localhost` retiré des origines autorisées sur `production` (gardé sur `dev`) ; compte d'Antoine créé sur `production` (id `2326061b-1e88-46fe-beac-eb0df219eb85`) et sur `dev` (id `9cdcc14d-5d44-45b5-8d8d-47d90a99652f`), sans mot de passe : défini par « mot de passe oublié » (code par e-mail) à la tâche 10 ; seed passé sur `dev` (workspace BeMyBrain, Privé / Trustup / Nexxia), rejoué sans doublon. L'id de production servira de `SEED_OWNER_USER_ID` au seed lancé par GitHub Actions (tâche 17).
-  - Reste (tâche 17) : domaine de confiance = URL Vercel de production ; vérifier qu'une preview hérite bien du compte de `production`.
-  - Prévu à l'origine : domaines de confiance = localhost et l'URL Vercel ; créer le compte d'Antoine sur `production` et sur `dev` ; vérifier si une branche preview hérite des utilisateurs de `production` (ADR-003). Si non, prévoir pour `/qa` un compte de test créé sur la branche preview.
-  - Fini quand : Antoine se connecte sur `dev` via Neon Auth et la réponse au point « preview » est notée dans `docs/gotchas.md`.
-
-- [x] **10. Écran de connexion et session serveur** [security] (BRAIN-5)
-  - Fichiers : `src/lib/auth/` (`server.ts` : `getAuth`, `getSession`, `getSessionToken` ; `actions.ts` : actions serveur ; `routes.ts` ; `schemas.ts`), `src/proxy.ts` (convention Next 16, remplace `middleware.ts`), `src/app/(auth)/login/page.tsx`, `src/app/(auth)/reset-password/page.tsx`, `src/app/(app)/layout.tsx`, `src/app/(app)/dashboard/page.tsx`, `src/components/auth/`, `messages/*.json`
-  - Toute route sans session valide → redirection vers `/login` (proxy, puis second verrou dans le layout de `(app)`). Publiques : `/login`, `/reset-password`, `/manifest.webmanifest`, `/icons` ; les assets statiques sont hors du matcher. Pas de lien d'inscription. Messages d'erreur génériques, traduits. Écran conçu à 390 px d'abord.
-  - Connexion, déconnexion et réinitialisation passent par des actions serveur (`@neon/auth/next/server`) : pas de client navigateur, pas de route `/api/auth` montée (l'API d'inscription n'est pas exposée par l'app).
-  - Réinitialisation par code e-mail : `emailOtp.sendVerificationOtp({ type: "forget-password" })` puis `emailOtp.resetPassword` ; crée le mot de passe d'un compte qui n'en a pas (Better Auth 1.7). Réponse identique que le compte existe ou non.
-  - Cookies du SDK : `__Secure-neon-auth.*`, toujours `HttpOnly` et `Secure`, `sameSite: "lax"` posé explicitement (la doc Neon annonce `strict`, le code 0.8.2 applique `lax`).
-  - Jeton : `iss` et `aud` vérifiés, figés par `NEON_AUTH_ISSUER` et `NEON_AUTH_AUDIENCE` (= origine de `NEON_AUTH_BASE_URL`, doc Neon « JWT » du 2026-11-05 ; pas de vrai jeton décodé : aucun compte avec mot de passe à ce stade). JWT obtenu par `auth.token()` (endpoint `/token`), jamais `session.token` (jeton opaque). Aucune route n'appelle encore `withUserDb`.
-  - Faits : `src/db/client.test.ts` (« refuse un iss étranger », « refuse une audience étrangère », « refuse un jeton sans audience ») ; `src/proxy.test.ts` (« laisse passer /login, /manifest.webmanifest et les icônes, redirige /dashboard sans session », cookie forgé, matcher) ; `e2e/acces-refuse.spec.ts` (scénario 3, desktop, vert contre `pnpm dev`).
-  - Lecture de session sûre dans un Server Component : `getSession` / `getSessionToken` passent par une instance `createAuthServer` (`@neon/auth/server`) dont l'écriture de cookie ignore la seule erreur « cookies en lecture seule » de Next ; le proxy porte le renouvellement. Journal serveur des échecs d'auth : statut HTTP et code Neon seulement. 5xx et 429 → « service indisponible ». La déconnexion efface les cookies `__Secure-neon-auth.*` quoi qu'il arrive.
-  - Reste : connexion réelle d'Antoine sur `dev` (définir le mot de passe par « mot de passe oublié ») ; connexion réelle, attendre > 5 min, recharger /dashboard : ni 500 ni double appel ; puis décoder un vrai jeton (`iss`, `aud`, `alg`, `kid` seulement) pour confirmer `NEON_AUTH_ISSUER` / `NEON_AUTH_AUDIENCE` ; vérifier sur `dev` que l'API d'inscription de Neon Auth refuse et que l'Email OTP est actif.
-  - Fini quand : tests verts, connexion réelle d'Antoine sur `dev`.
-
 - [ ] **11. Résoudre le workspace et la langue depuis la session** [security] (BRAIN-5, BRAIN-6)
   - Fichiers : `src/lib/session.ts`, `src/lib/locale-cookie.ts`
   - `requireSession()` renvoie `{ userId, workspaceId, token }` depuis la session serveur uniquement. Utilisateur sans workspace → page d'erreur sobre, pas de création automatique. À la connexion, la locale du membre est recopiée dans `NEXT_LOCALE`. Réévaluer `server-only` sur `src/lib/auth/`.
@@ -175,7 +97,7 @@
   - Test à écrire d'abord : `e2e/premiere-connexion.spec.ts` (scénario 1, desktop + mobile) ; test composant — « côté Pro, aucune tuile Privé n'est rendue » ; e2e avec `reducedMotion: 'reduce'` — « aucune animation ne démarre » ; test de build — « gsap n'est pas dans le bundle initial de /dashboard ».
   - Fini quand : tests verts, anti-slop puis `/impeccable critique` passés.
 
-- [ ] **16. Réglages : choix de la langue** (BRAIN-7, ADR-007)
+- [ ] **16. Réglages : choix de la langue** [security] (BRAIN-7, ADR-007)
   - Fichiers : `src/app/(app)/settings/page.tsx`, `src/app/(app)/settings/actions.ts`, `src/components/settings/locale-picker.tsx`
   - Server Action : `requireSession()` → `setMemberLocale` → `syncLocaleCookie(locale)` (`src/lib/locale-cookie.ts` : c'est cette action, avec `signIn`, qui recopie NEXT_LOCALE ; `requireSession` ne l'écrit jamais) → rafraîchissement. URL inchangée.
   - Test réel à écrire (première action non publique) : « une Server Action non publique appelée sans session est refusée ».
@@ -183,7 +105,7 @@
   - Fini quand : tests verts.
 
 - [ ] **17. Vercel, previews et CI** [manuel] + code (BRAIN-4)
-  - Manuel : projet Vercel existant (Francfort) relié au repo, production sur `main`, intégration Neon (une branche Neon par preview), variables par environnement. Production : `pnpm db:migrate` par GitHub Actions au merge dans `main`, avant le déploiement ; accès propriétaire de prod uniquement en secret GitHub (environnement protégé), jamais dans Vercel (ADR-010). Previews : migration de leur propre branche, aussi par la CI. Intégration Neon–Vercel configurée pour ne pousser aucune variable propriétaire au runtime Vercel : seulement `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` (ADR-010).
+  - Manuel : **créer** le projet Vercel BeMyBrain (Francfort, relié au repo, production sur `main`). Aucun projet BeMyBrain n'existe dans l'équipe nexxia-studio (vérifié le 2026-11-12) : le plan disait « existant » à tort. Pas d'intégration Neon–Vercel (option A, ADR-010) ; variables par environnement. Production : `pnpm db:migrate` par GitHub Actions au merge dans `main`, avant le déploiement ; accès propriétaire de prod uniquement en secret GitHub (environnement protégé), jamais dans Vercel (ADR-010). Previews : migration de leur propre branche, aussi par la CI. Intégration Neon–Vercel configurée pour ne pousser aucune variable propriétaire au runtime Vercel : seulement `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` (ADR-010).
   - Manuel (auth) : ajouter `NEON_AUTH_COOKIE_SECRET` à la main dans Vercel, un par environnement (`openssl rand -base64 32`), avec `NEON_AUTH_ISSUER` et `NEON_AUTH_AUDIENCE` (origine de `NEON_AUTH_BASE_URL` de la branche) ; règle de rate limit du pare-feu Vercel sur les POST vers /login et /reset-password, posée avant toute URL de production partagée (audit tâche 10). `revoke_sessions_on_password_reset` activé sur `dev` et `test` le 2026-11-12 ; sur `production`, à activer par Antoine (refusé à l'agent).
   - Code (audit tâche 10) : en-têtes de sécurité via `headers()` dans `next.config.ts` — CSP avec `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy` minimale ; test qui vérifie leur présence sur `/login`.
   - Code : `.github/workflows/ci.yml` — lint, typecheck, tests unitaires (dont textes en dur et parité des clés), tests d'isolation sur une branche Neon créée pour le run puis supprimée.
@@ -207,7 +129,7 @@
     4. GitHub, secrets du dépôt : `NEON_API_KEY`, `NEON_PROJECT_ID`. Variables du dépôt, seulement si différentes des défauts : `NEON_DATABASE`, `NEON_OWNER_ROLE`, `NEON_CI_PARENT_BRANCH`. **`DATABASE_URL` ne doit jamais exister comme secret de dépôt.**
     5. GitHub, environnement `production` : branches de déploiement limitées à `main` ; secret `DATABASE_URL` (propriétaire de `production`, depuis 1Password) ; variable `SEED_OWNER_USER_ID` = id du compte d'Antoine sur `production` (tâche 9).
     6. GitHub : protection de `main` exigeant les checks « Lint, types et build » et « Tests (branche Neon éphémère) », avec « Do not allow bypassing the above settings ».
-    7. Vercel : projet existant relié au dépôt, région Francfort (`fra1`), branche de production `main`.
+    7. Vercel : **créer** le projet BeMyBrain (aucun n'existe, cf. ci-dessus), relié au dépôt, région Francfort (`fra1`), branche de production `main`.
     8. Vercel, variables Production (à la main) : `DATABASE_AUTHENTICATED_URL` (`app_backend` sur `production`), `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, `NEON_AUTH_ISSUER` et `NEON_AUTH_AUDIENCE` (origine de `NEON_AUTH_BASE_URL`), `NEON_AUTH_COOKIE_SECRET` (`openssl rand -base64 32`, propre à la production). Jamais `DATABASE_URL`.
     9. Vercel : Deployment Checks > GitHub > « Migrer la production » ; aliasing automatique de la production activé (prérequis de la doc). Vérifier que la fonction existe sur la formule du compte ; sinon : `git.deploymentEnabled.main = false` dans `vercel.json` + Deploy Hook de production appelé par le workflow après la migration, secret `VERCEL_DEPLOY_HOOK_PRODUCTION` rangé dans l'**environnement** `production`, pas au niveau du dépôt.
     10. Previews : **option A retenue le 2026-11-12** (ADR-010), aucune intégration Neon–Vercel. Jeton `VERCEL_TOKEN` limité au projet Vercel (jeton de projet, `vercel tokens create --project prj_…`) ; secret `VERCEL_TOKEN`, variables `VERCEL_PROJECT_ID` et `VERCEL_TEAM_ID`, `NEON_AUTH_COOKIE_SECRET` de preview posé à la main, puis compléter `preview-database.yml`.
@@ -241,4 +163,14 @@
 <!-- Alimenté par /qa. Même format que les tâches. -->
 
 ## Terminé
-<!-- scribe déplace ici les tâches cochées avec la date. -->
+<!-- scribe déplace ici les tâches cochées avec la date. Corps des tâches 1 à 10 retirés le 2026-11-12 : historique dans `git log -p -- docs/features/socle/plan.md`. -->
+- [x] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2) — 2026-11-11, `42b5a84`
+- [x] **2. Créer l'app Next.js et l'outillage** (BRAIN-4) — 2026-11-12, `8613531`
+- [x] **3. Poser le multilingue FR/EN** (ADR-007) — 2026-11-12, `61a4bd6`
+- [x] **4. Créer le projet Neon et le rôle restreint** [manuel] — 2026-11-12, `3dfdf6f`
+- [x] **5. Brancher Drizzle, les migrations et `.env.example`** (BRAIN-4) — 2026-11-12, `ae0ae25`
+- [x] **6. Tables `workspaces`, `workspace_members`, `contexts` avec RLS** [security] (BRAIN-6) — 2026-11-12, `5677038`, corrections `8d805b8`
+- [x] **7. Script de départ rejouable** (BRAIN-6) — 2026-11-12, `443e6ed`
+- [x] **8. Module `core` : lectures et écritures filtrées** [security] (BRAIN-6) — 2026-11-12, `49d3692`
+- [x] **9. Configurer Neon Auth** [manuel] [security] (BRAIN-5) — 2026-11-12, validée par Antoine, `816828e`. Reste à la tâche 17 : domaine de confiance de production, héritage des comptes par les previews.
+- [x] **10. Écran de connexion et session serveur** [security] (BRAIN-5) — 2026-11-12, validée par Antoine, `816828e`. Reste non noté comme fait : décoder un vrai jeton (`iss`, `aud`, `alg`, `kid` seulement) pour confirmer `NEON_AUTH_ISSUER` / `NEON_AUTH_AUDIENCE`.

@@ -1,25 +1,30 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-11 — session : `/feature socle` (Claude Code)
+**Dernière mise à jour** : 2026-11-12 — session : `/feature socle` (Claude Code)
 
 ## Où on en est
-- Feature en cours : socle — spec validée, plan révisé : `docs/features/socle/plan.md` (20 tâches, tickets BRAIN-2 à BRAIN-7), avec ADR-006 (animation), ADR-007 (FR/EN), ADR-008 (PWA), ADR-009 (registre d'actions) et Sentry. Périmètre gelé le 2026-11-11.
-- Tâches faites : 0 — aucun code d'application dans le repo.
-- Dernière action : les 4 questions ouvertes de la spec sont tranchées (jeton Neon Auth pour la RLS, sous-domaine Vercel, thème sombre d'abord, repo to-do `nexxia-studio/todo-perso-pro`).
+- Feature socle, branche `feat/socle` poussée, dernier commit `e541685`. Plan : `docs/features/socle/plan.md`.
+- Cochées : 1 à 10 (dans « Terminé ») et 12 (encore dans « Tâches », à déplacer).
+- Code fait, non coché : 11 (vérifs d'Antoine sur `dev`), 13 (essai d'installation, après 17), 17 (manuel restant).
+- Thème clair (DESIGN.md § 8 accepté). Previews : option A (ADR-010). 436 tests verts, e2e 6/6 (rapporté, non relancé).
+- Tests rouges : aucun rapporté.
 
-## Prochaine étape (copier dans la prochaine session)
-Sur la branche `feat/socle` :
-`Exécute docs/features/socle/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer pour chaque review.`
-Tâche 1 à attaquer : « Adapter le kit à Neon + Drizzle » (BRAIN-2).
+## Prochaine étape
+Antoine installe Impeccable (`/plugin marketplace add pbakaus/impeccable`), redémarre, puis :
+`Lis docs/handoff.md et continue : tâche 14 de docs/features/socle/plan.md.`
+Push libre sur `feat/socle` après chaque tâche ; jamais `main` sans accord.
+
+## Manuel avant la fin de la tâche 17
+- Neon : protéger `production` ; `revoke_sessions_on_password_reset` sur `production`.
+- Neon : `drizzle.__drizzle_migrations` sur `test` doit compter les migrations 0000 à 0005.
+- Vercel : créer le projet BeMyBrain (aucun n'existe). Étapes 1 à 11 de la tâche 17.
+
+## Questions ouvertes
+- Tâche 11 : `/dashboard` affiche « Espace de travail : BeMyBrain », reconnexion, pas de 500 après 5 min.
+- Tâche 10 : décoder un vrai jeton (`iss`, `aud`) pour confirmer `NEON_AUTH_ISSUER` / `AUDIENCE`.
+- Tâche 9 : une preview hérite-t-elle des comptes de `production` ? À vérifier en 17.
 
 ## Skills et agents pour la suite
-1. `implementer` puis `reviewer` à chaque tâche.
-2. `security-auditor` après le reviewer sur les tâches 6, 8, 9, 10, 11, 20.
-3. Tâches `[manuel]` (4, 9, 17, 18, 19) : faites par la session principale via MCP Neon / Vercel après accord d'Antoine, ou par Antoine.
-4. `/qa socle` quand le plan est fini.
-
-## Attention
-- Tests rouges : aucun (pas de tests encore).
-- Le hook PostToolUse lance eslint sur chaque `.ts` édité : à la tâche 2, scaffold et `pnpm install` en Bash avant toute édition de `.ts`.
-- `.gitignore` n'ignore pas encore `node_modules/` ni `.next/` : corrigé à la tâche 2.
-- À vérifier à la tâche 9 : une branche preview hérite-t-elle des utilisateurs Neon Auth de `main` ?
+1. Tâche 14 : `implementer` puis `reviewer`. Tâches 16 et 20 : `security-auditor` après `reviewer`.
+2. Tâches 14, 15, 16 (UI) : skill `nexxia-design` + `references/anti-slop.md`, puis `/impeccable critique`.
+3. Tâches 17, 18, 19 (`[manuel]`) : session principale via MCP, après accord d'Antoine. Puis `/qa socle`.
