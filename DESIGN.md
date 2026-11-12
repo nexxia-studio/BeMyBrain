@@ -331,7 +331,7 @@ Chaque module peut proposer ses propres moments signature, validés à sa spec, 
 3. **Libellés des pastilles de chiffres en blanc plein** (référence : blanc 90 %, 4,03:1 sur la pastille, sous 4,5:1).
 4. **Interligne du titre display 1,1** partout (référence ordinateur : 1,08) pour ne pas couper les capitales accentuées.
 5. **Halos fixes** (ils défilent avec la page dans la référence) : fond stable, rendu moins coûteux ; dégradés radiaux plutôt que des disques floutés par `filter: blur`.
-6. **Pilule mobile posée sur le fond nu** (comme la référence) : 5,06:1 sur brume, mais 4,3:1 si le halo bleu atteint 40 % sous la pilule. À contrôler à la tâche 14 sur capture réelle ; si ça tombe sous 4,5, éloigner le halo ou poser la pilule sur du verre.
+6. **Pilules sur du verre sous 1024 px** : mesuré sur capture réelle à la tâche 14, le texte inactif tombait sous 4,5:1 sur le fond nu (bascule mobile 4,45:1, filtre de contexte 3,60:1). Retenu : la bascule Privé / Pro est posée sur du verre sous 1024 px (au-dessus, l'en-tête est déjà en verre) et le filtre de contexte l'est toujours ; mesuré ensuite ≥ 4,89:1 à 390 px et ≥ 5,02:1 à 1440 px. Jamais de verre sur du verre.
 7. **Tablette** (absente de la référence) : deux colonnes, barre d'onglets conservée jusqu'à 1024 px.
 8. **Icônes Lucide** (le skill cite Phosphor, Tabler ou Radix) : déjà fournie par shadcn, et les icônes de la référence en ont le dessin (trait 2, bouts arrondis).
 9. **Mobile en une colonne avec une paire « chiffre »** : la spec dit une colonne, la référence mobile montre deux petites tuiles côte à côte. Retenu : une colonne, sauf la paire de tuiles chiffre.
