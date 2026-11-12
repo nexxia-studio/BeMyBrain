@@ -36,28 +36,30 @@ Toutes viennent de la référence. Aucune autre couleur n'entre sans passer par 
 | teinte d'ombre | `rgb(38 48 92)` | Ombres bleutées (jamais noires) |
 
 ### Tokens sémantiques et contrastes
-Contrastes WCAG calculés sur le cas le plus défavorable : verre posé sur le cœur du halo bleu (le plus sombre). Exigences : texte 4,5:1 ; grand texte, icônes et éléments d'interface 3:1.
+Contrastes WCAG calculés sur le cas le plus défavorable. Pour le verre : verre posé sur le cœur du halo bleu, mobile ou ordinateur. Pour le fond nu (« cœur du halo ») : cœur du halo bleu mobile, à 90 % sur la brume ; le cœur du halo lilas mobile (85 %) est donné quand il compte. Exigences : texte 4,5:1 ; grand texte, icônes et éléments d'interface 3:1.
 
 | Token (Tailwind) | Valeur | Usage | Contraste |
 | --- | --- | --- | --- |
 | `background` | `--mist` | Fond de page | — |
-| `foreground` | `--ink` | Texte principal | 13,6 sur brume ; ≥ 12,97 sur verre ; 16,1 sur blanc |
-| `muted-foreground` | `--ink-muted` | Texte secondaire, surtitres | 5,77 sur brume ; ≥ 5,49 sur verre ; 6,83 sur blanc ; **4,06 sur le cœur du halo bleu sans verre : interdit** |
+| `foreground` | `--ink` | Texte principal | 13,6 sur brume ; ≥ 12,97 sur verre ; 9,38 sur le cœur du halo ; 16,1 sur blanc |
+| `muted-foreground` | `--ink-muted` | Texte secondaire, surtitres | 5,77 sur brume ; ≥ 5,49 sur verre ; 6,83 sur blanc ; **3,97 sur le cœur du halo bleu et 4,50 (au seuil) sur le cœur du halo lilas, sans verre : interdit** |
 | `primary` / `primary-foreground` | `--indigo` / `--white` | Tuile « Aujourd'hui », bouton principal, bouton d'ajout | blanc sur indigo 6,39 |
 | `primary-hover` | `--indigo-deep` | Survol du bouton principal (dérivé : l'indigo profond de la référence) | blanc sur indigo profond 9,24 |
 | `on-primary-muted` | blanc 86 % | Date et surtitre sur la tuile pleine | 5,18 |
+| `on-primary-lead` | blanc 90 % | Phrase d'intro de la tuile pleine | 5,51 |
 | `on-primary-surface` / `on-primary-border` | blanc 16 % / 28 % | Pastilles de chiffres dans la tuile pleine | libellé en blanc plein : 4,56 (voir § 8, décision 3) |
-| `link` / `link-hover` | `--indigo-deep` / `--ink` | Liens (« Tout voir ») | ≥ 7,42 sur verre ; 5,48 sur le cœur du halo |
-| `ring` | `--indigo` | Anneau de focus, 2 px, décalé de 2 px | 5,40 sur brume ; ≥ 5,13 sur verre ; 3,79 sur le cœur du halo (≥ 3:1) |
+| `link` / `link-hover` | `--indigo-deep` / `--ink` | Liens (« Tout voir ») | ≥ 7,42 sur verre ; 5,37 sur le cœur du halo |
+| `ring` | `--indigo` | Anneau de focus, 2 px, décalé de 2 px | 5,40 sur brume ; ≥ 5,13 sur verre ; 3,71 sur le cœur du halo (≥ 3:1) |
 | `ring-on-primary` | `--white` | Focus sur la tuile pleine | 6,39 |
-| `destructive` | `--ember` | Erreurs de formulaire, actions destructives (dérivé, § 8) | ≥ 6,36 sur verre ; 7,91 sur blanc ; 4,70 sur le cœur du halo |
-| `input` | `--ink-muted` | Bordure des champs (dérivé, § 8) | ≥ 5,49 sur verre ; 4,06 sur le cœur du halo |
+| `destructive` | `--ember` | Erreurs de formulaire, actions destructives (dérivé, § 8) | ≥ 6,36 sur verre ; 7,91 sur blanc ; 4,60 sur le cœur du halo |
+| `input` | `--ink-muted` | Bordure des champs (dérivé, § 8) | ≥ 5,49 sur verre ; 3,97 sur le cœur du halo (≥ 3:1) |
 | `border` | encre 12 % | Séparateurs, contour du champ de recherche | décoratif (1,26), ne porte aucune information |
 | `glass` / `glass-border` | blanc 58 % mobile, 56 % ordinateur / blanc 75 % | Tuiles, en-tête, barre latérale, barre d'onglets | bord décoratif |
-| `row` | blanc 50 % | Ligne de liste dans une tuile | encre ≥ 14,5 ; secondaire ≥ 6,14 |
+| `row` (= `card`) | blanc 50 % | Ligne de liste dans une tuile ; `card` de shadcn pointe ici, une carte se posant dans une tuile en verre | encre ≥ 14,5 ; secondaire ≥ 6,14 |
 | `track` | encre 9 % | Piste des barres de progression | indigo sur piste ≥ 4,33 |
 | `pill-track` | encre 7 % | Piste de la bascule Privé / Pro | secondaire 5,06 sur brume ; 4,82 sur verre |
 | `accent` / `secondary` | blanc 55 % / blanc 60 % | Survol d'un élément de liste ; bouton secondaire | encre ≥ 12 |
+| `sidebar` | `--glass-bg` (bord `glass-border`, actif blanc, anneau indigo) | Barre latérale : surface en verre de premier niveau, posée sur le fond | comme le verre |
 | `popover` | `--white` | Menus, palette : opaques (jamais de verre sur du verre) | encre 16,1 |
 | `chip-neutral` | encre 8 % + `--ink` | Pastille Privé | ≥ 11,16 |
 | `chip-warm` | braise claire 16 % + `--ember` | Pastille Trustup | ≥ 5,52 |
@@ -72,26 +74,27 @@ Inter pour le texte, Space Grotesk pour les titres et les chiffres, toutes deux 
 | Token | Taille 390 → 1440 px | Interligne | Police, graisse | Usage |
 | --- | --- | --- | --- | --- |
 | `text-display` | 30 → 40 px (fluide) | 1,1 | Space Grotesk 600 | « Bonjour Antoine. » de la tuile pleine |
-| `text-section` | 22 → 26 px | 1,2 | Space Grotesk 600 | Titre de groupe de tuiles (« Budget, placements et patrimoine ») |
-| `text-title` | 21 px | 1,25 | Space Grotesk 600 | Titre de tuile ; 20 px pour une petite tuile |
+| `text-section` | 22 (dérivé) → 26 px | 1,2 (dérivé) | Space Grotesk 600 | Titre de groupe de tuiles (« Budget, placements et patrimoine ») |
+| `text-title` | 21 px | 1,25 (dérivé) | Space Grotesk 600 | Titre de tuile ; 20 px pour une petite tuile |
 | `text-figure` | 34 → 46 px | 1 | Space Grotesk 600 | Chiffre clé d'une tuile (« 3 », « 52 % ») |
 | `text-stat` | 28 px | 1,1 | Space Grotesk 600 | Chiffres de la tuile pleine |
-| `text-brand` | 20 px | 1,2 | Space Grotesk 600 | Nom « BeMyBrain » |
-| `text-lead` | 15 → 16 px | 1,5 | Inter 400 | Phrase d'intro de la tuile pleine |
+| `text-brand` | 20 px | 1,2 (dérivé) | Space Grotesk 600 | Nom « BeMyBrain » |
+| `text-lead` | 15 → 16 px | 1,5 | Inter 400 | Phrase d'intro de la tuile pleine (`text-on-primary-lead`) |
 | `text-body` | 15 px | 1,5 | Inter 400 | Corps, lignes de liste, boutons (600) |
-| `text-small` | 14 px | 1,45 | Inter 400 / 500 | Libellés secondaires, liens d'action (600), sous-catégories (500) |
-| `text-caption` | 13 px | 1,4 | Inter 400 | Échéances, notes de bas de tuile |
-| `text-eyebrow` | 12 → 13 px | 1,3 | Inter 600, capitales, +0,06 em | Surtitre de tuile (nom du module) |
-| `text-chip` | 12 px | 1,3 | Inter 600 | Pastilles de contexte |
-| `text-tab` | 11 px | 1,2 | Inter 600 | Libellés de la barre d'onglets mobile |
+| `text-small` | 14 px | 1,45 (dérivé) | Inter 400 / 500 | Libellés secondaires, liens d'action (600), sous-catégories (500) |
+| `text-caption` | 13 px | 1,4 (dérivé) | Inter 400 | Échéances, notes de bas de tuile |
+| `text-eyebrow` | 12 → 13 px | 1,3 (dérivé) | Inter 600, capitales, +0,06 em | Surtitre de tuile (nom du module) |
+| `text-chip` | 12 px | 1,3 (dérivé) | Inter 600 | Pastilles de contexte |
+| `text-tab` | 11 px | 1,2 (dérivé) | Inter 600 | Libellés de la barre d'onglets mobile |
 
+« Dérivé » : la référence ne fixe pas l'interligne (valeur navigateur) ou ne montre pas la taille mobile ; valeur choisie ici, à valider avec le reste.
 Champs de formulaire : 16 px (`text-base`), sinon Safari iOS zoome au focus.
-FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un libellé ; les titres passent sur deux lignes plutôt que d'être tronqués ; `hyphens: auto` sur les paragraphes (`<html lang>` est posé) ; onglets mobiles : un mot par langue, vérifié dans les deux (« Paramètres » / « Settings »). Corps ≤ 65 caractères par ligne.
+FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un libellé ; les titres passent sur deux lignes plutôt que d'être tronqués ; `hyphens: auto` sur les paragraphes (posé en base dans `globals.css`, suit `<html lang>`) ; onglets mobiles : un mot par langue, vérifié dans les deux (« Paramètres » / « Settings »). Corps ≤ 65 caractères par ligne.
 
 ## 4. Rayons, ombres, verre, calques
-**Rayons** (doux + pilule, un seul système) : `rounded-sm` 8 px (touche ⌘K) · `rounded-md` 12 px (sous-catégorie) · `rounded-lg` 14 px (ligne de liste, élément de navigation, logo, champ, bouton rectangulaire) · `rounded-xl` 20 px (pastille de chiffre) · `rounded-tile` 24 px mobile / 28 px ordinateur (tuiles, en-tête, barre latérale) · `rounded-bar` 30 px (barre d'onglets) · `rounded-full` (pilules, boutons ronds, pastilles, barres de progression).
+**Rayons** (doux + pilule, un seul système) : `rounded-sm` 8 px (touche ⌘K) · `rounded-md` 12 px (sous-catégorie) · `rounded-lg` 14 px (ligne de liste, élément de navigation, logo, champ, bouton rectangulaire) · `rounded-xl` 20 px (pastille de chiffre) · `rounded-tile` 24 px mobile / 28 px ordinateur (tuiles, en-tête, barre latérale) · `rounded-bar` 30 px (barre d'onglets) · `rounded-full` (pilules, boutons ronds, pastilles, barres de progression). Ce sont les seuls rayons : les défauts de Tailwind (`rounded-2xl`, `3xl`, `4xl`…) sont retirés du thème (`--radius-*: initial`).
 
-**Ombres** (toujours bleutées) : `shadow-glass` `0 8px 28px` mobile / `0 10px 36px` ordinateur, teinte d'ombre à 9 % · `shadow-today` `0 14px 34px` / `0 18px 44px`, indigo à 28 % · `shadow-raised` `0 2px 8px`, teinte d'ombre à 14 % (pilule active, élément actif) · `shadow-fab` `0 8px 20px`, indigo à 35 % (bouton d'ajout mobile).
+**Ombres** (toujours bleutées) : `shadow-glass` `0 8px 28px` mobile / `0 10px 36px` ordinateur, teinte d'ombre à 9 % · `shadow-today` `0 14px 34px` / `0 18px 44px`, indigo à 28 % · `shadow-raised` `0 2px 8px`, teinte d'ombre à 14 % (pilule active, élément actif ; dérivé : la référence met 12 % sur l'élément actif de la barre latérale, unifié à 14 %) · `shadow-fab` `0 8px 20px`, indigo à 35 % (bouton d'ajout mobile).
 
 **Verre** (`glass`, utilitaire de `globals.css`) : fond blanc 58 % (mobile) / 56 % (ordinateur), `backdrop-filter: blur(24px | 26px) saturate(150%)`, bord 1 px blanc 75 %, `shadow-glass`. Règles : jamais deux verres empilés (une ligne dans une tuile est `row`, pas du verre ; menus et palette sont opaques) ; `prefers-reduced-transparency` → fond opaque de même teinte, sans flou.
 
@@ -105,7 +108,7 @@ FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un lib
 Sourcing : primitives shadcn/ui (base-nova) réalignées sur ces tokens, sinon composants maison dans `src/components/`. Un composant importé est relu contre ce fichier.
 
 - **Tuile verre** (`section`) : `glass rounded-tile p-tile`, colonne, `gap-4`. En-tête : surtitre (`text-eyebrow text-muted-foreground`) + titre (`text-title`), lien d'action à droite (`text-small font-semibold text-link`, zone ≥ 44 px par padding). Contenu : lignes `row rounded-lg min-h-11 px-3.5`, `text-body`. Note de bas en `text-caption text-muted-foreground`, poussée en bas. Hauteur minimale par rangée (300 / 320 / 230 px dans la référence) pour aligner une rangée.
-- **Tuile « Aujourd'hui »** : la seule tuile pleine de l'app. `bg-primary text-primary-foreground shadow-today rounded-tile p-today`. Date en surtitre (`on-primary-muted`), salutation en `text-display`, intro en `text-lead` (blanc 90 %), puis pastilles de chiffres (`on-primary-surface`, bord `on-primary-border`, `rounded-xl`, chiffre en `text-stat`, libellé `text-small` **en blanc plein**). Focus dedans : `ring-on-primary`.
+- **Tuile « Aujourd'hui »** : la seule tuile pleine de l'app. `bg-primary text-primary-foreground shadow-today rounded-tile p-today`. Date en surtitre (`on-primary-muted`), salutation en `text-display`, intro en `text-lead text-on-primary-lead`, puis pastilles de chiffres (`on-primary-surface`, bord `on-primary-border`, `rounded-xl`, chiffre en `text-stat`, libellé `text-small` **en blanc plein**). Focus dedans : `ring-on-primary`.
 - **Pilule de bascule Privé / Pro** : `role="group"` + `aria-label`, deux boutons `aria-pressed`. Piste `bg-pill-track rounded-full p-1 gap-1` ; bouton `min-h-11 rounded-full text-body font-semibold`, padding horizontal 18 px (mobile) / 22 px (ordinateur) ; actif : fond blanc, `text-foreground`, `shadow-raised` ; inactif : transparent, `text-muted-foreground`. Toujours en haut : dans l'en-tête en verre (ordinateur), en haut à droite à côté du nom (mobile).
 - **En-tête (ordinateur)** : verre, `rounded-tile`, `px-4 py-3`, ≤ 68 px de haut : logo (carré indigo 40 px, `rounded-lg`, glyphe blanc) + nom, pilule au centre, recherche « Chercher ou ajouter ⌘K » (bouton secondaire pilule, bord `border`) et bouton d'ajout rond 44 px indigo.
 - **Barre latérale (ordinateur)** : verre, `rounded-tile`, `p-3.5`, largeur ≥ 240 px, alignée en haut. Titre du côté (« Vie privée » / « Vie pro ») en surtitre. Catégorie = bouton `min-h-11 px-3.5 rounded-lg text-body font-semibold`, chevron 16 px à droite (`text-muted-foreground`, pivote de 90° ouvert), `aria-expanded`. Actif : fond blanc + `shadow-raised` ; ouvert : `accent`. Sous-catégories : liens `min-h-11 px-3.5 rounded-md text-small font-medium text-muted-foreground`, retrait de 18 px. Les catégories suivent le côté actif.
@@ -167,7 +170,7 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
 9. **Mobile en une colonne avec une paire « chiffre »** : la spec dit une colonne, la référence mobile montre deux petites tuiles côte à côte. Retenu : une colonne, sauf la paire de tuiles chiffre.
 
 ## 9. PWA (tâche 13)
-- `theme_color` et `background_color` : `#E8ECF5` (brume ; `THEME_COLOR` / `BACKGROUND_COLOR` dans `src/lib/theme.ts`, déjà posé dans le `viewport`). `apple-mobile-web-app-status-bar-style` : `default` (barre sombre sur fond clair).
+- `theme_color` et `background_color` : `#E8ECF5` (brume ; `THEME_COLOR` dans `src/lib/theme.ts`, déjà posé dans le `viewport` ; la couleur de fond du manifeste arrive à la tâche 13). `apple-mobile-web-app-status-bar-style` : `default` (barre sombre sur fond clair).
 - **Icône d'app** : le logo de la référence. Carré plein indigo `#3D4FD6` à fond perdu ; au centre, le glyphe blanc `#FFFFFF` « étincelle » : un cercle de rayon 3 et huit rayons, sur une grille 24 × 24, trait 2, bouts et angles arrondis, sans remplissage :
   `<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>`
   - 192 et 512 px : coins arrondis à 35 % du côté (14 px sur 40 dans la référence), glyphe à 50 % de la largeur.
@@ -178,7 +181,7 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
 
 ## 10. Thème sombre (stratégie seulement)
 - Aucune valeur sombre n'est fixée : elles seront tirées d'une référence sombre validée, comme le clair.
-- Les composants n'utilisent que les tokens sémantiques ; le sombre redéfinira ces mêmes noms (`--background`, `--foreground`, `--primary`, `--glass-bg`, `--glass-border`, `--glass-shadow`, `--row-bg`, `--track`, `--pill-track`, `--chip-*`, `--halo-layers`…) sous `.dark` (variante déjà déclarée) ou `prefers-color-scheme: dark`, sans toucher aux composants.
+- Les composants n'utilisent que les tokens sémantiques ; le sombre redéfinira ces mêmes noms (`--background`, `--foreground`, `--primary`, `--glass-bg`, `--glass-border`, `--glass-shadow`, `--row-bg`, `--on-primary-*`, `--track`, `--pill-track`, `--chip-*`, `--halo-layers`…) sous `.dark` (variante déjà déclarée) ou `prefers-color-scheme: dark`, sans toucher aux composants.
 - À ce moment : `color-scheme: dark`, `THEME_COLOR` par schéma (`themeColor` accepte une liste par `media`), mêmes exigences de contraste recalculées, et la tuile « Aujourd'hui » reste la seule tuile pleine.
 
 ## 11. Interdits

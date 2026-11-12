@@ -3,12 +3,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { BACKGROUND_COLOR, THEME_COLOR } from "@/lib/theme";
+import { THEME_COLOR } from "@/lib/theme";
 
 // Verrou de la charte (DESIGN.md) : globals.css porte les tokens clés, et aucune couleur
 // hors de la référence validée (docs/design/references/dashboard-*.dc.html).
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 const layout = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
+const design = readFileSync(join(process.cwd(), "DESIGN.md"), "utf8");
 
 // Couleurs de base de la référence (les alphas sont libres : rgb(r g b / a)).
 const REFERENCE_RGB = new Set([
@@ -77,6 +78,7 @@ describe("charte dans globals.css", () => {
     "--halo-blue",
     "--halo-lilac",
     "--z-tabbar",
+    "--on-primary-lead",
   ])("définit le token %s", (token) => {
     expect(css).toMatch(new RegExp(`${token}\\s*:`));
   });
@@ -104,10 +106,23 @@ describe("charte dans globals.css", () => {
     expect(css).not.toMatch(/raccourci:/);
   });
 
-  it("la couleur de thème et de fond de la PWA est la brume de la charte", () => {
+  it("la palette de DESIGN.md et celle de globals.css sont identiques", () => {
+    const documented = [
+      ...design.matchAll(/^\| `(--[a-z-]+)` \| `(#[0-9A-Fa-f]{6})` \|/gm),
+    ].map(([, name, hex]) => [name, hex.toLowerCase()]);
+
+    const implemented = documented.map(([name]) => [
+      name,
+      css.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})`))?.[1]?.toLowerCase(),
+    ]);
+
+    expect(documented).toHaveLength(11);
+    expect(implemented).toEqual(documented);
+  });
+
+  it("la couleur de thème de la PWA est la brume de la charte", () => {
     const mist = css.match(/--mist\s*:\s*(#[0-9a-fA-F]{6})/)?.[1];
     expect(mist).toBeDefined();
     expect(THEME_COLOR.toLowerCase()).toBe(mist?.toLowerCase());
-    expect(BACKGROUND_COLOR.toLowerCase()).toBe(mist?.toLowerCase());
   });
 });

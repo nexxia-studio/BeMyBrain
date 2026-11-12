@@ -50,15 +50,13 @@
   --text-tab--line-height: 1.2;
   --text-tab--font-weight: 600;
 
+  /* Rayons : seulement ceux de la charte (les défauts de Tailwind sont retirés) ; pilule = rounded-full. */
+  --radius-*: initial;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 14px;
   --radius-xl: 20px;
-  --radius-2xl: 24px;
-  --radius-3xl: 28px;
-  --radius-4xl: 30px;
   --radius-bar: 30px;
-  --radius-pill: 9999px;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -111,6 +109,7 @@
   --color-track: var(--track);
   --color-pill-track: var(--pill-track);
   --color-on-primary-muted: var(--on-primary-muted);
+  --color-on-primary-lead: var(--on-primary-lead);
   --color-on-primary-surface: var(--on-primary-surface);
   --color-on-primary-border: var(--on-primary-border);
   --color-chip-neutral: var(--chip-neutral-bg);
@@ -152,7 +151,8 @@
   /* Sémantique (contrats shadcn + BeMyBrain). Ratios dans DESIGN.md § Couleurs. */
   --background: var(--mist);
   --foreground: var(--ink);
-  --card: var(--glass-bg);
+  /* Carte = surface posée dans une tuile en verre : jamais de verre sur du verre. */
+  --card: var(--row-bg);
   --card-foreground: var(--ink);
   --popover: var(--white);
   --popover-foreground: var(--ink);
@@ -180,6 +180,7 @@
   --chart-4: var(--ink-muted);
   --chart-5: var(--ink);
 
+  /* Barre latérale : surface en verre de premier niveau (posée sur le fond). */
   --sidebar: var(--glass-bg);
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--indigo);
@@ -193,6 +194,7 @@
   --track: rgb(27 32 51 / 0.09);
   --pill-track: rgb(27 32 51 / 0.07);
   --on-primary-muted: rgb(255 255 255 / 0.86);
+  --on-primary-lead: rgb(255 255 255 / 0.9);
   --on-primary-surface: rgb(255 255 255 / 0.16);
   --on-primary-border: rgb(255 255 255 / 0.28);
   --chip-neutral-bg: rgb(27 32 51 / 0.08);
@@ -213,7 +215,6 @@
   --fab-shadow: 0 8px 20px rgb(61 79 214 / 0.35);
 
   /* Rayons et espacements responsives. */
-  --radius: 14px;
   --tile-radius: 24px;
   --space-grid: 14px;
   --space-tile: 18px;
@@ -333,6 +334,10 @@
     z-index: var(--z-halo);
     pointer-events: none;
     background-image: var(--halo-layers);
+  }
+  /* Césure selon <html lang> (FR plus long que EN). */
+  p {
+    hyphens: auto;
   }
   h1,
   h2,
