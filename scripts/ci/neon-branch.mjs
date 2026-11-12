@@ -1,27 +1,38 @@
-// Branches Neon de la CI (ADR-010) : crée ou retrouve une branche `ci/…` ou `preview/…`, publie ses deux
-// URL (propriétaire et app_backend) dans $GITHUB_ENV après les avoir masquées, ou la supprime.
+// Branches Neon de la CI (ADR-010) : crée ou retrouve une branche `ci/…` ou `preview/…`, réinitialise sur
+// CETTE branche les mots de passe du rôle propriétaire et d'app_backend (jamais ceux hérités du parent),
+// publie les deux URL dans $GITHUB_ENV après les avoir masquées, ou supprime la branche.
 // Sans dépendance (Node 24 : fetch global). Pourquoi pas neondatabase/create-branch-action : ses sorties
 // (URL, hôte) ne sont pas masquées et s'afficheraient dans le bloc `env:` des étapes suivantes.
 //
 // Usage :
 //   node scripts/ci/neon-branch.mjs create <nom> --owner-env <VAR> --app-env <VAR> [--ttl-hours <n>]
 //   node scripts/ci/neon-branch.mjs delete <nom>
-// Variables : NEON_API_KEY, NEON_PROJECT_ID (secrets) ; APP_BACKEND_PASSWORD (secret, create seulement) ;
-// NEON_PARENT_BRANCH (défaut production), NEON_DATABASE (défaut neondb), NEON_OWNER_ROLE (défaut neondb_owner).
-// Messages : jamais d'hôte, d'URL ni de corps de réponse de l'API.
+// Variables : NEON_API_KEY, NEON_PROJECT_ID (secrets, posés sur cette seule étape) ;
+// NEON_PARENT_BRANCH (défaut test), NEON_DATABASE (défaut neondb), NEON_OWNER_ROLE (défaut neondb_owner).
+// Messages : jamais d'hôte, d'URL, de mot de passe ni de corps de réponse de l'API.
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const API = "https://console.neon.tech/api/v2";
 const APP_ROLE = "app_backend";
 const MANAGED_NAME = /^(ci|preview)\/(?!.*\.\.)[A-Za-z0-9._/-]+$/;
+// Doc Neon « Operations » : succès = finished ou skipped ; échec = failed, error, cancelled.
+const DONE = new Set(["finished", "skipped"]);
+const FAILED = new Set(["failed", "error", "cancelled"]);
+const POLL_MS = 2_000;
+const POLL_LIMIT = 90; // 3 min
+const LOCKED_RETRIES = 5;
 
 /**
- * @typedef {{ apiKey: string, projectId: string, fetch: typeof fetch }} Api
+ * @typedef {{ apiKey: string, projectId: string, fetch: typeof fetch, sleep?: (ms: number) => Promise<void> }} Api
  * @typedef {{ id: string, name: string, default?: boolean, protected?: boolean }} Branch
+ * @typedef {{ id: string, status: string }} Operation
  */
 
-/** Seules les branches `ci/…` et `preview/…` sont créées ou supprimées par la CI. @param {string} name */
+const defaultSleep = (/** @type {number} */ ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Seules les branches `ci/…` et `preview/…` sont créées, modifiées ou supprimées par la CI. @param {string} name */
 export function assertManagedBranchName(name) {
   if (!MANAGED_NAME.test(name)) {
     throw new Error(
@@ -31,11 +42,11 @@ export function assertManagedBranchName(name) {
 }
 
 /**
- * URL de connexion d'un autre rôle sur la même branche : même hôte, même base, mêmes options.
- * @param {string} ownerUrl @param {string} role @param {string} password
+ * URL de connexion d'un rôle sur la branche du gabarit : même hôte, même base, mêmes options.
+ * @param {string} templateUrl @param {string} role @param {string} password
  */
-export function withRole(ownerUrl, role, password) {
-  const url = new URL(ownerUrl);
+export function withRole(templateUrl, role, password) {
+  const url = new URL(templateUrl);
   url.username = role;
   url.password = encodeURIComponent(password);
   return url.toString();
@@ -43,48 +54,98 @@ export function withRole(ownerUrl, role, password) {
 
 /** @param {Api} api @param {string} path @param {RequestInit} [init] */
 async function call(api, path, init = {}) {
-  const response = await api.fetch(`${API}/projects/${api.projectId}${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${api.apiKey}`,
-    },
-  });
-  if (!response.ok) {
-    // Corps de la réponse jamais affiché : il peut citer un hôte.
-    throw new Error(
-      `API Neon : HTTP ${response.status} sur ${init.method ?? "GET"} ${path.split("?")[0].replace(/br-[\w-]+/, "<branche>")}.`,
-    );
+  const sleep = api.sleep ?? defaultSleep;
+  for (let attempt = 0; ; attempt++) {
+    const response = await api.fetch(`${API}/projects/${api.projectId}${path}`, {
+      ...init,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${api.apiKey}`,
+      },
+    });
+    // 423 : projet verrouillé par une opération en cours (doc Neon « Operations ») → réessai.
+    if (response.status === 423 && attempt < LOCKED_RETRIES) {
+      await sleep(POLL_MS * 2 ** attempt);
+      continue;
+    }
+    if (!response.ok) {
+      // Corps de la réponse jamais affiché : il peut citer un hôte.
+      throw new Error(
+        `API Neon : HTTP ${response.status} sur ${init.method ?? "GET"} ${path
+          .split("?")[0]
+          .replace(/br-[\w-]+/, "<branche>")
+          .replace(/roles\/[^/]+/, "roles/<rôle>")}.`,
+      );
+    }
+    return response.json();
   }
-  return response.json();
+}
+
+/** Attend la fin des opérations lancées par un appel. @param {Api} api @param {Operation[] | undefined} operations */
+async function waitForOperations(api, operations = []) {
+  const sleep = api.sleep ?? defaultSleep;
+  for (const { id, status: initial } of operations) {
+    let status = initial;
+    for (let poll = 0; !DONE.has(status); poll++) {
+      if (FAILED.has(status)) throw new Error(`Une opération Neon en échec (${status}).`);
+      if (poll >= POLL_LIMIT) throw new Error("Opération Neon trop longue : abandon.");
+      await sleep(POLL_MS);
+      ({
+        operation: { status },
+      } = await call(api, `/operations/${id}`));
+    }
+  }
 }
 
 /** @param {Api} api @param {string} name @returns {Promise<Branch | undefined>} */
 async function findBranch(api, name) {
-  const { branches } = await call(
-    api,
-    `/branches?search=${encodeURIComponent(name)}`,
-  );
+  const { branches } = await call(api, `/branches?search=${encodeURIComponent(name)}`);
   return branches.find((/** @type {Branch} */ b) => b.name === name);
 }
 
 /**
- * Crée la branche depuis `parent` (ou retrouve celle du même nom) et renvoie l'URL propriétaire.
+ * Nouveau mot de passe généré par Neon pour `role` sur la branche gérée `branchId`.
+ * @param {Api} api @param {string} branchId @param {string} role
+ */
+async function resetPassword(api, branchId, role) {
+  const { role: updated, operations } = await call(
+    api,
+    `/branches/${branchId}/roles/${encodeURIComponent(role)}/reset_password`,
+    { method: "POST" },
+  );
+  await waitForOperations(api, operations);
+  return /** @type {string} */ (updated.password);
+}
+
+/**
+ * Crée la branche depuis `parent` (ou retrouve celle du même nom et repousse son expiration),
+ * réinitialise les mots de passe du propriétaire et d'app_backend sur cette branche, renvoie les URL.
  * @param {Api} api
- * @param {{ name: string, parent: string, database: string, ownerRole: string, expiresAt?: string }} options
+ * @param {{ name: string, parent: string, database: string, ownerRole: string, appRole?: string, expiresAt?: string }} options
  */
 export async function createBranch(api, options) {
   assertManagedBranchName(options.name);
-  let branch = await findBranch(api, options.name);
-  const created = !branch;
-  if (branch?.default || branch?.protected) {
+  const appRole = options.appRole ?? APP_ROLE;
+  const existing = await findBranch(api, options.name);
+  if (existing?.default || existing?.protected) {
     throw new Error("Branche existante protégée ou par défaut : refusée.");
   }
-  if (!branch) {
+  /** @type {string} */
+  let branchId;
+  if (existing) {
+    branchId = existing.id;
+    if (options.expiresAt) {
+      const { operations } = await call(api, `/branches/${branchId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ branch: { expires_at: options.expiresAt } }),
+      });
+      await waitForOperations(api, operations);
+    }
+  } else {
     const parent = await findBranch(api, options.parent);
     if (!parent) throw new Error("Branche parente introuvable.");
-    ({ branch } = await call(api, "/branches", {
+    const { branch, operations } = await call(api, "/branches", {
       method: "POST",
       body: JSON.stringify({
         branch: {
@@ -94,15 +155,31 @@ export async function createBranch(api, options) {
         },
         endpoints: [{ type: "read_write" }],
       }),
-    }));
+    });
+    branchId = branch.id;
+    await waitForOperations(api, operations);
   }
+
+  // Une branche fille hérite des mots de passe de son parent : on les remplace avant tout usage.
+  const ownerPassword = await resetPassword(api, branchId, options.ownerRole);
+  const appPassword = await resetPassword(api, branchId, appRole);
+
+  // Gabarit (hôte, base, options) seulement : son mot de passe n'est jamais réutilisé.
   const query = new URLSearchParams({
-    branch_id: /** @type {Branch} */ (branch).id,
+    branch_id: branchId,
     database_name: options.database,
     role_name: options.ownerRole,
   });
-  const { uri } = await call(api, `/connection_uri?${query}`);
-  return { branchId: /** @type {Branch} */ (branch).id, created, ownerUrl: uri };
+  const { uri: templateUrl } = await call(api, `/connection_uri?${query}`);
+  return {
+    branchId,
+    created: !existing,
+    templateUrl,
+    ownerPassword,
+    appPassword,
+    ownerUrl: withRole(templateUrl, options.ownerRole, ownerPassword),
+    appUrl: withRole(templateUrl, appRole, appPassword),
+  };
 }
 
 /** Supprime la branche si elle existe. @param {Api} api @param {string} name */
@@ -115,6 +192,29 @@ export async function deleteBranch(api, name) {
   }
   await call(api, `/branches/${branch.id}`, { method: "DELETE" });
   return true;
+}
+
+/** Valeurs à masquer : hôte direct et pooler, leur premier segment (endpoint), mots de passe, URL. */
+function secretsOf(/** @type {Awaited<ReturnType<typeof createBranch>>} */ result) {
+  const template = new URL(result.templateUrl);
+  const host = template.hostname;
+  const endpoint = host.split(".")[0].replace(/-pooler$/, "");
+  const pooledHost = host.replace(/^[^.]+/, `${endpoint}-pooler`);
+  return [
+    endpoint,
+    `${endpoint}-pooler`,
+    host,
+    pooledHost,
+    template.password,
+    decodeURIComponent(template.password),
+    result.ownerPassword,
+    encodeURIComponent(result.ownerPassword),
+    result.appPassword,
+    encodeURIComponent(result.appPassword),
+    result.templateUrl,
+    result.ownerUrl,
+    result.appUrl,
+  ];
 }
 
 /** @param {string[]} args @param {string} flag */
@@ -138,15 +238,17 @@ function line(/** @type {string} */ key, /** @type {string} */ value) {
 /**
  * @param {string[]} argv
  * @param {Record<string, string | undefined>} env
- * @param {{ fetch: typeof fetch, log: (line: string) => void }} io
+ * @param {{ fetch: typeof fetch, log: (line: string) => void, sleep?: (ms: number) => Promise<void> }} io
  */
 export async function run(argv, env, io) {
   const [command, name = "", ...args] = argv;
   assertManagedBranchName(name);
+  /** @type {Api} */
   const api = {
     apiKey: required("NEON_API_KEY", env.NEON_API_KEY),
     projectId: required("NEON_PROJECT_ID", env.NEON_PROJECT_ID),
     fetch: io.fetch,
+    sleep: io.sleep,
   };
 
   if (command === "delete") {
@@ -158,39 +260,29 @@ export async function run(argv, env, io) {
 
   const ownerEnv = required("--owner-env", option(args, "--owner-env"));
   const appEnv = required("--app-env", option(args, "--app-env"));
-  const appPassword = required("APP_BACKEND_PASSWORD", env.APP_BACKEND_PASSWORD);
   const ttlHours = Number(option(args, "--ttl-hours") ?? 0);
   const githubEnv = required("GITHUB_ENV", env.GITHUB_ENV);
 
-  const { branchId, created, ownerUrl } = await createBranch(api, {
+  const result = await createBranch(api, {
     name,
-    parent: env.NEON_PARENT_BRANCH || "production",
+    parent: env.NEON_PARENT_BRANCH || "test",
     database: env.NEON_DATABASE || "neondb",
     ownerRole: env.NEON_OWNER_ROLE || "neondb_owner",
-    // Filet de sécurité : Neon supprime seule la branche si l'étape de suppression n'a pas tourné.
+    // Filet de sécurité : Neon supprime seule la branche si personne ne l'a fait avant.
     expiresAt:
       ttlHours > 0
         ? new Date(Date.now() + ttlHours * 3_600_000).toISOString().replace(/\.\d{3}Z$/, "Z")
         : undefined,
   });
-  const appUrl = withRole(ownerUrl, APP_ROLE, appPassword);
-  const owner = new URL(ownerUrl);
 
   // Masques d'abord : aucune valeur ne doit atteindre le journal avant eux.
-  const secrets = new Set([
-    owner.hostname,
-    owner.hostname.replace(/^([^.]+)/, "$1-pooler"),
-    decodeURIComponent(owner.password),
-    owner.password,
-    encodeURIComponent(appPassword),
-    ownerUrl,
-    appUrl,
-  ]);
-  for (const value of secrets) if (value) io.log(`::add-mask::${value}`);
+  for (const value of new Set(secretsOf(result))) if (value) io.log(`::add-mask::${value}`);
 
-  appendFileSync(githubEnv, line(ownerEnv, ownerUrl) + line(appEnv, appUrl));
-  if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, line("branch_id", branchId));
-  io.log(`Branche ${name} ${created ? "créée" : "réutilisée"} ; ${ownerEnv} et ${appEnv} posées.`);
+  appendFileSync(githubEnv, line(ownerEnv, result.ownerUrl) + line(appEnv, result.appUrl));
+  if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, line("branch_id", result.branchId));
+  io.log(
+    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${ownerEnv} et ${appEnv} posées.`,
+  );
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {

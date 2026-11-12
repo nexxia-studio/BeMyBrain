@@ -1,8 +1,9 @@
 # Base des previews (ADR-010) : la CI, pas le build Vercel, crée ou retrouve la branche Neon
-# `preview/<branche-git>` (nom attendu par l'intégration Neon–Vercel), y applique les migrations de la PR,
-# et la supprime à la fermeture de la PR. L'accès propriétaire de la branche n'existe que dans ce job.
+# `preview/<branche-git>` (fille de `production`, ADR-005 ; nom attendu par l'intégration Neon–Vercel),
+# réinitialise sur elle les mots de passe du propriétaire et d'app_backend, y applique les migrations de
+# la PR, et la supprime à la fermeture de la PR. Expiration à 10 jours, repoussée à chaque push.
 # Les variables de runtime de la preview (DATABASE_AUTHENTICATED_URL, NEON_AUTH_*) ne sont PAS posées ici :
-# voir le plan socle, tâche 17, « Préparé » (décision en attente).
+# décision A/B/C en attente (plan socle, tâche 17).
 name: Preview database
 
 on:
@@ -17,20 +18,22 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-  NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
-  NEON_DATABASE: ${{ vars.NEON_DATABASE }}
-  NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE }}
   # Jamais interpolé dans un script : passé par variable d'environnement (injection).
   HEAD_REF: ${{ github.head_ref }}
 
 jobs:
   migrate-preview:
     name: Migrer la base de la preview
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Une PR de fork ne reçoit pas les secrets : échec explicite plutôt qu'un job sauté.
+      - name: Refuser une PR de fork
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::PR de fork : pas d'accès à Neon, base de preview impossible."
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -40,17 +43,24 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # NEON_API_KEY n'existe que dans cette étape (et dans celle de suppression).
       - name: Créer ou retrouver la branche Neon de la preview
         env:
-          APP_BACKEND_PASSWORD: ${{ secrets.APP_BACKEND_PASSWORD }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_PARENT_BRANCH: production
+          NEON_DATABASE: ${{ vars.NEON_DATABASE }}
+          NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE }}
         run: >
           node scripts/ci/neon-branch.mjs create "preview/$HEAD_REF"
           --owner-env DATABASE_URL
           --app-env DATABASE_AUTHENTICATED_URL
+          --ttl-hours 240
       - run: pnpm db:migrate
 
   delete-preview:
     name: Supprimer la base de la preview
+    # PR de fork : aucune branche n'a été créée, rien à supprimer.
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -62,4 +72,8 @@ jobs:
         with:
           node-version: 24
       # Script sans dépendance : pas d'installation.
-      - run: node scripts/ci/neon-branch.mjs delete "preview/$HEAD_REF"
+      - name: Supprimer la branche Neon de la preview
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: node scripts/ci/neon-branch.mjs delete "preview/$HEAD_REF"

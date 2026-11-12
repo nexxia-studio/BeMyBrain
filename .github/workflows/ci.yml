@@ -1,5 +1,5 @@
 # CI du socle (plan, tâche 17) : lint, types, build, puis toute la suite Vitest (unitaires, textes en dur,
-# parité des clés, isolation RLS) sur une branche Neon créée pour le run depuis production et supprimée ensuite.
+# parité des clés, isolation RLS) sur une branche Neon créée pour le run depuis `test` et supprimée ensuite.
 # Les actions tierces sont épinglées par SHA (version en commentaire).
 name: CI
 
@@ -40,15 +40,17 @@ jobs:
     name: Tests (branche Neon éphémère)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Les secrets ne sont pas transmis aux PR venues d'un fork.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # Variables non secrètes seulement au niveau du job : NEON_API_KEY n'existe que dans les deux
+    # étapes neon-branch.mjs, jamais pendant pnpm install, db:migrate ni test.
     env:
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
-      NEON_DATABASE: ${{ vars.NEON_DATABASE }}
-      NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE }}
       CI_BRANCH: ci/run-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      # Une PR de fork ne reçoit pas les secrets : échec explicite, pour que le check requis ne passe pas.
+      - name: Refuser une PR de fork
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::PR de fork : pas d'accès à Neon, tests de base impossibles. Reprendre la branche dans le dépôt."
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -58,20 +60,30 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Branche fille de production (rôle app_backend et mots de passe hérités), expirée par Neon
-      # sous 2 h si la suppression ci-dessous n'a pas tourné. Hôtes, mots de passe et URL masqués
-      # avant d'être écrits dans DATABASE_TEST_URL et DATABASE_TEST_AUTHENTICATED_URL.
+      # Branche fille de `test` (jamais de données réelles), expirée par Neon sous 2 h si la suppression
+      # ci-dessous n'a pas tourné. Mots de passe du propriétaire et d'app_backend réinitialisés sur la
+      # branche ; hôte, endpoint, mots de passe et URL masqués avant d'être écrits dans
+      # DATABASE_TEST_URL et DATABASE_TEST_AUTHENTICATED_URL.
       - name: Créer la branche Neon du run
+        id: create-branch
         env:
-          APP_BACKEND_PASSWORD: ${{ secrets.APP_BACKEND_PASSWORD }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_PARENT_BRANCH: ${{ vars.NEON_CI_PARENT_BRANCH || 'test' }}
+          NEON_DATABASE: ${{ vars.NEON_DATABASE }}
+          NEON_OWNER_ROLE: ${{ vars.NEON_OWNER_ROLE }}
         run: >
           node scripts/ci/neon-branch.mjs create "$CI_BRANCH"
           --owner-env DATABASE_TEST_URL
           --app-env DATABASE_TEST_AUTHENTICATED_URL
           --ttl-hours 2
-      # Migrations de la PR appliquées par-dessus l'état réel de production.
+      # Migrations de la PR appliquées par-dessus celles déjà journalisées sur `test`.
       - run: pnpm db:migrate:test
       - run: pnpm test
+      # Même en échec ou annulation, dès que la création a été tentée.
       - name: Supprimer la branche Neon du run
-        if: always()
+        if: always() && steps.create-branch.outcome != 'skipped'
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
         run: node scripts/ci/neon-branch.mjs delete "$CI_BRANCH"
