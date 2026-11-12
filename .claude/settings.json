@@ -92,19 +92,6 @@
       "Bash(awk * ./.env)"
     ]
   },
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "firecrawl@claude-plugins-official": true,
-    "gsap-skills@gsap-skills": true
-  },
-  "extraKnownMarketplaces": {
-    "gsap-skills": {
-      "source": {
-        "source": "github",
-        "repo": "greensock/gsap-skills"
-      }
-    }
-  },
   "hooks": {
     "PostToolUse": [
       {
@@ -117,5 +104,19 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "firecrawl@claude-plugins-official": true,
+    "gsap-skills@gsap-skills": true,
+    "impeccable@impeccable": true
+  },
+  "extraKnownMarketplaces": {
+    "gsap-skills": {
+      "source": {
+        "source": "github",
+        "repo": "greensock/gsap-skills"
+      }
+    }
   }
 }

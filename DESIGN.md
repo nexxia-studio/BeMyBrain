@@ -1,10 +1,173 @@
+---
+name: BeMyBrain
+description: Second cerveau personnel — verre dépoli clair sur brume bleu-lilas, une seule tuile pleine pour aujourd'hui.
+colors:
+  mist: "#E8ECF5"
+  halo-blue: "#AFC0F4"
+  halo-lilac: "#D6C6F2"
+  halo-aqua: "#BCE2EC"
+  ink: "#1B2033"
+  ink-muted: "#535A72"
+  indigo: "#3D4FD6"
+  indigo-deep: "#2B3AA8"
+  ember: "#8A3810"
+  ember-soft: "#E8743B"
+  white: "#FFFFFF"
+  glass: "rgb(255 255 255 / 0.58)"
+  glass-border: "rgb(255 255 255 / 0.75)"
+  row: "rgb(255 255 255 / 0.5)"
+  border: "rgb(27 32 51 / 0.12)"
+  track: "rgb(27 32 51 / 0.09)"
+  pill-track: "rgb(27 32 51 / 0.07)"
+  on-primary-muted: "rgb(255 255 255 / 0.86)"
+  on-primary-lead: "rgb(255 255 255 / 0.9)"
+  on-primary-surface: "rgb(255 255 255 / 0.16)"
+typography:
+  display:
+    fontFamily: "Space Grotesk, Inter, sans-serif"
+    fontSize: "clamp(1.875rem, 1.643rem + 0.952vw, 2.5rem)"
+    fontWeight: 600
+    lineHeight: 1.1
+  figure:
+    fontFamily: "Space Grotesk, Inter, sans-serif"
+    fontSize: "clamp(2.125rem, 1.846rem + 1.143vw, 2.875rem)"
+    fontWeight: 600
+    lineHeight: 1
+  headline:
+    fontFamily: "Space Grotesk, Inter, sans-serif"
+    fontSize: "clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem)"
+    fontWeight: 600
+    lineHeight: 1.2
+  title:
+    fontFamily: "Space Grotesk, Inter, sans-serif"
+    fontSize: "1.3125rem"
+    fontWeight: 600
+    lineHeight: 1.25
+  stat:
+    fontFamily: "Space Grotesk, Inter, sans-serif"
+    fontSize: "1.75rem"
+    fontWeight: 600
+    lineHeight: 1.1
+  lead:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "clamp(0.9375rem, 0.914rem + 0.095vw, 1rem)"
+    fontWeight: 400
+    lineHeight: 1.5
+  body:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "0.9375rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  small:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.45
+  caption:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    lineHeight: 1.4
+  label:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "clamp(0.75rem, 0.727rem + 0.095vw, 0.8125rem)"
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: "0.06em"
+  chip:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 600
+    lineHeight: 1.3
+  tab:
+    fontFamily: "Inter, sans-serif"
+    fontSize: "0.6875rem"
+    fontWeight: 600
+    lineHeight: 1.2
+rounded:
+  sm: "8px"
+  md: "12px"
+  lg: "14px"
+  xl: "20px"
+  tile: "24px"
+  tile-desktop: "28px"
+  bar: "30px"
+  full: "9999px"
+spacing:
+  grid: "14px"
+  grid-tablet: "16px"
+  grid-desktop: "20px"
+  tile: "18px"
+  tile-desktop: "24px"
+  today: "22px"
+  today-desktop: "28px"
+  page: "16px"
+  page-tablet: "24px"
+components:
+  button-primary:
+    backgroundColor: "{colors.indigo}"
+    textColor: "{colors.white}"
+    typography: "{typography.body}"
+    rounded: "{rounded.full}"
+    height: "44px"
+  button-primary-hover:
+    backgroundColor: "{colors.indigo-deep}"
+  button-secondary:
+    backgroundColor: "rgb(255 255 255 / 0.6)"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.full}"
+    height: "44px"
+  input:
+    backgroundColor: "{colors.row}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.lg}"
+    height: "44px"
+    padding: "0 12px"
+  tile-glass:
+    backgroundColor: "{colors.glass}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.tile}"
+    padding: "{spacing.tile}"
+  tile-today:
+    backgroundColor: "{colors.indigo}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.tile}"
+    padding: "{spacing.today}"
+  list-row:
+    backgroundColor: "{colors.row}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.lg}"
+    height: "44px"
+    padding: "0 14px"
+  pill-toggle-active:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.full}"
+    height: "44px"
+  pill-toggle-inactive:
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.full}"
+    height: "44px"
+  tabbar:
+    backgroundColor: "{colors.glass}"
+    rounded: "{rounded.bar}"
+    padding: "8px 10px"
+  fab:
+    backgroundColor: "{colors.indigo}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.full}"
+    size: "56px"
+---
+
 # DESIGN — BeMyBrain
 
-Charte visuelle, source unique de vérité. Contexte produit : `PRODUCT.md`. Tokens implémentés dans `src/app/globals.css` (verrouillés par `tests/design/tokens.test.ts`).
+Charte visuelle, source unique de vérité. Contexte produit : `PRODUCT.md`. Tokens implémentés dans `src/app/globals.css` (verrouillés par `tests/design/tokens.test.ts`). L'en-tête YAML reprend ces tokens au format Impeccable / DESIGN.md (valeurs mobiles par défaut, variantes `-desktop` / `-tablet`) ; en cas d'écart, `globals.css` et les tableaux ci-dessous font foi. Extensions (rampes, ombres, mouvement, composants rendus) : `.impeccable/design.json`.
 
-**Statut** : brouillon du 2026-11-12, à valider par Antoine (tâche 12 du socle).
+**Image directrice : « La Vitre du matin ».** Du verre dépoli clair posé sur une brume bleu-lilas au lever du jour : calme, lumineux, sans bruit. Une seule tuile pleine, indigo, dit ce qui compte aujourd'hui ; tout le reste attend derrière la vitre. La marque vit dans la précision des détails (ombres bleutées, rayons doux, chiffres en Space Grotesk), jamais dans le décor.
+
+**Statut** : validé par Antoine le 2026-11-12 (tâche 12 du socle) ; fusionné avec le format Impeccable (`/impeccable document`) le même jour.
 **Référence validée** (thème clair) : `docs/design/references/dashboard-desktop.dc.html` (1440 px) et `dashboard-mobile.dc.html` (390 px). Inspiration d'origine, secondaire : `finance-glass.webp`, `maison-bento.webp`.
-**Méthode** : skill `nexxia-design`. Impeccable n'est pas installé dans l'environnement de rédaction : ce fichier en suit l'esprit (charte unique, tokens nommés, composants, interdits), à repasser par `/impeccable document` quand il le sera.
+**Méthode** : skill `nexxia-design` + Impeccable.
 
 ## 1. Lecture et curseurs
 Tableau de bord personnel · Antoine puis abonnés, surtout au téléphone · calme, lumineux, net · Next.js + Tailwind v4 + shadcn/ui (base-nova) personnalisé.

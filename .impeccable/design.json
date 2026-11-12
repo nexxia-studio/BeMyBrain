@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T07:35:51.207498+00:00",
+  "title": "Design System: BeMyBrain",
+  "extensions": {
+    "colorMeta": {
+      "mist": {
+        "role": "neutral",
+        "displayName": "Brume du matin",
+        "canonical": "oklch(94.3% 0.013 267)",
+        "tonalRamp": [
+          "oklch(15% 0.007 267)",
+          "oklch(26% 0.010 267)",
+          "oklch(38% 0.012 267)",
+          "oklch(49% 0.013 267)",
+          "oklch(61% 0.012 267)",
+          "oklch(72% 0.010 267)",
+          "oklch(84% 0.007 267)",
+          "oklch(95% 0.002 267)"
+        ]
+      },
+      "halo-blue": {
+        "role": "tertiary",
+        "displayName": "Halo pervenche",
+        "canonical": "oklch(81.3% 0.076 271)",
+        "tonalRamp": [
+          "oklch(15% 0.039 271)",
+          "oklch(26% 0.059 271)",
+          "oklch(38% 0.072 271)",
+          "oklch(49% 0.076 271)",
+          "oklch(61% 0.073 271)",
+          "oklch(72% 0.061 271)",
+          "oklch(84% 0.042 271)",
+          "oklch(95% 0.014 271)"
+        ]
+      },
+      "halo-lilac": {
+        "role": "tertiary",
+        "displayName": "Halo lilas",
+        "canonical": "oklch(85.4% 0.063 302)",
+        "tonalRamp": [
+          "oklch(15% 0.032 302)",
+          "oklch(26% 0.049 302)",
+          "oklch(38% 0.059 302)",
+          "oklch(49% 0.063 302)",
+          "oklch(61% 0.060 302)",
+          "oklch(72% 0.050 302)",
+          "oklch(84% 0.034 302)",
+          "oklch(95% 0.012 302)"
+        ]
+      },
+      "halo-aqua": {
+        "role": "tertiary",
+        "displayName": "Halo d'eau",
+        "canonical": "oklch(88.9% 0.042 215)",
+        "tonalRamp": [
+          "oklch(15% 0.021 215)",
+          "oklch(26% 0.033 215)",
+          "oklch(38% 0.040 215)",
+          "oklch(49% 0.042 215)",
+          "oklch(61% 0.040 215)",
+          "oklch(72% 0.034 215)",
+          "oklch(84% 0.023 215)",
+          "oklch(95% 0.008 215)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Encre de nuit",
+        "canonical": "oklch(24.8% 0.037 272)",
+        "tonalRamp": [
+          "oklch(15% 0.019 272)",
+          "oklch(26% 0.029 272)",
+          "oklch(38% 0.035 272)",
+          "oklch(49% 0.037 272)",
+          "oklch(61% 0.035 272)",
+          "oklch(72% 0.030 272)",
+          "oklch(84% 0.020 272)",
+          "oklch(95% 0.007 272)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Encre ardoise",
+        "canonical": "oklch(47.1% 0.040 272)",
+        "tonalRamp": [
+          "oklch(15% 0.020 272)",
+          "oklch(26% 0.031 272)",
+          "oklch(38% 0.038 272)",
+          "oklch(49% 0.040 272)",
+          "oklch(61% 0.038 272)",
+          "oklch(72% 0.032 272)",
+          "oklch(84% 0.022 272)",
+          "oklch(95% 0.008 272)"
+        ]
+      },
+      "indigo": {
+        "role": "primary",
+        "displayName": "Indigo de l'aube",
+        "canonical": "oklch(50.1% 0.206 271)",
+        "tonalRamp": [
+          "oklch(15% 0.105 271)",
+          "oklch(26% 0.160 271)",
+          "oklch(38% 0.194 271)",
+          "oklch(49% 0.206 271)",
+          "oklch(61% 0.196 271)",
+          "oklch(72% 0.166 271)",
+          "oklch(84% 0.113 271)",
+          "oklch(95% 0.039 271)"
+        ]
+      },
+      "indigo-deep": {
+        "role": "primary",
+        "displayName": "Indigo profond",
+        "canonical": "oklch(41.2% 0.175 270)",
+        "tonalRamp": [
+          "oklch(15% 0.089 270)",
+          "oklch(26% 0.136 270)",
+          "oklch(38% 0.165 270)",
+          "oklch(49% 0.175 270)",
+          "oklch(61% 0.167 270)",
+          "oklch(72% 0.141 270)",
+          "oklch(84% 0.096 270)",
+          "oklch(95% 0.033 270)"
+        ]
+      },
+      "ember": {
+        "role": "secondary",
+        "displayName": "Braise",
+        "canonical": "oklch(44.8% 0.122 43)",
+        "tonalRamp": [
+          "oklch(15% 0.062 43)",
+          "oklch(26% 0.095 43)",
+          "oklch(38% 0.115 43)",
+          "oklch(49% 0.122 43)",
+          "oklch(61% 0.117 43)",
+          "oklch(72% 0.098 43)",
+          "oklch(84% 0.067 43)",
+          "oklch(95% 0.023 43)"
+        ]
+      },
+      "ember-soft": {
+        "role": "secondary",
+        "displayName": "Braise claire",
+        "canonical": "oklch(68.5% 0.160 45)",
+        "tonalRamp": [
+          "oklch(15% 0.082 45)",
+          "oklch(26% 0.124 45)",
+          "oklch(38% 0.151 45)",
+          "oklch(49% 0.160 45)",
+          "oklch(61% 0.153 45)",
+          "oklch(72% 0.129 45)",
+          "oklch(84% 0.088 45)",
+          "oklch(95% 0.030 45)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Blanc vitre",
+        "canonical": "oklch(100.0% 0.000 90)",
+        "tonalRamp": [
+          "oklch(15% 0.000 90)",
+          "oklch(26% 0.000 90)",
+          "oklch(38% 0.000 90)",
+          "oklch(49% 0.000 90)",
+          "oklch(61% 0.000 90)",
+          "oklch(72% 0.000 90)",
+          "oklch(84% 0.000 90)",
+          "oklch(95% 0.000 90)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Salutation de la tuile « Aujourd'hui »."
+      },
+      "figure": {
+        "displayName": "Chiffre",
+        "purpose": "Chiffre clé d'une tuile."
+      },
+      "headline": {
+        "displayName": "Section",
+        "purpose": "Titre de groupe de tuiles."
+      },
+      "title": {
+        "displayName": "Titre",
+        "purpose": "Titre de tuile."
+      },
+      "stat": {
+        "displayName": "Stat",
+        "purpose": "Chiffres de la tuile pleine."
+      },
+      "lead": {
+        "displayName": "Intro",
+        "purpose": "Phrase d'intro de la tuile pleine."
+      },
+      "body": {
+        "displayName": "Corps",
+        "purpose": "Corps, lignes, boutons."
+      },
+      "small": {
+        "displayName": "Petit",
+        "purpose": "Libellés secondaires, liens d'action."
+      },
+      "caption": {
+        "displayName": "Légende",
+        "purpose": "Échéances, notes de bas de tuile."
+      },
+      "label": {
+        "displayName": "Surtitre",
+        "purpose": "Surtitre de tuile, capitales."
+      },
+      "chip": {
+        "displayName": "Pastille",
+        "purpose": "Pastilles de contexte."
+      },
+      "tab": {
+        "displayName": "Onglet",
+        "purpose": "Barre d'onglets mobile."
+      }
+    },
+    "shadows": [
+      {
+        "name": "glass",
+        "value": "0 8px 28px rgb(38 48 92 / 0.09)",
+        "purpose": "Tuiles, en-tête, barre latérale, barre d'onglets (ordinateur : 0 10px 36px)."
+      },
+      {
+        "name": "today",
+        "value": "0 14px 34px rgb(61 79 214 / 0.28)",
+        "purpose": "Tuile « Aujourd'hui » (ordinateur : 0 18px 44px)."
+      },
+      {
+        "name": "raised",
+        "value": "0 2px 8px rgb(38 48 92 / 0.14)",
+        "purpose": "Pilule active, élément actif de navigation."
+      },
+      {
+        "name": "fab",
+        "value": "0 8px 20px rgb(61 79 214 / 0.35)",
+        "purpose": "Bouton d'ajout mobile."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Easing CSS commun (palette, chevrons, sous-listes)."
+      },
+      {
+        "name": "press",
+        "value": "scale(0.97) 100ms ease-out",
+        "purpose": "Pression sur boutons, lignes, onglets (Motion)."
+      },
+      {
+        "name": "tile-hover",
+        "value": "translateY(-2px) spring bounce 0, 300ms",
+        "purpose": "Survol d'une tuile, pointeur fin seulement (Motion)."
+      },
+      {
+        "name": "signature",
+        "value": "GSAP, une fois par session",
+        "purpose": "Entrée du tableau de bord, révélation de la grille, halos, première bascule, écrans vides (DESIGN.md § 7)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "390px"
+      },
+      {
+        "name": "tablet",
+        "value": "640px"
+      },
+      {
+        "name": "desktop",
+        "value": "1024px"
+      },
+      {
+        "name": "max-content",
+        "value": "1400px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale d'un écran, dans la coque.",
+      "html": "<button class=\"ds-btn-primary\">Ajouter</button>",
+      "css": ".ds-btn-primary { font-family: var(--font-inter), Inter, sans-serif; min-height:44px; padding:0 20px; border:0; border-radius:9999px; background:var(--indigo,#3D4FD6); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:background .2s cubic-bezier(0.16,1,0.3,1), transform .1s ease-out; } .ds-btn-primary:hover { background:var(--indigo-deep,#2B3AA8); } .ds-btn-primary:active { transform:scale(.97); } .ds-btn-primary:focus-visible { outline:2px solid var(--indigo,#3D4FD6); outline-offset:2px; }"
+    },
+    {
+      "name": "Bouton secondaire",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Recherche « Chercher ou ajouter ⌘K », actions secondaires.",
+      "html": "<button class=\"ds-btn-secondary\">Chercher ou ajouter <kbd>⌘K</kbd></button>",
+      "css": ".ds-btn-secondary { font-family: var(--font-inter), Inter, sans-serif; min-height:44px; padding:0 16px; border:1px solid rgb(27 32 51 / .12); border-radius:9999px; background:rgb(255 255 255 / .6); color:#1B2033; font-size:15px; font-weight:600; cursor:pointer; display:inline-flex; gap:10px; align-items:center; } .ds-btn-secondary kbd { font:inherit; font-size:12px; color:#535A72; border:1px solid rgb(27 32 51 / .12); border-radius:8px; padding:1px 6px; } .ds-btn-secondary:hover { background:rgb(255 255 255 / .75); } .ds-btn-secondary:focus-visible { outline:2px solid #3D4FD6; outline-offset:2px; }"
+    },
+    {
+      "name": "Champ",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Champ de formulaire, libellé visible au-dessus, 16 px pour éviter le zoom iOS.",
+      "html": "<label class=\"ds-field\"><span>Adresse e-mail</span><input class=\"ds-input\" type=\"email\" /></label>",
+      "css": ".ds-field { font-family: var(--font-inter), Inter, sans-serif; display:grid; gap:6px; font-size:14px; font-weight:500; color:#1B2033; } .ds-input { font-family: var(--font-inter), Inter, sans-serif; min-height:44px; padding:0 12px; border:1px solid #535A72; border-radius:14px; background:rgb(255 255 255 / .5); color:#1B2033; font-size:16px; } .ds-input:focus-visible { outline:2px solid #3D4FD6; outline-offset:2px; }"
+    },
+    {
+      "name": "Tuile verre",
+      "kind": "card",
+      "refersTo": "tile-glass",
+      "description": "Tuile standard de la grille bento : verre dépoli, surtitre, titre, lignes.",
+      "html": "<section class=\"ds-tile\"><p class=\"ds-eyebrow\">TO-DO</p><h3 class=\"ds-title\">Cette semaine</h3><div class=\"ds-row\">Rappeler le comptable</div><div class=\"ds-row\">Renouveler l'assurance</div></section>",
+      "css": ".ds-tile { font-family: var(--font-inter), Inter, sans-serif; display:flex; flex-direction:column; gap:16px; padding:18px; border-radius:24px; background:rgb(255 255 255 / .58); border:1px solid rgb(255 255 255 / .75); -webkit-backdrop-filter:blur(24px) saturate(150%); backdrop-filter:blur(24px) saturate(150%); box-shadow:0 8px 28px rgb(38 48 92 / .09); color:#1B2033; transition:transform .3s cubic-bezier(0.16,1,0.3,1); } .ds-tile:hover { transform:translateY(-2px); } .ds-eyebrow { margin:0; font-size:12px; font-weight:600; letter-spacing:.06em; color:#535A72; } .ds-title { font-family: var(--font-space-grotesk), 'Space Grotesk', sans-serif; margin:0; font-size:21px; font-weight:600; line-height:1.25; } .ds-row { min-height:44px; display:flex; align-items:center; padding:0 14px; border-radius:14px; background:rgb(255 255 255 / .5); font-size:15px; }"
+    },
+    {
+      "name": "Tuile « Aujourd'hui »",
+      "kind": "custom",
+      "refersTo": "tile-today",
+      "description": "La seule tuile pleine de l'app : date, salutation, intro, pastilles de chiffres.",
+      "html": "<section class=\"ds-today\"><p class=\"ds-today-date\">MERCREDI 12 NOVEMBRE</p><h2 class=\"ds-today-hello\">Bonjour.</h2><p class=\"ds-today-lead\">Trois choses comptent aujourd'hui.</p><div class=\"ds-stat\"><strong>3</strong><span>tâches</span></div></section>",
+      "css": ".ds-today { font-family: var(--font-inter), Inter, sans-serif; padding:22px; border-radius:24px; background:#3D4FD6; color:#fff; box-shadow:0 14px 34px rgb(61 79 214 / .28); display:grid; gap:10px; } .ds-today-date { margin:0; font-size:12px; font-weight:600; letter-spacing:.06em; color:rgb(255 255 255 / .86); } .ds-today-hello { font-family: var(--font-space-grotesk), 'Space Grotesk', sans-serif; margin:0; font-size:30px; font-weight:600; line-height:1.1; } .ds-today-lead { margin:0; font-size:15px; line-height:1.5; color:rgb(255 255 255 / .9); } .ds-stat { justify-self:start; display:grid; padding:10px 14px; border-radius:20px; background:rgb(255 255 255 / .16); border:1px solid rgb(255 255 255 / .28); } .ds-stat strong { font-family: var(--font-space-grotesk), 'Space Grotesk', sans-serif; font-size:28px; font-weight:600; line-height:1.1; } .ds-stat span { font-size:14px; color:#fff; } .ds-today :focus-visible { outline:2px solid #fff; outline-offset:2px; }"
+    },
+    {
+      "name": "Bascule Privé / Pro",
+      "kind": "nav",
+      "refersTo": "pill-toggle-active",
+      "description": "Pilule en haut de l'écran ; change tout l'écran.",
+      "html": "<div class=\"ds-pill\" role=\"group\" aria-label=\"Côté\"><button aria-pressed=\"true\">Privé</button><button aria-pressed=\"false\">Pro</button></div>",
+      "css": ".ds-pill { font-family: var(--font-inter), Inter, sans-serif; display:inline-flex; gap:4px; padding:4px; border-radius:9999px; background:rgb(27 32 51 / .07); } .ds-pill button { font-family: var(--font-inter), Inter, sans-serif; min-height:44px; padding:0 18px; border:0; border-radius:9999px; background:transparent; color:#535A72; font-size:15px; font-weight:600; cursor:pointer; } .ds-pill button[aria-pressed=true] { background:#fff; color:#1B2033; box-shadow:0 2px 8px rgb(38 48 92 / .14); } .ds-pill button:focus-visible { outline:2px solid #3D4FD6; outline-offset:2px; }"
+    },
+    {
+      "name": "Pastilles de contexte",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Privé (neutre), Trustup (braise), Nexxia (indigo).",
+      "html": "<span class=\"ds-chip ds-chip-neutral\">Privé</span> <span class=\"ds-chip ds-chip-warm\">Trustup</span> <span class=\"ds-chip ds-chip-indigo\">Nexxia</span>",
+      "css": ".ds-chip { font-family: var(--font-inter), Inter, sans-serif; display:inline-block; padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:600; line-height:1.3; } .ds-chip-neutral { background:rgb(27 32 51 / .08); color:#1B2033; } .ds-chip-warm { background:rgb(232 116 59 / .16); color:#8A3810; } .ds-chip-indigo { background:rgb(61 79 214 / .13); color:#2B3AA8; }"
+    },
+    {
+      "name": "Barre d'onglets mobile",
+      "kind": "nav",
+      "refersTo": "tabbar",
+      "description": "Barre flottante en verre, bouton d'ajout au centre.",
+      "html": "<nav class=\"ds-tabbar\"><a aria-current=\"page\">Accueil</a><a>Tâches</a><button class=\"ds-fab\" aria-label=\"Ajouter\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></button><a>Agenda</a><a>Réglages</a></nav>",
+      "css": ".ds-tabbar { font-family: var(--font-inter), Inter, sans-serif; display:flex; align-items:center; justify-content:space-between; gap:4px; padding:8px 10px; border-radius:30px; background:rgb(255 255 255 / .58); border:1px solid rgb(255 255 255 / .75); -webkit-backdrop-filter:blur(24px) saturate(150%); backdrop-filter:blur(24px) saturate(150%); box-shadow:0 8px 28px rgb(38 48 92 / .09); } .ds-tabbar a { min-height:52px; display:flex; align-items:center; padding:0 8px; font-size:11px; font-weight:600; color:#535A72; cursor:pointer; } .ds-tabbar a[aria-current=page] { color:#2B3AA8; } .ds-fab { width:56px; height:56px; border:0; border-radius:9999px; background:#3D4FD6; color:#fff; display:grid; place-items:center; box-shadow:0 8px 20px rgb(61 79 214 / .35); cursor:pointer; } .ds-fab:active { transform:scale(.97); } .ds-fab:focus-visible { outline:2px solid #3D4FD6; outline-offset:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La Vitre du matin",
+    "overview": "Du verre dépoli clair posé sur une brume bleu-lilas au lever du jour : calme, lumineux, sans bruit. Une seule tuile pleine, indigo, dit ce qui compte aujourd'hui ; tout le reste attend derrière la vitre. La marque vit dans la précision des détails (ombres bleutées, rayons doux, chiffres en Space Grotesk), jamais dans le décor.",
+    "keyCharacteristics": [
+      "Thème clair unique, brume + halos fixes",
+      "Un accent : l'indigo ; une seule tuile pleine",
+      "Verre dépoli, jamais empilé",
+      "Rayons doux + pilule, ombres bleutées",
+      "Mobile d'abord, zones tactiles ≥ 44 px",
+      "Motion pour les interactions, GSAP pour les moments signature"
+    ],
+    "rules": [
+      {
+        "name": "Une seule tuile pleine",
+        "body": "La tuile « Aujourd'hui » est la seule surface indigo pleine de l'app.",
+        "section": "colors"
+      },
+      {
+        "name": "Jamais de verre sur du verre",
+        "body": "Une ligne dans une tuile est `row` ; menus et palette sont opaques.",
+        "section": "elevation"
+      },
+      {
+        "name": "Ombres bleutées",
+        "body": "Toutes les ombres prennent la teinte rgb(38 48 92) ou l'indigo ; jamais de noir.",
+        "section": "elevation"
+      },
+      {
+        "name": "Une fois par session",
+        "body": "Un moment signature ne rejoue jamais sur un geste répété.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do utiliser uniquement les tokens sémantiques (`bg-primary`, `text-muted-foreground`, `bg-glass`).",
+      "Do garder les zones tactiles ≥ 44 px (onglets 52, ajout 56).",
+      "Do poser un libellé visible au-dessus de chaque champ."
+    ],
+    "donts": [
+      "Don't introduire une couleur, police, rayon ou ombre hors de DESIGN.md.",
+      "Don't poser une deuxième tuile pleine, du verre sur du verre ou une ombre noire.",
+      "Don't poser du texte secondaire sur le cœur d'un halo, ni de texte en dégradé.",
+      "Don't animer width, height, top, left ou backdrop-filter ; aucune boucle."
+    ]
+  }
+}
