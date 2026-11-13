@@ -12,7 +12,7 @@ paths:
 - Formulaires : validés par zod, le même schéma que côté serveur quand il existe.
 - Montants : stockés en `_cents`, formatés seulement à l'affichage par `next-intl` selon la langue. Jamais de float monétaire.
 - Animation (ADR-006) : Motion (`motion/react`) pour les interactions et changements d'état ; GSAP pour les moments signature, dans `src/components/signature/`, chargés par `next/dynamic`. Un élément n'est jamais animé par les deux. `prefers-reduced-motion` toujours géré (`useReducedMotion`, `gsap.matchMedia`). Gestes répétés (bascule, filtre, navigation) instantanés : seule la première occurrence d'un moment signature est animée.
-- États : chaque écran de liste gère vide / chargement / erreur. Chaque action asynchrone désactive son bouton pendant l'appel.
+- États : chaque écran de liste gère vide / chargement / erreur. Chaque action asynchrone désactive son bouton pendant l'appel. Exception, limitée aux préférences d'affichage (bascule Privé / Pro, filtre d'espace ; validée par Antoine le 2026-11-13) : le contrôle reste cliquable, affichage optimiste (`useOptimistic`) et `aria-busy` pendant l'enregistrement ; en cas d'échec, retour à l'état enregistré avec un message visible. Pour les données métier, la décision se prend à la spec de chaque module.
 - Mobile d'abord (ADR-008) : concevoir et vérifier à 390 px avant 1440 px. Navigation au pouce. Zones tactiles ≥ 44 px.
 - Tests : Vitest + Testing Library, un fichier `*.test.tsx` à côté du composant pour toute logique conditionnelle. Pas de test de snapshot.
 - Session : toute page de `(app)`, toute lecture de données et toute Server Action non publique (`"use server"`) appelle elle-même `requireSession()`. Ne jamais compter sur le layout ni sur le proxy seuls (audit tâche 10).

@@ -27,6 +27,8 @@ Hors périmètre pour l'instant : habitudes, routines, journal, bloc-notes, deep
 - **Slack** (BRAIN-27) : second canal de Hermes Agent, après WhatsApp, avec les mêmes fonctions (ADR-004).
 - **App mobile native** (BRAIN-28) : après quelques mois de web app installable, si l'usage le justifie (ADR-008).
 - **Super-admin** (BRAIN-29) : gestion des clients, paiements et tarifs, à l'ouverture des abonnements.
+- **Espaces personnalisables** (BRAIN-30, noté le 2026-11-13) : l'utilisateur crée, renomme et ordonne ses espaces des deux côtés, Privé et Pro. Le filtre d'espace existe donc aussi côté Privé : aucun code ne doit supposer qu'il n'existe que côté Pro.
+- **Onboarding et gestion du compte** (BRAIN-31, noté le 2026-11-13) : premier parcours d'un nouveau compte et réglages du compte.
 
 ## Intégrations : ce qui est possible
 | Source | État au 2026-11-10 | Approche |
