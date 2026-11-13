@@ -9,7 +9,14 @@ import { sideSchema, type Side } from "@/modules/core/schemas";
 // jamais une donnée métier. Toute valeur inattendue retombe sur un défaut sûr, sans erreur.
 
 export const SIDE_COOKIE = "bmb_side";
-export const CONTEXTS_COOKIE = "bmb_contexts";
+
+/**
+ * Filtre d'espace : un cookie par côté (BRAIN-30, le filtre existe des deux côtés), pour qu'un choix
+ * côté Pro n'efface pas celui du côté Privé.
+ */
+export function contextsCookie(side: Side): string {
+  return `bmb_contexts_${side}`;
+}
 
 const DEFAULT_SIDE: Side = "private";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
@@ -47,7 +54,7 @@ export function parseContextSelection(
   return selected.length > 0 ? selected : [...available];
 }
 
-/** Valeur du cookie bmb_contexts, ou null si la sélection est mal formée. */
+/** Valeur du cookie bmb_contexts_<côté>, ou null si la sélection est mal formée. */
 export function serializeContextSelection(ids: unknown): string | null {
   const result = contextIdsSchema.safeParse(ids);
   return result.success ? [...new Set(result.data)].join(",") : null;
@@ -57,11 +64,13 @@ export async function readSide(): Promise<Side> {
   return parseSide((await cookies()).get(SIDE_COOKIE)?.value);
 }
 
+/** Espaces retenus pour `side`, toujours revalidés contre `available` (espaces du workspace). */
 export async function readContextSelection(
+  side: Side,
   available: readonly string[],
 ): Promise<string[]> {
   return parseContextSelection(
-    (await cookies()).get(CONTEXTS_COOKIE)?.value,
+    (await cookies()).get(contextsCookie(side))?.value,
     available,
   );
 }

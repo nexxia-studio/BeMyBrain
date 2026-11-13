@@ -64,10 +64,12 @@
     },
     "contexts": {
       "label": "Contextes affichés",
-      "all": "{count, plural, =2 {Les deux} other {Tous}}"
+      "all": "{count, plural, =2 {Les deux} other {Tous}}",
+      "menuLabel": "Contextes affichés : {current}"
     },
     "search": "Chercher ou ajouter",
     "searchShortcut": "⌘K",
-    "quickAdd": "Ajouter rapidement"
+    "quickAdd": "Ajouter rapidement",
+    "preferenceError": "Choix non enregistré. Réessayez."
   }
 }

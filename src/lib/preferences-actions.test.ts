@@ -45,27 +45,57 @@ describe("bascule Privé / Pro (Server Action)", () => {
   });
 });
 
-describe("filtre de contexte (Server Action)", () => {
-  it("enregistre les contextes choisis dans bmb_contexts", async () => {
-    await setContextSelection([NEXXIA]);
+describe("filtre d'espace (Server Action)", () => {
+  it("enregistre l'espace choisi côté Pro dans bmb_contexts_pro", async () => {
+    await setContextSelection("pro", [NEXXIA]);
 
     expect(cookieStore.set).toHaveBeenCalledWith(
-      "bmb_contexts",
+      "bmb_contexts_pro",
       NEXXIA,
       expect.objectContaining({ httpOnly: true }),
     );
   });
 
-  it("efface le filtre quand tous les contextes sont demandés (null)", async () => {
-    await setContextSelection(null);
+  it("enregistre l'espace choisi côté Privé sans toucher au cookie Pro", async () => {
+    await setContextSelection("private", [NEXXIA]);
 
-    expect(cookieStore.delete).toHaveBeenCalledWith("bmb_contexts");
+    expect(cookieStore.set).toHaveBeenCalledTimes(1);
+    expect(cookieStore.set).toHaveBeenCalledWith(
+      "bmb_contexts_private",
+      NEXXIA,
+      expect.anything(),
+    );
+    expect(cookieStore.delete).not.toHaveBeenCalled();
+  });
+
+  it("efface le filtre du seul côté demandé quand tous les espaces sont choisis (null)", async () => {
+    await setContextSelection("pro", null);
+
+    expect(cookieStore.delete).toHaveBeenCalledTimes(1);
+    expect(cookieStore.delete).toHaveBeenCalledWith("bmb_contexts_pro");
   });
 
   it("n'écrit rien pour une sélection mal formée", async () => {
-    await setContextSelection(["pas-un-uuid"]);
+    await setContextSelection("pro", ["pas-un-uuid"]);
 
     expect(cookieStore.set).not.toHaveBeenCalled();
+    expect(cookieStore.delete).not.toHaveBeenCalled();
+  });
+
+  it("n'écrit ni n'efface rien pour un côté inconnu", async () => {
+    await setContextSelection("perso", null);
+    await setContextSelection("perso", [NEXXIA]);
+
+    expect(cookieStore.set).not.toHaveBeenCalled();
+    expect(cookieStore.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuse sans session, avant toute écriture", async () => {
+    requireSession.mockRejectedValue(new Error("REDIRECT:/login"));
+
+    await expect(setContextSelection("pro", null)).rejects.toThrow(
+      "REDIRECT:/login",
+    );
     expect(cookieStore.delete).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/session";
 import { sideSchema } from "@/modules/core/schemas";
 
 import {
-  CONTEXTS_COOKIE,
+  contextsCookie,
   PREFERENCE_COOKIE_OPTIONS,
   serializeContextSelection,
   SIDE_COOKIE,
@@ -24,15 +24,21 @@ export async function setSide(side: unknown): Promise<void> {
   (await cookies()).set(SIDE_COOKIE, result.data, PREFERENCE_COOKIE_OPTIONS);
 }
 
-/** Contextes retenus côté Pro ; `null` = tous (le cookie est effacé). */
-export async function setContextSelection(ids: unknown): Promise<void> {
+/** Espaces retenus pour un côté (Privé ou Pro) ; `null` = tous (le cookie de ce côté est effacé). */
+export async function setContextSelection(
+  side: unknown,
+  ids: unknown,
+): Promise<void> {
   await requireSession();
+  const parsedSide = sideSchema.safeParse(side);
+  if (!parsedSide.success) return;
+  const name = contextsCookie(parsedSide.data);
   const store = await cookies();
   if (ids === null) {
-    store.delete(CONTEXTS_COOKIE);
+    store.delete(name);
     return;
   }
   const value = serializeContextSelection(ids);
   if (value === null) return;
-  store.set(CONTEXTS_COOKIE, value, PREFERENCE_COOKIE_OPTIONS);
+  store.set(name, value, PREFERENCE_COOKIE_OPTIONS);
 }

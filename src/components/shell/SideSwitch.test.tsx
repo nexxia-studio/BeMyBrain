@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,5 +86,24 @@ describe("bascule Privé / Pro", () => {
       initialSide: "private",
       side: "pro",
     });
+  });
+
+  it("revient au côté enregistré et affiche un message si l'enregistrement échoue", async () => {
+    setSide.mockRejectedValue(new Error("réseau"));
+    renderSwitch("private");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pro" }));
+
+    expect(await screen.findByRole("status")).toHaveProperty(
+      "textContent",
+      messages.shell.preferenceError,
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Privé" })
+          .getAttribute("aria-pressed"),
+      ).toBe("true"),
+    );
   });
 });

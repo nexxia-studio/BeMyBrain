@@ -64,10 +64,12 @@
     },
     "contexts": {
       "label": "Contexts shown",
-      "all": "{count, plural, =2 {Both} other {All}}"
+      "all": "{count, plural, =2 {Both} other {All}}",
+      "menuLabel": "Contexts shown: {current}"
     },
     "search": "Search or add",
     "searchShortcut": "⌘K",
-    "quickAdd": "Quick add"
+    "quickAdd": "Quick add",
+    "preferenceError": "Choice not saved. Try again."
   }
 }

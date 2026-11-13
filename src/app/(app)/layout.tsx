@@ -9,39 +9,19 @@ import { ShellHeader } from "@/components/shell/ShellHeader";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { TabBar } from "@/components/shell/TabBar";
 import { signOut } from "@/lib/auth/actions";
-import { readContextSelection, readSide } from "@/lib/preferences";
-import { requireSession, requireSessionToken } from "@/lib/session";
-import { loadContexts } from "@/modules/core/contexts";
-
-type ProFilter = {
-  contexts: { id: string; name: string }[];
-  selected: string[];
-};
-
-/** Filtre de contexte côté Pro : seulement s'il y a un choix à faire (au moins deux contextes). */
-async function loadProFilter(workspaceId: string): Promise<ProFilter | null> {
-  const contexts = await loadContexts(
-    await requireSessionToken(),
-    workspaceId,
-    "pro",
-  );
-  if (contexts.length < 2) return null;
-  const ids = contexts.map((context) => context.id);
-  return {
-    contexts: contexts.map(({ id, name }) => ({ id, name })),
-    selected: await readContextSelection(ids),
-  };
-}
+import { loadContextFilter } from "@/lib/context-filter";
+import { readSide } from "@/lib/preferences";
+import { requireSession } from "@/lib/session";
 
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   // Second verrou après le proxy. Pas suffisant seul (non réexécuté en navigation client, ignoré par
   // les Server Actions) : chaque page et chaque action non publique appelle aussi requireSession.
-  const session = await requireSession();
-  const side = await readSide();
-  const proFilter =
-    side === "pro" ? await loadProFilter(session.workspaceId) : null;
+  await requireSession();
+  // Filtre d'espace du côté actif (Privé ou Pro) : mémoïsé, l'en-tête de page (PageHeader) le relit
+  // sans seconde requête.
+  const [side, filter] = await Promise.all([readSide(), loadContextFilter()]);
 
   const signOutForm = (
     <form action={signOut}>
@@ -57,16 +37,20 @@ export default async function AppLayout({
           <div className="flex flex-1 items-start gap-grid">
             <Sidebar
               side={side}
+              filter={
+                filter ? (
+                  <ContextFilter
+                    key={filter.side}
+                    side={filter.side}
+                    contexts={filter.contexts}
+                    selected={filter.selected}
+                  />
+                ) : null
+              }
               footer={signOutForm}
               className="hidden lg:flex"
             />
             <div className="flex min-w-0 flex-1 flex-col gap-grid">
-              {proFilter ? (
-                <ContextFilter
-                  contexts={proFilter.contexts}
-                  selected={proFilter.selected}
-                />
-              ) : null}
               {children}
               {/* raccourci: déconnexion en bas de page sur mobile — elle ira dans l'onglet Réglages (tâche 16). */}
               <div className="lg:hidden">{signOutForm}</div>

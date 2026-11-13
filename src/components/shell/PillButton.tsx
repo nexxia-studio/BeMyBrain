@@ -1,6 +1,6 @@
 "use client";
 
-// Bouton d'une pilule à choix (filtre de contexte) : actif = fond blanc + shadow-raised (DESIGN.md § 2).
+// Bouton d'une pilule à choix (filtre d'espace) : actif = fond blanc + shadow-raised (DESIGN.md § 2).
 // Motion pour la pression seulement (DESIGN.md § 7).
 import { motion } from "motion/react";
 
@@ -10,9 +10,16 @@ type PillButtonProps = {
   active: boolean;
   onPress: () => void;
   children: React.ReactNode;
+  /** Forme propre à un emplacement (ex. ligne pleine largeur dans la barre latérale). */
+  className?: string;
 };
 
-export function PillButton({ active, onPress, children }: PillButtonProps) {
+export function PillButton({
+  active,
+  onPress,
+  children,
+  className,
+}: PillButtonProps) {
   return (
     <motion.button
       type="button"
@@ -25,6 +32,7 @@ export function PillButton({ active, onPress, children }: PillButtonProps) {
         active
           ? "bg-pill-active text-foreground shadow-raised"
           : "text-muted-foreground",
+        className,
       )}
     >
       {children}

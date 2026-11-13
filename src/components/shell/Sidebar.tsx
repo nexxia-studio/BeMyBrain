@@ -1,7 +1,8 @@
 "use client";
 
 // Curseurs nexxia-design (DESIGN.md § 1, coque) : VARIANCE 4 · MOTION 5 · DENSITY 5.
-// Barre latérale (ordinateur, DESIGN.md § 5) : verre, titre du côté, sections. Sous 1024 px, c'est la
+// Barre latérale (ordinateur, DESIGN.md § 5) : verre, titre du côté, filtre d'espace (s'il y a un choix),
+// sections. Sous 1024 px, c'est la
 // barre d'onglets qui navigue (repli géré par le layout).
 // raccourci: catégories sans sous-catégories, donc sans dépliage — chevron et aria-expanded arrivent avec
 // le premier module qui a des sous-sections.
@@ -16,12 +17,14 @@ import { isActivePath, NAV_ITEMS } from "./nav-items";
 
 type SidebarProps = {
   side: Side;
+  /** Filtre d'espace du côté actif (ContextFilter), rendu sous le titre du côté ; absent sans choix. */
+  filter?: React.ReactNode;
   /** Bas de la barre (déconnexion), rendu par le serveur. */
   footer?: React.ReactNode;
   className?: string;
 };
 
-export function Sidebar({ side, footer, className }: SidebarProps) {
+export function Sidebar({ side, filter, footer, className }: SidebarProps) {
   const t = useTranslations("shell");
   const pathname = usePathname();
 
@@ -36,6 +39,7 @@ export function Sidebar({ side, footer, className }: SidebarProps) {
       <p className="px-3 pt-2 pb-1.5 text-eyebrow uppercase text-muted-foreground">
         {t(`sideTitle.${side}`)}
       </p>
+      {filter ? <div className="pb-2">{filter}</div> : null}
       {NAV_ITEMS.map(({ href, labelKey, icon: Icon }) => {
         const active = isActivePath(pathname, href);
         return (

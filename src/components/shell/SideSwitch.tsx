@@ -7,13 +7,7 @@
 import { motion } from "motion/react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import {
-  useOptimistic,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  useTransition,
-} from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import {
   isSignaturePending,
@@ -22,6 +16,9 @@ import {
 import { setSide } from "@/lib/preferences-actions";
 import { cn } from "@/lib/utils";
 import { sides, type Side } from "@/modules/core/schemas";
+
+import { PreferenceStatus } from "./PreferenceStatus";
+import { useOptimisticPreference } from "./use-optimistic-preference";
 
 const SideSwitchSignature = dynamic(
   () =>
@@ -48,11 +45,15 @@ type SideSwitchProps = {
 
 export function SideSwitch({ side }: SideSwitchProps) {
   const t = useTranslations("shell.side");
-  const [shownSide, setShownSide] = useOptimistic(side);
+  const {
+    shown: shownSide,
+    pending,
+    failed,
+    update,
+  } = useOptimisticPreference(side, setSide);
   // Côté au montage : le moment signature, chargé après l'hydratation, s'y compare pour voir aussi une
   // bascule faite avant son chargement.
   const [initialSide] = useState(side);
-  const [pending, startTransition] = useTransition();
   const thumbRef = useRef<HTMLSpanElement>(null);
   const signaturePending = useSyncExternalStore(
     noSubscription,
@@ -62,17 +63,14 @@ export function SideSwitch({ side }: SideSwitchProps) {
 
   function choose(next: Side) {
     if (next === shownSide) return;
-    startTransition(async () => {
-      setShownSide(next);
-      await setSide(next);
-    });
+    update(next);
   }
 
   // Sous 1024 px, la pilule est posée sur du verre : sur le fond nu, le halo bleu fait tomber le texte
   // inactif sous 4,5:1 (DESIGN.md § 8, décision 6, mesuré sur capture). Au-dessus, l'en-tête est déjà
   // en verre (jamais deux verres empilés).
   return (
-    <div className="rounded-full max-lg:glass">
+    <div className="relative rounded-full max-lg:glass">
       <div
         role="group"
         aria-label={t("label")}
@@ -115,6 +113,7 @@ export function SideSwitch({ side }: SideSwitchProps) {
           />
         ) : null}
       </div>
+      <PreferenceStatus failed={failed} className="right-0 lg:right-auto" />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CONTEXTS_COOKIE,
+  contextsCookie,
   parseContextSelection,
   parseSide,
   serializeContextSelection,
@@ -14,11 +14,14 @@ const NEXXIA = "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d";
 const PRO_CONTEXTS = [TRUSTUP, NEXXIA];
 
 describe("préférences d'affichage (cookies)", () => {
-  it("nomme les cookies bmb_side et bmb_contexts", () => {
-    expect([SIDE_COOKIE, CONTEXTS_COOKIE]).toEqual([
-      "bmb_side",
-      "bmb_contexts",
-    ]);
+  it("nomme le cookie du côté bmb_side", () => {
+    expect(SIDE_COOKIE).toBe("bmb_side");
+  });
+
+  it("mémorise le filtre d'espace dans un cookie par côté", () => {
+    const names = [contextsCookie("private"), contextsCookie("pro")];
+
+    expect(names).toEqual(["bmb_contexts_private", "bmb_contexts_pro"]);
   });
 
   it("une valeur de cookie inconnue retombe sur Privé", () => {

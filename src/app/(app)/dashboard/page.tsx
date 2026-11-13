@@ -2,6 +2,7 @@
 // raccourci: page réduite au titre et au workspace résolu (preuve de la tâche 11) — tableau de bord bento à la tâche 15.
 import { getTranslations } from "next-intl/server";
 
+import { PageHeader } from "@/components/shell/PageHeader";
 import { requireSession } from "@/lib/session";
 
 export default async function DashboardPage() {
@@ -12,10 +13,8 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <main className="flex-1">
-      <h1 className="text-2xl font-semibold tracking-tight leading-tight">
-        {t("title")}
-      </h1>
+    <main className="flex flex-1 flex-col gap-1">
+      <PageHeader title={t("title")} />
       <p className="text-sm text-muted-foreground">
         {t.rich("workspace", {
           // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit.

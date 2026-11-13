@@ -32,4 +32,23 @@ describe("barre latérale", () => {
     expect(home.getAttribute("aria-current")).toBe("page");
     expect(home.getAttribute("href")).toBe("/dashboard");
   });
+
+  it("place le filtre d'espace sous le titre du côté, avant les liens", () => {
+    render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <Sidebar side="pro" filter={<div data-testid="filtre" />} />
+      </NextIntlClientProvider>,
+    );
+
+    const title = screen.getByText("Vie pro");
+    const filter = screen.getByTestId("filtre");
+    const home = screen.getByRole("link", { name: "Accueil" });
+
+    expect(
+      title.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      filter.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });
