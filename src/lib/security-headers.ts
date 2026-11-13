@@ -7,6 +7,12 @@
 type CspOptions = { nonce: string; isDevelopment: boolean };
 
 /**
+ * En-tête de requête interne posé par src/proxy.ts (toujours écrasé, jamais repris du client) : copie du
+ * nonce de la CSP. readCspNonce ne fait confiance au nonce que s'il est présent et identique.
+ */
+export const CSP_NONCE_MARKER_HEADER = "x-bmb-csp-nonce";
+
+/**
  * CSP d'une page. Polices `next/font` auto-hébergées ('self'), Neon Auth appelé côté serveur seulement
  * (aucune origine tierce dans connect-src). Sentry (tâche 19) devra ajouter son point d'ingestion.
  */

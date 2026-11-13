@@ -40,6 +40,17 @@ test.describe("en-têtes de sécurité", { tag: "@desktop" }, () => {
     expect(violations).toEqual([]);
   });
 
+  test("une URL à extension inexistante (/inexistant.png) répond 404 avec la CSP à nonce", async ({
+    request,
+  }) => {
+    const response = await request.get("/inexistant.png", { maxRedirects: 0 });
+
+    expect(response.status()).toBe(404);
+    expect(response.headers()["content-security-policy"]).toMatch(
+      /'nonce-[^']+'/,
+    );
+  });
+
   test("chaque chargement de /login reçoit un nonce différent", async ({
     request,
   }) => {

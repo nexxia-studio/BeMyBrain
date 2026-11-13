@@ -3,6 +3,10 @@ import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+
+import { CSP_NONCE_MARKER_HEADER } from "./lib/security-headers";
 import proxy, { config } from "./proxy";
 
 const ORIGIN = "http://localhost:3000";
@@ -130,6 +134,36 @@ describe("politique de sécurité du contenu posée par le proxy", () => {
     );
   });
 
+  it("pose la CSP sur une URL à extension inexistante (/x.png), rendue en 404 HTML par Next", async () => {
+    const response = await proxy(request("/x.png"));
+
+    expect(
+      nonceOf(response.headers.get("content-security-policy")),
+    ).toBeTruthy();
+    expect(
+      response.headers.get("x-middleware-request-content-security-policy"),
+    ).toBe(response.headers.get("content-security-policy"));
+  });
+
+  it("ne redirige pas une URL à extension vers /login : Next répond 404", async () => {
+    const response = await proxy(request("/apple-touch-icon.png"));
+
+    expect(isAllowed(response)).toBe(true);
+  });
+
+  it("transmet au rendu le marqueur de nonce, en écrasant celui du client", async () => {
+    const forged = new NextRequest(new URL("/login", ORIGIN), {
+      headers: { [CSP_NONCE_MARKER_HEADER]: "forge" },
+    });
+
+    const response = await proxy(forged);
+
+    const nonce = nonceOf(response.headers.get("content-security-policy"));
+    expect(
+      response.headers.get(`x-middleware-request-${CSP_NONCE_MARKER_HEADER}`),
+    ).toBe(nonce);
+  });
+
   it("pose aussi la CSP sur la redirection vers /login", async () => {
     const response = await proxy(request("/dashboard"));
 
@@ -147,8 +181,6 @@ describe("matcher du proxy", () => {
     "/icons/icon-512.png",
     "/icons/icon-maskable-512.png",
     "/icons/apple-touch-icon.png",
-    "/apple-icon.png",
-    "/apple-touch-icon.png",
     "/favicon.ico",
     "/_next/static/chunks/app.js",
     "/_next/image?url=%2Ficons%2Ficon-192.png&w=64&q=75",
@@ -161,15 +193,37 @@ describe("matcher du proxy", () => {
     expect(matched).toBe(false);
   });
 
-  it.each(["/dashboard", "/", "/login", "/reset-password", "/settings/langue"])(
-    "exécute le proxy sur la page %s",
-    (path) => {
-      const matched = unstable_doesMiddlewareMatch({
-        config,
-        url: new URL(path, ORIGIN).toString(),
-      });
+  it("n'exclut que les icônes réellement servies par public/icons", () => {
+    const icons = readdirSync(join(process.cwd(), "public/icons"));
 
-      expect(matched).toBe(true);
-    },
-  );
+    const unmatched = icons.filter(
+      (name) =>
+        !unstable_doesMiddlewareMatch({
+          config,
+          url: new URL(`/icons/${name}`, ORIGIN).toString(),
+        }),
+    );
+
+    expect(unmatched.sort()).toEqual([...icons].sort());
+  });
+
+  it.each([
+    "/dashboard",
+    "/",
+    "/login",
+    "/reset-password",
+    "/settings/langue",
+    "/x.png",
+    "/inexistant.svg",
+    "/robots.txt",
+    "/icons/inexistant.png",
+    "/apple-touch-icon.png",
+  ])("exécute le proxy sur %s (toute réponse HTML porte la CSP)", (path) => {
+    const matched = unstable_doesMiddlewareMatch({
+      config,
+      url: new URL(path, ORIGIN).toString(),
+    });
+
+    expect(matched).toBe(true);
+  });
 });
