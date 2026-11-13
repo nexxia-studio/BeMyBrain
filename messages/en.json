@@ -63,9 +63,9 @@
       "pro": "Work"
     },
     "contexts": {
-      "label": "Contexts shown",
+      "label": "Spaces shown",
       "all": "{count, plural, =2 {Both} other {All}}",
-      "menuLabel": "Contexts shown: {current}"
+      "menuLabel": "Spaces shown: {current}"
     },
     "search": "Search or add",
     "searchShortcut": "⌘K",

@@ -61,3 +61,4 @@
 - `page.addStyleTag` sans effet dans Playwright → la CSP à nonce bloque les styles injectés → `el.style.setProperty(…)`.
 - GSAP présent dans le bundle initial → une constante importée depuis un module GSAP l'y entraîne → clés et constantes partagées dans un fichier sans GSAP (`src/components/signature/signature-keys.ts`).
 - Tween GSAP qui survit au démontage sous Vitest malgré `useGSAP` → l'entrée UMD de `@gsap/react` charge un second exemplaire de gsap → alias `@gsap/react` vers `@gsap/react/src/index.js` dans `vitest.config.mts` (Next lit l'entrée ESM, la prod n'est pas concernée).
+- État optimiste revenu à sa valeur de départ dans un test Vitest → l'action se résout sans nouveau rendu serveur, donc `useOptimistic` retombe sur la prop → vérifier l'affichage juste après le clic, avant tout `await`.

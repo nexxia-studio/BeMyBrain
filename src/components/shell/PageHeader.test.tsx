@@ -49,7 +49,7 @@ describe("en-tête de page", () => {
     await renderHeader();
 
     expect(
-      screen.getByRole("button", { name: /Contextes affichés/ }).textContent,
+      screen.getByRole("button", { name: /Espaces affichés/ }).textContent,
     ).toContain("Trustup");
   });
 

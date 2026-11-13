@@ -32,7 +32,7 @@ function renderMenu(selected: string[]) {
 }
 
 function trigger() {
-  return screen.getByRole("button", { name: /Contextes affichés/ });
+  return screen.getByRole("button", { name: /Espaces affichés/ });
 }
 
 async function openMenu() {

@@ -18,7 +18,7 @@
 - **Rôles owner/member** : la base ne les distingue pas encore (tout membre peut tout faire dans son workspace) ; à trancher au multi-comptes (BRAIN-26).
 - **Extension `pg_session_jwt`** : fournit `auth.uid()` / `auth.user_id()`, qui lisent `request.jwt.claims` posé par `set_config` (vérifié sur `dev`). Absente par défaut : `CREATE EXTENSION IF NOT EXISTS pg_session_jwt` dans la migration custom de la tâche 6.
 - **Projet Neon** : `bemybrain` (Francfort, Postgres 18), branches `production`, `dev` (local), `test` (tests d'isolation). Rôle `app_backend` créé sur `production` (LOGIN, sans BYPASSRLS, sans appartenance à `neon_superuser`) et hérité par `dev` et `test`.
-- **Choix Privé / Pro et filtre de contexte** : cookies lus côté serveur (`bmb_side`, `bmb_contexts`). Préférence d'affichage, pas une donnée métier.
+- **Choix Privé / Pro et filtre de contexte** : cookies lus côté serveur (`bmb_side`, `bmb_contexts_private`, `bmb_contexts_pro`). Préférence d'affichage, pas une donnée métier.
 - **Langue** (ADR-007) : `next-intl` sans routage i18n. Source de vérité : `workspace_members.locale` ; recopiée dans le cookie `NEXT_LOCALE` à la connexion et au changement, lu par `src/i18n/request.ts`. Avant connexion : `Accept-Language`, puis `fr`.
 - **Animation** (ADR-006) : Motion pour interactions et changements d'état ; GSAP pour les moments signature, dans `src/components/signature/`, chargés par `next/dynamic`. Un élément n'est jamais animé par les deux. Gestes répétés instantanés.
 - **Mobile** (ADR-008) : mobile d'abord, PWA installable via `src/app/manifest.ts`, pas de service worker. Logique métier dans `src/modules/` uniquement, sans import de React ni de Next.
@@ -87,7 +87,7 @@
 - [ ] **14. Coque : navigation et bascule Privé / Pro** (BRAIN-7)
   - Référence (2026-11-12) : barre latérale gauche avec catégories dépliables sur ordinateur ; bascule Privé / Pro en haut ; sur mobile, barre d'onglets en bas avec le bouton d'ajout au centre (bouton rond indigo, sans action dans le socle hors palette, cf. tâche 20).
   - Fichiers : `src/app/(app)/layout.tsx`, `src/components/shell/`, `src/components/signature/side-switch.tsx`, `src/lib/preferences.ts`
-  - Navigation au pouce (barre basse sur mobile, latérale sur desktop). Bascule Privé / Pro ; côté Pro, filtre Trustup / Nexxia / les deux. État dans les cookies `bmb_side` et `bmb_contexts`, lus côté serveur, validés par zod (valeur inconnue → Privé). Interactions en Motion ; l'effet signature de la bascule en GSAP, dans son composant chargé à la demande, joué une seule fois par session : les bascules suivantes sont instantanées.
+  - Navigation au pouce (barre basse sur mobile, latérale sur desktop). Bascule Privé / Pro ; filtre d'espace des deux côtés dès 2 espaces (barre latérale sur ordinateur, pastille à côté du titre sur mobile ; décidé le 2026-11-13). État dans les cookies `bmb_side`, `bmb_contexts_private` et `bmb_contexts_pro`, lus côté serveur, validés par zod (valeur inconnue → Privé). Interactions en Motion ; l'effet signature de la bascule en GSAP, dans son composant chargé à la demande, joué une seule fois par session : les bascules suivantes sont instantanées.
   - Test à écrire d'abord : `src/lib/preferences.test.ts` — « une valeur de cookie inconnue retombe sur Privé » ; `e2e/bascule-prive-pro.spec.ts` (scénario 2, desktop + mobile) ; « la deuxième bascule ne déclenche aucune animation ».
   - Fini quand : tests verts.
 
