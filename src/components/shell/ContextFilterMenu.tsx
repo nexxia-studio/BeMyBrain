@@ -5,9 +5,11 @@
 // « tous » puis chaque espace du côté actif (Privé ou Pro, BRAIN-30). Menu de Base UI (déjà installé,
 // primitive de shadcn base-nova) : clavier, Échap, focus rendu à la pastille, aria-expanded.
 // Pastille en verre (posée sur le fond nu, DESIGN.md § 8 déc. 6) ; menu opaque (`popover`, jamais de verre
-// sur du verre). Changement instantané (geste répété) ; seul le menu apparaît en fondu court.
+// sur du verre). Changement instantané (geste répété) ; seul le menu apparaît en fondu court. Pression
+// de la pastille en Motion (`scale` 0,97, coupée par MotionConfig reducedMotion="user").
 import { Menu } from "@base-ui/react/menu";
 import { Check, ChevronDown } from "lucide-react";
+import { motion } from "motion/react";
 import { useTranslations } from "next-intl";
 
 import { setContextSelection } from "@/lib/preferences-actions";
@@ -64,6 +66,12 @@ export function ContextFilterMenu({
     <div className="relative">
       <Menu.Root>
         <Menu.Trigger
+          render={
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
+            />
+          }
           aria-label={t("menuLabel", { current })}
           aria-busy={pending}
           className="glass flex min-h-11 max-w-full items-center gap-1.5 rounded-full pr-3 pl-4 text-small font-semibold text-foreground"

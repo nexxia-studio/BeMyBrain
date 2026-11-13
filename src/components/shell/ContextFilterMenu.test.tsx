@@ -12,7 +12,26 @@ import messages from "../../../messages/fr.json";
 
 const setContextSelection = vi.hoisted(() => vi.fn());
 
+const whileTapOfTrigger = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/preferences-actions", () => ({ setContextSelection }));
+// Sonde de Motion : on vérifie la pression demandée sans dépendre de l'animation sous jsdom.
+vi.mock("motion/react", () => ({
+  motion: {
+    button: function MotionButtonProbe(
+      props: React.ComponentProps<"button"> & {
+        whileTap?: unknown;
+        transition?: unknown;
+      },
+    ) {
+      const buttonProps = { ...props };
+      delete buttonProps.whileTap;
+      delete buttonProps.transition;
+      whileTapOfTrigger(props.whileTap);
+      return <button {...buttonProps} />;
+    },
+  },
+}));
 
 import { ContextFilterMenu } from "./ContextFilterMenu";
 
@@ -46,6 +65,13 @@ beforeEach(() => {
 });
 
 describe("pastille de filtre d'espace (mobile)", () => {
+  it("réagit à la pression comme les boutons (scale 0,97)", () => {
+    renderMenu([NEXXIA.id]);
+
+    expect(whileTapOfTrigger).toHaveBeenCalledWith({ scale: 0.97 });
+    expect(trigger().getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("affiche l'espace retenu sur la pastille, menu fermé", () => {
     renderMenu([NEXXIA.id]);
 
