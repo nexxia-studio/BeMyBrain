@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:build": "next build && vitest run --config vitest.build.config.mts",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
     "db:generate": "drizzle-kit generate",

@@ -3,9 +3,9 @@ import { z } from "zod";
 import { locales } from "@/i18n/locales";
 
 import { CoreError } from "./errors";
+import { sides } from "./sides";
 
-export const sides = ["private", "pro"] as const;
-export type Side = (typeof sides)[number];
+export { sides, type Side } from "./sides";
 
 export const uuidSchema = z.uuid();
 export const sideSchema = z.enum(sides);

@@ -39,7 +39,60 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "workspace": "Workspace: <name></name>"
+    "workspace": "Workspace: <name></name>",
+    "today": {
+      "greeting": "Hello.",
+      "intro": "Nothing planned today in {spaces}. What matters will show up here.",
+      "introNoSpace": "No space on this side yet. Tiles will appear with the first space."
+    },
+    "tiles": {
+      "spaces": "Spaces covered",
+      "privateTodo": {
+        "eyebrow": "To-do",
+        "title": "Personal tasks",
+        "body": "No tasks yet. Tasks and their due dates will show up here."
+      },
+      "shopping": {
+        "eyebrow": "Groceries",
+        "title": "Shared list",
+        "body": "Nothing to buy."
+      },
+      "budget": {
+        "eyebrow": "Budget",
+        "title": "This month's target",
+        "body": "No expenses recorded."
+      },
+      "health": {
+        "eyebrow": "Health",
+        "title": "Sport and health",
+        "body": "This week's workouts, sleep and nutrition will show up here."
+      },
+      "home": {
+        "eyebrow": "Home",
+        "title": "Home and contracts",
+        "body": "Insurance, furniture and smart home will show up here."
+      },
+      "proTodo": {
+        "eyebrow": "To-do",
+        "title": "Work tasks",
+        "body": "No tasks yet. Today's tasks, by space, will show up here."
+      },
+      "clients": {
+        "eyebrow": "Clients",
+        "title": "Clients and projects",
+        "body": "Active clients and project progress will show up here."
+      },
+      "proFinances": {
+        "eyebrow": "Business finances",
+        "title": "Income and invoices",
+        "body": "Pending invoices and upcoming VAT will show up here."
+      },
+      "social": {
+        "eyebrow": "Social",
+        "title": "Content to publish",
+        "body": "The publishing calendar will show up here."
+      }
+    }
   },
   "noWorkspace": {
     "title": "No workspace",

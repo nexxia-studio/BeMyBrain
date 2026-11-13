@@ -15,7 +15,7 @@ import {
 } from "@/components/signature/signature-keys";
 import { setSide } from "@/lib/preferences-actions";
 import { cn } from "@/lib/utils";
-import { sides, type Side } from "@/modules/core/schemas";
+import { sides, type Side } from "@/modules/core/sides";
 
 import { PreferenceStatus } from "./PreferenceStatus";
 import { useOptimisticPreference } from "./use-optimistic-preference";

@@ -31,7 +31,7 @@ vi.mock("react", () => {
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
 
-import { loadContextFilter } from "./context-filter";
+import { loadContextFilter, loadSideSpaces } from "./context-filter";
 
 const WORKSPACE_ID = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const PERSO = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Perso" };
@@ -162,5 +162,30 @@ describe("chargement du filtre d'espace", () => {
       "REDIRECT:/login",
     );
     expect(loadContexts).not.toHaveBeenCalled();
+  });
+});
+
+describe("espaces du côté actif (tableau de bord)", () => {
+  it("renvoie les espaces et la sélection même quand le côté n'a qu'un espace", async () => {
+    cookieValues.set("bmb_side", "private");
+
+    const spaces = await inRequest(() => loadSideSpaces());
+
+    expect(spaces).toEqual({
+      side: "private",
+      contexts: [PERSO],
+      selected: [PERSO.id],
+    });
+  });
+
+  it("partage la lecture avec le filtre d'espace dans la même requête", async () => {
+    cookieValues.set("bmb_side", "pro");
+
+    await inRequest(async () => {
+      await loadContextFilter();
+      await loadSideSpaces();
+    });
+
+    expect(loadContexts).toHaveBeenCalledTimes(1);
   });
 });

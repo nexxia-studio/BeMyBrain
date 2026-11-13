@@ -19,6 +19,10 @@
   --text-section: clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem);
   --text-section--line-height: 1.2;
   --text-section--font-weight: 600;
+  /* Titre de page (h1 de PageHeader, connexion, erreurs) : même échelle que text-section (DESIGN.md § 3). */
+  --text-page-title: clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem);
+  --text-page-title--line-height: 1.2;
+  --text-page-title--font-weight: 600;
   --text-title: 1.3125rem;
   --text-title--line-height: 1.25;
   --text-title--font-weight: 600;
@@ -329,6 +333,15 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Moments signature du tableau de bord (DESIGN.md § 7) : leurs cibles restent masquées avant la première
+   peinture, le temps que GSAP arrive. L'attribut de <html> est posé par le script en ligne de la page et
+   retiré par chaque moment au démarrage, ou après 3 s (src/components/signature/signature-keys.ts). */
+html[data-signature-pending~="intro"] [data-signature="intro"],
+html[data-signature-pending~="reveal"] [data-signature="reveal"],
+html[data-signature-pending~="empty"] [data-signature="empty"] {
+  visibility: hidden;
 }
 
 /* Surface en verre dépoli (DESIGN.md § Verre). Jamais deux verres empilés. */

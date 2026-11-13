@@ -39,7 +39,60 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
-    "workspace": "Espace de travail : <name></name>"
+    "workspace": "Espace de travail : <name></name>",
+    "today": {
+      "greeting": "Bonjour.",
+      "intro": "Rien de prévu aujourd'hui dans {spaces}. Ce qui compte s'affichera ici.",
+      "introNoSpace": "Aucun espace de ce côté pour l'instant. Les tuiles apparaîtront avec le premier espace."
+    },
+    "tiles": {
+      "spaces": "Espaces couverts",
+      "privateTodo": {
+        "eyebrow": "To-do",
+        "title": "Tâches de la vie privée",
+        "body": "Aucune tâche pour l'instant. Les tâches à faire et leur échéance s'afficheront ici."
+      },
+      "shopping": {
+        "eyebrow": "Courses",
+        "title": "Liste partagée",
+        "body": "Aucun article à acheter."
+      },
+      "budget": {
+        "eyebrow": "Budget",
+        "title": "Objectif du mois",
+        "body": "Aucune dépense encodée."
+      },
+      "health": {
+        "eyebrow": "Santé",
+        "title": "Sport et santé",
+        "body": "Les séances, le sommeil et la nutrition de la semaine s'afficheront ici."
+      },
+      "home": {
+        "eyebrow": "Maison",
+        "title": "Maison et contrats",
+        "body": "Les assurances, le mobilier et la maison connectée s'afficheront ici."
+      },
+      "proTodo": {
+        "eyebrow": "To-do",
+        "title": "Tâches pro",
+        "body": "Aucune tâche pour l'instant. Les tâches du jour, par espace, s'afficheront ici."
+      },
+      "clients": {
+        "eyebrow": "Clients",
+        "title": "Clients et projets",
+        "body": "Les clients actifs et l'avancement des projets s'afficheront ici."
+      },
+      "proFinances": {
+        "eyebrow": "Finances pro",
+        "title": "Rentrées et factures",
+        "body": "Les factures en attente et la TVA à prévoir s'afficheront ici."
+      },
+      "social": {
+        "eyebrow": "Réseaux",
+        "title": "Contenu à publier",
+        "body": "Le calendrier des publications s'affichera ici."
+      }
+    }
   },
   "noWorkspace": {
     "title": "Aucun espace de travail",

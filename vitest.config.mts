@@ -88,5 +88,7 @@ export default defineConfig({
       "tests/**/*.test.{ts,tsx}",
       "scripts/**/*.test.ts",
     ],
+    // Tests de la build de production : `pnpm test:build` (vitest.build.config.mts), après next build.
+    exclude: ["tests/build/**", "**/node_modules/**"],
   },
 });

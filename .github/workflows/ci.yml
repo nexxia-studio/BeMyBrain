@@ -35,6 +35,8 @@ jobs:
       - run: pnpm typecheck
       # Aucune variable : l'app ne lit son environnement qu'au premier accès, jamais au build.
       - run: pnpm build
+      # GSAP hors du bundle initial de /dashboard (ADR-006), lu dans la build qui vient d'être faite.
+      - run: pnpm exec vitest run --config vitest.build.config.mts
 
   tests:
     name: Tests (branche Neon éphémère)

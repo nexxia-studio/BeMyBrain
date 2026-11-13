@@ -183,6 +183,10 @@
         "displayName": "Section",
         "purpose": "Titre de groupe de tuiles."
       },
+      "page-title": {
+        "displayName": "Titre de page",
+        "purpose": "h1 de chaque page (PageHeader, connexion, erreurs) ; mêmes valeurs que Section."
+      },
       "title": {
         "displayName": "Titre",
         "purpose": "Titre de tuile."

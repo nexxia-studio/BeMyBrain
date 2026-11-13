@@ -16,7 +16,7 @@ export async function PageHeader({ title }: PageHeaderProps) {
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <h1 className="min-w-0 text-2xl leading-tight font-semibold tracking-tight">
+      <h1 className="min-w-0 font-heading text-page-title">
         {title}
       </h1>
       {filter ? (

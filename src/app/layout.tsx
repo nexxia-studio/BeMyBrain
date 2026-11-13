@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { SignaturePrehideScript } from "@/components/signature/SignaturePrehideScript";
 import { THEME_COLOR } from "@/lib/theme";
 
 import "./globals.css";
@@ -57,6 +58,10 @@ export default async function RootLayout({
       lang={locale}
       className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
+      <head>
+        {/* Avant toute peinture : masque les cibles des moments signature encore à jouer (ADR-006). */}
+        <SignaturePrehideScript />
+      </head>
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

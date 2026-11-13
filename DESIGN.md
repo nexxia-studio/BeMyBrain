@@ -38,6 +38,11 @@ typography:
     fontSize: "clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem)"
     fontWeight: 600
     lineHeight: 1.2
+  page-title:
+    fontFamily: "Space Grotesk, Inter, sans-serif"
+    fontSize: "clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem)"
+    fontWeight: 600
+    lineHeight: 1.2
   title:
     fontFamily: "Space Grotesk, Inter, sans-serif"
     fontSize: "1.3125rem"
@@ -240,6 +245,7 @@ Inter pour le texte, Space Grotesk pour les titres et les chiffres, toutes deux 
 | --- | --- | --- | --- | --- |
 | `text-display` | 30 → 40 px (fluide) | 1,1 | Space Grotesk 600 | « Bonjour Antoine. » de la tuile pleine |
 | `text-section` | 22 (dérivé) → 26 px | 1,2 (dérivé) | Space Grotesk 600 | Titre de groupe de tuiles (« Budget, placements et patrimoine ») |
+| `text-page-title` | 22 → 26 px | 1,2 | Space Grotesk 600 | Titre de page (`h1` de `PageHeader`, connexion, réinitialisation, erreurs) |
 | `text-title` | 21 px | 1,25 (dérivé) | Space Grotesk 600 | Titre de tuile ; 20 px pour une petite tuile |
 | `text-figure` | 34 → 46 px | 1 | Space Grotesk 600 | Chiffre clé d'une tuile (« 3 », « 52 % ») |
 | `text-stat` | 28 px | 1,1 | Space Grotesk 600 | Chiffres de la tuile pleine |
@@ -252,6 +258,7 @@ Inter pour le texte, Space Grotesk pour les titres et les chiffres, toutes deux 
 | `text-chip` | 12 px | 1,3 (dérivé) | Inter 600 | Pastilles de contexte |
 | `text-tab` | 11 px | 1,2 (dérivé) | Inter 600 | Libellés de la barre d'onglets mobile |
 
+**Titre de page** (décision d'Antoine, 2026-11-13) : un seul style pour tout `h1` de page, `text-page-title`, mêmes valeurs que `text-section`, sans approche serrée ni tracking (la référence n'en met sur aucun titre) ; justification : la référence n'a pas de titre de page, et son seul titre hors tuile est le titre de groupe à 26 px, alors que `text-display` reste réservé à la salutation de la tuile pleine, qui doit rester le plus grand texte de l'écran.
 « Dérivé » : la référence ne fixe pas l'interligne (valeur navigateur) ou ne montre pas la taille mobile ; valeur choisie ici, à valider avec le reste.
 Champs de formulaire : 16 px (`text-base`), sinon Safari iOS zoome au focus.
 FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un libellé ; les titres passent sur deux lignes plutôt que d'être tronqués ; `hyphens: auto` sur les paragraphes (posé en base dans `globals.css`, suit `<html lang>`) ; onglets mobiles : un mot par langue, vérifié dans les deux (« Paramètres » / « Settings »). Corps ≤ 65 caractères par ligne.

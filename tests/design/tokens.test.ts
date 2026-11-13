@@ -76,6 +76,7 @@ describe("charte dans globals.css", () => {
     "--font-heading",
     "--text-display",
     "--text-eyebrow",
+    "--text-page-title",
     "--halo-blue",
     "--halo-lilac",
     "--z-tabbar",
@@ -119,6 +120,22 @@ describe("charte dans globals.css", () => {
 
     expect(documented).toHaveLength(11);
     expect(implemented).toEqual(documented);
+  });
+
+  it("les titres de page passent par le token text-page-title, sans taille Tailwind par défaut", () => {
+    const titled = [
+      "src/components/shell/PageHeader.tsx",
+      "src/app/(auth)/login/page.tsx",
+      "src/app/(auth)/reset-password/page.tsx",
+      "src/app/error.tsx",
+      "src/app/no-workspace/page.tsx",
+    ].map((file) => [file, readFileSync(join(process.cwd(), file), "utf8")]);
+
+    const offToken = titled
+      .filter(([, source]) => !/<h1[^>]*text-page-title/.test(source))
+      .map(([file]) => file);
+
+    expect(offToken).toEqual([]);
   });
 
   it("la couleur de thème de la PWA est la brume de la charte", () => {

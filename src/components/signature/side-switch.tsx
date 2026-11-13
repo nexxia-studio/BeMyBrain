@@ -3,7 +3,7 @@
 // Moment signature « Bascule Privé / Pro » (DESIGN.md § 7, ADR-006) : la pilule active glisse vers le
 // côté choisi, une seule fois par session. Chargé par next/dynamic depuis SideSwitch (hors du bundle
 // initial). Seul GSAP anime l'élément `thumbRef` ; Motion n'y touche jamais.
-// raccourci: tuiles du nouveau côté en fondu (même moment) — à la tâche 15, avec la grille bento.
+// L'autre moitié du moment, le fondu des tuiles du nouveau côté, vit dans side-switch-tiles.tsx.
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { type RefObject, useRef } from "react";
