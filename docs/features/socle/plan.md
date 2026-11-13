@@ -96,6 +96,7 @@
   - Tuiles vides typées par côté et par contexte ; seules celles du côté actif s'affichent. Mobile d'abord : une colonne à 390 px. GSAP pour l'entrée du tableau de bord, la révélation de la grille, les effets de verre et les écrans vides, via `next/dynamic` ; Motion pour le survol et l'apparition des tuiles. Aucun élément partagé entre les deux. `gsap.matchMedia` et `useReducedMotion` coupent tout sous `prefers-reduced-motion`.
   - Test à écrire d'abord : `e2e/premiere-connexion.spec.ts` (scénario 1, desktop + mobile) ; test composant — « côté Pro, aucune tuile Privé n'est rendue » ; e2e avec `reducedMotion: 'reduce'` — « aucune animation ne démarre » ; test de build — « gsap n'est pas dans le bundle initial de /dashboard ».
   - Fini quand : tests verts, anti-slop puis `/impeccable critique` passés.
+  - Abandonné (2026-11-13) : l'apparition des tuiles par Motion. L'enveloppe de chaque tuile est déjà animée par GSAP (révélation, fondu de bascule) ; un élément n'est jamais animé par les deux (ADR-006). Motion garde le survol, sur la surface intérieure.
 
 - [ ] **16. Réglages : choix de la langue** [security] (BRAIN-7, ADR-007)
   - Fichiers : `src/app/(app)/settings/page.tsx`, `src/app/(app)/settings/actions.ts`, `src/components/settings/locale-picker.tsx`

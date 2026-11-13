@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useRef, useState, useSyncExternalStore } from "react";
 
+import { SignatureBoundary } from "@/components/signature/SignatureBoundary";
 import {
   isSignaturePending,
   SIDE_SWITCH_SIGNATURE_KEY,
@@ -106,11 +107,14 @@ export function SideSwitch({ side }: SideSwitchProps) {
           );
         })}
         {signaturePending ? (
-          <SideSwitchSignature
-            thumbRef={thumbRef}
-            initialSide={initialSide}
-            side={shownSide}
-          />
+          // Morceau introuvable ou erreur du moment : la pilule change de place sans glisser.
+          <SignatureBoundary>
+            <SideSwitchSignature
+              thumbRef={thumbRef}
+              initialSide={initialSide}
+              side={shownSide}
+            />
+          </SignatureBoundary>
         ) : null}
       </div>
       <PreferenceStatus failed={failed} className="right-0 lg:right-auto" />

@@ -54,7 +54,10 @@ export default async function RootLayout({
   const locale = await getLocale();
 
   return (
+    // suppressHydrationWarning : le script de masquage pose data-signature-pending sur <html> avant
+    // l'hydratation (attributs de cet élément seulement, pas de ses enfants).
     <html
+      suppressHydrationWarning
       lang={locale}
       className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >

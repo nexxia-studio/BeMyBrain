@@ -8,13 +8,24 @@ export const DASHBOARD_INTRO_SIGNATURE_KEY = "bmb_signature_dashboard_intro";
 export const BENTO_REVEAL_SIGNATURE_KEY = "bmb_signature_bento_reveal";
 export const EMPTY_STATE_SIGNATURE_KEY = "bmb_signature_empty_state";
 
+// Seul accès au stockage de session des moments. Stockage illisible (navigation privée stricte,
+// cookies bloqués : SecurityError) → le moment compte comme déjà joué : rien n'est masqué ni animé.
+
 /** Vrai si le moment n'a pas encore été joué dans cette session. */
 export function isSignaturePending(key: string): boolean {
-  return sessionStorage.getItem(key) === null;
+  try {
+    return sessionStorage.getItem(key) === null;
+  } catch {
+    return false;
+  }
 }
 
 export function markSignaturePlayed(key: string): void {
-  sessionStorage.setItem(key, "1");
+  try {
+    sessionStorage.setItem(key, "1");
+  } catch {
+    // Stockage indisponible : isSignaturePending répond déjà « joué ».
+  }
 }
 
 /**
@@ -49,29 +60,49 @@ const PREHIDDEN_MOMENTS: readonly (readonly [PrehiddenMoment, string])[] = [
 /** Filet si GSAP ne se charge pas : tout réapparaît, sans animation. */
 const PREHIDE_TIMEOUT_MS = 3000;
 
+/**
+ * Génération du masquage courant, sur `window` (partagée par le script en ligne et le bundle) : un
+ * minuteur ne retire l'attribut que s'il appartient au dernier masquage posé. Sans elle, le minuteur posé
+ * par le script sur /login démasquerait le tableau de bord atteint juste après par une connexion rapide.
+ */
+const PREHIDE_GENERATION = "__bmbSignaturePrehide";
+
+type PrehideWindow = Window & { [PREHIDE_GENERATION]?: number };
+
 /** Corps du script en ligne (aucune donnée de l'utilisateur, seulement des constantes). */
 export function signaturePrehideScript(): string {
   const moments = JSON.stringify(PREHIDDEN_MOMENTS);
   const attribute = JSON.stringify(SIGNATURE_PENDING_ATTRIBUTE);
-  return `(function(){try{if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;var p=${moments}.filter(function(m){return sessionStorage.getItem(m[1])===null}).map(function(m){return m[0]});if(!p.length)return;var d=document.documentElement;d.setAttribute(${attribute},p.join(" "));setTimeout(function(){d.removeAttribute(${attribute})},${PREHIDE_TIMEOUT_MS})}catch(e){}})();`;
+  const generation = JSON.stringify(PREHIDE_GENERATION);
+  return `(function(){try{if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;var p=${moments}.filter(function(m){return sessionStorage.getItem(m[1])===null}).map(function(m){return m[0]});if(!p.length)return;var w=window,d=document.documentElement,g=(w[${generation}]||0)+1;w[${generation}]=g;d.setAttribute(${attribute},p.join(" "));setTimeout(function(){if(w[${generation}]===g)d.removeAttribute(${attribute})},${PREHIDE_TIMEOUT_MS})}catch(e){}})();`;
 }
 
 /**
  * Même masquage que le script en ligne, pour une navigation côté client vers le tableau de bord (React
- * n'exécute pas un script en ligne qu'il insère). Appelé par BentoGrid avant la peinture.
+ * n'exécute pas un script en ligne qu'il insère). Appelé par BentoGrid avant la peinture ; renvoie
+ * l'annulation à appeler au démontage (minuteur coupé, cibles démasquées si ce masquage est le dernier).
  */
-export function prehidePendingMoments(): void {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+export function prehidePendingMoments(): () => void {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return () => {};
   const pending = PREHIDDEN_MOMENTS.filter(([, key]) =>
     isSignaturePending(key),
   ).map(([moment]) => moment);
-  if (pending.length === 0) return;
+  if (pending.length === 0) return () => {};
+
+  const owner = window as PrehideWindow;
+  const generation = (owner[PREHIDE_GENERATION] ?? 0) + 1;
+  owner[PREHIDE_GENERATION] = generation;
+  const isCurrent = () => owner[PREHIDE_GENERATION] === generation;
   const html = document.documentElement;
   html.setAttribute(SIGNATURE_PENDING_ATTRIBUTE, pending.join(" "));
-  setTimeout(
-    () => html.removeAttribute(SIGNATURE_PENDING_ATTRIBUTE),
-    PREHIDE_TIMEOUT_MS,
-  );
+  const timer = setTimeout(() => {
+    if (isCurrent()) html.removeAttribute(SIGNATURE_PENDING_ATTRIBUTE);
+  }, PREHIDE_TIMEOUT_MS);
+
+  return () => {
+    clearTimeout(timer);
+    if (isCurrent()) html.removeAttribute(SIGNATURE_PENDING_ATTRIBUTE);
+  };
 }
 
 /** Démasque les cibles d'un moment (appelé quand il démarre, ou qu'il est coupé). */

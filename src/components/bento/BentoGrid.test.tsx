@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,7 +11,28 @@ import {
 } from "@/components/signature/signature-keys";
 
 // Les moments GSAP sont testés à part (src/components/signature/) : ici, la grille seule.
-vi.mock("next/dynamic", () => ({ default: () => () => null }));
+// `importFails` : le morceau du moment est introuvable (ancien déploiement, 404). Comme next/dynamic,
+// un import paresseux (React.lazy) dans un Suspense, dont la promesse est rejetée après le montage.
+const loading = vi.hoisted(() => ({ importFails: false }));
+vi.mock("next/dynamic", async () => {
+  const { lazy, Suspense, createElement } = await import("react");
+  return {
+    default: () => {
+      const Moment = lazy(() =>
+        loading.importFails
+          ? Promise.reject(new Error("ChunkLoadError"))
+          : Promise.resolve({ default: () => null }),
+      );
+      return function MomentProbe(props: object) {
+        return createElement(
+          Suspense,
+          { fallback: null },
+          createElement(Moment, props),
+        );
+      };
+    },
+  };
+});
 
 function stubReducedMotion(reduce: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -34,6 +55,7 @@ async function renderGrid() {
 const html = () => document.documentElement;
 
 beforeEach(() => {
+  loading.importFails = false;
   sessionStorage.clear();
   html().removeAttribute(SIGNATURE_PENDING_ATTRIBUTE);
   stubReducedMotion(false);
@@ -41,6 +63,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("grille bento", () => {
@@ -74,6 +97,21 @@ describe("grille bento", () => {
     expect(
       sessionStorage.getItem(SIDE_SWITCH_TILES_SIGNATURE_KEY),
     ).not.toBeNull();
+  });
+
+  it("import rejeté → tuiles visibles, sans remonter à la page d'erreur", async () => {
+    loading.importFails = true;
+    // React journalise l'erreur attrapée : sans intérêt ici.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { container } = await renderGrid();
+
+    await waitFor(() =>
+      expect(html().hasAttribute(SIGNATURE_PENDING_ATTRIBUTE)).toBe(false),
+    );
+    expect(container.querySelectorAll('[data-signature="reveal"]')).toHaveLength(
+      1,
+    );
   });
 
   it("rend ses tuiles", async () => {

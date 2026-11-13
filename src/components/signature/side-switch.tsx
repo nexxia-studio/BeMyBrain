@@ -12,6 +12,7 @@ import type { Side } from "@/modules/core/schemas";
 
 import {
   isSignaturePending,
+  markSignaturePlayed,
   SIDE_SWITCH_SIGNATURE_KEY,
 } from "./signature-keys";
 
@@ -42,7 +43,7 @@ export function SideSwitchSignature({
       if (previous.current === side) return;
       previous.current = side;
       if (!isSignaturePending(SIDE_SWITCH_SIGNATURE_KEY)) return;
-      sessionStorage.setItem(SIDE_SWITCH_SIGNATURE_KEY, "1");
+      markSignaturePlayed(SIDE_SWITCH_SIGNATURE_KEY);
 
       const thumb = thumbRef.current;
       if (!thumb) return;

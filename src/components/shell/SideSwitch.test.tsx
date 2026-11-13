@@ -6,12 +6,15 @@ import messages from "../../../messages/fr.json";
 
 const setSide = vi.hoisted(() => vi.fn());
 const signatureRendered = vi.hoisted(() => vi.fn());
+const loading = vi.hoisted(() => ({ importFails: false }));
 
 vi.mock("@/lib/preferences-actions", () => ({ setSide }));
 // Le moment signature est chargé à la demande : on ne vérifie ici que s'il est monté.
 vi.mock("next/dynamic", () => ({
   default: () =>
     function SignatureProbe(props: { initialSide: string; side: string }) {
+      // Morceau introuvable (ancien déploiement, 404) : next/dynamic rend une erreur.
+      if (loading.importFails) throw new Error("ChunkLoadError");
       signatureRendered({ initialSide: props.initialSide, side: props.side });
       return null;
     },
@@ -28,6 +31,8 @@ function renderSwitch(side: "private" | "pro") {
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
+  loading.importFails = false;
   vi.clearAllMocks();
   sessionStorage.clear();
   setSide.mockResolvedValue(undefined);
@@ -45,6 +50,16 @@ describe("bascule Privé / Pro", () => {
         .getByRole("button", { name: "Privé" })
         .getAttribute("aria-pressed"),
     ).toBe("false");
+  });
+
+  it("import du moment rejeté → la bascule reste affichée et fonctionne", () => {
+    loading.importFails = true;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderSwitch("private");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pro" }));
+
+    expect(setSide).toHaveBeenCalledWith("pro");
   });
 
   it("enregistre le côté choisi", () => {

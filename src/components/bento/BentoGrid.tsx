@@ -15,6 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { SignatureBoundary } from "@/components/signature/SignatureBoundary";
 import {
   BENTO_REVEAL_SIGNATURE_KEY,
   DASHBOARD_INTRO_SIGNATURE_KEY,
@@ -98,9 +99,8 @@ export function BentoGrid({ side, children }: BentoGridProps) {
 
   // Avant la peinture : masque les cibles des moments en attente. Au chargement complet, le script en
   // ligne de la page l'a déjà fait ; après une navigation côté client (connexion), c'est ici.
-  useLayoutEffect(() => {
-    prehidePendingMoments();
-  }, []);
+  // Démontage : minuteur coupé, cibles démasquées.
+  useLayoutEffect(() => prehidePendingMoments(), []);
 
   // Au montage, avant tout geste : si la pilule a déjà glissé dans la session, le fondu est consommé.
   useEffect(() => {
@@ -110,19 +110,28 @@ export function BentoGrid({ side, children }: BentoGridProps) {
   return (
     <div ref={rootRef} className="flex flex-wrap gap-grid">
       {children}
+      {/* Une barrière par moment : un morceau introuvable démasque ses cibles, sans page d'erreur. */}
       {entrance ? (
         <>
-          <DashboardIntroSignature rootRef={rootRef} />
-          <BentoRevealSignature rootRef={rootRef} />
-          <EmptyStateSignature rootRef={rootRef} />
+          <SignatureBoundary release={["intro"]}>
+            <DashboardIntroSignature rootRef={rootRef} />
+          </SignatureBoundary>
+          <SignatureBoundary release={["reveal"]}>
+            <BentoRevealSignature rootRef={rootRef} />
+          </SignatureBoundary>
+          <SignatureBoundary release={["empty"]}>
+            <EmptyStateSignature rootRef={rootRef} />
+          </SignatureBoundary>
         </>
       ) : null}
       {tilesFade ? (
-        <SideSwitchTilesSignature
-          rootRef={rootRef}
-          initialSide={initialSide}
-          side={side}
-        />
+        <SignatureBoundary>
+          <SideSwitchTilesSignature
+            rootRef={rootRef}
+            initialSide={initialSide}
+            side={side}
+          />
+        </SignatureBoundary>
       ) : null}
     </div>
   );

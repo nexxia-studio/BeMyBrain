@@ -136,6 +136,28 @@ describe.each(MOMENTS)("moment signature : $name", (moment) => {
     expect(pending.split(" ")).not.toContain(moment.moment);
   });
 
+  it("stockage de session indisponible : ne joue rien et démasque", () => {
+    const denied = () => {
+      throw new DOMException("refusé", "SecurityError");
+    };
+    const getItem = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(denied);
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(denied);
+    const { rootRef } = mountRoot();
+
+    render(<moment.Component rootRef={rootRef} />);
+
+    getItem.mockRestore();
+    setItem.mockRestore();
+    expect(from).not.toHaveBeenCalled();
+    const pending =
+      document.documentElement.getAttribute(SIGNATURE_PENDING_ATTRIBUTE) ?? "";
+    expect(pending.split(" ")).not.toContain(moment.moment);
+  });
+
   it("un démontage pendant l'animation ne laisse aucune animation active", () => {
     const { root, rootRef } = mountRoot();
     const view = render(<moment.Component rootRef={rootRef} />);
