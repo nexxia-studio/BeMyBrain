@@ -18,7 +18,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 - [ ] Quand Antoine se connecte avec ses identifiants, alors il arrive sur le tableau de bord de son workspace.
 - [ ] Quand la base est créée à neuf, alors les migrations produisent `workspaces`, `workspace_members`, `contexts`, et un script de départ crée le workspace d'Antoine avec les contextes Privé, Trustup et Nexxia.
 - [ ] Quand Antoine choisit Privé ou Pro, alors le tableau de bord n'affiche que les tuiles de ce côté, et le choix est conservé au rechargement.
-- [ ] Quand Antoine est côté Pro, alors il peut filtrer sur Trustup, Nexxia ou les deux.
+- [ ] Quand le côté actif (Privé ou Pro) a au moins deux espaces, alors Antoine peut filtrer sur un espace ou sur tous (ex. côté Pro : Trustup, Nexxia ou les deux) ; le choix est mémorisé par côté. Filtre dans la barre latérale sur ordinateur, pastille à côté du titre de page sur mobile (décidé le 2026-11-13).
 - [ ] Quand un utilisateur d'un autre workspace interroge la base, alors il ne lit ni ne modifie aucune ligne du workspace d'Antoine, même si le filtre applicatif est retiré (test automatisé au niveau de la base, RLS active).
 - [ ] Quand une table métier est créée, alors la même migration active la RLS et pose ses policies.
 - [ ] Quand l'app répond à une requête utilisateur, alors elle utilise le rôle restreint, jamais le rôle propriétaire.
@@ -54,7 +54,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 - Argent / paiement concerné : non. Les tâches d'auth, de session et de RLS sont marquées `[security]`.
 
 ## UI
-- Écrans concernés : connexion, coque (navigation, bascule Privé / Pro, filtre de contexte, palette de commandes), tableau de bord bento avec tuiles vides, réglages (langue).
+- Écrans concernés : connexion, coque (navigation, bascule Privé / Pro, filtre d'espace, palette de commandes), tableau de bord bento avec tuiles vides, réglages (langue).
 - Maquette : aucune. Références : `docs/design/references/dashboard-desktop.dc.html` et `dashboard-mobile.dc.html` (validées par Antoine), puis `finance-glass.webp` et `maison-bento.webp`.
 - Contraintes : DESIGN.md et PRODUCT.md à produire en première tâche (Impeccable + skill `nexxia-design`). Direction liquid glass, grille bento. Animation : Motion pour les interactions, GSAP pour les moments signature (ADR-006). Textes en FR/EN (ADR-007). Mobile d'abord, installable (ADR-008).
 
