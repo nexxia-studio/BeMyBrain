@@ -99,7 +99,7 @@
   - Abandonné (2026-11-13) : l'apparition des tuiles par Motion. L'enveloppe de chaque tuile est déjà animée par GSAP (révélation, fondu de bascule) ; un élément n'est jamais animé par les deux (ADR-006). Motion garde le survol, sur la surface intérieure.
   - Reporté (2026-11-16, BRAIN-33) : les effets de verre animés, avec le premier module à vraies données.
 
-- [ ] **16. Réglages : choix de la langue** [security] (BRAIN-7, ADR-007)
+- [x] **16. Réglages : choix de la langue** [security] (BRAIN-7, ADR-007) — 2026-11-16, `0bb47cf`, corrections `33f8dc3`, `d8ffb5f` (revue + audit de sécurité) ; e2e 29/29
   - Fichiers : `src/app/(app)/settings/page.tsx`, `src/app/(app)/settings/actions.ts`, `src/components/settings/LocalePicker.tsx`
   - Server Action : `requireSession()` → `setMemberLocale` → `syncLocaleCookie(locale)` (`src/lib/locale-cookie.ts` : c'est cette action, avec `signIn`, qui recopie NEXT_LOCALE ; `requireSession` ne l'écrit jamais) → rafraîchissement. URL inchangée.
   - Test réel à écrire (première action non publique) : « une Server Action non publique appelée sans session est refusée ».
