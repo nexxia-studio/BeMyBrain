@@ -63,7 +63,7 @@ describe("commandes de la palette", () => {
 
     for (const command of commands) {
       expect(() =>
-        prepareAction(registry, command.action, command.params),
+        prepareAction(registry, command.action, command.params, "web"),
       ).not.toThrow();
     }
   });

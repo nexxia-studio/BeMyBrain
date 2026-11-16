@@ -122,10 +122,33 @@ const testsImportSyntax = [
   `CallExpression[callee.name='require'][arguments.0.value=${TESTS_SOURCE}]`,
 ].map((selector) => ({ selector, message: testsImportMessage }));
 
+// Registre d'actions (ADR-009) : seul src/modules/actions/run.ts l'exécute, avec le canal et le contexte de la
+// session ; un autre fichier qui l'importerait contournerait ce point d'entrée. Les tests le gardent.
+const importSyntaxFor = (source, message) =>
+  [
+    `ImportDeclaration[source.value=${source}]`,
+    `ExportNamedDeclaration[source.value=${source}]`,
+    `ExportAllDeclaration[source.value=${source}]`,
+    `ImportExpression[source.value=${source}]`,
+    `CallExpression[callee.name='require'][arguments.0.value=${source}]`,
+  ].map((selector) => ({ selector, message }));
+const registryImportMessage =
+  "Le registre d'actions est réservé à src/modules/actions/run.ts (et aux tests) : passer par runActionWithToken (ADR-009).";
+const registryImportSyntax = importSyntaxFor(
+  "/(^|\\u002F)actions\\u002Fregistry(\\.[cm]?[jt]sx?)?$/",
+  registryImportMessage,
+);
+// Dans src/modules/actions, l'import relatif « ./registry ».
+const localRegistryImportSyntax = importSyntaxFor(
+  "/^\\.\\u002Fregistry(\\.[cm]?[jt]sx?)?$/",
+  registryImportMessage,
+);
+
 const restrictedSyntax = (...extra) => [
   "error",
   ...commonSyntax,
   ...testsImportSyntax,
+  ...registryImportSyntax,
   ...extra,
 ];
 
@@ -146,6 +169,7 @@ const dbBoundaries = {
       "error",
       ...processEnvDatabaseUrl,
       ...testsImportSyntax,
+      ...registryImportSyntax,
     ],
   },
 };
@@ -176,19 +200,51 @@ const uiBoundaries = {
   },
 };
 
+const modulePatterns = [
+  {
+    group: ["react", "react-dom", "react-dom/*", "next", "next/*"],
+    message: "Les modules métier n'importent ni React ni Next (ADR-008).",
+  },
+  relativeDbImports,
+  moduleDbImports,
+];
+
 const moduleBoundaries = {
   files: ["src/modules/**"],
   rules: {
-    "no-restricted-imports": restrictedImports(
-      {
-        group: ["react", "react-dom", "react-dom/*", "next", "next/*"],
-        message: "Les modules métier n'importent ni React ni Next (ADR-008).",
-      },
-      relativeDbImports,
-      moduleDbImports,
-    ),
+    "no-restricted-imports": restrictedImports(...modulePatterns),
   },
 };
+
+// Déclarations d'actions (src/modules/<module>/actions.ts) : `run` n'appelle que les fonctions du module
+// (queries.ts, mutations.ts), jamais une requête écrite sur place (ADR-009, ADR-004).
+const moduleActionsBoundaries = {
+  files: ["src/modules/*/actions.ts"],
+  rules: {
+    "no-restricted-imports": restrictedImports(...modulePatterns, {
+      group: ["drizzle-orm", "drizzle-orm/*", "@/db/schema", "@/db/schema/*"],
+      message:
+        "Une action n'appelle que les fonctions de son module (queries.ts, mutations.ts) : ni drizzle-orm ni @/db/schema (ADR-009).",
+    }),
+  },
+};
+
+// src/modules/actions : « ./registry » interdit aussi, sauf dans run.ts, seul point d'entrée du registre.
+const actionsModuleSyntax = [
+  {
+    files: ["src/modules/actions/**"],
+    ignores: ["src/modules/actions/run.ts"],
+    rules: {
+      "no-restricted-syntax": restrictedSyntax(...localRegistryImportSyntax),
+    },
+  },
+  {
+    files: ["src/modules/actions/run.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...commonSyntax, ...testsImportSyntax],
+    },
+  },
+];
 
 const libReexportSyntax = [
   {
@@ -246,6 +302,8 @@ const eslintConfig = defineConfig([
   migrationEnvBoundaries,
   uiBoundaries,
   moduleBoundaries,
+  moduleActionsBoundaries,
+  ...actionsModuleSyntax,
   libBoundaries,
   ...testFileSyntax,
   // Override default ignores of eslint-config-next.

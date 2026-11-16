@@ -3,7 +3,12 @@ import { z } from "zod";
 import { coreActions } from "@/modules/core/actions";
 
 import { ActionError } from "./errors";
-import type { ActionAccess, ActionContext, RegisteredAction } from "./types";
+import type {
+  ActionAccess,
+  ActionChannel,
+  ActionContext,
+  RegisteredAction,
+} from "./types";
 
 // Registre unique des actions (ADR-009). Chaque module qui veut être appelable y ajoute ses actions.
 
@@ -31,17 +36,20 @@ export type PreparedAction = {
 };
 
 /**
- * Résout `name` et valide `params`, sans rien exécuter ni ouvrir de transaction. Nom inconnu (Map : pas de
- * clé héritée comme `__proto__`) → ActionError("unknown_action") ; paramètres refusés →
+ * Résout `name` pour `channel` et valide `params`, sans rien exécuter ni ouvrir de transaction. Nom inconnu
+ * (Map : pas de clé héritée comme `__proto__`) ou action qui ne déclare pas `channel` →
+ * ActionError("unknown_action"), même erreur pour ne pas révéler l'action ; paramètres refusés →
  * ActionError("invalid_params"). Les deux valeurs viennent du client : jamais recopiées dans l'erreur.
  */
 export function prepareAction(
   actions: ActionRegistry,
   name: unknown,
   params: unknown,
+  channel: ActionChannel,
 ): PreparedAction {
   const action = typeof name === "string" ? actions.get(name) : undefined;
-  if (!action) throw new ActionError("unknown_action");
+  if (!action || !action.channels.includes(channel))
+    throw new ActionError("unknown_action");
   const execute = action.bind(params);
   if (!execute) throw new ActionError("invalid_params");
   return { name: action.name, access: action.access, execute };

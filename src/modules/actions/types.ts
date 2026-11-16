@@ -8,6 +8,12 @@ import type { UserTx } from "@/db/client";
 export type ActionAccess = "read" | "write";
 
 /**
+ * Canal d'appel : `web` = palette et Server Actions de l'app, `assistant` = assistant IA. Union à étendre
+ * (whatsapp, slack…) le jour où le canal existe, pas avant.
+ */
+export type ActionChannel = "web" | "assistant";
+
+/**
  * Contexte d'exécution, construit côté serveur seulement : `workspaceId` de la session, `userId` = `sub` du
  * jeton vérifié par withUserDb, `tx` = transaction de ce jeton (RLS active). Jamais un paramètre d'action.
  */
@@ -26,6 +32,8 @@ export type ActionDefinition<P, R> = {
   /** Paramètres validés avant `run` ; `z.strictObject` : une clé en trop (userId, workspaceId…) est refusée. */
   params: z.ZodType<P>;
   access: ActionAccess;
+  /** Canaux autorisés à appeler l'action ; un canal absent la rend inconnue pour lui. Au moins un. */
+  channels: readonly ActionChannel[];
   /** N'appelle que les fonctions de src/modules/<module>/ (ADR-002, ADR-004). */
   run: (ctx: ActionContext, params: P) => Promise<R>;
 };
@@ -40,5 +48,6 @@ export type RegisteredAction = {
   description: string;
   params: z.ZodType<unknown>;
   access: ActionAccess;
+  channels: readonly ActionChannel[];
   bind: (raw: unknown) => ((ctx: ActionContext) => Promise<unknown>) | null;
 };

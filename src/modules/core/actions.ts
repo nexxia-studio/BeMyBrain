@@ -14,6 +14,7 @@ export const listContextsAction = defineAction({
   description: "actions.core.listContexts",
   params: z.strictObject({ side: sideSchema }),
   access: "read",
+  channels: ["web", "assistant"],
   run: (ctx, { side }) => listContexts(ctx.workspaceId, { side }, ctx.tx),
 });
 
@@ -22,6 +23,7 @@ export const setLocaleAction = defineAction({
   description: "actions.core.setLocale",
   params: z.strictObject({ locale: localeSchema }),
   access: "write",
+  channels: ["web", "assistant"],
   run: (ctx, { locale }) =>
     setMemberLocale(ctx.workspaceId, ctx.userId, locale, ctx.tx),
 });

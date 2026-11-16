@@ -14,7 +14,7 @@ import {
   prepareAction,
   registry,
 } from "./registry";
-import type { ActionContext } from "./types";
+import type { ActionChannel, ActionContext } from "./types";
 
 const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const USER = "dc42fa70-09a7-4038-a3bb-f61dda854910";
@@ -25,6 +25,7 @@ function fakeAction(
   name: string,
   access: "read" | "write" = "write",
   run = vi.fn(async () => "fait"),
+  channels: readonly ActionChannel[] = ["web"],
 ) {
   return {
     run,
@@ -33,6 +34,7 @@ function fakeAction(
       description: `actions.test.${name}`,
       params: z.strictObject({ value: z.enum(["a", "b"]) }),
       access,
+      channels,
       run,
     }),
   };
@@ -61,6 +63,24 @@ describe("registre d'actions : déclaration", () => {
       expect(action.description).toMatch(/^actions\./);
       expect(action.params).toBeInstanceOf(z.ZodType);
       expect(["read", "write"]).toContain(action.access);
+    }
+  });
+
+  it("chaque action déclare au moins un canal, sans doublon ni canal inconnu", () => {
+    for (const action of registry.values()) {
+      expect(action.channels.length, action.name).toBeGreaterThan(0);
+      expect(new Set(action.channels).size, action.name).toBe(
+        action.channels.length,
+      );
+      for (const channel of action.channels) {
+        expect(["web", "assistant"], action.name).toContain(channel);
+      }
+    }
+  });
+
+  it("les actions du socle sont appelables depuis le web et l'assistant", () => {
+    for (const name of ["core.listContexts", "core.setLocale"]) {
+      expect(registry.get(name)?.channels).toEqual(["web", "assistant"]);
     }
   });
 
@@ -103,7 +123,7 @@ describe("registre d'actions : exécution", () => {
     const { action, run } = fakeAction("test.run");
     const reg = createRegistry([action]);
 
-    const prepared = prepareAction(reg, "test.run", { value: "a" });
+    const prepared = prepareAction(reg, "test.run", { value: "a" }, "web");
     const result = await invokeAction(prepared, CTX);
 
     expect(result).toBe("fait");
@@ -120,7 +140,7 @@ describe("registre d'actions : exécution", () => {
       null,
       "a",
       { value: "a", userId: USER },
-    ].map((params) => () => prepareAction(reg, "test.invalid", params));
+    ].map((params) => () => prepareAction(reg, "test.invalid", params, "web"));
 
     for (const attempt of attempts) {
       expect(attempt).toThrow(
@@ -135,7 +155,7 @@ describe("registre d'actions : exécution", () => {
     const reg = createRegistry([action]);
 
     const attempts = ["test.unknown", "__proto__", "constructor", 42, null].map(
-      (name) => () => prepareAction(reg, name, { value: "a" }),
+      (name) => () => prepareAction(reg, name, { value: "a" }, "web"),
     );
 
     for (const attempt of attempts) {
@@ -146,11 +166,31 @@ describe("registre d'actions : exécution", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("une action appelée depuis un canal qu'elle ne déclare pas est inconnue et n'exécute rien", () => {
+    const { action, run } = fakeAction(
+      "test.assistantOnly",
+      "write",
+      undefined,
+      ["assistant"],
+    );
+    const bind = vi.spyOn(action, "bind");
+    const reg = createRegistry([action]);
+
+    expect(() =>
+      prepareAction(reg, "test.assistantOnly", { value: "a" }, "web"),
+    ).toThrow(expect.objectContaining({ code: "unknown_action" }));
+    expect(bind).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("une action write sans workspaceId refuse de s'exécuter", async () => {
     const { action, run } = fakeAction("test.write", "write");
-    const prepared = prepareAction(createRegistry([action]), "test.write", {
-      value: "a",
-    });
+    const prepared = prepareAction(
+      createRegistry([action]),
+      "test.write",
+      { value: "a" },
+      "web",
+    );
 
     const missing = [
       { ...CTX, workspaceId: "" },
@@ -172,7 +212,7 @@ describe("registre d'actions : exécution", () => {
     const reg = createRegistry([write.action, read.action]);
 
     for (const name of ["test.write", "test.read"]) {
-      const prepared = prepareAction(reg, name, { value: "a" });
+      const prepared = prepareAction(reg, name, { value: "a" }, "web");
       await expect(
         invokeAction(prepared, { ...CTX, userId: "" }),
       ).rejects.toMatchObject({ code: "missing_context" });

@@ -4,12 +4,13 @@ import type { ActionDefinition, RegisteredAction } from "./types";
 export function defineAction<P, R>(
   definition: ActionDefinition<P, R>,
 ): RegisteredAction {
-  const { name, description, params, access, run } = definition;
+  const { name, description, params, access, channels, run } = definition;
   return {
     name,
     description,
     params,
     access,
+    channels,
     bind(raw) {
       const parsed = params.safeParse(raw);
       if (!parsed.success) return null;

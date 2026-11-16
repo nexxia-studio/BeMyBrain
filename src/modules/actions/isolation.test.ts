@@ -43,7 +43,7 @@ function run(
   name: string,
   params: unknown,
 ) {
-  const prepared = prepareAction(registry, name, params);
+  const prepared = prepareAction(registry, name, params, "web");
   return db.asUser(userId, (tx, identity) =>
     invokeAction(prepared, { workspaceId, userId: identity.userId, tx }),
   );

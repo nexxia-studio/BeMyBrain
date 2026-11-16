@@ -14,7 +14,25 @@ const withUserDb = vi.hoisted(() =>
 const setMemberLocale = vi.hoisted(() => vi.fn());
 
 vi.mock("@/db/client", () => ({ withUserDb }));
+const assistantOnlyRun = vi.hoisted(() => vi.fn());
+
 vi.mock("@/modules/core/mutations", () => ({ setMemberLocale }));
+// Le registre réel, plus une action réservée à l'assistant : runActionWithToken passe le canal "web".
+vi.mock("@/modules/core/actions", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/modules/core/actions")>();
+  const { defineAction } = await import("@/modules/actions/define");
+  const { z } = await import("zod");
+  const assistantOnly = defineAction({
+    name: "core.assistantOnly",
+    description: "actions.core.assistantOnly",
+    params: z.strictObject({}),
+    access: "write",
+    channels: ["assistant"],
+    run: assistantOnlyRun,
+  });
+  return { ...original, coreActions: [...original.coreActions, assistantOnly] };
+});
 
 import { runActionWithToken } from "./run";
 
@@ -48,6 +66,19 @@ describe("exécution d'une action pour la session", () => {
 
     await expect(run).rejects.toMatchObject({ code: "unknown_action" });
     expect(withUserDb).not.toHaveBeenCalled();
+  });
+
+  it("une action qui ne déclare pas le canal web est refusée, sans transaction ni exécution", async () => {
+    const run = runActionWithToken(
+      "eyJ.jwt.signe",
+      WORKSPACE,
+      "core.assistantOnly",
+      {},
+    );
+
+    await expect(run).rejects.toMatchObject({ code: "unknown_action" });
+    expect(withUserDb).not.toHaveBeenCalled();
+    expect(assistantOnlyRun).not.toHaveBeenCalled();
   });
 
   it("des paramètres invalides n'ouvrent aucune transaction", async () => {

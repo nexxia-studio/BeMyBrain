@@ -138,6 +138,24 @@ describe("pastille de filtre d'espace (mobile)", () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger()));
   });
 
+  it("l'espace en surbrillance porte l'anneau de focus du token ring (DESIGN.md § 11)", async () => {
+    renderMenu([NEXXIA.id]);
+    const menu = await openMenu();
+
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    const highlighted = await waitFor(() => {
+      const item = within(menu)
+        .getAllByRole("menuitemradio")
+        .find((el) => el.hasAttribute("data-highlighted"));
+      if (!item) throw new Error("aucun espace en surbrillance");
+      return item;
+    });
+
+    expect(highlighted.className).toContain("data-highlighted:ring-2");
+    expect(highlighted.className).toContain("data-highlighted:ring-ring");
+    expect(highlighted.className).toContain("data-highlighted:ring-inset");
+  });
+
   it("revient à l'espace enregistré et affiche un message si l'enregistrement échoue", async () => {
     setContextSelection.mockRejectedValue(new Error("réseau"));
     renderMenu([TRUSTUP.id, NEXXIA.id]);

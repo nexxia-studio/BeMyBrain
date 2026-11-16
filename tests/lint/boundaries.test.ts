@@ -421,4 +421,115 @@ describe("frontières d'import", () => {
 
     expect(errors).toHaveLength(1);
   });
+  it("eslint refuse drizzle-orm dans une déclaration d'actions de module", async () => {
+    const code = 'import { eq } from "drizzle-orm";\nexport const x = eq;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/actions.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint refuse @/db/schema dans une déclaration d'actions de module", async () => {
+    const code =
+      'import { app } from "@/db/schema/app";\nexport const x = app;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/actions.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint garde les frontières communes des modules dans actions.ts (next, db/admin)", async () => {
+    const code =
+      'import { headers } from "next/headers";\nimport { adminDb } from "@/db/admin";\nexport const x = [headers, adminDb];\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/actions.ts",
+    );
+
+    expect(errors.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("eslint refuse le registre d'actions dans une page", async () => {
+    const code =
+      'import { registry } from "@/modules/actions/registry";\nexport const x = registry;\n';
+
+    const errors = await restrictedImportRules(code, "src/app/probe/page.tsx");
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint refuse le registre d'actions dans les actions d'un module", async () => {
+    const code =
+      'import { registry } from "../actions/registry";\nexport const x = registry;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/core/actions.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint refuse le registre d'actions par import relatif dans src/modules/actions", async () => {
+    const code =
+      'import { registry } from "./registry";\nexport const x = registry;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/actions/probe.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint refuse un import dynamique du registre d'actions", async () => {
+    const code =
+      'export const x = () => import("@/modules/actions/registry");\n';
+
+    const errors = await restrictedImportRules(code, "src/lib/probe.ts");
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint autorise le registre d'actions dans src/modules/actions/run.ts", async () => {
+    const code =
+      'import { registry } from "./registry";\nexport const x = registry;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/actions/run.ts",
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  it("eslint garde les règles communes dans src/modules/actions/run.ts", async () => {
+    const code = "export const x = process.env.DATABASE_URL;\n";
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/actions/run.ts",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
+  it("eslint autorise le registre d'actions dans un fichier de test", async () => {
+    const code =
+      'import { registry } from "@/modules/actions/registry";\nexport const x = registry;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/components/probe/probe.test.ts",
+    );
+
+    expect(errors).toEqual([]);
+  });
 });

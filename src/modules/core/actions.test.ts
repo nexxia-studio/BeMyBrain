@@ -25,9 +25,14 @@ describe("action core.listContexts", () => {
   it("lit les contextes du côté demandé dans le workspace de la session", async () => {
     listContexts.mockResolvedValue([]);
 
-    const prepared = prepareAction(registry, "core.listContexts", {
-      side: "pro",
-    });
+    const prepared = prepareAction(
+      registry,
+      "core.listContexts",
+      {
+        side: "pro",
+      },
+      "web",
+    );
     await invokeAction(prepared, CTX);
 
     expect(listContexts).toHaveBeenCalledWith(WORKSPACE, { side: "pro" }, tx);
@@ -35,10 +40,15 @@ describe("action core.listContexts", () => {
 
   it("refuse un workspaceId passé en paramètre", () => {
     const attempt = () =>
-      prepareAction(registry, "core.listContexts", {
-        side: "pro",
-        workspaceId: WORKSPACE,
-      });
+      prepareAction(
+        registry,
+        "core.listContexts",
+        {
+          side: "pro",
+          workspaceId: WORKSPACE,
+        },
+        "web",
+      );
 
     expect(attempt).toThrow(
       expect.objectContaining({ code: "invalid_params" }),
@@ -51,9 +61,14 @@ describe("action core.setLocale", () => {
   it("enregistre la langue de l'utilisateur de la session, dans son workspace", async () => {
     setMemberLocale.mockResolvedValue("en");
 
-    const prepared = prepareAction(registry, "core.setLocale", {
-      locale: "en",
-    });
+    const prepared = prepareAction(
+      registry,
+      "core.setLocale",
+      {
+        locale: "en",
+      },
+      "web",
+    );
     const saved = await invokeAction(prepared, CTX);
 
     expect(setMemberLocale).toHaveBeenCalledWith(WORKSPACE, USER, "en", tx);
@@ -62,10 +77,15 @@ describe("action core.setLocale", () => {
 
   it("refuse un userId passé en paramètre, sans rien écrire", () => {
     const attempt = () =>
-      prepareAction(registry, "core.setLocale", {
-        locale: "en",
-        userId: OTHER_USER,
-      });
+      prepareAction(
+        registry,
+        "core.setLocale",
+        {
+          locale: "en",
+          userId: OTHER_USER,
+        },
+        "web",
+      );
 
     expect(attempt).toThrow(
       expect.objectContaining({ code: "invalid_params" }),
@@ -75,7 +95,7 @@ describe("action core.setLocale", () => {
 
   it("refuse une langue inconnue, sans rien écrire", () => {
     const attempt = () =>
-      prepareAction(registry, "core.setLocale", { locale: "de" });
+      prepareAction(registry, "core.setLocale", { locale: "de" }, "web");
 
     expect(attempt).toThrow(
       expect.objectContaining({ code: "invalid_params" }),

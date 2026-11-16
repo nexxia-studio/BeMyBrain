@@ -60,7 +60,7 @@ export function ContextFilterMenu({
   }
 
   const itemClass =
-    "flex min-h-11 cursor-default items-center gap-2.5 rounded-md px-3 text-body font-semibold text-foreground outline-none select-none data-highlighted:bg-pill-track";
+    "flex min-h-11 cursor-default items-center gap-2.5 rounded-md px-3 text-body font-semibold text-foreground outline-none select-none data-highlighted:bg-pill-track data-highlighted:ring-2 data-highlighted:ring-ring data-highlighted:ring-inset";
 
   return (
     <div className="relative">
