@@ -30,8 +30,8 @@
 - **Registre d'actions** (ADR-009) : `src/modules/actions/`, sans React ni Next. Chaque action : `name`, `description` (clé i18n), `params` (zod), `access` (`read`/`write`), `run(ctx, params)`. La palette passe par une Server Action unique.
 - **Cache Components** : non adopté dans le socle (lecture de cookies serveur partout, app derrière login) ; à réévaluer à Next 17.
 - **Fuseau horaire** : `Europe/Brussels` pour tous (src/i18n/config.ts) ; fuseau par utilisateur à prévoir au passage multi-comptes (BRAIN-26).
-- **Textes hors JSX** (toast, erreurs de Server Action, chaînes dans des .ts) : couverts par revue jusqu'à la tâche 20, où la convention « toast et erreurs ne reçoivent que t(...) » sera testée.
-- **Primitives UI** : shadcn/ui en style `base-nova` (Base UI, pas Radix), défaut actuel de shadcn ; à confirmer avant la tâche 12. Vérifier à la tâche 20 que le composant Command existe en base-nova (sinon `cmdk` seul).
+- **Textes hors JSX** (toast, erreurs de Server Action, chaînes dans des .ts) : convention « toast et erreurs ne reçoivent que t(...) ou une clé de message », testée depuis la tâche 20 par `tests/i18n/literal-messages.test.ts` (Server Actions et `src/components/**`).
+- **Primitives UI** : shadcn/ui en style `base-nova` (Base UI, pas Radix), défaut actuel de shadcn ; à confirmer avant la tâche 12. Palette (tâche 20, 2026-11-16) : `Autocomplete` (en ligne, motif « command palette » de sa documentation) + `Dialog` de Base UI, déjà installé ; ni composant Command de shadcn ni `cmdk`, aucune dépendance ajoutée.
 - **Limitation de tentatives** : règle de rate limit du pare-feu Vercel sur les POST vers /login et /reset-password (tâche 17), la limite par IP de Neon Auth ne voyant que les IP de Vercel.
 - **Réinitialisation** : OTP par e-mail ; plan B si le type forget-password n'est pas servi : `requestPasswordReset` par lien + domaine de confiance par environnement.
 - **e2e avec connexion** : cookies `__Secure-` refusés par WebKit sur http://localhost → e2e connectés en Chromium (émulation iPhone) en local, WebKit contre une preview HTTPS ; à appliquer à partir de la tâche 14.
@@ -55,7 +55,6 @@
 - `@tailwindcss/turbopack` — loader Tailwind v4 pour Turbopack (scaffold Next).
 - Via shadcn init (ADR-001) : `@base-ui/react`, `class-variance-authority`, `cn`, `lucide-react`, `shadcn`, `tw-animate-css` (ce dernier limité aux primitives de `src/components/ui/`, cf. ADR-006).
 - `@sentry/nextjs` — remontée des erreurs (demande d'Antoine du 2026-11-11).
-- `cmdk` (via le composant Command de shadcn/ui) — palette de commandes : clavier, recherche et accessibilité déjà résolus.
 - Aucune bibliothèque PWA (ADR-008) ; aucune bibliothèque pour le test des textes en dur (API `typescript` déjà présente).
 
 ## Tâches
@@ -156,6 +155,7 @@
   - Fichiers : `src/modules/actions/registry.ts`, `src/modules/actions/types.ts`, `src/modules/core/actions.ts`, `src/app/(app)/actions.ts` (Server Action unique `runAction`), `src/components/command-palette/`, `messages/*.json`
   - Registre sans React ni Next (règle eslint de la tâche 2). Actions du socle : `core.listContexts` (`read`), `core.setLocale` (`write`, réutilise `setMemberLocale`). Hors registre, assumé : `setSide` et `setContextSelection` (tâche 14) écrivent des cookies d'affichage (`next/headers`), ce qui est interdit dans un registre sans Next ; ce ne sont pas des données métier. Si l'assistant doit un jour basculer le côté, la préférence passera en base (`workspace_members`) et l'action entrera au registre. `runAction(name, params)` : `requireSession()` → recherche dans le registre → validation zod → `run`. Nom inconnu ou paramètres invalides → erreur générique, rien d'exécuté. Les actions passent `userId = ctx.userId`, jamais un paramètre. Palette : ⌘K / Ctrl+K sur desktop, bouton dans la barre basse sur mobile ; navigation (tableau de bord, réglages) en raccourcis hors registre ; textes traduits ; ouverture en Motion.
   - Test à écrire d'abord : `src/modules/actions/registry.test.ts` — « chaque action déclare name, description, params et access » ; « deux actions ne partagent pas un name » ; « des paramètres invalides n'appellent pas run » ; « une action write sans workspaceId refuse de s'exécuter » ; `e2e/palette.spec.ts` — « depuis la palette, passer en anglais change la langue de l'interface ».
+  - Écarts assumés (2026-11-16, revue) : le registre exige un contexte complet (`workspaceId`, `userId`, transaction) pour toute action, lecture comprise, pas seulement en écriture ; l'écran Réglages garde son action directe `setLocale` (raccourci noté dans `src/app/(app)/settings/actions.ts`), la palette passe par `core.setLocale` ; fond de palette opaque mais calque arrière transparent (pas de voile) : à soumettre à `/impeccable critique` ; le bouton « + » de la barre basse (et de l'en-tête) s'appelle « Ouvrir la palette de commandes » / « Open command palette », il ne fait qu'ouvrir la palette tant qu'aucune action d'ajout n'existe. Garde « toast et erreurs ne reçoivent que t(...) » : `tests/i18n/literal-messages.test.ts`. `runAction` : refus attendu (`ActionError`) journalisé par son code seul, panne en `console.error` (Sentry à la tâche 19) ; un échec du cookie après l'écriture n'annonce pas d'échec.
   - Fini quand : tests verts.
 
 ## Ordre et dépendances

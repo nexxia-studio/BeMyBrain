@@ -86,7 +86,7 @@ test.describe("mobile (390 px)", () => {
     await switchToEnglishFromPalette(page, async (p) => {
       await p
         .getByRole("navigation", { name: fr.shell.navigation })
-        .getByRole("button", { name: fr.shell.quickAdd })
+        .getByRole("button", { name: fr.shell.openPalette })
         .click();
     });
   });

@@ -60,9 +60,10 @@ export function TabBar({ className }: TabBarProps) {
         className="glass mx-4 flex items-center gap-0.5 rounded-bar px-2.5 py-2"
       >
         {before}
-        {/* Ajout rapide : ouvre la palette (ADR-009), au pouce, au centre de la barre. */}
+        {/* Ouvre la palette (ADR-009), au pouce, au centre de la barre. Nommé d'après ce qu'il fait aujourd'hui ;
+            le libellé suivra quand la palette proposera des actions d'ajout. */}
         <PaletteTrigger
-          label={t("quickAdd")}
+          label={t("openPalette")}
           className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-fab"
         >
           <Plus aria-hidden="true" className="size-6" strokeWidth={2.4} />

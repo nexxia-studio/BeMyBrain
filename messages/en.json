@@ -122,7 +122,7 @@
     },
     "search": "Search or add",
     "searchShortcut": "⌘K",
-    "quickAdd": "Quick add",
+    "openPalette": "Open command palette",
     "preferenceError": "Choice not saved. Try again.",
     "settings": "Settings"
   },
@@ -149,7 +149,6 @@
     "title": "Command palette",
     "search": "Search commands",
     "placeholder": "Search for a page or an action…",
-    "close": "Close the palette",
     "empty": "No command matches.",
     "groups": {
       "navigation": "Go to",

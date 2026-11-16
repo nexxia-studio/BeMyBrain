@@ -122,7 +122,7 @@
     },
     "search": "Chercher ou ajouter",
     "searchShortcut": "⌘K",
-    "quickAdd": "Ajouter rapidement",
+    "openPalette": "Ouvrir la palette de commandes",
     "preferenceError": "Choix non enregistré. Réessaie.",
     "settings": "Réglages"
   },
@@ -149,7 +149,6 @@
     "title": "Palette de commandes",
     "search": "Chercher une commande",
     "placeholder": "Chercher une page ou une action…",
-    "close": "Fermer la palette",
     "empty": "Aucune commande ne correspond.",
     "groups": {
       "navigation": "Aller à",

@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -222,6 +223,58 @@ describe("palette de commandes", () => {
     expect(push).toHaveBeenCalledWith("/settings");
     expect(runAction).not.toHaveBeenCalled();
     await waitFor(() => expect(palette()).toBeNull());
+  });
+
+  it("Échap ferme la palette et rend le focus au déclencheur", async () => {
+    renderPalette();
+    const trigger = screen.getByRole("button", { name: "déclencheur" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const search = await screen.findByRole("combobox");
+    await waitFor(() => expect(document.activeElement).toBe(search));
+
+    fireEvent.keyDown(search, { key: "Escape" });
+
+    await waitFor(() => expect(palette()).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("est modale : le reste de la page est inerte pendant qu'elle est ouverte", async () => {
+    renderPalette();
+
+    pressShortcut();
+    await screen.findByRole("dialog");
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "déclencheur" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("n'expose pas de bouton de fermeture invisible (Échap et clic dehors ferment)", async () => {
+    renderPalette();
+
+    pressShortcut();
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).queryAllByRole("button")).toEqual([]);
+  });
+
+  it("l'option en surbrillance porte l'anneau de focus du token ring (DESIGN.md § 11)", async () => {
+    renderPalette();
+
+    pressShortcut();
+    const highlighted = await waitFor(() => {
+      const option = screen
+        .getAllByRole("option")
+        .find((el) => el.hasAttribute("data-highlighted"));
+      if (!option) throw new Error("aucune option en surbrillance");
+      return option;
+    });
+
+    expect(highlighted.className).toContain("data-highlighted:ring-2");
+    expect(highlighted.className).toContain("data-highlighted:ring-ring");
   });
 
   it("en anglais, propose de passer en français", async () => {

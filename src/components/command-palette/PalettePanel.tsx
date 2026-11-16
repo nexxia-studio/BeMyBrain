@@ -4,10 +4,12 @@
 // Contenu de la palette : recherche (Autocomplete de Base UI en ligne, motif « command palette » de sa
 // documentation ; aucune dépendance ajoutée), groupes « Aller à » (raccourcis de navigation, hors registre)
 // et « Actions » (actions du registre, lancées par la Server Action unique runAction). Entrée lance la
-// commande en surbrillance. Pendant une action : commandes désactivées, état annoncé ; échec : message,
+// commande en surbrillance. Focus visible (DESIGN.md § 11) : anneau `ring` sur la recherche (décalé vers
+// l'intérieur, la fenêtre coupe ce qui déborde) et anneau intérieur `ring` sur l'option en surbrillance (la
+// piste `pill-track` seule reste sous 3:1 sur `popover`). Pas de bouton Fermer : Échap et clic dehors ferment
+// (Dialog de Base UI). Pendant une action : commandes désactivées, état annoncé ; échec : message,
 // la palette reste ouverte.
 import { Autocomplete } from "@base-ui/react/autocomplete";
-import { Dialog } from "@base-ui/react/dialog";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -101,10 +103,9 @@ export function PalettePanel({ onDone }: PalettePanelProps) {
           aria-label={t("search")}
           aria-describedby={hintId}
           placeholder={t("placeholder")}
-          className="min-h-13 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-h-13 w-full rounded-md bg-transparent text-base text-foreground -outline-offset-2 placeholder:text-muted-foreground"
         />
       </div>
-      <Dialog.Close className="sr-only">{t("close")}</Dialog.Close>
 
       <div
         aria-busy={pending}
@@ -132,7 +133,7 @@ export function PalettePanel({ onDone }: PalettePanelProps) {
                     value={item}
                     disabled={pending}
                     onClick={() => launch(item)}
-                    className="flex min-h-11 cursor-default items-center gap-3 rounded-lg px-3 text-body font-semibold text-foreground outline-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-60 data-highlighted:bg-pill-track"
+                    className="flex min-h-11 cursor-default items-center gap-3 rounded-lg px-3 text-body font-semibold text-foreground outline-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-60 data-highlighted:bg-pill-track data-highlighted:ring-2 data-highlighted:ring-ring data-highlighted:ring-inset"
                   >
                     <item.icon
                       aria-hidden="true"

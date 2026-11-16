@@ -27,6 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   calls.length = 0;
   vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
   requireSessionWithToken.mockImplementation(async () => {
     calls.push("requireSessionWithToken");
     return { session: SESSION, token: "eyJ.jwt.signe" };
@@ -102,6 +103,48 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(outcome).toEqual({ ok: false });
     expect(syncLocaleCookie).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("un refus attendu n'est journalisé que par son code, jamais comme une panne", async () => {
+    runActionWithToken.mockRejectedValue(new ActionError("invalid_params"));
+
+    const outcome = await runAction("core.setLocale", { locale: "de" });
+
+    expect(outcome).toEqual({ ok: false });
+    expect(console.warn).toHaveBeenCalledWith("[actions] action refusée", {
+      code: "invalid_params",
+    });
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it("une vraie panne est journalisée en erreur côté serveur, sans les paramètres du client", async () => {
+    const failure = new Error("Erreur de base de données");
+    runActionWithToken.mockRejectedValue(failure);
+
+    const outcome = await runAction("core.setLocale", { locale: "secret-en" });
+
+    expect(outcome).toEqual({ ok: false });
+    expect(console.error).toHaveBeenCalledWith(
+      "[actions] action en échec",
+      failure,
+    );
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+      "secret-en",
+    );
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("si la recopie du cookie échoue après l'écriture en base, annonce le succès et journalise la panne", async () => {
+    const failure = new Error("cookies indisponibles");
+    syncLocaleCookie.mockRejectedValue(failure);
+
+    const outcome = await runAction("core.setLocale", { locale: "en" });
+
+    expect(outcome).toEqual({ ok: true, result: "en" });
+    expect(console.error).toHaveBeenCalledWith(
+      "[actions] effets web en échec après l'action",
+      failure,
+    );
   });
 
   it("refuse sans session, avant toute résolution d'action", async () => {

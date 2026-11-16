@@ -47,7 +47,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     }}
                   />
                 }
-                className="flex w-full max-w-xl flex-col overflow-hidden rounded-tile bg-popover text-popover-foreground shadow-glass outline-none"
+                className="flex w-full max-w-xl flex-col overflow-hidden rounded-tile bg-popover text-popover-foreground shadow-glass"
               >
                 <PalettePanel onDone={() => onOpenChange(false)} />
               </Dialog.Popup>

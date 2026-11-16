@@ -39,7 +39,7 @@ export async function ShellHeader({ side }: ShellHeaderProps) {
           </kbd>
         </PaletteTrigger>
         <PaletteTrigger
-          label={t("quickAdd")}
+          label={t("openPalette")}
           className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-hover"
         >
           <Plus aria-hidden="true" className="size-5" strokeWidth={2.4} />

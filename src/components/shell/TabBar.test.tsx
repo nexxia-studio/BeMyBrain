@@ -52,7 +52,7 @@ describe("barre d'onglets mobile", () => {
     renderTabBar();
 
     const settings = screen.getByRole("link", { name: "Réglages" });
-    const add = screen.getByRole("button", { name: "Ajouter rapidement" });
+    const add = screen.getByRole("button", { name: "Ouvrir la palette de commandes" });
     expect(settings.getAttribute("href")).toBe("/settings");
     expect(settings.getAttribute("aria-current")).toBe("page");
     expect(
@@ -65,7 +65,7 @@ describe("barre d'onglets mobile", () => {
     const openPalette = vi.fn();
     renderTabBar(openPalette);
 
-    const add = screen.getByRole("button", { name: "Ajouter rapidement" });
+    const add = screen.getByRole("button", { name: "Ouvrir la palette de commandes" });
     fireEvent.click(add);
 
     expect((add as HTMLButtonElement).disabled).toBe(false);

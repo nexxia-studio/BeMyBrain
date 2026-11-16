@@ -5,8 +5,7 @@ import type { UserTx } from "@/db/client";
 // Registre d'actions (ADR-009) : sans React ni Next, partagé par la palette aujourd'hui, l'assistant IA,
 // WhatsApp et Slack demain.
 
-export const actionAccesses = ["read", "write"] as const;
-export type ActionAccess = (typeof actionAccesses)[number];
+export type ActionAccess = "read" | "write";
 
 /**
  * Contexte d'exécution, construit côté serveur seulement : `workspaceId` de la session, `userId` = `sub` du
