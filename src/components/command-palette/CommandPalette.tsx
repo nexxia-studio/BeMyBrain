@@ -5,16 +5,15 @@
 // déclencheur), opaque (`popover`, jamais de verre sur du verre), en haut de l'écran pour rester au-dessus
 // du clavier mobile. Ouverture en Motion : opacity + scale 0,98 → 1, 0,2 s ease-out-expo ; fermeture
 // 0,15 s ; ancrée en haut (`origin-top`), elle se déploie depuis son bord haut au lieu de son centre ;
-// MotionConfig reducedMotion="user" (MotionRoot) coupe l'échelle et garde le fondu. Voile `scrim` dessous
+// MotionConfig reducedMotion="user" (MotionRoot) coupe l'échelle et garde le fondu, ramené à 0,15 s. Voile `scrim` dessous
 // (calque overlay) : fondu d'opacité seul, même durées et même courbe que le panneau, sans échelle.
 // Le contenu n'est monté qu'ouvert : recherche et message d'erreur repartent à zéro à chaque ouverture.
 import { Dialog } from "@base-ui/react/dialog";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 
+import { EASE_OUT_EXPO, paletteDurations } from "./palette-motion";
 import { PalettePanel } from "./PalettePanel";
-
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
 type CommandPaletteProps = {
   open: boolean;
@@ -23,6 +22,7 @@ type CommandPaletteProps = {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const t = useTranslations("palette");
+  const { enter, exit } = paletteDurations(useReducedMotion() ?? false);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -36,11 +36,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.2, ease: EASE_OUT_EXPO },
+                    transition: { duration: enter, ease: EASE_OUT_EXPO },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.15, ease: EASE_OUT_EXPO },
+                    transition: { duration: exit, ease: EASE_OUT_EXPO },
                   }}
                 />
               }
@@ -55,12 +55,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     animate={{
                       opacity: 1,
                       scale: 1,
-                      transition: { duration: 0.2, ease: EASE_OUT_EXPO },
+                      transition: { duration: enter, ease: EASE_OUT_EXPO },
                     }}
                     exit={{
                       opacity: 0,
                       scale: 0.98,
-                      transition: { duration: 0.15, ease: EASE_OUT_EXPO },
+                      transition: { duration: exit, ease: EASE_OUT_EXPO },
                     }}
                   />
                 }

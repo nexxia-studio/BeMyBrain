@@ -71,3 +71,4 @@
 - Localisateur e2e introuvable après un changement de langue → le nom accessible des contrôles change avec la langue → relocaliser avec les textes de la nouvelle langue.
 - `getByRole("status")` trouve plusieurs éléments dès qu'un Autocomplete de Base UI est monté → Base UI ajoute ses propres régions `role="status"` (annonces de la liste) → cibler la zone de message par `data-testid` (`palette-status`).
 - `prettier --write <dossier>` reformate des fichiers hors du périmètre de la tâche → le formateur prend tout le dossier → formater fichier par fichier (le hook PostToolUse le fait déjà à chaque édition).
+- « useOpenPalette hors de CommandPaletteProvider » en testant un composant seul → `PaletteTrigger` lit le contexte de la palette → envelopper dans `<OpenPaletteContext value={vi.fn()}>` (`TabBar.test.tsx`).
