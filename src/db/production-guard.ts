@@ -49,3 +49,21 @@ export function assertNotProductionTarget(source: Source): void {
     );
   }
 }
+
+/**
+ * Refuse que l'app, lancée hors production (`next dev`, Vitest), se connecte à la branche production :
+ * le compte e2e et les essais locaux ne doivent jamais y écrire. En production (NODE_ENV) et sur Vercel,
+ * la cible est fixée par l'environnement (ADR-010). Sans NEON_PRODUCTION_HOST, rien n'est vérifié.
+ */
+export function assertAppNotOnProduction(source: Source): void {
+  if (source.NODE_ENV === "production" || source.VERCEL === "1") return;
+  const productionHost = source.NEON_PRODUCTION_HOST;
+  const target = source.DATABASE_AUTHENTICATED_URL;
+  if (!productionHost || !target) return;
+  const production = parseHostVariable(productionHost, "NEON_PRODUCTION_HOST");
+  if (hostOfUrl(target, "DATABASE_AUTHENTICATED_URL") === production) {
+    throw new Error(
+      "DATABASE_AUTHENTICATED_URL vise NEON_PRODUCTION_HOST : app locale sur la production refusée.",
+    );
+  }
+}

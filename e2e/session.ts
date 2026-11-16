@@ -2,13 +2,16 @@ import { expect, type Page } from "@playwright/test";
 
 import fr from "../messages/fr.json";
 
-/** Compte Neon Auth de la branche visée (dev en local), jamais celui de la production. */
+/**
+ * Compte e2e dédié, présent sur la branche Neon `dev` seulement, jamais en production. Les e2e connectés ne
+ * tournent pas contre une preview tant qu'elle n'a pas de compte e2e.
+ */
 function credentials(): { email: string; password: string } {
   const email = process.env.E2E_USER_EMAIL;
   const password = process.env.E2E_USER_PASSWORD;
   if (!email || !password) {
     throw new Error(
-      "E2E_USER_EMAIL et E2E_USER_PASSWORD manquantes : compte e2e de la branche Neon visée (voir .env.example).",
+      "E2E_USER_EMAIL et E2E_USER_PASSWORD manquantes : compte e2e dédié de la branche dev (voir .env.example).",
     );
   }
   return { email, password };

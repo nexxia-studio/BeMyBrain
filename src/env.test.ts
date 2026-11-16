@@ -134,6 +134,71 @@ describe("variables d'environnement de l'app", () => {
   );
 });
 
+describe("app locale contre la production", () => {
+  const PROD_HOST = "ep-test-123.db.example.test";
+
+  it("refuse hors production une DATABASE_AUTHENTICATED_URL qui vise NEON_PRODUCTION_HOST, sans citer l'hôte", () => {
+    const source = {
+      ...validAppEnv,
+      NODE_ENV: "development",
+      NEON_PRODUCTION_HOST: PROD_HOST,
+    };
+
+    const parse = () => parseAppEnv(source);
+
+    expect(parse).toThrow(/DATABASE_AUTHENTICATED_URL.*NEON_PRODUCTION_HOST/);
+    expect(parse).not.toThrow(/ep-|example|postgres/);
+  });
+
+  it("refuse aussi via l'hôte -pooler", () => {
+    const source = {
+      ...validAppEnv,
+      DATABASE_AUTHENTICATED_URL:
+        "postgresql://app_role:pw@ep-test-123-pooler.db.example.test/app",
+      NODE_ENV: "test",
+      NEON_PRODUCTION_HOST: PROD_HOST,
+    };
+
+    const parse = () => parseAppEnv(source);
+
+    expect(parse).toThrow(/NEON_PRODUCTION_HOST/);
+  });
+
+  it("accepte une autre branche hors production", () => {
+    const source = {
+      ...validAppEnv,
+      NODE_ENV: "development",
+      NEON_PRODUCTION_HOST: "ep-prod-999.db.example.test",
+    };
+
+    const parse = () => parseAppEnv(source);
+
+    expect(parse).not.toThrow();
+  });
+
+  it("n'exige pas NEON_PRODUCTION_HOST", () => {
+    const parse = () =>
+      parseAppEnv({ ...validAppEnv, NODE_ENV: "development" });
+
+    expect(parse).not.toThrow();
+  });
+
+  it.each([
+    ["en production (NODE_ENV)", { NODE_ENV: "production" }],
+    ["sur Vercel", { NODE_ENV: "development", VERCEL: "1" }],
+  ])("ne s'applique pas %s", (_label, platform) => {
+    const source = {
+      ...validAppEnv,
+      ...platform,
+      NEON_PRODUCTION_HOST: PROD_HOST,
+    };
+
+    const parse = () => parseAppEnv(source);
+
+    expect(parse).not.toThrow();
+  });
+});
+
 describe("iss et aud attendus des jetons", () => {
   it.each([
     ["NEON_AUTH_ISSUER", "https://autre-branche.example.test"],

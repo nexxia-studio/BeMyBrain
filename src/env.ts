@@ -2,7 +2,10 @@ import { z } from "zod";
 
 // Imports relatifs : ce fichier est aussi chargé par drizzle.config.ts, hors alias tsconfig.
 import { parseEnv, type EnvSource } from "./db/parse-env";
-import { assertSameHost } from "./db/production-guard";
+import {
+  assertAppNotOnProduction,
+  assertSameHost,
+} from "./db/production-guard";
 
 const httpsUrl = () => z.url({ protocol: /^https$/ });
 
@@ -41,6 +44,8 @@ export function parseAppEnv(source: EnvSource): AppEnv {
   }
   // Si l'URL propriétaire est aussi définie (local), elle doit viser la même branche.
   assertSameHost(source, "DATABASE_URL", "DATABASE_AUTHENTICATED_URL");
+  // Hors production et hors Vercel, jamais la branche production.
+  assertAppNotOnProduction(source);
   return env;
 }
 

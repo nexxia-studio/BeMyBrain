@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 // Test réel (plan socle, tâche 16) : la vraie requireSession et le vrai redirect de Next, seule la lecture
 // du jeton de session est simulée (aucun cookie de session). Les écritures sont espionnées.
+// Couvre l'absence de jeton. Le cas « jeton invalide ou expiré » (signature, iss, aud, exp) est couvert par
+// les tests de withUserDb (src/db/client.test.ts : signature, iss, aud, sub, expiration).
 const getSessionToken = vi.hoisted(() => vi.fn(async () => null));
 const saveMemberLocale = vi.hoisted(() => vi.fn());
 const resolveMembership = vi.hoisted(() => vi.fn());

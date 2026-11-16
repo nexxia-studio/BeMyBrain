@@ -159,6 +159,51 @@ export async function deleteAccount() { return 1; }`;
   });
 });
 
+describe("garde des Server Actions : code exécuté avant la garde", () => {
+  it("refuse une valeur par défaut de paramètre (évaluée avant la garde)", () => {
+    const source = `"use server";
+import { requireSession } from "@/lib/session";
+export async function save(id = remove()) { await requireSession(); return id; }`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse une valeur par défaut dans un paramètre déstructuré", () => {
+    const source = `"use server";
+import { requireSession } from "@/lib/session";
+export async function save({ id = remove() }: { id?: string }) { await requireSession(); return id; }`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse une valeur par défaut dans une action en ligne", () => {
+    const source = `import { requireSession } from "@/lib/session";
+export function Page() {
+  async function save([id] = [remove()]) { "use server"; await requireSession(); return id; }
+  return save;
+}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse un argument passé à la garde (évalué avant elle)", () => {
+    const source = `"use server";
+import { requireSession, requireSessionWithToken } from "@/lib/session";
+export async function save() { await requireSession(remove()); return 1; }
+export async function store() { const { token } = await requireSessionWithToken(remove()); return token; }`;
+
+    expect(names(source)).toEqual(["save", "store"]);
+  });
+
+  it("accepte des paramètres sans valeur par défaut, déstructuration comprise", () => {
+    const source = `"use server";
+import { requireSession } from "@/lib/session";
+export async function save(id: unknown, { a, b: [c] }: { a: string; b: string[] }, ...rest: unknown[]) { await requireSession(); return [id, a, c, rest]; }`;
+
+    expect(names(source)).toEqual([]);
+  });
+});
+
 describe("garde des Server Actions : origine de requireSession", () => {
   const guarded = `export async function save() { await requireSession(); return 1; }`;
 

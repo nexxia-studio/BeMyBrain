@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { assertE2eTargetAllowed } from "./scripts/e2e-target.mjs";
+
 // Identifiants du compte e2e (E2E_USER_EMAIL, E2E_USER_PASSWORD) : .env en local, absent en CI.
 try {
   process.loadEnvFile(".env");
@@ -10,6 +12,10 @@ try {
 // Local par défaut ; E2E_BASE_URL vise une preview HTTPS (sans serveur local).
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const isLocal = new URL(baseURL).protocol === "http:";
+// Jamais contre la production : chargement refusé si l'hôte est listé dans E2E_FORBIDDEN_HOSTS.
+// raccourci: l'URL *.vercel.app de production n'est pas distinguable d'une preview sans le nom du projet —
+// la lister dans E2E_FORBIDDEN_HOSTS à la création du projet Vercel (tâche 17).
+assertE2eTargetAllowed(baseURL, process.env.E2E_FORBIDDEN_HOSTS);
 
 // Seul parcours qui modifie le compte e2e partagé (sa langue).
 const ACCOUNT_LOCALE_SPEC = /changer-de-langue\.spec\.ts$/;
@@ -24,7 +30,9 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // Aucune trace : tous les projets se connectent, et une trace enregistre les champs remplis (mot de
+    // passe compris) ; Playwright ne sait pas les masquer.
+    trace: "off",
   },
   projects: [
     {

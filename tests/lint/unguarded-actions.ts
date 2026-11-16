@@ -5,7 +5,8 @@ import ts from "typescript";
 // export { x }, export * / from), ou toute fonction dont le corps commence par "use server".
 // Gardée = une garde (`requireSession` ou `requireSessionWithToken`) est l'import de @/lib/session sous son
 // propre nom (aucune autre déclaration de ce nom) et la première instruction du corps (après les directives)
-// est `await <garde>();` ou `const … = await <garde>();`. Un export qui n'est pas une fonction écrite sur place (wrapper,
+// est `await <garde>();` ou `const … = await <garde>();`, sans argument, et aucun paramètre ne porte de
+// valeur par défaut (déstructuration comprise) : ni l'un ni l'autre ne s'évalue avant la garde. Un export qui n'est pas une fonction écrite sur place (wrapper,
 // ré-export) est refusé : la garde ne peut pas y être lue.
 
 export type UnguardedAction = { file: string; line: number; name: string };
@@ -103,12 +104,37 @@ function isAwaitGuard(
     ts.isAwaitExpression(node) &&
     ts.isCallExpression(node.expression) &&
     ts.isIdentifier(node.expression.expression) &&
-    trusted.has(node.expression.expression.text)
+    trusted.has(node.expression.expression.text) &&
+    // Un argument serait évalué avant la garde.
+    node.expression.arguments.length === 0
   );
+}
+
+/** Vrai si un paramètre porte une valeur par défaut, à n'importe quelle profondeur de déstructuration. */
+function hasDefaultValue(fn: FunctionLike): boolean {
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isParameter(node) || ts.isBindingElement(node)) &&
+      node.initializer !== undefined
+    ) {
+      found = true;
+      return;
+    }
+    // Les types ne s'exécutent pas ; seuls les noms de liaison peuvent porter une valeur par défaut.
+    if (ts.isParameter(node)) visit(node.name);
+    else if (ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node))
+      node.elements.forEach(visit);
+    else if (ts.isBindingElement(node)) visit(node.name);
+  };
+  fn.parameters.forEach(visit);
+  return found;
 }
 
 function isGuarded(fn: FunctionLike, trusted: ReadonlySet<string>): boolean {
   if (!fn.body || !ts.isBlock(fn.body)) return false;
+  // Une valeur par défaut de paramètre s'évalue avant la première instruction du corps.
+  if (hasDefaultValue(fn)) return false;
   const first = prologue(fn.body.statements).firstStatement;
   if (!first) return false;
   if (ts.isExpressionStatement(first))

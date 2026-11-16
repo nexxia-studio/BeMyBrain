@@ -81,6 +81,23 @@ describe("withUserDb", () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it("refuse un jeton expiré sans ouvrir de transaction", async () => {
+    const { db, transaction } = fakeDb();
+    const withUserDb = createWithUserDb({ verify, db });
+    const expired = await new SignJWT({ sub: USER_ID, role: "authenticated" })
+      .setProtectedHeader({ alg: "EdDSA" })
+      .setIssuer(ISSUER)
+      .setAudience(AUDIENCE)
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+      .sign(trusted.privateKey);
+
+    const run = withUserDb(expired, async () => "lu");
+
+    await expect(run).rejects.toBeInstanceOf(InvalidTokenError);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it("accepte un jeton signé avec l'iss et l'audience attendus", async () => {
     const token = await signToken(trusted.privateKey);
 
