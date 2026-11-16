@@ -30,6 +30,7 @@ Hors périmètre pour l'instant : habitudes, routines, journal, bloc-notes, deep
 - **Espaces personnalisables** (BRAIN-30, noté le 2026-11-13) : l'utilisateur crée, renomme et ordonne ses espaces des deux côtés, Privé et Pro. Le filtre d'espace existe donc aussi côté Privé : aucun code ne doit supposer qu'il n'existe que côté Pro.
 - **Onboarding et gestion du compte** (BRAIN-31, noté le 2026-11-13) : premier parcours d'un nouveau compte et réglages du compte.
 - **Espace partagé entre membres** (BRAIN-32, noté le 2026-11-13) : chaque membre garde son espace privé « Perso » et peut partager un espace privé « Famille » avec un autre membre, sans que l'un voie le « Perso » de l'autre. Piste retenue : un espace partagé est un workspace à part avec plusieurs membres, ce que le schéma et `is_workspace_member` permettent déjà. Conséquence : un utilisateur aura plusieurs workspaces (`.claude/rules/workspaces.md`).
+- **Effets de verre animés** (BRAIN-33, reporté le 2026-11-16) : moment signature des halos (DESIGN.md § 7), court terme, avec le premier module à vraies données.
 
 ## Intégrations : ce qui est possible
 | Source | État au 2026-11-10 | Approche |

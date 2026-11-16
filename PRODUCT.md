@@ -18,7 +18,9 @@ BeMyBrain est un second cerveau : un seul tableau de bord pour la vie privée (t
 6. **Prêt pour l'assistant IA, plus tard.** Chaque action de l'app (ajouter, filtrer, changer de langue) existe aussi en commande nommée, lançable depuis la palette (⌘K) aujourd'hui, par l'assistant demain. Une seule base de données, rien de métier stocké ailleurs.
 
 ## Ton des textes
-- **Français** : direct, chaleureux sans familiarité, tutoiement exclu (vouvoiement implicite, tournures impersonnelles de préférence : « Ajouter une tâche », pas « Ajoutez votre tâche »). Phrases courtes. Verbes d'action sur les boutons. Pas de jargon, pas d'anglicismes quand le mot français existe (« tâche », pas « task » ; « To-do » reste comme nom de module).
+- **Registre** (décidé par Antoine le 2026-11-16) : BeMyBrain est un compagnon de vie personnel, un buddy. Proche, direct, encourageant ; jamais familier au point d'être lourd (pas d'argot, pas de points d'exclamation en rafale, pas d'emoji dans l'interface).
+- **Français** : tutoiement pour tout ce qui s'adresse à la personne (« Ton mot de passe a été changé », « Rien de prévu aujourd'hui, profites-en »). Jamais de vouvoiement, verrouillé par un test sur `messages/fr.json`. Boutons et actions en tournure impersonnelle, à l'infinitif : « Ajouter une tâche », pas « Ajoute ta tâche ». Phrases courtes. Pas de jargon, pas d'anglicismes quand le mot français existe (« tâche », pas « task » ; « To-do » reste comme nom de module).
+- **Néerlandais et allemand** (plus tard) : même registre, « je » / « du » et jamais « u » / « Sie » ; boutons à l'infinitif.
 - **Anglais** : même ton, plus bref. Sentence case (« Add a task »), pas de majuscule à chaque mot.
 - Chiffres concrets plutôt qu'adjectifs : « 3 tâches aujourd'hui », pas « Une journée chargée ».
 - Erreurs : dire ce qui s'est passé et quoi faire, sans détail technique ni faute rejetée sur l'utilisateur.

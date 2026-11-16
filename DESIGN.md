@@ -321,6 +321,8 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
 | Bascule Privé / Pro (première de la session) | Pilule active glisse (`x`) ; tuiles du nouveau côté en fondu + `y` 8 → 0 | 0,4 s `power3.out` ; tuiles 0,25 s |
 | Écrans vides | Icône, phrase, action : `autoAlpha` + `y` 12 → 0 en décalé | 0,4 s `power3.out`, décalage 0,06 s |
 
+Effets de verre : reportés (2026-11-16, BRAIN-33), livrés avec le premier module à vraies données ; la ligne du tableau reste la cible.
+
 **Interactions — Motion** (`motion/react`, racine en `<MotionConfig reducedMotion="user">`, `useReducedMotion` pour le reste) :
 - Pression (boutons, lignes, onglets) : `scale` 0,97, 0,1 s ease-out, au `pointerdown`.
 - Survol d'une tuile (pointeur fin seulement) : `y` −2, ressort `bounce: 0`, 0,3 s.

@@ -60,7 +60,7 @@
 
 ## Tâches
 
-- [ ] **11. Résoudre le workspace et la langue depuis la session** [security] (BRAIN-5, BRAIN-6)
+- [x] **11. Résoudre le workspace et la langue depuis la session** [security] (BRAIN-5, BRAIN-6) — 2026-11-16, vérifiée par Antoine sur `dev` (nom du workspace, reconnexion, rechargement après 5 min)
   - Fichiers : `src/lib/session.ts`, `src/lib/locale-cookie.ts`
   - `requireSession()` renvoie `{ userId, workspaceId, token }` depuis la session serveur uniquement. Utilisateur sans workspace → page d'erreur sobre, pas de création automatique. À la connexion, la locale du membre est recopiée dans `NEXT_LOCALE`. Réévaluer `server-only` sur `src/lib/auth/`.
   - Audit tâche 10 (2026-11-12) : le layout `(app)` n'est pas un second verrou complet (pas réexécuté en navigation client ; une Server Action ne passe pas par lui ; une action est appelable par POST sur une page publique). `requireSession()` est donc appelée par chaque page de `(app)`, chaque lecture de données et au début de chaque Server Action non publique ; le `ctx` du registre (tâche 20) en est issu. Le `userId` vient du `sub` du JWT vérifié par `withUserDb` (jamais du cache de session de `getSession()`, croyable jusqu'à 5 min). Tests : « une Server Action non publique appelée sans session est refusée » ; « le userId du ctx est celui du JWT ».
@@ -91,12 +91,13 @@
   - Test à écrire d'abord : `src/lib/preferences.test.ts` — « une valeur de cookie inconnue retombe sur Privé » ; `e2e/bascule-prive-pro.spec.ts` (scénario 2, desktop + mobile) ; « la deuxième bascule ne déclenche aucune animation ».
   - Fini quand : tests verts.
 
-- [ ] **15. Tableau de bord bento et moments signature** (BRAIN-7)
+- [x] **15. Tableau de bord bento et moments signature** (BRAIN-7) — 2026-11-16, `b7fc3a3`, corrections `4f42ffb`, `8acc43d` ; e2e 27/27, critique Impeccable 27/40
   - Fichiers : `src/app/(app)/dashboard/page.tsx`, `src/components/bento/`, `src/components/signature/dashboard-intro.tsx`, `src/components/signature/bento-reveal.tsx`, `src/components/signature/empty-state.tsx`
   - Tuiles vides typées par côté et par contexte ; seules celles du côté actif s'affichent. Mobile d'abord : une colonne à 390 px. GSAP pour l'entrée du tableau de bord, la révélation de la grille, les effets de verre et les écrans vides, via `next/dynamic` ; Motion pour le survol et l'apparition des tuiles. Aucun élément partagé entre les deux. `gsap.matchMedia` et `useReducedMotion` coupent tout sous `prefers-reduced-motion`.
   - Test à écrire d'abord : `e2e/premiere-connexion.spec.ts` (scénario 1, desktop + mobile) ; test composant — « côté Pro, aucune tuile Privé n'est rendue » ; e2e avec `reducedMotion: 'reduce'` — « aucune animation ne démarre » ; test de build — « gsap n'est pas dans le bundle initial de /dashboard ».
   - Fini quand : tests verts, anti-slop puis `/impeccable critique` passés.
   - Abandonné (2026-11-13) : l'apparition des tuiles par Motion. L'enveloppe de chaque tuile est déjà animée par GSAP (révélation, fondu de bascule) ; un élément n'est jamais animé par les deux (ADR-006). Motion garde le survol, sur la surface intérieure.
+  - Reporté (2026-11-16, BRAIN-33) : les effets de verre animés, avec le premier module à vraies données.
 
 - [ ] **16. Réglages : choix de la langue** [security] (BRAIN-7, ADR-007)
   - Fichiers : `src/app/(app)/settings/page.tsx`, `src/app/(app)/settings/actions.ts`, `src/components/settings/locale-picker.tsx`
