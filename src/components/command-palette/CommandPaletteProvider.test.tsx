@@ -14,8 +14,12 @@ import fr from "../../../messages/fr.json";
 
 const push = vi.hoisted(() => vi.fn());
 const runAction = vi.hoisted(() => vi.fn());
+const pathname = vi.hoisted(() => ({ current: "/dashboard" }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+  usePathname: () => pathname.current,
+}));
 vi.mock("@/app/(app)/actions", () => ({ runAction }));
 
 import { CommandPaletteProvider } from "./CommandPaletteProvider";
@@ -50,7 +54,12 @@ function command(name: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  pathname.current = "/dashboard";
 });
+
+function fill(template: string, query: string) {
+  return template.replace("{query}", query);
+}
 
 describe("palette de commandes", () => {
   it("s'ouvre avec ⌘K et se referme avec ⌘K", async () => {
@@ -120,7 +129,50 @@ describe("palette de commandes", () => {
 
     fireEvent.change(search, { target: { value: "zzzz" } });
 
-    expect(await screen.findByText(fr.palette.empty)).toBeTruthy();
+    expect(
+      await screen.findByText(fill(fr.palette.empty, "zzzz")),
+    ).toBeTruthy();
+  });
+
+  it.each([
+    ["fr", "langue", fr.palette.commands.switchLocale.en],
+    ["fr", "réglages", fr.shell.settings],
+    ["en", "language", en.palette.commands.switchLocale.fr],
+    ["en", "settings", en.shell.settings],
+  ] as const)(
+    "(%s) le mot suggéré par l'état vide « %s » trouve une commande",
+    async (locale, word, expected) => {
+      const messages = locale === "fr" ? fr : en;
+      expect(messages.palette.empty).toContain(word);
+      renderPalette(locale);
+      pressShortcut();
+      const search = await screen.findByRole("combobox");
+
+      fireEvent.change(search, { target: { value: word } });
+
+      expect(
+        await screen.findByRole("option", { name: expected }),
+      ).toBeTruthy();
+    },
+  );
+
+  it("l'aide clavier présente ↑↓, Entrée et Échap en touches <kbd>", async () => {
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+
+    const hint = document.getElementById(
+      search.getAttribute("aria-describedby") ?? "",
+    );
+    const keys = [...(hint?.querySelectorAll("kbd") ?? [])].map(
+      (kbd) => kbd.textContent,
+    );
+
+    expect(keys).toEqual(["↑↓", "Entrée", "Échap"]);
+    expect(hint?.textContent).toContain("pour choisir");
+    hint?.querySelectorAll("kbd").forEach((kbd) => {
+      expect(kbd.className).toContain("bg-chip-neutral");
+    });
   });
 
   it("lance core.setLocale par la Server Action unique, puis se ferme", async () => {
@@ -246,9 +298,7 @@ describe("palette de commandes", () => {
     await screen.findByRole("dialog");
 
     await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "déclencheur" }),
-      ).toBeNull(),
+      expect(screen.queryByRole("button", { name: "déclencheur" })).toBeNull(),
     );
   });
 
@@ -261,10 +311,11 @@ describe("palette de commandes", () => {
     expect(within(dialog).queryAllByRole("button")).toEqual([]);
   });
 
-  it("l'option en surbrillance porte l'anneau de focus du token ring (DESIGN.md § 11)", async () => {
+  it("un seul anneau de focus : la rangée de recherche au focus, l'option en surbrillance au clavier (DESIGN.md § 11)", async () => {
     renderPalette();
 
     pressShortcut();
+    const search = await screen.findByRole("combobox");
     const highlighted = await waitFor(() => {
       const option = screen
         .getAllByRole("option")
@@ -273,8 +324,29 @@ describe("palette de commandes", () => {
       return option;
     });
 
+    expect(search.className).toContain("outline-none");
+    expect(search.parentElement?.className).toContain(
+      "focus-within:border-ring",
+    );
     expect(highlighted.className).toContain("data-highlighted:ring-2");
     expect(highlighted.className).toContain("data-highlighted:ring-ring");
+    expect(highlighted.className).toContain(
+      "pointer-coarse:data-highlighted:ring-0",
+    );
+  });
+
+  it("signale la page courante dans « Aller à » (aria-current et pastille)", async () => {
+    pathname.current = "/settings";
+    renderPalette();
+    pressShortcut();
+
+    const current = await screen.findByRole("option", {
+      name: fr.shell.settings,
+    });
+
+    expect(current.getAttribute("aria-current")).toBe("page");
+    expect(within(current).getByText(fr.palette.current)).toBeTruthy();
+    expect(command(fr.shell.home).hasAttribute("aria-current")).toBe(false);
   });
 
   it("en anglais, propose de passer en français", async () => {

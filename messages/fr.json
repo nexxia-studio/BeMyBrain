@@ -149,7 +149,7 @@
     "title": "Palette de commandes",
     "search": "Chercher une commande",
     "placeholder": "Chercher une page ou une action…",
-    "empty": "Aucune commande ne correspond.",
+    "empty": "Rien pour « {query} ». Essaie « langue » ou « réglages ».",
     "groups": {
       "navigation": "Aller à",
       "actions": "Actions"
@@ -162,8 +162,9 @@
       "switchLocaleKeywords": "langue language traduction"
     },
     "navigationKeywords": "page aller ouvrir",
+    "current": "Ici",
     "pending": "En cours…",
     "error": "Action non lancée. Réessaie.",
-    "hint": "Entrée pour lancer, Échap pour fermer"
+    "hint": "<kbd>↑↓</kbd> pour choisir, <kbd>Entrée</kbd> pour lancer, <kbd>Échap</kbd> pour fermer"
   }
 }

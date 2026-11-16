@@ -149,7 +149,7 @@
     "title": "Command palette",
     "search": "Search commands",
     "placeholder": "Search for a page or an action…",
-    "empty": "No command matches.",
+    "empty": "Nothing for \"{query}\". Try \"language\" or \"settings\".",
     "groups": {
       "navigation": "Go to",
       "actions": "Actions"
@@ -162,8 +162,9 @@
       "switchLocaleKeywords": "language langue translation"
     },
     "navigationKeywords": "page go open",
+    "current": "Current",
     "pending": "Running…",
     "error": "Action not run. Try again.",
-    "hint": "Enter to run, Esc to close"
+    "hint": "<kbd>↑↓</kbd> to choose, <kbd>Enter</kbd> to run, <kbd>Esc</kbd> to close"
   }
 }
