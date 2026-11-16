@@ -27,6 +27,13 @@ Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et uti
 - Vercel reste en formule gratuite (Hobby) : Deployment Checks à vérifier dans les réglages du projet ; sinon plan B (déploiement de production déclenché par le workflow après la migration).
 - À réexaminer quand la to-do (premier module à vraies données) part en production.
 
+## Dépôt public (2026-11-16)
+- `nexxia-studio/BeMyBrain` reste public jusqu'à la commercialisation, puis passe en privé (décision d'Antoine).
+- Conséquences acceptées : code, docs et **journaux GitHub Actions lisibles par tous**. Le masquage de `scripts/ci/neon-branch.mjs` (hôtes, endpoints, mots de passe, URL) est donc indispensable ; l'étape 13 de la tâche 17 vérifie qu'aucun hôte n'apparaît en clair.
+- Une PR de fork ne reçoit aucun secret : `preview-database.yml` échoue explicitement, aucun workflow n'utilise `pull_request_target`. Exiger l'approbation des workflows pour tout contributeur extérieur (réglage Actions du dépôt).
+- Le risque « écriture sur le dépôt » ci-dessus ne change pas : public ne donne pas l'écriture.
+- Rien dans le dépôt ne doit identifier l'infrastructure (id de projet Neon ou Vercel, hôtes, comptes) : vérifié le 2026-11-16.
+
 ## Conséquences
 - La tâche 17 du plan socle crée ce workflow et ses secrets.
 - Mot de passe propriétaire de production changé le 2026-11-12 et rangé dans 1Password.
