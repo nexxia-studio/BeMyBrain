@@ -22,6 +22,11 @@ Le 2026-11-12, une migration lancée en local a atterri sur la branche Neon `pro
 ## Risque accepté
 Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et utiliser `NEON_API_KEY` et `VERCEL_TOKEN`, donc atteindre la branche `production`. Accepté par Antoine le 2026-11-12, tant qu'il est le seul à avoir l'écriture. Protéger `production` dans Neon demande une formule payante : sans elle, seule la limitation des clés (projet `bemybrain`, deux étapes de workflow) réduit ce risque. À revoir dès qu'un second contributeur a l'écriture.
 
+## Formules gratuites (2026-11-16)
+- Neon reste en formule gratuite (décision d'Antoine) : la branche `production` n'est **pas protégée** (suppression et reset possibles par toute clé du projet ; les branches filles héritent des mots de passe du parent, d'où leur réinitialisation par `scripts/ci/neon-branch.mjs`). Fenêtre de restauration : 6 h.
+- Vercel reste en formule gratuite (Hobby) : Deployment Checks à vérifier dans les réglages du projet ; sinon plan B (déploiement de production déclenché par le workflow après la migration).
+- À réexaminer quand la to-do (premier module à vraies données) part en production.
+
 ## Conséquences
 - La tâche 17 du plan socle crée ce workflow et ses secrets.
 - Mot de passe propriétaire de production changé le 2026-11-12 et rangé dans 1Password.
