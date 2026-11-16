@@ -16,6 +16,9 @@ const ACCOUNT_LOCALE_SPEC = /changer-de-langue\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Un seul worker : Neon Auth limite le débit des connexions (429) sur le compte e2e partagé (docs/gotchas.md).
+  // Pour paralléliser un jour : une connexion unique réutilisée via storageState.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
