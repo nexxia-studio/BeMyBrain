@@ -204,6 +204,51 @@ export async function save(requireSession: () => Promise<void>) { await requireS
   });
 });
 
+describe("garde des Server Actions : requireSessionWithToken", () => {
+  const guarded = `export async function save() { const { session, token } = await requireSessionWithToken(); return token; }`;
+
+  it("accepte const … = await requireSessionWithToken() importée de @/lib/session en première instruction", () => {
+    const source = `"use server";
+import { requireSessionWithToken } from "@/lib/session";
+${guarded}`;
+
+    expect(names(source)).toEqual([]);
+  });
+
+  it("refuse un requireSessionWithToken importé d'un autre module", () => {
+    const source = `"use server";
+import { requireSessionWithToken } from "./fake-session";
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse un requireSessionWithToken déclaré localement, même avec le bon import de requireSession", () => {
+    const source = `"use server";
+import { requireSession } from "@/lib/session";
+const requireSessionWithToken = async () => ({});
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse un autre export renommé en requireSessionWithToken", () => {
+    const source = `"use server";
+import { requireSessionToken as requireSessionWithToken } from "@/lib/session";
+${guarded}`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+
+  it("refuse requireSessionToken seul : il ne résout pas le workspace de la session", () => {
+    const source = `"use server";
+import { requireSessionToken } from "@/lib/session";
+export async function save() { const token = await requireSessionToken(); return token; }`;
+
+    expect(names(source)).toEqual(["save"]);
+  });
+});
+
 describe("garde des Server Actions : exports mutables et fichiers parcourus", () => {
   it("refuse export let et export var, même gardés", () => {
     const source = `"use server";
@@ -215,11 +260,24 @@ export var remove = async () => { await requireSession(); };`;
   });
 
   it("parcourt aussi les .js, .jsx, .mjs, .cjs, .mts et .cts, pas les tests", () => {
-    const files = ["a.ts", "b.tsx", "c.js", "d.jsx", "e.mjs", "f.cjs", "g.mts", "h.cts"];
+    const files = [
+      "a.ts",
+      "b.tsx",
+      "c.js",
+      "d.jsx",
+      "e.mjs",
+      "f.cjs",
+      "g.mts",
+      "h.cts",
+    ];
 
-    const scanned = [...files, "i.test.ts", "j.test.mjs", "k.json", "l.md"].filter(
-      isScannedFile,
-    );
+    const scanned = [
+      ...files,
+      "i.test.ts",
+      "j.test.mjs",
+      "k.json",
+      "l.md",
+    ].filter(isScannedFile);
 
     expect(scanned).toEqual(files);
   });

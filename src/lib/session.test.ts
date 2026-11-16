@@ -41,6 +41,7 @@ vi.mock("react", () => {
 import {
   requireSession,
   requireSessionToken,
+  requireSessionWithToken,
   syncSessionLocale,
 } from "./session";
 
@@ -133,6 +134,30 @@ describe("requireSession", () => {
 
     expect(token).toBe("eyJ.jwt.signe");
     expect(resolveMembership).toHaveBeenCalledTimes(1);
+  });
+
+  it("requireSessionWithToken renvoie la session et le JWT d'une seule vérification, même hors rendu (Server Action)", async () => {
+    const resolved = await requireSessionWithToken();
+
+    expect(resolved).toEqual({
+      session: {
+        userId: JWT_USER,
+        workspaceId: WORKSPACE.id,
+        workspaceName: WORKSPACE.name,
+      },
+      token: "eyJ.jwt.signe",
+    });
+    expect(getSessionToken).toHaveBeenCalledTimes(1);
+    expect(resolveMembership).toHaveBeenCalledTimes(1);
+  });
+
+  it("requireSessionWithToken sans session redirige vers /login", async () => {
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login");
+    expect(resolveMembership).not.toHaveBeenCalled();
   });
 
   it("requireSessionToken sans session redirige vers /login", async () => {

@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 
 import { syncLocaleCookie } from "@/lib/locale-cookie";
-import { requireSession, requireSessionToken } from "@/lib/session";
+import { requireSessionWithToken } from "@/lib/session";
 import { saveMemberLocale } from "@/modules/core/locale";
 import { localeSchema } from "@/modules/core/schemas";
 
@@ -15,12 +15,10 @@ import { localeSchema } from "@/modules/core/schemas";
  * rien n'est écrit. Échec d'enregistrement → l'erreur remonte, le cookie n'est pas touché.
  */
 export async function setLocale(locale: unknown): Promise<void> {
-  const { workspaceId } = await requireSession();
+  const { session, token } = await requireSessionWithToken();
   const parsed = localeSchema.safeParse(locale);
   if (!parsed.success) return;
-  // Hors rendu, la session n'est pas mémoïsée : seconde vérification du jeton, assumée pour un geste rare.
-  const token = await requireSessionToken();
-  const saved = await saveMemberLocale(token, workspaceId, parsed.data);
+  const saved = await saveMemberLocale(token, session.workspaceId, parsed.data);
   await syncLocaleCookie(saved);
   refresh();
 }

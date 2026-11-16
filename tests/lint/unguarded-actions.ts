@@ -3,34 +3,38 @@ import ts from "typescript";
 // Server Actions non gardées (règle frontend.md « Session », audit tâche 10).
 // Action = toute valeur exportée d'un fichier "use server" (export function, export const, export default,
 // export { x }, export * / from), ou toute fonction dont le corps commence par "use server".
-// Gardée = `requireSession` est l'import de @/lib/session (aucune autre déclaration de ce nom) et la première instruction du corps (après les directives) est `await requireSession();` ou
-// `const … = await requireSession();`. Un export qui n'est pas une fonction écrite sur place (wrapper,
+// Gardée = une garde (`requireSession` ou `requireSessionWithToken`) est l'import de @/lib/session sous son
+// propre nom (aucune autre déclaration de ce nom) et la première instruction du corps (après les directives)
+// est `await <garde>();` ou `const … = await <garde>();`. Un export qui n'est pas une fonction écrite sur place (wrapper,
 // ré-export) est refusé : la garde ne peut pas y être lue.
 
 export type UnguardedAction = { file: string; line: number; name: string };
 
 const SESSION_MODULE = "@/lib/session";
-const GUARD = "requireSession";
+const GUARDS = ["requireSession", "requireSessionWithToken"] as const;
 
 /** Fichiers source parcourus (JS et TS, toutes variantes), hors tests. */
 export function isScannedFile(name: string): boolean {
-  return /\.(c|m)?(j|t)sx?$/.test(name) && !/\.test\.(c|m)?(j|t)sx?$/.test(name);
+  return (
+    /\.(c|m)?(j|t)sx?$/.test(name) && !/\.test\.(c|m)?(j|t)sx?$/.test(name)
+  );
 }
 
 /**
- * Vrai si `requireSession` désigne sans ambiguïté celui de @/lib/session : importé de ce module sous son
+ * Vrai si la garde `guard` désigne sans ambiguïté celle de @/lib/session : importée de ce module sous son
  * propre nom, et aucune autre déclaration de ce nom dans le fichier (variable, fonction, paramètre…).
  */
-function trustsGuard(sourceFile: ts.SourceFile): boolean {
+function trustsGuard(sourceFile: ts.SourceFile, guard: string): boolean {
   let trustedImports = 0;
   let otherDeclarations = 0;
   const visit = (node: ts.Node) => {
-    if (ts.isImportSpecifier(node) && node.name.text === GUARD) {
+    if (ts.isImportSpecifier(node) && node.name.text === guard) {
       const declaration = node.parent.parent.parent;
       const fromSession =
         ts.isStringLiteral(declaration.moduleSpecifier) &&
         declaration.moduleSpecifier.text === SESSION_MODULE;
-      const sameName = (node.propertyName ?? node.name).getText(sourceFile) === GUARD;
+      const sameName =
+        (node.propertyName ?? node.name).getText(sourceFile) === guard;
       const typeOnly = node.isTypeOnly || node.parent.parent.isTypeOnly;
       if (fromSession && sameName && !typeOnly) trustedImports += 1;
       else otherDeclarations += 1;
@@ -48,7 +52,7 @@ function trustsGuard(sourceFile: ts.SourceFile): boolean {
         ts.isEnumDeclaration(node)) &&
       node.name !== undefined &&
       ts.isIdentifier(node.name) &&
-      node.name.text === GUARD
+      node.name.text === guard
     ) {
       otherDeclarations += 1;
     }
@@ -89,25 +93,29 @@ function prologue(statements: readonly ts.Statement[]) {
   return { directives, firstStatement: statements[index] };
 }
 
-function isAwaitRequireSession(node: ts.Expression | undefined): boolean {
+/** `await <garde>()` d'une garde reconnue dans ce fichier. */
+function isAwaitGuard(
+  node: ts.Expression | undefined,
+  trusted: ReadonlySet<string>,
+): boolean {
   return (
     node !== undefined &&
     ts.isAwaitExpression(node) &&
     ts.isCallExpression(node.expression) &&
     ts.isIdentifier(node.expression.expression) &&
-    node.expression.expression.text === "requireSession"
+    trusted.has(node.expression.expression.text)
   );
 }
 
-function isGuarded(fn: FunctionLike): boolean {
+function isGuarded(fn: FunctionLike, trusted: ReadonlySet<string>): boolean {
   if (!fn.body || !ts.isBlock(fn.body)) return false;
   const first = prologue(fn.body.statements).firstStatement;
   if (!first) return false;
   if (ts.isExpressionStatement(first))
-    return isAwaitRequireSession(first.expression);
+    return isAwaitGuard(first.expression, trusted);
   if (ts.isVariableStatement(first)) {
     const [declaration, ...rest] = first.declarationList.declarations;
-    return rest.length === 0 && isAwaitRequireSession(declaration.initializer);
+    return rest.length === 0 && isAwaitGuard(declaration.initializer, trusted);
   }
   return false;
 }
@@ -163,7 +171,9 @@ export function findUnguardedActions(
         : ts.ScriptKind.TS,
   );
   const found: UnguardedAction[] = [];
-  const guardTrusted = trustsGuard(sourceFile);
+  const trustedGuards = new Set<string>(
+    GUARDS.filter((guard) => trustsGuard(sourceFile, guard)),
+  );
   // Fonctions déjà jugées comme exports (ne pas les rejuger comme actions en ligne).
   const judged = new Set<ts.Node>();
 
@@ -180,7 +190,7 @@ export function findUnguardedActions(
   ) => {
     if (fn) judged.add(fn);
     if (publicActions.includes(name)) return;
-    if (!fn || !guardTrusted || !isGuarded(fn)) refuse(fn ?? node, name);
+    if (!fn || !isGuarded(fn, trustedGuards)) refuse(fn ?? node, name);
   };
 
   if (prologue(sourceFile.statements).directives.includes("use server")) {
@@ -194,9 +204,7 @@ export function findUnguardedActions(
         check(name, statement, statement);
       } else if (ts.isVariableStatement(statement) && exported) {
         // export let / var : la valeur peut être remplacée après coup, la garde n'est plus lisible.
-        const mutable = !(
-          statement.declarationList.flags & ts.NodeFlags.Const
-        );
+        const mutable = !(statement.declarationList.flags & ts.NodeFlags.Const);
         for (const declaration of statement.declarationList.declarations) {
           if (mutable) {
             refuse(declaration, declaration.name.getText(sourceFile));

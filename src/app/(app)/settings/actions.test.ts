@@ -1,17 +1,18 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const requireSession = vi.hoisted(() => vi.fn());
-const requireSessionToken = vi.hoisted(() => vi.fn());
+const requireSessionWithToken = vi.hoisted(() => vi.fn());
 const saveMemberLocale = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
 const calls = vi.hoisted(() => [] as string[]);
 
-vi.mock("@/lib/session", () => ({ requireSession, requireSessionToken }));
+vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
 vi.mock("@/modules/core/locale", () => ({ saveMemberLocale }));
 vi.mock("@/lib/locale-cookie", () => ({ syncLocaleCookie }));
 vi.mock("next/cache", () => ({ refresh }));
+
+import { localeSchema } from "@/modules/core/schemas";
 
 import { setLocale } from "./actions";
 
@@ -24,11 +25,11 @@ const SESSION = {
 beforeEach(() => {
   vi.clearAllMocks();
   calls.length = 0;
-  requireSession.mockImplementation(async () => {
-    calls.push("requireSession");
-    return SESSION;
+  vi.restoreAllMocks();
+  requireSessionWithToken.mockImplementation(async () => {
+    calls.push("requireSessionWithToken");
+    return { session: SESSION, token: "eyJ.jwt.signe" };
   });
-  requireSessionToken.mockResolvedValue("eyJ.jwt.signe");
   saveMemberLocale.mockImplementation(async (_t, _w, locale: string) => {
     calls.push("saveMemberLocale");
     return locale;
@@ -52,7 +53,7 @@ describe("changer de langue (Server Action)", () => {
     );
     expect(syncLocaleCookie).toHaveBeenCalledWith("en");
     expect(calls).toEqual([
-      "requireSession",
+      "requireSessionWithToken",
       "saveMemberLocale",
       "syncLocaleCookie",
       "refresh",
@@ -76,10 +77,19 @@ describe("changer de langue (Server Action)", () => {
   });
 
   it("refuse sans session, avant toute écriture", async () => {
-    requireSession.mockRejectedValue(new Error("REDIRECT:/login"));
+    requireSessionWithToken.mockRejectedValue(new Error("REDIRECT:/login"));
 
     await expect(setLocale("en")).rejects.toThrow("REDIRECT:/login");
     expect(saveMemberLocale).not.toHaveBeenCalled();
     expect(syncLocaleCookie).not.toHaveBeenCalled();
+  });
+
+  it("refuse sans session une langue invalide, avant toute validation", async () => {
+    requireSessionWithToken.mockRejectedValue(new Error("REDIRECT:/login"));
+    const validate = vi.spyOn(localeSchema, "safeParse");
+
+    await expect(setLocale("de")).rejects.toThrow("REDIRECT:/login");
+    expect(validate).not.toHaveBeenCalled();
+    expect(saveMemberLocale).not.toHaveBeenCalled();
   });
 });

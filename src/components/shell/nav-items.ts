@@ -13,7 +13,8 @@ export type NavItem = {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: HOME_PATH, labelKey: "home", icon: House },
-  // Dernier : de l'autre côté du bouton d'ajout dans la barre d'onglets, en bas de la barre latérale.
+  // Toujours en dernier : les sections des modules s'insèrent avant. Barre latérale : sous les sections,
+  // au-dessus de la déconnexion. Barre d'onglets : dans la seconde moitié, à droite du bouton d'ajout.
   { href: SETTINGS_PATH, labelKey: "settings", icon: Settings },
 ];
 

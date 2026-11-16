@@ -17,11 +17,13 @@ function strings(messages: object, prefix = ""): [string, string][] {
 
 // Mots entiers, lettres accentuées comprises : `\b` et `\w` de JavaScript
 // ignorent « é », ce qui couperait « Réessayez » en « essayez ».
-const VOUS = /(?<!\p{L})(vous|votre|vos)(?!\p{L})/iu;
+// « faites », « dites », « êtes » : formes de politesse sans « -ez ».
+const VOUS =
+  /(?<!\p{L})(vous|votre|vos|vôtre|vôtres|faites|dites|êtes)(?!\p{L})/iu;
 const IMPERATIVE_EZ = /(?<!\p{L})\p{L}+ez(?!\p{L})/giu;
 
 // Faux positifs réels : mots français en « -ez » qui ne sont pas des verbes.
-const NOT_A_VERB = new Set(["chez", "assez", "nez"]);
+const NOT_A_VERB = new Set(["chez", "assez", "nez", "rez"]);
 
 function formalAddress(text: string): string | null {
   const vous = VOUS.exec(text);
@@ -49,11 +51,28 @@ describe("registre de messages/fr.json", () => {
       "Vérifiez ton e-mail.",
       "Vos réglages",
       "Réessayez.",
-      "Chez toi, assez vite, le nez au vent.",
+      "Faites un essai.",
+      "Dites-le-nous.",
+      "Vous êtes connecté.",
+      "Êtes-tu sûr ?",
+      "Ce choix est le vôtre.",
+      "Les vôtres",
+      "Chez toi, assez vite, le nez au vent, au rez-de-chaussée.",
     ];
 
     const results = samples.map(formalAddress);
 
-    expect(results).toEqual(["Vérifiez", "Vos", "Réessayez", null]);
+    expect(results).toEqual([
+      "Vérifiez",
+      "Vos",
+      "Réessayez",
+      "Faites",
+      "Dites",
+      "Vous",
+      "Êtes",
+      "vôtre",
+      "vôtres",
+      null,
+    ]);
   });
 });

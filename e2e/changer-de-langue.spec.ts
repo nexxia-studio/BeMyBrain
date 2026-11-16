@@ -1,10 +1,12 @@
-import { expect, type Page, test } from "@playwright/test";
+import { devices, expect, type Page, test } from "@playwright/test";
 
 import en from "../messages/en.json";
 import fr from "../messages/fr.json";
 import { watchCspViolations } from "./csp";
 import { signIn } from "./session";
 
+// Tourne dans son propre projet Playwright (playwright.config.ts), après les autres : il modifie le compte
+// e2e partagé.
 // Scénario 4 de la spec socle (changer de langue) : Antoine ouvre ses réglages, passe en anglais, recharge,
 // se reconnecte : l'anglais est conservé (langue enregistrée par appartenance, ADR-007), URL inchangée.
 // La reconnexion se fait depuis un navigateur sans cookie (autre appareil, navigateur en français) : la
@@ -113,8 +115,18 @@ test.describe("ordinateur (1440 px)", () => {
   });
 });
 
+// Projet Playwright « langue » (Chromium, seul et en série) : l'iPhone est émulé ici, sans son moteur
+// par défaut (WebKit refuse les cookies __Secure- sur http://localhost).
+const iphone = devices["iPhone 15"];
+
 test.describe("mobile (390 px)", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({
+    userAgent: iphone.userAgent,
+    deviceScaleFactor: iphone.deviceScaleFactor,
+    isMobile: iphone.isMobile,
+    hasTouch: iphone.hasTouch,
+    viewport: { width: 390, height: 844 },
+  });
 
   test("passe en anglais par l'onglet Réglages, se déconnecte depuis les réglages et se reconnecte : l'anglais est conservé", async ({
     page,

@@ -17,7 +17,7 @@ export type AppSession = {
   workspaceName: string;
 };
 
-type ResolvedSession = { session: AppSession; token: string };
+export type ResolvedSession = { session: AppSession; token: string };
 
 async function loadSession(): Promise<ResolvedSession> {
   const token = await getSessionToken();
@@ -31,7 +31,11 @@ async function loadSession(): Promise<ResolvedSession> {
   // à la connexion (syncSessionLocale) et au changement de langue (tâche 16).
 
   return {
-    session: { userId, workspaceId: workspace.id, workspaceName: workspace.name },
+    session: {
+      userId,
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+    },
     token,
   };
 }
@@ -60,6 +64,16 @@ export async function requireSession(): Promise<AppSession> {
  */
 export async function requireSessionToken(): Promise<string> {
   return (await resolveSession()).token;
+}
+
+/**
+ * Session et JWT d'une seule résolution, pour une Server Action qui écrit en base : hors rendu, `cache` ne
+ * mémoïse pas, et requireSession puis requireSessionToken vérifieraient le jeton deux fois. Garde reconnue
+ * en première instruction, au même titre que requireSession (tests/lint/unguarded-actions.ts). Mêmes
+ * redirections ; le jeton reste un secret (jamais renvoyé au client ni journalisé).
+ */
+export async function requireSessionWithToken(): Promise<ResolvedSession> {
+  return resolveSession();
 }
 
 /**
