@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
@@ -8,12 +8,15 @@ const pathname = vi.hoisted(() => ({ current: "/dashboard" }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 
+import { OpenPaletteContext } from "../command-palette/palette-context";
 import { TabBar } from "./TabBar";
 
-function renderTabBar() {
+function renderTabBar(openPalette = vi.fn()) {
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
-      <TabBar />
+      <OpenPaletteContext value={openPalette}>
+        <TabBar />
+      </OpenPaletteContext>
     </NextIntlClientProvider>,
   );
 }
@@ -57,12 +60,15 @@ describe("barre d'onglets mobile", () => {
     ).toBeTruthy();
   });
 
-  it("montre le bouton d'ajout, désactivé tant que la palette n'existe pas", () => {
+  it("le bouton d'ajout, actif, ouvre la palette de commandes", () => {
     pathname.current = "/dashboard";
-
-    renderTabBar();
+    const openPalette = vi.fn();
+    renderTabBar(openPalette);
 
     const add = screen.getByRole("button", { name: "Ajouter rapidement" });
-    expect((add as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(add);
+
+    expect((add as HTMLButtonElement).disabled).toBe(false);
+    expect(openPalette).toHaveBeenCalledOnce();
   });
 });

@@ -4,6 +4,7 @@
 import { Plus, Search } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import { PaletteTrigger } from "@/components/command-palette/PaletteTrigger";
 import type { Side } from "@/modules/core/schemas";
 
 import { BrandMark } from "./BrandMark";
@@ -28,27 +29,21 @@ export async function ShellHeader({ side }: ShellHeaderProps) {
         <span className="truncate font-heading text-brand">{tApp("name")}</span>
       </div>
       <SideSwitch side={side} />
-      {/* raccourci: recherche (⌘K) et ajout sans action jusqu'à la palette (tâche 20), donc désactivés — les activer alors. */}
+      {/* Recherche et ajout ouvrent la palette (ADR-009) : l'ajout y passera quand les modules auront des actions d'ajout. */}
       <div className="hidden items-center gap-2.5 lg:flex">
-        <button
-          type="button"
-          disabled
-          className="flex min-h-11 items-center gap-2.5 rounded-full border border-border bg-secondary px-4 text-body text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <PaletteTrigger className="flex min-h-11 items-center gap-2.5 rounded-full border border-border bg-secondary px-4 text-body text-muted-foreground hover:text-foreground">
           <Search aria-hidden="true" className="size-4.5" strokeWidth={2} />
           {t("search")}
           <kbd className="rounded-sm bg-chip-neutral px-2 py-0.5 font-sans text-caption font-semibold text-chip-neutral-foreground">
             {t("searchShortcut")}
           </kbd>
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-label={t("quickAdd")}
-          className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+        </PaletteTrigger>
+        <PaletteTrigger
+          label={t("quickAdd")}
+          className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-hover"
         >
           <Plus aria-hidden="true" className="size-5" strokeWidth={2.4} />
-        </button>
+        </PaletteTrigger>
       </div>
     </header>
   );

@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { PaletteTrigger } from "@/components/command-palette/PaletteTrigger";
 import { cn } from "@/lib/utils";
 
 import { NavLink } from "./NavLink";
@@ -59,15 +60,13 @@ export function TabBar({ className }: TabBarProps) {
         className="glass mx-4 flex items-center gap-0.5 rounded-bar px-2.5 py-2"
       >
         {before}
-        {/* raccourci: sans action jusqu'à la palette de commandes (tâche 20), donc désactivé — l'activer alors. */}
-        <button
-          type="button"
-          disabled
-          aria-label={t("quickAdd")}
-          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-fab disabled:cursor-not-allowed disabled:opacity-60"
+        {/* Ajout rapide : ouvre la palette (ADR-009), au pouce, au centre de la barre. */}
+        <PaletteTrigger
+          label={t("quickAdd")}
+          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-fab"
         >
           <Plus aria-hidden="true" className="size-6" strokeWidth={2.4} />
-        </button>
+        </PaletteTrigger>
         {after}
       </nav>
     </div>

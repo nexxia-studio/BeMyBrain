@@ -138,5 +138,33 @@
     "account": {
       "title": "Compte"
     }
+  },
+  "actions": {
+    "core": {
+      "listContexts": "Lister les espaces d'un côté, Privé ou Pro",
+      "setLocale": "Changer la langue de l'interface"
+    }
+  },
+  "palette": {
+    "title": "Palette de commandes",
+    "search": "Chercher une commande",
+    "placeholder": "Chercher une page ou une action…",
+    "close": "Fermer la palette",
+    "empty": "Aucune commande ne correspond.",
+    "groups": {
+      "navigation": "Aller à",
+      "actions": "Actions"
+    },
+    "commands": {
+      "switchLocale": {
+        "fr": "Passer en français",
+        "en": "Passer en anglais"
+      },
+      "switchLocaleKeywords": "langue language traduction"
+    },
+    "navigationKeywords": "page aller ouvrir",
+    "pending": "En cours…",
+    "error": "Action non lancée. Réessaie.",
+    "hint": "Entrée pour lancer, Échap pour fermer"
   }
 }

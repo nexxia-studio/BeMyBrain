@@ -138,5 +138,33 @@
     "account": {
       "title": "Account"
     }
+  },
+  "actions": {
+    "core": {
+      "listContexts": "List the spaces of one side, Private or Pro",
+      "setLocale": "Change the interface language"
+    }
+  },
+  "palette": {
+    "title": "Command palette",
+    "search": "Search commands",
+    "placeholder": "Search for a page or an action…",
+    "close": "Close the palette",
+    "empty": "No command matches.",
+    "groups": {
+      "navigation": "Go to",
+      "actions": "Actions"
+    },
+    "commands": {
+      "switchLocale": {
+        "fr": "Switch to French",
+        "en": "Switch to English"
+      },
+      "switchLocaleKeywords": "language langue translation"
+    },
+    "navigationKeywords": "page go open",
+    "pending": "Running…",
+    "error": "Action not run. Try again.",
+    "hint": "Enter to run, Esc to close"
   }
 }

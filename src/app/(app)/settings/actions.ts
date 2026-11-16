@@ -7,7 +7,8 @@ import { requireSessionWithToken } from "@/lib/session";
 import { saveMemberLocale } from "@/modules/core/locale";
 import { localeSchema } from "@/modules/core/schemas";
 
-// raccourci: action appelée directement par l'écran Réglages — à déclarer dans le registre (ADR-009) à la tâche 20.
+// raccourci: l'écran Réglages appelle cette action directe ; la même écriture existe au registre (core.setLocale,
+// lancée par la palette via runAction) — faire passer LocalePicker par runAction quand un second écran l'imposera.
 
 /**
  * Langue de l'interface (ADR-007) : enregistrée sur l'appartenance du workspace de la session (source de

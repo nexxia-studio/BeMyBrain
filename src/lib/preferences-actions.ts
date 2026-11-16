@@ -14,7 +14,9 @@ import {
 
 // Préférences d'affichage : un cookie par choix, relu par le rendu serveur (Next rafraîchit la route
 // après une action qui écrit un cookie). Entrée invalide → rien n'est écrit, sans erreur.
-// raccourci: actions appelées directement par la coque — à déclarer dans le registre (ADR-009) à la tâche 20.
+// Hors registre, assumé (plan socle, tâche 20) : préférences d'affichage en cookies (next/headers), interdits
+// dans un registre sans Next. Si l'assistant doit basculer le côté, la préférence passera en base et l'action
+// entrera au registre.
 
 /** Côté affiché (Privé / Pro). */
 export async function setSide(side: unknown): Promise<void> {

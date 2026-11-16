@@ -17,8 +17,8 @@ const isLocal = new URL(baseURL).protocol === "http:";
 // la lister dans E2E_FORBIDDEN_HOSTS à la création du projet Vercel (tâche 17).
 assertE2eTargetAllowed(baseURL, process.env.E2E_FORBIDDEN_HOSTS);
 
-// Seul parcours qui modifie le compte e2e partagé (sa langue).
-const ACCOUNT_LOCALE_SPEC = /changer-de-langue\.spec\.ts$/;
+// Parcours qui modifient le compte e2e partagé (sa langue) : réglages et palette de commandes.
+const ACCOUNT_LOCALE_SPEC = /(changer-de-langue|palette)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
