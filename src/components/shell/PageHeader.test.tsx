@@ -14,9 +14,9 @@ import { PageHeader } from "./PageHeader";
 const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
 const NEXXIA = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
 
-async function renderHeader() {
+async function renderHeader(contextFilter?: boolean) {
   // Composant serveur asynchrone : on attend son rendu avant de le monter.
-  const element = await PageHeader({ title: "Tableau de bord" });
+  const element = await PageHeader({ title: "Tableau de bord", contextFilter });
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
       {element}
@@ -59,5 +59,20 @@ describe("en-tête de page", () => {
     await renderHeader();
 
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("n'affiche pas la pastille sur une page sans contenu par espace (réglages), sans lire le filtre", async () => {
+    loadContextFilter.mockResolvedValue({
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      selected: [TRUSTUP.id],
+    });
+
+    await renderHeader(false);
+
+    expect(
+      screen.queryByRole("button", { name: /Espaces affichés/ }),
+    ).toBeNull();
+    expect(loadContextFilter).not.toHaveBeenCalled();
   });
 });

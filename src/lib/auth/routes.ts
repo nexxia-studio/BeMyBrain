@@ -2,6 +2,7 @@
 export const LOGIN_PATH = "/login";
 export const RESET_PASSWORD_PATH = "/reset-password";
 export const HOME_PATH = "/dashboard";
+export const SETTINGS_PATH = "/settings";
 // Utilisateur connecté sans appartenance : hors du groupe (app), dont le layout appelle requireSession.
 export const NO_WORKSPACE_PATH = "/no-workspace";
 

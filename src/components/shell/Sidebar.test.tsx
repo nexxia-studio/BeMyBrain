@@ -33,6 +33,15 @@ describe("barre latérale", () => {
     expect(home.getAttribute("href")).toBe("/dashboard");
   });
 
+  it("propose le lien vers les réglages", () => {
+    renderSidebar("private");
+
+    const settings = screen.getByRole("link", { name: "Réglages" });
+
+    expect(settings.getAttribute("href")).toBe("/settings");
+    expect(settings.getAttribute("aria-current")).toBeNull();
+  });
+
   it("place le filtre d'espace sous le titre du côté, avant les liens", () => {
     render(
       <NextIntlClientProvider locale="fr" messages={messages}>

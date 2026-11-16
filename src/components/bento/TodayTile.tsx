@@ -26,6 +26,7 @@ export function TodayTile({ spaces, workspaceName }: TodayTileProps) {
       <div className="flex flex-col gap-2.5">
         <p
           data-signature-item
+          data-testid="today-date"
           className="text-eyebrow text-on-primary-muted uppercase"
         >
           {format.dateTime(now, {

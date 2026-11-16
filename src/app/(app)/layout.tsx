@@ -23,12 +23,6 @@ export default async function AppLayout({
   // sans seconde requête.
   const [side, filter] = await Promise.all([readSide(), loadContextFilter()]);
 
-  const signOutForm = (
-    <form action={signOut}>
-      <SignOutButton />
-    </form>
-  );
-
   return (
     <MotionRoot>
       <div className="flex min-h-dvh flex-col pr-safe-right pl-safe-left">
@@ -47,13 +41,16 @@ export default async function AppLayout({
                   />
                 ) : null
               }
-              footer={signOutForm}
+              // Sur ordinateur seulement ; sous 1024 px, la déconnexion est dans les Réglages.
+              footer={
+                <form action={signOut}>
+                  <SignOutButton />
+                </form>
+              }
               className="hidden lg:flex"
             />
             <div className="flex min-w-0 flex-1 flex-col gap-grid">
               {children}
-              {/* raccourci: déconnexion en bas de page sur mobile — elle ira dans l'onglet Réglages (tâche 16). */}
-              <div className="lg:hidden">{signOutForm}</div>
             </div>
           </div>
         </div>

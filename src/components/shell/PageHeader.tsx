@@ -9,16 +9,19 @@ import { ContextFilterMenu } from "./ContextFilterMenu";
 type PageHeaderProps = {
   /** Titre traduit par la page. */
   title: string;
+  /** Faux sur une page dont le contenu ne dépend pas des espaces (réglages) : pas de pastille. */
+  contextFilter?: boolean;
 };
 
-export async function PageHeader({ title }: PageHeaderProps) {
-  const filter = await loadContextFilter();
+export async function PageHeader({
+  title,
+  contextFilter = true,
+}: PageHeaderProps) {
+  const filter = contextFilter ? await loadContextFilter() : null;
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <h1 className="min-w-0 font-heading text-page-title">
-        {title}
-      </h1>
+      <h1 className="min-w-0 font-heading text-page-title">{title}</h1>
       {filter ? (
         <div className="min-w-0 lg:hidden">
           <ContextFilterMenu

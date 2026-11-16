@@ -43,6 +43,20 @@ describe("barre d'onglets mobile", () => {
     ).toBeNull();
   });
 
+  it("propose l'onglet Réglages, de l'autre côté du bouton d'ajout, marqué sur ses sous-pages", () => {
+    pathname.current = "/settings";
+
+    renderTabBar();
+
+    const settings = screen.getByRole("link", { name: "Réglages" });
+    const add = screen.getByRole("button", { name: "Ajouter rapidement" });
+    expect(settings.getAttribute("href")).toBe("/settings");
+    expect(settings.getAttribute("aria-current")).toBe("page");
+    expect(
+      add.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("montre le bouton d'ajout, désactivé tant que la palette n'existe pas", () => {
     pathname.current = "/dashboard";
 

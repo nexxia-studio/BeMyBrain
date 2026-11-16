@@ -123,6 +123,20 @@
     "search": "Search or add",
     "searchShortcut": "⌘K",
     "quickAdd": "Quick add",
-    "preferenceError": "Choice not saved. Try again."
+    "preferenceError": "Choice not saved. Try again.",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "title": "Language",
+      "description": "Choose the interface language. Your choice follows you on every device.",
+      "fr": "Français",
+      "en": "English",
+      "error": "Language not saved. Try again."
+    },
+    "account": {
+      "title": "Account"
+    }
   }
 }

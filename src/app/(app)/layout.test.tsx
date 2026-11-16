@@ -8,7 +8,8 @@ const loadContextFilter = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/session", () => ({ requireSession }));
 vi.mock("@/lib/preferences", () => ({ readSide }));
 vi.mock("@/lib/context-filter", () => ({ loadContextFilter }));
-vi.mock("@/lib/auth/actions", () => ({ signOut: vi.fn() }));
+const signOut = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth/actions", () => ({ signOut }));
 
 import { ContextFilter } from "@/components/shell/ContextFilter";
 import { Sidebar } from "@/components/shell/Sidebar";
@@ -37,7 +38,10 @@ function findElement(node: unknown, type: unknown): Element | undefined {
 
 /** Filtre d'espace passé à la barre latérale (emplacement `filter`). */
 function sidebarFilter(element: unknown): Element | undefined {
-  return findElement(findElement(element, Sidebar)?.props.filter, ContextFilter);
+  return findElement(
+    findElement(element, Sidebar)?.props.filter,
+    ContextFilter,
+  );
 }
 
 beforeEach(() => {
@@ -102,5 +106,34 @@ describe("coque : côté et filtre d'espace", () => {
     const element = await AppLayout({ children: null });
 
     expect(sidebarFilter(element)?.props.side).toBe("private");
+  });
+});
+
+/** Formulaires de déconnexion de l'arbre rendu (sans l'exécuter). */
+function signOutForms(node: unknown): Element[] {
+  if (!node || typeof node !== "object") return [];
+  if (Array.isArray(node)) return node.flatMap(signOutForms);
+  const element = node as Element;
+  const own =
+    element.type === "form" && element.props.action === signOut
+      ? [element]
+      : [];
+  return [
+    ...own,
+    ...signOutForms(element.props?.footer),
+    ...signOutForms(element.props?.children),
+  ];
+}
+
+describe("coque : déconnexion", () => {
+  it("place la déconnexion en bas de la barre latérale seulement (sur mobile, elle est dans les Réglages)", async () => {
+    const element = await AppLayout({ children: null });
+
+    const forms = signOutForms(element);
+
+    expect(forms).toHaveLength(1);
+    expect(
+      signOutForms(findElement(element, Sidebar)?.props.footer),
+    ).toHaveLength(1);
   });
 });

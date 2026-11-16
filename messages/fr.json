@@ -123,6 +123,20 @@
     "search": "Chercher ou ajouter",
     "searchShortcut": "⌘K",
     "quickAdd": "Ajouter rapidement",
-    "preferenceError": "Choix non enregistré. Réessaie."
+    "preferenceError": "Choix non enregistré. Réessaie.",
+    "settings": "Réglages"
+  },
+  "settings": {
+    "title": "Réglages",
+    "language": {
+      "title": "Langue",
+      "description": "Choisis la langue de l'interface. Ton choix te suit sur tous tes appareils.",
+      "fr": "Français",
+      "en": "English",
+      "error": "Langue non enregistrée. Réessaie."
+    },
+    "account": {
+      "title": "Compte"
+    }
   }
 }
