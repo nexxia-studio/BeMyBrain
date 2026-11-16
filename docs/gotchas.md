@@ -67,3 +67,5 @@
 - e2e connectés en échec « Service momentanément indisponible » → Neon Auth limite le débit des connexions (429) dès ~26 connexions sur 2 workers → `pnpm e2e --workers=1`.
 - Violation CSP « eval » en production seulement, composant client inerte → zod importé dans le bundle client (sa sonde `Function("")`) ; le dev autorise `unsafe-eval` → jamais de valeur d'un fichier zod côté client (`src/modules/core/sides.ts` sans zod ; verrouillé par `pnpm test:build`).
 - `<script>` en ligne d'une page non exécuté après une navigation côté client (avertissement React) → React n'exécute pas un script recréé côté client → le placer dans le `<head>` du layout racine, avec le nonce CSP.
+- Regex de mot qui rate « Réessayez » → en JavaScript, `\b` et `\w` ignorent les lettres accentuées → `\p{L}` avec le drapeau `u` (`tests/i18n/registre.test.ts`).
+- Localisateur e2e introuvable après un changement de langue → le nom accessible des contrôles change avec la langue → relocaliser avec les textes de la nouvelle langue.
