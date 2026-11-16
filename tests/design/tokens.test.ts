@@ -81,6 +81,8 @@ describe("charte dans globals.css", () => {
     "--halo-lilac",
     "--z-tabbar",
     "--on-primary-lead",
+    "--scrim",
+    "--color-scrim",
   ])("définit le token %s", (token) => {
     expect(css).toMatch(new RegExp(`${token}\\s*:`));
   });
@@ -136,6 +138,13 @@ describe("charte dans globals.css", () => {
       .map(([file]) => file);
 
     expect(offToken).toEqual([]);
+  });
+
+  it("le voile des fenêtres modales (scrim) est l'encre à 20 %, dans DESIGN.md comme dans globals.css", () => {
+    const scrim = "rgb(27 32 51 / 0.2)";
+
+    expect(design).toContain(`scrim: "${scrim}"`);
+    expect(css).toMatch(/--scrim\s*:\s*rgb\(27 32 51 \/ 0\.2\)/);
   });
 
   it("la couleur de thème de la PWA est la brume de la charte", () => {

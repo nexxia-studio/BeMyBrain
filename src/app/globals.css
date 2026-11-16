@@ -115,6 +115,7 @@
   --color-row: var(--row-bg);
   --color-track: var(--track);
   --color-pill-track: var(--pill-track);
+  --color-scrim: var(--scrim);
   --color-on-primary-muted: var(--on-primary-muted);
   --color-on-primary-lead: var(--on-primary-lead);
   --color-on-primary-surface: var(--on-primary-surface);
@@ -208,6 +209,7 @@
   --row-bg: rgb(255 255 255 / 0.5);
   --track: rgb(27 32 51 / 0.09);
   --pill-track: rgb(27 32 51 / 0.07);
+  --scrim: rgb(27 32 51 / 0.2);
   /* Élément actif d'une pilule ou de la navigation : blanc + shadow-raised. */
   --pill-active: var(--white);
   --on-primary-muted: rgb(255 255 255 / 0.86);

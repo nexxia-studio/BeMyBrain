@@ -1,7 +1,7 @@
 // Curseurs nexxia-design (DESIGN.md § 1, coque) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // En-tête de la coque (DESIGN.md § 5) — mobile : nom + pilule, sur le fond nu (comme la référence) ;
-// ordinateur (≥ 1024 px) : verre, logo + nom, pilule au centre, recherche et ajout.
-import { Plus, Search } from "lucide-react";
+// ordinateur (≥ 1024 px) : verre, logo + nom, pilule au centre, recherche ⌘K.
+import { Search } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { PaletteTrigger } from "@/components/command-palette/PaletteTrigger";
@@ -29,7 +29,8 @@ export async function ShellHeader({ side }: ShellHeaderProps) {
         <span className="truncate font-heading text-brand">{tApp("name")}</span>
       </div>
       <SideSwitch side={side} />
-      {/* Recherche et ajout ouvrent la palette (ADR-009) : l'ajout y passera quand les modules auront des actions d'ajout. */}
+      {/* La recherche ouvre la palette (ADR-009). Pas de bouton « + » sur ordinateur (2026-11-16) : il doublait
+          la recherche ; il revient avec la première action d'ajout d'un module (palette en mode « Ajouter »). */}
       <div className="hidden items-center gap-2.5 lg:flex">
         <PaletteTrigger className="flex min-h-11 items-center gap-2.5 rounded-full border border-border bg-secondary px-4 text-body text-muted-foreground hover:text-foreground">
           <Search aria-hidden="true" className="size-4.5" strokeWidth={2} />
@@ -37,12 +38,6 @@ export async function ShellHeader({ side }: ShellHeaderProps) {
           <kbd className="rounded-sm bg-chip-neutral px-2 py-0.5 font-sans text-caption font-semibold text-chip-neutral-foreground">
             {t("searchShortcut")}
           </kbd>
-        </PaletteTrigger>
-        <PaletteTrigger
-          label={t("openPalette")}
-          className="flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-hover"
-        >
-          <Plus aria-hidden="true" className="size-5" strokeWidth={2.4} />
         </PaletteTrigger>
       </div>
     </header>

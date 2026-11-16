@@ -19,6 +19,7 @@ colors:
   border: "rgb(27 32 51 / 0.12)"
   track: "rgb(27 32 51 / 0.09)"
   pill-track: "rgb(27 32 51 / 0.07)"
+  scrim: "rgb(27 32 51 / 0.2)"
   on-primary-muted: "rgb(255 255 255 / 0.86)"
   on-primary-lead: "rgb(255 255 255 / 0.9)"
   on-primary-surface: "rgb(255 255 255 / 0.16)"
@@ -228,6 +229,7 @@ Contrastes WCAG calculés sur le cas le plus défavorable. Pour le verre : verre
 | `row` (= `card`) | blanc 50 % | Ligne de liste dans une tuile ; `card` de shadcn pointe ici, une carte se posant dans une tuile en verre | encre ≥ 14,5 ; secondaire ≥ 6,14 |
 | `track` | encre 9 % | Piste des barres de progression | indigo sur piste ≥ 4,33 |
 | `pill-track` | encre 7 % | Piste de la bascule Privé / Pro et du filtre d'espace | secondaire 5,06 sur brume ; 4,82 sur verre (calculé ; 4,85 mesuré sur capture dans la barre latérale, 2026-11-13) |
+| `scrim` | encre 20 % | Voile sous les fenêtres modales (palette, puis dialogues), jamais flouté ; posé à `--z-overlay` (§ 4) | décoratif, ne porte aucun texte |
 | `accent` / `secondary` | blanc 55 % / blanc 60 % | Survol d'un élément de liste ; bouton secondaire | encre ≥ 12 |
 | `sidebar` | `--glass-bg` (bord `glass-border`, actif blanc, anneau indigo) | Barre latérale : surface en verre de premier niveau, posée sur le fond | comme le verre |
 | `popover` | `--white` | Menus, palette : opaques (jamais de verre sur du verre) | encre 16,1 |
@@ -272,7 +274,7 @@ FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un lib
 
 **Fond** : brume `--mist` + halos en dégradés radiaux fixes (`body::before`, aucune image) ; mobile : bleu en haut à gauche, lilas à droite ; ordinateur : + aqua en bas. Le texte secondaire ne se pose jamais directement sur le cœur d'un halo (voir contrastes).
 
-**Calques** (`z-(--z-…)`) : `--z-halo` −1 · `--z-content` 1 · `--z-header` 10 · `--z-tabbar` 20 · `--z-overlay` 40 · `--z-dialog` 50 · `--z-toast` 60.
+**Calques** (`z-(--z-…)`) : `--z-halo` −1 · `--z-content` 1 · `--z-header` 10 · `--z-tabbar` 20 · `--z-overlay` 40 · `--z-dialog` 50 · `--z-toast` 60. Le voile `scrim` est posé à `--z-overlay`, sous la fenêtre (`--z-dialog`).
 
 **Espacements** (base Tailwind 4 px, plus) : `gap-grid` 14 / 16 / 20 px (mobile / tablette / ordinateur) · `p-tile` 18 / 24 px · `p-today` 22 / 28 px · `px-page` 16 / 24 px / `clamp(14px, 2.4vw, 36px)` · largeur max du contenu 1400 px.
 
@@ -283,7 +285,7 @@ Sourcing : primitives shadcn/ui (base-nova) réalignées sur ces tokens, sinon c
 - **Tuile « Aujourd'hui »** : la seule tuile pleine de l'app. `bg-primary text-primary-foreground shadow-today rounded-tile p-today`. Date en surtitre (`on-primary-muted`), salutation en `text-display`, intro en `text-lead text-on-primary-lead`, puis pastilles de chiffres (`on-primary-surface`, bord `on-primary-border`, `rounded-xl`, chiffre en `text-stat`, libellé `text-small` **en blanc plein**). Focus dedans : `ring-on-primary`.
 - **Pilule de bascule Privé / Pro** : `role="group"` + `aria-label`, deux boutons `aria-pressed`. Piste `bg-pill-track rounded-full p-1 gap-1` ; bouton `min-h-11 rounded-full text-body font-semibold`, padding horizontal 18 px (mobile) / 22 px (ordinateur) ; actif : fond blanc, `text-foreground`, `shadow-raised` ; inactif : transparent, `text-muted-foreground`. Toujours en haut : dans l'en-tête en verre (ordinateur), en haut à droite à côté du nom (mobile).
 - **Filtre d'espace** : « tous » (« Les deux » pour deux espaces) ou un seul espace du côté actif. Existe des deux côtés, Privé et Pro (BRAIN-30), affiché dès que le côté a au moins deux espaces ; sélection mémorisée par côté (cookie `bmb_contexts_<côté>`), revalidée contre les espaces du workspace. Ordinateur (≥ 1024 px) : dans la barre latérale, sous le titre du côté ; liste verticale (`role="group"`, boutons `aria-pressed`) sur une piste `bg-pill-track rounded-lg p-1 gap-1`, sans verre (la barre latérale en est déjà), boutons `min-h-11 rounded-md px-3 text-small font-semibold` alignés à gauche, actif blanc + `shadow-raised` ; liste plutôt que pilules qui passent à la ligne : les noms saisis gardent un alignement lisible à 212 px utiles. Mobile (< 1024 px) : une pastille en verre à côté du titre de page (`PageHeader`), `min-h-11 rounded-full`, nom de l'espace retenu + chevron, qui ouvre un menu opaque (`popover`, `rounded-lg`, `shadow-glass`) : « tous », puis chaque espace, élément `min-h-11`, coche sur le choix courant ; clavier, Échap et focus rendu à la pastille (menu de Base UI). Pression : comme les boutons (`scale` 0,97) ; changement instantané, `aria-busy` pendant l'enregistrement, échec traité comme l'exception des **Boutons**.
-- **En-tête (ordinateur)** : verre, `rounded-tile`, `px-4 py-3`, ≤ 68 px de haut : logo (carré indigo 40 px, `rounded-lg`, glyphe blanc) + nom, pilule au centre, recherche « Chercher ou ajouter ⌘K » (bouton secondaire pilule, bord `border`) et bouton d'ajout rond 44 px indigo.
+- **En-tête (ordinateur)** : verre, `rounded-tile`, `px-4 py-3`, ≤ 68 px de haut : logo (carré indigo 40 px, `rounded-lg`, glyphe blanc) + nom, pilule au centre, recherche « Chercher ou ajouter ⌘K » (bouton secondaire pilule, bord `border`). Le bouton d'ajout rond 44 px indigo de la référence est retiré (Antoine, 2026-11-16) : il doublait la recherche ; il revient avec la première action d'ajout d'un module (palette en mode « Ajouter »).
 - **Barre latérale (ordinateur)** : verre, `rounded-tile`, `p-3.5`, largeur ≥ 240 px, alignée en haut. Titre du côté (« Vie privée » / « Vie pro ») en surtitre, puis le filtre d'espace quand le côté en a au moins deux, puis les catégories. Catégorie = bouton `min-h-11 px-3.5 rounded-lg text-body font-semibold`, chevron 16 px à droite (`text-muted-foreground`, pivote de 90° ouvert), `aria-expanded`. Actif : fond blanc + `shadow-raised` ; ouvert : `accent`. Sous-catégories : liens `min-h-11 px-3.5 rounded-md text-small font-medium text-muted-foreground`, retrait de 18 px. Les catégories suivent le côté actif.
 - **Barre d'onglets (mobile)** : verre, flottante, `rounded-bar`, `px-2.5 py-2`, à 16 px des bords, `bottom: max(26px, env(safe-area-inset-bottom) + 8px)`, `z-(--z-tabbar)`. Quatre onglets (`min-h-13`, icône 22 px au-dessus d'un `text-tab`) : actif `text-link`, inactifs `text-muted-foreground`, `aria-current="page"` sur l'actif. Au centre, bouton d'ajout rond 56 px, `bg-primary`, `shadow-fab`, icône + 24 px trait 2,4. Le contenu réserve sa hauteur en bas (≈ 68 px + décalage + 16 px).
 - **Boutons** : principal `bg-primary text-primary-foreground hover:bg-primary-hover` ; secondaire `bg-secondary border border-border text-secondary-foreground` ; discret (lien d'action) `text-link`. Hauteur ≥ 44 px, `text-body font-semibold`, `rounded-full` dans la coque (comme la référence), `rounded-lg` pour un bouton pleine largeur de formulaire. Pendant un appel : désactivé, libellé d'attente. Exception, limitée aux préférences d'affichage (bascule Privé / Pro, filtre d'espace ; 2026-11-13) : le contrôle reste cliquable et change tout de suite, `aria-busy` pendant l'enregistrement ; en cas d'échec, retour à l'état enregistré avec un message visible (bulle opaque `popover` sous le contrôle, `text-destructive`, `role="status"`, effacée au geste suivant ou après 5 s). Données métier : tranché à la spec de chaque module.
@@ -327,7 +329,7 @@ Effets de verre : reportés (2026-11-16, BRAIN-33), livrés avec le premier modu
 - Pression (boutons, lignes, onglets) : `scale` 0,97, 0,1 s ease-out, au `pointerdown`.
 - Survol d'une tuile (pointeur fin seulement) : `y` −2, ressort `bounce: 0`, 0,3 s.
 - Catégorie de la barre latérale : chevron 0 → 90°, 0,2 s `ease-out-expo` ; sous-liste en `opacity` + `y` −4 → 0, 0,2 s (pas d'animation de hauteur).
-- Palette (⌘K) : `opacity` + `scale` 0,98 → 1, 0,2 s `ease-out-expo` ; fermeture 0,15 s.
+- Palette (⌘K) : `opacity` + `scale` 0,98 → 1, 0,2 s `ease-out-expo` ; fermeture 0,15 s. Voile `scrim` : `opacity` seule, mêmes durées et même courbe.
 - Apparition / retrait d'un élément de liste : `opacity` + `y` 8, ressort `bounce: 0`, 0,3 s ; tiroir mobile : ressort `bounce: 0.2`, 0,3 s.
 - Easing CSS commun : `--ease-out-expo` `cubic-bezier(0.16, 1, 0.3, 1)`.
 
@@ -345,6 +347,7 @@ Chaque module peut proposer ses propres moments signature, validés à sa spec, 
 7. **Tablette** (absente de la référence) : deux colonnes, barre d'onglets conservée jusqu'à 1024 px.
 8. **Icônes Lucide** (le skill cite Phosphor, Tabler ou Radix) : déjà fournie par shadcn, et les icônes de la référence en ont le dessin (trait 2, bouts arrondis).
 9. **Mobile en une colonne avec une paire « chiffre »** : la spec dit une colonne, la référence mobile montre deux petites tuiles côte à côte. Retenu : une colonne, sauf la paire de tuiles chiffre.
+10. **Voile `scrim` sous les fenêtres modales** (décision d'Antoine, 2026-11-16) : la référence n'a pas de fenêtre modale. Encre à 20 % (`rgb(27 32 51 / 0.2)`), à plat, jamais flouté (pas de verre sous une fenêtre opaque), posé à `--z-overlay` ; il apparaît et disparaît en fondu d'opacité 0,2 s, même courbe que la palette, sans échelle. Décoratif : aucun texte ne s'y pose.
 
 ## 9. PWA (tâche 13)
 - `theme_color` et `background_color` : `#E8ECF5` (brume ; `THEME_COLOR` et `BACKGROUND_COLOR` dans `src/lib/theme.ts`, lus par le `viewport` et par `src/app/manifest.ts`). `apple-mobile-web-app-status-bar-style` : `default` (barre sombre sur fond clair).
@@ -361,7 +364,7 @@ Chaque module peut proposer ses propres moments signature, validés à sa spec, 
 
 ## 10. Thème sombre (stratégie seulement)
 - Aucune valeur sombre n'est fixée : elles seront tirées d'une référence sombre validée, comme le clair.
-- Les composants n'utilisent que les tokens sémantiques ; le sombre redéfinira ces mêmes noms (`--background`, `--foreground`, `--primary`, `--glass-bg`, `--glass-border`, `--glass-shadow`, `--row-bg`, `--on-primary-*`, `--track`, `--pill-track`, `--chip-*`, `--halo-layers`…) sous `.dark` (variante déjà déclarée) ou `prefers-color-scheme: dark`, sans toucher aux composants.
+- Les composants n'utilisent que les tokens sémantiques ; le sombre redéfinira ces mêmes noms (`--background`, `--foreground`, `--primary`, `--glass-bg`, `--glass-border`, `--glass-shadow`, `--row-bg`, `--on-primary-*`, `--track`, `--pill-track`, `--scrim`, `--chip-*`, `--halo-layers`…) sous `.dark` (variante déjà déclarée) ou `prefers-color-scheme: dark`, sans toucher aux composants.
 - À ce moment : `color-scheme: dark`, `THEME_COLOR` par schéma (`themeColor` accepte une liste par `media`), mêmes exigences de contraste recalculées, et la tuile « Aujourd'hui » reste la seule tuile pleine.
 
 ## 11. Interdits

@@ -5,7 +5,8 @@
 // déclencheur), opaque (`popover`, jamais de verre sur du verre), en haut de l'écran pour rester au-dessus
 // du clavier mobile. Ouverture en Motion : opacity + scale 0,98 → 1, 0,2 s ease-out-expo ; fermeture
 // 0,15 s ; ancrée en haut (`origin-top`), elle se déploie depuis son bord haut au lieu de son centre ;
-// MotionConfig reducedMotion="user" (MotionRoot) coupe l'échelle et garde le fondu.
+// MotionConfig reducedMotion="user" (MotionRoot) coupe l'échelle et garde le fondu. Voile `scrim` dessous
+// (calque overlay) : fondu d'opacité seul, même durées et même courbe que le panneau, sans échelle.
 // Le contenu n'est monté qu'ouvert : recherche et message d'erreur repartent à zéro à chaque ouverture.
 import { Dialog } from "@base-ui/react/dialog";
 import { AnimatePresence, motion } from "motion/react";
@@ -28,8 +29,23 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       <AnimatePresence>
         {open && (
           <Dialog.Portal keepMounted>
-            {/* Transparent : capte le clic hors de la palette, sans couleur hors de DESIGN.md. */}
-            <Dialog.Backdrop className="fixed inset-0 z-(--z-overlay)" />
+            {/* Voile `scrim` (DESIGN.md § 8, décision 10) : capte le clic hors de la palette. */}
+            <Dialog.Backdrop
+              render={
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: 1,
+                    transition: { duration: 0.2, ease: EASE_OUT_EXPO },
+                  }}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: 0.15, ease: EASE_OUT_EXPO },
+                  }}
+                />
+              }
+              className="fixed inset-0 z-(--z-overlay) bg-scrim"
+            />
             <Dialog.Viewport className="fixed inset-0 z-(--z-dialog) flex items-start justify-center px-page pt-page-top lg:pt-28">
               <Dialog.Popup
                 aria-label={t("title")}

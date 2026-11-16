@@ -72,6 +72,20 @@ describe("palette de commandes", () => {
     await waitFor(() => expect(palette()).toBeNull());
   });
 
+  it("pose un voile scrim sous la palette ouverte, au calque overlay", async () => {
+    renderPalette();
+
+    pressShortcut();
+    await screen.findByRole("dialog");
+
+    const backdrop = [
+      ...document.querySelectorAll<HTMLElement>('[role="presentation"]'),
+    ].find((element) => element.classList.contains("bg-scrim"));
+    expect(backdrop?.className).toContain("z-(--z-overlay)");
+    expect(backdrop?.className).toContain("fixed");
+    expect(backdrop?.className).toContain("inset-0");
+  });
+
   it("s'ouvre avec Ctrl+K", async () => {
     renderPalette();
 
