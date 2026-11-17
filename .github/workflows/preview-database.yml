@@ -4,7 +4,7 @@
 # (DATABASE_AUTHENTICATED_URL, NEON_AUTH_*), limitées à la branche git, déploie la branche (seule la CI
 # déploie les previews : vercel.json coupe les déploiements git hors de main), puis ajoute l'URL de
 # branche Vercel aux domaines de confiance Neon Auth de la branche Neon.
-# À la fermeture de la PR, ou si la migration échoue : variables Vercel de la branche supprimées,
+# À la fermeture de la PR, ou si la migration ou la publication échoue : variables Vercel de la branche supprimées,
 # branche Neon supprimée. Expiration de la branche Neon à 10 jours, repoussée à chaque push.
 # Jamais DATABASE_URL sur Vercel. NEON_AUTH_COOKIE_SECRET des previews est posé à la main.
 # Dépôt public : toute valeur passée par $GITHUB_ENV est masquée par le script qui l'écrit.
@@ -14,7 +14,8 @@
 # dépendance compromise pourrait écrire NODE_OPTIONS, BASH_ENV ou PATH dans $GITHUB_ENV / $GITHUB_PATH
 # et se faire charger par une étape suivante. NODE_OPTIONS et BASH_ENV vidés en plus sur ces étapes.
 #   migrate-preview : neon-branch create (NEON_API_KEY), PUIS install et migrate, sans secret (seulement
-#                     l'URL propriétaire de la branche de preview, attendue par la migration).
+#                     l'URL propriétaire de la branche de preview, attendue par la migration ; pas celle
+#                     d'app_backend).
 #   publish-preview : aucune installation. neon-branch create réinitialise de nouveau les deux mots de
 #                     passe (ceux vus par le job précédent ne valent plus rien), puis Vercel et trust.
 #   delete-preview  : aucune installation.
@@ -65,6 +66,7 @@ jobs:
           node-version: 24
           cache: pnpm
       # Avant pnpm install : aucun code de dépendance n'a encore tourné dans ce job.
+      # Seule l'URL propriétaire est publiée : la migration n'a pas besoin de celle d'app_backend.
       - name: Créer ou retrouver la branche Neon de la preview
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
@@ -77,7 +79,6 @@ jobs:
         run: >
           node scripts/ci/neon-branch.mjs create "preview/$HEAD_REF"
           --owner-env DATABASE_URL
-          --app-env DATABASE_AUTHENTICATED_URL
           --ttl-hours 240
       # Plus aucun secret dans ce job à partir d'ici.
       - run: pnpm install --frozen-lockfile
@@ -135,14 +136,22 @@ jobs:
 
   delete-preview:
     name: Supprimer la base de la preview
-    needs: migrate-preview
-    # À la fermeture de la PR (migrate-preview sauté), ou si la migration a échoué : pas de preview à
-    # moitié migrée. PR de fork ou branche par défaut : aucune branche créée, rien à supprimer.
+    needs: [migrate-preview, publish-preview]
+    # always() : tourne même quand un job requis a échoué ou a été sauté. Puis trois conditions :
+    # - PR du dépôt (pas de fork) et pas depuis la branche par défaut : sinon aucune branche n'a été
+    #   créée et les secrets manquent (fork) ; ces deux cas font échouer migrate-preview exprès, d'où ce
+    #   filtre avant le test d'échec.
+    # - fermeture de la PR (migrate-preview et publish-preview sautés),
+    # - ou échec de la migration (publish-preview alors sauté) ou de la publication (sync, deploy, trust,
+    #   délai dépassé compris) : pas de preview à moitié migrée ou publiée ; le push suivant recrée tout.
+    # Run annulé (cancelled) : rien n'est supprimé, le push suivant reprend l'état existant.
     if: >-
       always()
       && github.event.pull_request.head.repo.full_name == github.repository
       && github.head_ref != github.event.repository.default_branch
-      && (github.event.action == 'closed' || needs.migrate-preview.result == 'failure')
+      && (github.event.action == 'closed'
+        || needs.migrate-preview.result == 'failure'
+        || needs.publish-preview.result == 'failure')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

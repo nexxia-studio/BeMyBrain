@@ -12,8 +12,11 @@ permissions:
   contents: read
 
 env:
-  # Même nom dans les jobs tests et delete-ci-branch.
-  CI_BRANCH: ci/run-${{ github.run_id }}-${{ github.run_attempt }}
+  # Même nom dans les jobs tests et delete-ci-branch, et d'un essai à l'autre du même run (sans
+  # run_attempt) : relancer seul delete-ci-branch vise la branche créée par un essai précédent. Relancer
+  # tests retrouve la branche si elle existe encore (neon-branch create la réutilise et réinitialise ses
+  # deux mots de passe), sinon la recrée.
+  CI_BRANCH: ci/run-${{ github.run_id }}
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}

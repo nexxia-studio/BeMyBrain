@@ -142,9 +142,7 @@ describe("variables de la preview", () => {
     expect(calls.some((c) => c.method === "POST")).toBe(false);
     const edits = calls.filter((c) => c.method === "PATCH");
     expect(edits.map((c) => c.path)).toEqual(
-      PREVIEW_KEYS.map(
-        (key) => `/v9/projects/${PROJECT}/env/env-${key}`,
-      ),
+      PREVIEW_KEYS.map((key) => `/v9/projects/${PROJECT}/env/env-${key}`),
     );
     expect(edits[0].body).toEqual({
       value: VALUES.DATABASE_AUTHENTICATED_URL,
@@ -235,9 +233,7 @@ describe("suppression des variables à la fermeture de la PR", () => {
     expect(
       calls.filter((c) => c.method === "DELETE").map((c) => c.path),
     ).toEqual(
-      PREVIEW_KEYS.map(
-        (key) => `/v9/projects/${PROJECT}/env/env-${key}`,
-      ),
+      PREVIEW_KEYS.map((key) => `/v9/projects/${PROJECT}/env/env-${key}`),
     );
     expect(calls.every((c) => c.query.get("teamId") === TEAM)).toBe(true);
   });
@@ -262,7 +258,13 @@ const projectRoute: Route = {
 const createDeployment: Route = {
   method: "POST",
   path: /^\/v13\/deployments$/,
-  body: { id: "dpl_new", name: PROJECT, readyState: "QUEUED", alias: [], target: null },
+  body: {
+    id: "dpl_new",
+    name: PROJECT,
+    readyState: "QUEUED",
+    alias: [],
+    target: null,
+  },
 };
 const deploymentState = (body: object): Route => ({
   method: "GET",
@@ -309,6 +311,60 @@ describe("redéploiement de la branche", () => {
       ).rejects.toThrow(/cible preview attendue/);
     },
   );
+
+  const cancelDeployment: Route = {
+    method: "PATCH",
+    path: /^\/v12\/deployments\/dpl_new\/cancel$/,
+    body: { id: "dpl_new", readyState: "CANCELED" },
+  };
+
+  it("annule le déploiement de mauvaise cible avant de lever l'erreur", async () => {
+    const { api, calls } = fakeVercelApi([
+      { ...createDeployment, body: { id: "dpl_new", target: "production" } },
+      cancelDeployment,
+    ]);
+
+    await expect(
+      deployBranch(api, { gitBranch: BRANCH, sha: "abc123", repoId: "42" }),
+    ).rejects.toThrow(/cible preview attendue/);
+
+    const cancel = calls.find((c) => c.method === "PATCH");
+    expect(cancel?.path).toBe("/v12/deployments/dpl_new/cancel");
+    expect(cancel?.query.get("teamId")).toBe(TEAM);
+  });
+
+  it("garde l'erreur de cible si l'annulation échoue, sans citer projet ni déploiement", async () => {
+    const { api } = fakeVercelApi([
+      { ...createDeployment, body: { id: "dpl_new", target: "production" } },
+      {
+        ...cancelDeployment,
+        status: 403,
+        body: { error: { message: PROJECT } },
+      },
+    ]);
+
+    const error = await deployBranch(api, {
+      gitBranch: BRANCH,
+      sha: "abc123",
+      repoId: "42",
+    }).then(
+      () => new Error("aucune erreur"),
+      (e: unknown) => e as Error,
+    );
+
+    expect(error.message).toMatch(/cible preview attendue/);
+    expect(error.message).toMatch(/annulation en échec/);
+    expect(error.message).not.toContain(PROJECT);
+    expect(error.message).not.toContain("dpl_new");
+  });
+
+  it("n'annule rien quand la cible est preview", async () => {
+    const { api, calls } = fakeVercelApi([createDeployment]);
+
+    await deployBranch(api, { gitBranch: BRANCH, sha: "abc123", repoId: "42" });
+
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+  });
 
   it("attend READY puis renvoie l'origine de l'alias de branche", async () => {
     const { api, fetch } = fakeVercelApi([]);
@@ -483,7 +539,10 @@ describe("erreurs de l'API Vercel", () => {
     fetch.mockImplementation(async () => {
       if (first) {
         first = false;
-        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+        throw new DOMException(
+          "The operation was aborted due to timeout",
+          "TimeoutError",
+        );
       }
       return Response.json({ envs: [] });
     });
@@ -632,7 +691,11 @@ describe("commandes", () => {
   it.each(["sync", "deploy", "delete"])(
     "%s : refuse la branche par défaut du dépôt, sans appel à l'API",
     async (command) => {
-      const { io, env, calls } = setup([envList([]), createEnv, createDeployment]);
+      const { io, env, calls } = setup([
+        envList([]),
+        createEnv,
+        createDeployment,
+      ]);
 
       await expect(
         run(

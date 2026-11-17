@@ -9,6 +9,7 @@
 //   DELETE /v9/projects/{id}/env/{envId}        « Remove an environment variable »
 //   POST   /v13/deployments?forceNew=1          « Create a new deployment » (gitSource github, repoId, target)
 //   GET    /v13/deployments/{id}                « Get a deployment by ID or URL »
+//   PATCH  /v12/deployments/{id}/cancel         « Cancel a deployment » (déploiement de mauvaise cible)
 //   GET    /v9/projects/{id}                    « Find a project by id or name » (nom, pour l'alias de branche)
 // Seul déployeur des previews : vercel.json coupe les déploiements git hors de main (git.deploymentEnabled).
 //
@@ -171,7 +172,14 @@ export async function deployBranch(api, { gitBranch, sha, repoId }) {
     }),
   });
   if (target != null && target !== "preview") {
-    throw new Error(`Déploiement Vercel de cible ${String(target)} : cible preview attendue.`);
+    const message = `Déploiement Vercel de cible ${String(target)} : cible preview attendue`;
+    // Annulé avant l'erreur, pour qu'il ne serve jamais ; un échec d'annulation ne masque pas l'erreur.
+    try {
+      await call(api, "PATCH cancel", `/v12/deployments/${id}/cancel`, {}, { method: "PATCH" });
+    } catch {
+      throw new Error(`${message} ; annulation en échec, à annuler à la main.`);
+    }
+    throw new Error(`${message} ; déploiement annulé.`);
   }
   return { id };
 }

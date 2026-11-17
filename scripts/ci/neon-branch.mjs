@@ -8,8 +8,9 @@
 // (URL, hôte) ne sont pas masquées et s'afficheraient dans le bloc `env:` des étapes suivantes.
 //
 // Usage :
-//   node scripts/ci/neon-branch.mjs create <nom> [--owner-env <VAR>] --app-env <VAR> [--ttl-hours <n>] [--auth-env]
-//   (sans --owner-env, le mot de passe du propriétaire est réinitialisé mais son URL n'est écrite nulle part)
+//   node scripts/ci/neon-branch.mjs create <nom> [--owner-env <VAR>] [--app-env <VAR>] [--ttl-hours <n>] [--auth-env]
+//   (au moins une des trois sorties ; les deux mots de passe sont toujours réinitialisés, seule l'URL
+//   demandée est écrite. Branche du même nom retrouvée : réutilisée, mots de passe réinitialisés.)
 //   node scripts/ci/neon-branch.mjs trust <nom>      (origine lue dans TRUSTED_ORIGIN)
 //   node scripts/ci/neon-branch.mjs delete <nom>
 // Variables : NEON_API_KEY, NEON_PROJECT_ID (secrets, posés sur cette seule étape) ;
@@ -366,7 +367,11 @@ export async function run(argv, env, io) {
   if (command !== "create") throw new Error("Commande inconnue : create, trust ou delete.");
 
   const ownerEnv = option(args, "--owner-env");
-  const appEnv = required("--app-env", option(args, "--app-env"));
+  const appEnv = option(args, "--app-env");
+  const withAuth = args.includes("--auth-env");
+  if (!ownerEnv && !appEnv && !withAuth) {
+    throw new Error("create : --owner-env, --app-env ou --auth-env attendu (sinon rien n'est publié).");
+  }
   const ttlHours = Number(option(args, "--ttl-hours") ?? 0);
   const githubEnv = required("GITHUB_ENV", env.GITHUB_ENV);
 
@@ -383,7 +388,7 @@ export async function run(argv, env, io) {
   });
 
   // Lue avant toute écriture : sans Neon Auth sur la branche, rien n'est publié.
-  const auth = args.includes("--auth-env") ? await getAuthConfig(api, result.branchId) : undefined;
+  const auth = withAuth ? await getAuthConfig(api, result.branchId) : undefined;
 
   // Masques d'abord : aucune valeur ne doit atteindre le journal avant eux.
   const secrets = [...secretsOf(result), ...(auth ? authSecretsOf(auth) : [])];
@@ -392,7 +397,7 @@ export async function run(argv, env, io) {
   appendFileSync(
     githubEnv,
     (ownerEnv ? line(ownerEnv, result.ownerUrl) : "") +
-      line(appEnv, result.appUrl) +
+      (appEnv ? line(appEnv, result.appUrl) : "") +
       (auth
         ? line("NEON_AUTH_BASE_URL", auth.baseUrl) +
           line("NEON_AUTH_JWKS_URL", auth.jwksUrl) +
@@ -402,7 +407,7 @@ export async function run(argv, env, io) {
   );
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, line("branch_id", result.branchId));
   io.log(
-    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${ownerEnv ? `${ownerEnv} et ` : ""}${appEnv}${auth ? " et NEON_AUTH_*" : ""} posées.`,
+    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${[ownerEnv, appEnv, auth && "NEON_AUTH_*"].filter(Boolean).join(" et ")} posées.`,
   );
 }
 

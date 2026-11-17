@@ -214,9 +214,12 @@ describe("création d'une branche", () => {
       const url = String(input);
       if (url.endsWith("/operations/op-create")) {
         polls += 1;
-        return Response.json({ operation: { status: polls >= 2 ? "finished" : "running" } });
+        return Response.json({
+          operation: { status: polls >= 2 ? "finished" : "running" },
+        });
       }
-      if (url.endsWith("/reset_password") && polls < 2) resetBeforeFinished = true;
+      if (url.endsWith("/reset_password") && polls < 2)
+        resetBeforeFinished = true;
       return original(input, init);
     });
 
@@ -292,6 +295,32 @@ describe("création d'une branche", () => {
       branch: { expires_at: "2026-11-22T08:00:00Z" },
     });
     expect(result).toMatchObject({ branchId: "br-preview", created: false });
+  });
+
+  it("réinitialise les deux mots de passe sur une branche ci/ retrouvée (job relancé)", async () => {
+    const { api, calls } = fakeNeonApi([
+      listing([{ id: "br-ci-run", name: "ci/run-42" }]),
+      resetRoute("neondb_owner", OWNER_PASSWORD),
+      resetRoute("app_backend", APP_PASSWORD),
+      operationsDone,
+      connectionUri,
+    ]);
+
+    const result = await createBranch(api, { ...OPTIONS, name: "ci/run-42" });
+
+    const resets = calls
+      .filter((c) => c.path.endsWith("/reset_password"))
+      .map((c) => c.path);
+    expect(resets).toEqual([
+      expect.stringContaining("/branches/br-ci-run/roles/neondb_owner/"),
+      expect.stringContaining("/branches/br-ci-run/roles/app_backend/"),
+    ]);
+    expect(result).toMatchObject({
+      branchId: "br-ci-run",
+      created: false,
+      ownerPassword: OWNER_PASSWORD,
+      appPassword: APP_PASSWORD,
+    });
   });
 
   it("refuse une branche existante par défaut ou protégée, sans rien modifier", async () => {
@@ -458,6 +487,30 @@ describe("commande create", () => {
     expect(readFileSync(githubEnv, "utf8")).toBe(
       `DATABASE_TEST_AUTHENTICATED_URL=${withRole(TEMPLATE_URI, "app_backend", APP_PASSWORD)}\n`,
     );
+  });
+
+  it("sans --app-env, réinitialise quand même app_backend mais n'écrit que l'URL propriétaire", async () => {
+    const { fetch, env, io, githubEnv, out } = setup();
+
+    await run(["create", "preview/x", "--owner-env", "DATABASE_URL"], env, io);
+
+    const resets = fetch.mock.calls
+      .map(([input]) => new URL(String(input)).pathname)
+      .filter((path) => path.endsWith("/reset_password"));
+    expect(resets).toHaveLength(2);
+    expect(readFileSync(githubEnv, "utf8")).toBe(
+      `DATABASE_URL=${withRole(TEMPLATE_URI, "neondb_owner", OWNER_PASSWORD)}\n`,
+    );
+    expect(out).toContain(`::add-mask::${APP_PASSWORD}`);
+  });
+
+  it("refuse create sans --owner-env, --app-env ni --auth-env, sans appel à l'API", async () => {
+    const { fetch, env, io } = setup();
+
+    await expect(run(["create", "ci/run-1"], env, io)).rejects.toThrow(
+      /--owner-env, --app-env ou --auth-env/,
+    );
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("publie l'identifiant de la branche en sortie de l'étape", async () => {
@@ -681,7 +734,9 @@ describe("domaine de confiance Neon Auth", () => {
     status: 201,
     body: {},
   };
-  const previewListing = listing([{ id: "br-preview", name: "preview/feat/x" }]);
+  const previewListing = listing([
+    { id: "br-preview", name: "preview/feat/x" },
+  ]);
 
   it("ajoute l'origine de la preview à la branche preview", async () => {
     const { api, calls } = fakeNeonApi([
