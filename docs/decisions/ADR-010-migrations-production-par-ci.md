@@ -10,9 +10,9 @@ Le 2026-11-12, une migration lancée en local a atterri sur la branche Neon `pro
 - L'accès propriétaire de la production n'existe que dans les secrets GitHub (environnement protégé) et dans 1Password. Jamais dans un `.env` local, jamais dans les variables Vercel.
 - En local, `drizzle.config.ts` refuse toute cible égale à `NEON_PRODUCTION_HOST` (garde-fou testé).
 - Les previews migrent aussi par la CI (GitHub Actions), sur leur propre branche Neon ; leur accès propriétaire est limité à cette branche et n'existe que dans la CI.
-- Pas d'intégration Neon–Vercel : elle n'injecte que `DATABASE_URL` (propriétaire) et des noms non configurables. Production : variables posées à la main dans Vercel. Previews (option A, 2026-11-12) : la CI pose sur Vercel, limitées à la branche git, `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` de la branche Neon de la preview, puis redéploie. Jeton `VERCEL_TOKEN` limité au projet Vercel (jeton de projet). L'app refuse de démarrer sur Vercel si `DATABASE_URL` est définie.
+- Pas d'intégration Neon–Vercel : elle n'injecte que `DATABASE_URL` (propriétaire) et des noms non configurables. Production : variables posées à la main dans Vercel. Previews (option A, 2026-11-12) : la CI pose sur Vercel, limitées à la branche git, `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` de la branche Neon de la preview, puis redéploie. Jeton `VERCEL_TOKEN` : portée **équipe entière** retenue par prudence (non vérifiée, 2026-11-17) ; il atteint tout projet ajouté à l'équipe nexxia-studio. À remplacer par un jeton limité au projet au renouvellement, si Vercel le propose. L'app refuse de démarrer sur Vercel si `DATABASE_URL` est définie.
 - Deployment Protection de Vercel active sur les previews (vérifiée à la tâche 17).
-- Avant le premier module sensible (finance, santé ou contacts), les previews partent de `staging`, sans donnée ni compte réel, plus de `production` (ADR-005, BRAIN-34, décision d'Antoine du 2026-11-17).
+- Avant le premier module sensible (finance, santé, contacts ou clients Nexxia), les previews partent de `staging`, sans donnée ni compte réel, plus de `production` (ADR-005, BRAIN-34, décision d'Antoine du 2026-11-17).
 - En local et en CI, seule la plateforme fait foi (`GITHUB_ACTIONS=true` ou `VERCEL=1`) ; `CI` seule ne lève pas le garde-fou.
 
 ## Alternatives écartées
@@ -37,4 +37,5 @@ Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et uti
 ## Conséquences
 - La tâche 17 du plan socle crée ce workflow et ses secrets.
 - Mot de passe propriétaire de production changé le 2026-11-12 et rangé dans 1Password.
-- Jeton Vercel `github-ci-bemybrain` (secret `VERCEL_TOKEN`) créé le 2026-11-17, **expire le 2027-02-15** : le renouveler avant le 2027-02-08 (nouveau jeton, mise à jour du secret GitHub et de 1Password, révocation de l'ancien).
+- Jeton Vercel `github-ci-bemybrain` (secret `VERCEL_TOKEN`) créé le 2026-11-17, **expire le 2027-02-15** (portée : équipe entière) : le renouveler avant le 2027-02-08 (nouveau jeton, mise à jour du secret GitHub et de 1Password, révocation de l'ancien).
+- Intégration GitHub de Neon déconnectée et sa clé de projet révoquée le 2026-11-17 (elle écrivait elle-même des secrets et variables dans le dépôt public). Seule clé Neon restante : `github-ci-bemybrain`, limitée au projet.

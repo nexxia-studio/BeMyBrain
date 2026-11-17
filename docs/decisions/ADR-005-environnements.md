@@ -25,7 +25,7 @@ Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter
 - Production seule sans previews — toute erreur de migration toucherait directement les vraies données.
 
 ## Previews et staging (2026-11-17, décision d'Antoine)
-- Avant le premier module sensible (finance, santé ou contacts), les previews partent d'une branche Neon `staging` sans aucune donnée ni aucun compte réel, plus de `production` (BRAIN-34). D'ici là, les previews copient la production, quasi vide.
+- Avant le premier module sensible (finance, santé, contacts ou clients Nexxia), les previews partent d'une branche Neon `staging` sans aucune donnée ni aucun compte réel, plus de `production` (BRAIN-34). D'ici là, les previews copient la production, quasi vide.
 - Le staging complet (environnement Vercel « staging », domaine) reste dans BRAIN-26.
 
 ## Conséquences
