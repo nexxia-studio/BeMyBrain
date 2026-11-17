@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
@@ -11,10 +12,29 @@ const inputClass =
 const buttonClass =
   "min-h-11 w-full rounded-lg bg-primary px-4 text-base font-medium text-primary-foreground disabled:opacity-60";
 
+// L'appel de l'action peut lever côté client : le pare-feu Vercel répond 403 (page HTML), Next lève
+// « An unexpected response… » sans le code HTTP, comme pour une page 5xx. Un seul message pour les deux.
+// Les erreurs de contrôle de Next (redirection après connexion) sont relancées.
+async function submit(
+  previous: SignInState,
+  formData: FormData,
+): Promise<SignInState> {
+  try {
+    return await signIn(previous, formData);
+  } catch (error) {
+    unstable_rethrow(error);
+    const email = formData.get("email");
+    return {
+      error: "submitFailed",
+      email: typeof email === "string" ? email.trim().slice(0, 254) : "",
+    };
+  }
+}
+
 export function LoginForm() {
   const t = useTranslations("auth");
   const [state, action, pending] = useActionState<SignInState, FormData>(
-    signIn,
+    submit,
     null,
   );
   const errorId = "login-error";

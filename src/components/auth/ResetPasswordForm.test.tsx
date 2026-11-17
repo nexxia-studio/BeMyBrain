@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
+import { Component, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import messages from "../../../messages/fr.json";
@@ -23,7 +25,10 @@ function renderForm() {
 }
 
 async function requestCode() {
-  actions.requestPasswordReset.mockResolvedValue({ step: "code", email: EMAIL });
+  actions.requestPasswordReset.mockResolvedValue({
+    step: "code",
+    email: EMAIL,
+  });
   fireEvent.change(screen.getByLabelText(messages.auth.reset.email), {
     target: { value: EMAIL },
   });
@@ -32,6 +37,45 @@ async function requestCode() {
   );
   await screen.findByLabelText(messages.auth.reset.code);
 }
+
+class CaughtBoundary extends Component<
+  { children: ReactNode; onError: (error: unknown) => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    this.props.onError(error);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function redirectError(): unknown {
+  try {
+    redirect("/login");
+  } catch (error) {
+    return error;
+  }
+}
+
+function submitCode() {
+  fireEvent.change(screen.getByLabelText(messages.auth.reset.code), {
+    target: { value: "123456" },
+  });
+  fireEvent.change(screen.getByLabelText(messages.auth.reset.newPassword), {
+    target: { value: "nouveau-mot-de-passe" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.auth.reset.submit }),
+  );
+}
+
+const rejected = () =>
+  new Error("An unexpected response was received from the server.");
 
 beforeEach(() => {
   actions.requestPasswordReset.mockReset();
@@ -60,7 +104,9 @@ describe("réinitialisation du mot de passe", () => {
         .getAttribute("autocomplete"),
     ).toBe("new-password");
     expect(
-      screen.getByLabelText(messages.auth.reset.code).getAttribute("autocomplete"),
+      screen
+        .getByLabelText(messages.auth.reset.code)
+        .getAttribute("autocomplete"),
     ).toBe("one-time-code");
   });
 
@@ -153,5 +199,87 @@ describe("réinitialisation du mot de passe", () => {
         messages.auth.errors.invalidCode,
       ),
     );
+  });
+
+  it("un envoi rejeté à l'étape e-mail affiche le message trop de tentatives et garde l'e-mail", async () => {
+    actions.requestPasswordReset.mockRejectedValue(rejected());
+    renderForm();
+    fireEvent.change(screen.getByLabelText(messages.auth.reset.email), {
+      target: { value: EMAIL },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.auth.reset.sendCode }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        messages.auth.errors.submitFailed,
+      ),
+    );
+    expect(screen.queryByLabelText(messages.auth.reset.code)).toBeNull();
+    expect(
+      (screen.getByLabelText(messages.auth.reset.email) as HTMLInputElement)
+        .value,
+    ).toBe(EMAIL);
+  });
+
+  it("un envoi rejeté à l'étape code affiche le message trop de tentatives et reste à l'étape code", async () => {
+    renderForm();
+    await requestCode();
+    actions.resetPassword.mockRejectedValue(rejected());
+
+    submitCode();
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        messages.auth.errors.submitFailed,
+      ),
+    );
+    expect(screen.getByLabelText(messages.auth.reset.code)).toBeDefined();
+    expect(
+      (screen.getByLabelText(messages.auth.reset.email) as HTMLInputElement)
+        .value,
+    ).toBe(EMAIL);
+  });
+
+  it("un renvoi de code rejeté affiche le message et reste à l'étape code", async () => {
+    renderForm();
+    await requestCode();
+    actions.requestPasswordReset.mockRejectedValue(rejected());
+
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.auth.reset.resendCode }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        messages.auth.errors.submitFailed,
+      ),
+    );
+    expect(screen.getByLabelText(messages.auth.reset.code)).toBeDefined();
+  });
+
+  it("n'avale pas une redirection de Next", async () => {
+    const thrown = redirectError();
+    const onError = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    render(
+      <CaughtBoundary onError={onError}>
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          <ResetPasswordForm />
+        </NextIntlClientProvider>
+      </CaughtBoundary>,
+    );
+    await requestCode();
+    actions.resetPassword.mockRejectedValue(thrown);
+
+    submitCode();
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(thrown));
+    expect(screen.queryByRole("alert")).toBeNull();
+    consoleError.mockRestore();
   });
 });

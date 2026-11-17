@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
+import { Component, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import messages from "../../../messages/fr.json";
@@ -17,6 +19,42 @@ function renderForm() {
   );
 }
 
+class CaughtBoundary extends Component<
+  { children: ReactNode; onError: (error: unknown) => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    this.props.onError(error);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function redirectError(): unknown {
+  try {
+    redirect("/dashboard");
+  } catch (error) {
+    return error;
+  }
+}
+
+function submit(email: string) {
+  fireEvent.change(screen.getByLabelText(messages.auth.login.email), {
+    target: { value: email },
+  });
+  fireEvent.change(screen.getByLabelText(messages.auth.login.password), {
+    target: { value: "mot-de-passe" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.auth.login.submit }),
+  );
+}
+
 beforeEach(() => {
   signIn.mockReset();
 });
@@ -26,7 +64,9 @@ describe("formulaire de connexion", () => {
     renderForm();
 
     expect(
-      screen.getByLabelText(messages.auth.login.email).getAttribute("autocomplete"),
+      screen
+        .getByLabelText(messages.auth.login.email)
+        .getAttribute("autocomplete"),
     ).toBe("email");
     expect(
       screen
@@ -88,5 +128,46 @@ describe("formulaire de connexion", () => {
       (screen.getByLabelText(messages.auth.login.email) as HTMLInputElement)
         .value,
     ).toBe("a@example.test");
+  });
+
+  it("un envoi rejeté affiche le message trop de tentatives dans le formulaire et garde l'e-mail", async () => {
+    signIn.mockRejectedValue(
+      new Error("An unexpected response was received from the server."),
+    );
+    renderForm();
+
+    submit("a@example.test");
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        messages.auth.errors.submitFailed,
+      ),
+    );
+    expect(
+      (screen.getByLabelText(messages.auth.login.email) as HTMLInputElement)
+        .value,
+    ).toBe("a@example.test");
+  });
+
+  it("n'avale pas une redirection de Next", async () => {
+    const thrown = redirectError();
+    signIn.mockRejectedValue(thrown);
+    const onError = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    render(
+      <CaughtBoundary onError={onError}>
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          <LoginForm />
+        </NextIntlClientProvider>
+      </CaughtBoundary>,
+    );
+
+    submit("a@example.test");
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(thrown));
+    expect(screen.queryByRole("alert")).toBeNull();
+    consoleError.mockRestore();
   });
 });
