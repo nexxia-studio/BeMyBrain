@@ -37,3 +37,4 @@ Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et uti
 ## Conséquences
 - La tâche 17 du plan socle crée ce workflow et ses secrets.
 - Mot de passe propriétaire de production changé le 2026-11-12 et rangé dans 1Password.
+- Jeton Vercel `github-ci-bemybrain` (secret `VERCEL_TOKEN`) créé le 2026-11-17, **expire le 2027-02-15** : le renouveler avant le 2027-02-08 (nouveau jeton, mise à jour du secret GitHub et de 1Password, révocation de l'ancien).
