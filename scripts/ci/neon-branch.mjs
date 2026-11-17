@@ -95,7 +95,9 @@ async function call(api, path, init = {}, options = {}) {
       // Corps de la réponse jamais affiché : il peut citer un hôte.
       throw new Error(`API Neon : HTTP ${response.status} sur ${init.method ?? "GET"} ${redactPath(path)}.`);
     }
-    return response.json();
+    // Certaines écritures (ajout d'un domaine de confiance) répondent sans corps : null plutôt qu'une erreur.
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
   }
 }
 
@@ -271,7 +273,7 @@ export async function trustOrigin(api, name, origin) {
     throw new Error("Branche protégée ou par défaut : domaine de confiance refusé.");
   }
   const path = `/branches/${branch.id}/auth/domains`;
-  const { domains = [] } = await call(api, path);
+  const { domains = [] } = (await call(api, path)) ?? {};
   if (domains.some((/** @type {{ domain: string }} */ d) => d.domain === origin)) return false;
   await call(api, path, {
     method: "POST",

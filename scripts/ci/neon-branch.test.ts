@@ -29,7 +29,13 @@ const BASE_ENV = {
   DEFAULT_GIT_BRANCH: "main",
 };
 
-type Route = { method: string; path: RegExp; status?: number; body: unknown };
+type Route = {
+  method: string;
+  path: RegExp;
+  status?: number;
+  body: unknown;
+  empty?: boolean;
+};
 type Call = { method: string; path: string; body?: unknown };
 
 /** Faux client HTTP de l'API Neon : chaque appel doit correspondre à une route (sinon 404). */
@@ -46,6 +52,7 @@ function fakeNeonApi(routes: Route[]) {
     });
     const route = routes.find((r) => r.method === method && r.path.test(path));
     if (!route) return Response.json({ message: "inconnu" }, { status: 404 });
+    if (route.empty) return new Response(null, { status: route.status ?? 200 });
     return Response.json(route.body, { status: route.status ?? 200 });
   });
   return {
@@ -753,6 +760,30 @@ describe("domaine de confiance Neon Auth", () => {
       path: "/api/v2/projects/p/branches/br-preview/auth/domains",
       body: { domain: ORIGIN, auth_provider: "better_auth" },
     });
+  });
+
+  it("accepte une réponse sans corps à l'ajout du domaine (201 vide)", async () => {
+    const { api } = fakeNeonApi([
+      previewListing,
+      domainsRoute([]),
+      { ...addDomainRoute, status: 201, empty: true },
+    ]);
+
+    const added = await trustOrigin(api, "preview/feat/x", ORIGIN);
+
+    expect(added).toBe(true);
+  });
+
+  it("lit une liste de domaines sans corps comme une liste vide", async () => {
+    const { api, calls } = fakeNeonApi([
+      previewListing,
+      { ...domainsRoute([]), empty: true },
+      addDomainRoute,
+    ]);
+
+    await trustOrigin(api, "preview/feat/x", ORIGIN);
+
+    expect(calls.some((c) => c.method === "POST")).toBe(true);
   });
 
   it("ne rajoute pas une origine déjà présente (idempotent)", async () => {
