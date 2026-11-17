@@ -169,7 +169,7 @@
     - `setLocale` en double (action directe des Réglages et `core.setLocale` de la palette) : assumé, cf. écarts ci-dessus.
   - Fini quand : tests verts.
 
-- [ ] **21. Message « trop de tentatives » sur les formulaires de connexion** (BRAIN-5, suite de la tâche 17 étape 11)
+- [x] **21. Message « trop de tentatives » sur les formulaires de connexion** (BRAIN-5, suite de la tâche 17 étape 11) — 2026-11-17, `b551d13`, reviewer OK ; 830 tests. Optionnel noté par la revue : `typedEmail` recopié dans les deux formulaires (à déplacer dans un module sans `"use server"` si la règle change).
   - Contexte : le pare-feu Vercel (`limite-connexion`, formule gratuite) refuse en 403 le 11e envoi en une minute. La Server Action reçoit alors une page HTML au lieu d'une réponse RSC ; Next lève « An unexpected response was received from the server » sans exposer le code HTTP (`server-action-reducer.js`), donc le 403 du pare-feu ne se distingue pas d'une page 5xx de Vercel. Décision d'Antoine (2026-11-17) : un message unique pour les deux cas.
   - Périmètre strict : `LoginForm` et `ResetPasswordForm` uniquement. L'échec de l'envoi (exception levée par l'appel de la Server Action côté client) est intercepté dans le réducteur de `useActionState` et affiché dans le formulaire, sans passer par `src/app/error.tsx`. Les erreurs de contrôle de Next (redirection après connexion réussie) sont relancées (`unstable_rethrow`). Les erreurs déjà prévues (identifiants invalides, code expiré…) restent inchangées. L'e-mail saisi est conservé. Aucune nouvelle dépendance.
   - Texte : clé `auth.errors.submitFailed` — FR « Trop de tentatives ou service indisponible. Réessaie dans une minute. » ; EN « Too many attempts or service unavailable. Try again in a minute. »
