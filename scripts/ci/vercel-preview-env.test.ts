@@ -1,0 +1,490 @@
+// @vitest-environment node
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  PREVIEW_KEYS,
+  deletePreviewEnv,
+  deployBranch,
+  run,
+  syncPreviewEnv,
+  waitForBranchOrigin,
+} from "./vercel-preview-env.mjs";
+
+// Valeurs fictives : aucun projet, équipe, hôte ni mot de passe réel.
+const PROJECT = "prj_fake";
+const TEAM = "team_fake";
+const BRANCH = "feat/x";
+const NEON_HOST = "ep-fake-1.neonauth.eu.aws.neon.example";
+const VALUES = {
+  DATABASE_AUTHENTICATED_URL: `postgresql://app_backend:npg_secret@ep-fake-1.eu.aws.neon.example/neondb`,
+  NEON_AUTH_BASE_URL: `https://${NEON_HOST}/neondb/auth`,
+  NEON_AUTH_JWKS_URL: `https://${NEON_HOST}/neondb/auth/.well-known/jwks.json`,
+  NEON_AUTH_ISSUER: `https://${NEON_HOST}`,
+  NEON_AUTH_AUDIENCE: `https://${NEON_HOST}`,
+};
+const BRANCH_ALIAS = "projet-git-feat-x-equipe.vercel.example";
+
+type Route = { method: string; path: RegExp; status?: number; body: unknown };
+type Call = {
+  method: string;
+  path: string;
+  query: URLSearchParams;
+  body?: unknown;
+};
+
+/** Faux client de l'API REST Vercel : chaque appel doit correspondre à une route (sinon 404). */
+function fakeVercelApi(routes: Route[]) {
+  const calls: Call[] = [];
+  const fetch = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const method = init?.method ?? "GET";
+    calls.push({
+      method,
+      path: url.pathname,
+      query: url.searchParams,
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    const route = routes.find(
+      (r) => r.method === method && r.path.test(url.pathname),
+    );
+    if (!route)
+      return Response.json({ error: { message: "inconnu" } }, { status: 404 });
+    return Response.json(route.body, { status: route.status ?? 200 });
+  });
+  return {
+    fetch,
+    calls,
+    api: {
+      token: "t",
+      projectId: PROJECT,
+      teamId: TEAM,
+      fetch,
+      sleep: async () => {},
+    },
+  };
+}
+
+const envList = (envs: object[]): Route => ({
+  method: "GET",
+  path: new RegExp(`^/v10/projects/${PROJECT}/env$`),
+  body: { envs, pagination: { count: envs.length, next: null, prev: null } },
+});
+const createEnv: Route = {
+  method: "POST",
+  path: new RegExp(`^/v10/projects/${PROJECT}/env$`),
+  status: 201,
+  body: { created: [], failed: [] },
+};
+const editEnv: Route = {
+  method: "PATCH",
+  path: new RegExp(`^/v9/projects/${PROJECT}/env/[\\w-]+$`),
+  body: {},
+};
+const removeEnv: Route = {
+  method: "DELETE",
+  path: new RegExp(`^/v9/projects/${PROJECT}/env/[\\w-]+$`),
+  body: {},
+};
+const branchVar = (key: string, gitBranch = BRANCH) => ({
+  id: gitBranch === BRANCH ? `env-${key}` : `env-${key}-autre`,
+  key,
+  target: ["preview"],
+  gitBranch,
+  type: "encrypted",
+  value: "chiffré",
+});
+
+describe("variables de la preview", () => {
+  it("crée les cinq variables chiffrées, preview seulement, limitées à la branche git", async () => {
+    const { api, calls } = fakeVercelApi([envList([]), createEnv]);
+
+    await syncPreviewEnv(api, BRANCH, VALUES);
+
+    const created = calls.filter((c) => c.method === "POST");
+    expect(created).toHaveLength(1);
+    expect(created[0].path).toBe(`/v10/projects/${PROJECT}/env`);
+    expect(created[0].query.get("teamId")).toBe(TEAM);
+    expect(created[0].body).toEqual(
+      PREVIEW_KEYS.map((key) => ({
+        key,
+        value: VALUES[key as keyof typeof VALUES],
+        type: "encrypted",
+        target: ["preview"],
+        gitBranch: BRANCH,
+      })),
+    );
+  });
+
+  it("lit les variables existantes filtrées sur la branche git, avec teamId", async () => {
+    const { api, calls } = fakeVercelApi([envList([]), createEnv]);
+
+    await syncPreviewEnv(api, BRANCH, VALUES);
+
+    expect(calls[0].method).toBe("GET");
+    expect(calls[0].query.get("gitBranch")).toBe(BRANCH);
+    expect(calls[0].query.get("teamId")).toBe(TEAM);
+    expect(calls[0].query.get("decrypt")).toBeNull();
+  });
+
+  it("met à jour en place les variables déjà posées sur la branche (idempotent)", async () => {
+    const { api, calls } = fakeVercelApi([
+      envList(PREVIEW_KEYS.map((key) => branchVar(key))),
+      createEnv,
+      editEnv,
+    ]);
+
+    const result = await syncPreviewEnv(api, BRANCH, VALUES);
+
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+    const edits = calls.filter((c) => c.method === "PATCH");
+    expect(edits.map((c) => c.path)).toEqual(
+      PREVIEW_KEYS.map(
+        (key) => `/v9/projects/${PROJECT}/env/env-${key}`,
+      ),
+    );
+    expect(edits[0].body).toEqual({
+      value: VALUES.DATABASE_AUTHENTICATED_URL,
+      type: "encrypted",
+      target: ["preview"],
+      gitBranch: BRANCH,
+    });
+    expect(result).toEqual({ created: 0, updated: 5 });
+  });
+
+  it("ne touche ni aux variables de toutes les previews ni à celles d'une autre branche", async () => {
+    const { api, calls } = fakeVercelApi([
+      envList([
+        {
+          id: "env-cookie",
+          key: "NEON_AUTH_COOKIE_SECRET",
+          target: ["preview"],
+        },
+        { id: "env-all", key: "NEON_AUTH_BASE_URL", target: ["preview"] },
+        branchVar("NEON_AUTH_BASE_URL", "autre"),
+      ]),
+      createEnv,
+      editEnv,
+    ]);
+
+    await syncPreviewEnv(api, BRANCH, VALUES);
+
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    expect(
+      (calls.find((c) => c.method === "POST")?.body as object[]).length,
+    ).toBe(5);
+  });
+
+  it("n'envoie jamais DATABASE_URL à Vercel", async () => {
+    const { api, calls } = fakeVercelApi([envList([]), createEnv]);
+
+    await syncPreviewEnv(api, BRANCH, {
+      ...VALUES,
+      DATABASE_URL: "postgresql://neondb_owner:proprio@hote/neondb",
+    });
+
+    expect(JSON.stringify(calls.map((c) => c.body))).not.toContain("proprio");
+    expect(PREVIEW_KEYS).not.toContain("DATABASE_URL");
+  });
+
+  it("refuse de poser une variable manquante, sans appel à l'API", async () => {
+    const { api, calls } = fakeVercelApi([envList([]), createEnv]);
+    const incomplete = { ...VALUES, NEON_AUTH_ISSUER: undefined };
+
+    await expect(syncPreviewEnv(api, BRANCH, incomplete)).rejects.toThrow(
+      /NEON_AUTH_ISSUER manquante/,
+    );
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each(["", "a\nb", "x".repeat(251)])(
+    "refuse le nom de branche git %j",
+    async (gitBranch) => {
+      const { api, calls } = fakeVercelApi([envList([]), createEnv]);
+
+      await expect(syncPreviewEnv(api, gitBranch, VALUES)).rejects.toThrow(
+        /Branche git refusée/,
+      );
+      expect(calls).toHaveLength(0);
+    },
+  );
+});
+
+describe("suppression des variables à la fermeture de la PR", () => {
+  it("supprime les cinq variables de la branche et rien d'autre", async () => {
+    const { api, calls } = fakeVercelApi([
+      envList([
+        ...PREVIEW_KEYS.map((key) => branchVar(key)),
+        {
+          id: "env-cookie",
+          key: "NEON_AUTH_COOKIE_SECRET",
+          target: ["preview"],
+        },
+        branchVar("NEON_AUTH_BASE_URL", "autre"),
+        branchVar("AUTRE_VARIABLE"),
+      ]),
+      removeEnv,
+    ]);
+
+    const removed = await deletePreviewEnv(api, BRANCH);
+
+    expect(removed).toBe(5);
+    expect(
+      calls.filter((c) => c.method === "DELETE").map((c) => c.path),
+    ).toEqual(
+      PREVIEW_KEYS.map(
+        (key) => `/v9/projects/${PROJECT}/env/env-${key}`,
+      ),
+    );
+    expect(calls.every((c) => c.query.get("teamId") === TEAM)).toBe(true);
+  });
+
+  it("ne fait rien si les variables sont déjà supprimées", async () => {
+    const { api, calls } = fakeVercelApi([envList([]), removeEnv]);
+
+    const removed = await deletePreviewEnv(api, BRANCH);
+
+    expect(removed).toBe(0);
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+  });
+});
+
+const createDeployment: Route = {
+  method: "POST",
+  path: /^\/v13\/deployments$/,
+  body: { id: "dpl_new", name: "projet", readyState: "QUEUED", alias: [] },
+};
+const deploymentState = (body: object): Route => ({
+  method: "GET",
+  path: /^\/v13\/deployments\/dpl_new$/,
+  body: { id: "dpl_new", name: "projet", ...body },
+});
+
+describe("redéploiement de la branche", () => {
+  it("crée un déploiement preview depuis le commit de la PR, sans déduplication", async () => {
+    const { api, calls } = fakeVercelApi([createDeployment]);
+
+    const deployment = await deployBranch(api, {
+      gitBranch: BRANCH,
+      sha: "abc123",
+      repoId: "42",
+    });
+
+    expect(deployment).toEqual({ id: "dpl_new", name: "projet" });
+    expect(calls[0].path).toBe("/v13/deployments");
+    expect(calls[0].query.get("forceNew")).toBe("1");
+    expect(calls[0].query.get("teamId")).toBe(TEAM);
+    expect(calls[0].body).toEqual({
+      name: PROJECT,
+      project: PROJECT,
+      gitSource: { type: "github", repoId: "42", ref: BRANCH, sha: "abc123" },
+    });
+  });
+
+  it("attend READY puis renvoie l'origine de l'alias de branche", async () => {
+    const { api, fetch } = fakeVercelApi([]);
+    const states = [
+      { readyState: "BUILDING", alias: [] },
+      { readyState: "READY", aliasAssigned: false, alias: [] },
+      {
+        readyState: "READY",
+        aliasAssigned: true,
+        alias: ["projet-antoine-equipe.vercel.example", BRANCH_ALIAS],
+      },
+    ];
+    fetch.mockImplementation(async () =>
+      Response.json({ id: "dpl_new", name: "projet", ...states.shift() }),
+    );
+
+    const origin = await waitForBranchOrigin(api, {
+      id: "dpl_new",
+      name: "projet",
+    });
+
+    expect(origin).toBe(`https://${BRANCH_ALIAS}`);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(["ERROR", "CANCELED"])(
+    "échoue si le déploiement finit en %s",
+    async (state) => {
+      const { api } = fakeVercelApi([deploymentState({ readyState: state })]);
+
+      await expect(
+        waitForBranchOrigin(api, { id: "dpl_new", name: "projet" }),
+      ).rejects.toThrow(
+        new RegExp(`Déploiement Vercel en échec \\(${state}\\)`),
+      );
+    },
+  );
+
+  it("échoue si aucun alias de branche n'est attribué", async () => {
+    const { api } = fakeVercelApi([
+      deploymentState({
+        readyState: "READY",
+        aliasAssigned: true,
+        alias: ["projet-antoine-equipe.vercel.example"],
+      }),
+    ]);
+
+    const error = await waitForBranchOrigin(api, {
+      id: "dpl_new",
+      name: "projet",
+    }).catch((e: Error) => e);
+
+    expect(String(error)).toMatch(/alias de branche introuvable/);
+    expect(String(error)).not.toContain("vercel.example");
+  });
+
+  it("abandonne un déploiement trop long", async () => {
+    const { api } = fakeVercelApi([
+      deploymentState({ readyState: "BUILDING" }),
+    ]);
+
+    await expect(
+      waitForBranchOrigin(api, { id: "dpl_new", name: "projet" }),
+    ).rejects.toThrow(/trop long/);
+  });
+});
+
+describe("erreurs de l'API Vercel", () => {
+  it("ne cite ni corps de réponse, ni projet, ni équipe, ni valeur", async () => {
+    const { api } = fakeVercelApi([
+      {
+        method: "GET",
+        path: /\/env$/,
+        status: 403,
+        body: { error: { message: `refusé pour ${NEON_HOST} ${PROJECT}` } },
+      },
+    ]);
+
+    const error = await syncPreviewEnv(api, BRANCH, VALUES).catch(
+      (e: Error) => e,
+    );
+
+    expect(String(error)).toMatch(/API Vercel : HTTP 403/);
+    for (const leak of [NEON_HOST, PROJECT, TEAM, "npg_secret"]) {
+      expect(String(error)).not.toContain(leak);
+    }
+  });
+});
+
+describe("commandes", () => {
+  function setup(routes: Route[]) {
+    const dir = mkdtempSync(join(tmpdir(), "vercel-preview-"));
+    const githubEnv = join(dir, "env");
+    const vercel = fakeVercelApi(routes);
+    const out: string[] = [];
+    const writtenAtMask: string[] = [];
+    const io = {
+      fetch: vercel.fetch,
+      sleep: async () => {},
+      log: (line: string) => {
+        out.push(line);
+        if (line.startsWith("::add-mask::")) {
+          writtenAtMask.push(
+            existsSync(githubEnv) ? readFileSync(githubEnv, "utf8") : "",
+          );
+        }
+      },
+    };
+    const env = {
+      VERCEL_TOKEN: "jeton",
+      VERCEL_PROJECT_ID: PROJECT,
+      VERCEL_TEAM_ID: TEAM,
+      GITHUB_ENV: githubEnv,
+      ...VALUES,
+    };
+    const masks = () =>
+      out.filter((l) => l.startsWith("::add-mask::")).map((l) => l.slice(12));
+    const plain = () =>
+      out.filter((l) => !l.startsWith("::add-mask::")).join("\n");
+    return { ...vercel, out, io, env, githubEnv, writtenAtMask, masks, plain };
+  }
+
+  it("sync : masque projet, équipe et valeurs, puis pose les variables sans rien afficher", async () => {
+    const { io, env, calls, masks, plain } = setup([envList([]), createEnv]);
+
+    await run(["sync", BRANCH], env, io);
+
+    expect(masks()).toEqual(
+      expect.arrayContaining([PROJECT, TEAM, ...Object.values(VALUES)]),
+    );
+    expect(calls.some((c) => c.method === "POST")).toBe(true);
+    for (const leak of [PROJECT, TEAM, NEON_HOST, "npg_secret"]) {
+      expect(plain()).not.toContain(leak);
+    }
+  });
+
+  it("deploy : redéploie, attend l'alias, le masque puis l'écrit dans la variable demandée", async () => {
+    const { io, env, githubEnv, masks, plain, writtenAtMask } = setup([
+      createDeployment,
+      deploymentState({
+        readyState: "READY",
+        aliasAssigned: true,
+        alias: [BRANCH_ALIAS],
+      }),
+    ]);
+
+    await run(
+      ["deploy", BRANCH, "--origin-env", "PREVIEW_ORIGIN"],
+      { ...env, HEAD_SHA: "abc123", GITHUB_REPOSITORY_ID: "42" },
+      io,
+    );
+
+    expect(masks()).toEqual(
+      expect.arrayContaining([
+        BRANCH_ALIAS,
+        `https://${BRANCH_ALIAS}`,
+        "dpl_new",
+      ]),
+    );
+    expect(writtenAtMask.every((content) => content === "")).toBe(true);
+    expect(readFileSync(githubEnv, "utf8")).toBe(
+      `PREVIEW_ORIGIN=https://${BRANCH_ALIAS}\n`,
+    );
+    expect(plain()).not.toContain("vercel.example");
+  });
+
+  it("deploy : exige le commit de la PR et l'identifiant du dépôt", async () => {
+    const { io, env, calls } = setup([createDeployment]);
+
+    await expect(
+      run(["deploy", BRANCH, "--origin-env", "PREVIEW_ORIGIN"], env, io),
+    ).rejects.toThrow(/HEAD_SHA manquante/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("delete : supprime les variables de la branche sans exiger leurs valeurs", async () => {
+    const { io, calls } = setup([
+      envList([branchVar("NEON_AUTH_ISSUER")]),
+      removeEnv,
+    ]);
+
+    await run(
+      ["delete", BRANCH],
+      {
+        VERCEL_TOKEN: "jeton",
+        VERCEL_PROJECT_ID: PROJECT,
+        VERCEL_TEAM_ID: TEAM,
+      },
+      io,
+    );
+
+    expect(calls.filter((c) => c.method === "DELETE")).toHaveLength(1);
+  });
+
+  it("refuse une commande inconnue et un jeton manquant", async () => {
+    const { io, env } = setup([]);
+
+    await expect(run(["purge", BRANCH], env, io)).rejects.toThrow(
+      /Commande inconnue/,
+    );
+    await expect(
+      run(["sync", BRANCH], { ...env, VERCEL_TOKEN: "" }, io),
+    ).rejects.toThrow(/VERCEL_TOKEN manquante/);
+  });
+});

@@ -1,11 +1,15 @@
 // Branches Neon de la CI (ADR-010) : crée ou retrouve une branche `ci/…` ou `preview/…`, réinitialise sur
 // CETTE branche les mots de passe du rôle propriétaire et d'app_backend (jamais ceux hérités du parent),
 // publie les deux URL dans $GITHUB_ENV après les avoir masquées, ou supprime la branche.
+// Avec --auth-env, publie aussi les NEON_AUTH_* de l'instance Neon Auth propre à la branche
+// (GET …/branches/{id}/auth, doc Neon « Manage Managed Better Auth via the API »). La commande trust
+// ajoute une origine aux domaines de confiance Neon Auth de la branche (doc Neon « Configure trusted domains »).
 // Sans dépendance (Node 24 : fetch global). Pourquoi pas neondatabase/create-branch-action : ses sorties
 // (URL, hôte) ne sont pas masquées et s'afficheraient dans le bloc `env:` des étapes suivantes.
 //
 // Usage :
-//   node scripts/ci/neon-branch.mjs create <nom> --owner-env <VAR> --app-env <VAR> [--ttl-hours <n>]
+//   node scripts/ci/neon-branch.mjs create <nom> --owner-env <VAR> --app-env <VAR> [--ttl-hours <n>] [--auth-env]
+//   node scripts/ci/neon-branch.mjs trust <nom>      (origine lue dans TRUSTED_ORIGIN)
 //   node scripts/ci/neon-branch.mjs delete <nom>
 // Variables : NEON_API_KEY, NEON_PROJECT_ID (secrets, posés sur cette seule étape) ;
 // NEON_PARENT_BRANCH (défaut test), NEON_DATABASE (défaut neondb), NEON_OWNER_ROLE (défaut neondb_owner).
@@ -52,8 +56,11 @@ export function withRole(templateUrl, role, password) {
   return url.toString();
 }
 
-/** @param {Api} api @param {string} path @param {RequestInit} [init] */
-async function call(api, path, init = {}) {
+/**
+ * @param {Api} api @param {string} path @param {RequestInit} [init]
+ * @param {{ allowNotFound?: boolean }} [options] 404 → null au lieu d'une erreur.
+ */
+async function call(api, path, init = {}, options = {}) {
   const sleep = api.sleep ?? defaultSleep;
   for (let attempt = 0; ; attempt++) {
     const response = await api.fetch(`${API}/projects/${api.projectId}${path}`, {
@@ -69,6 +76,7 @@ async function call(api, path, init = {}) {
       await sleep(POLL_MS * 2 ** attempt);
       continue;
     }
+    if (response.status === 404 && options.allowNotFound) return null;
     if (!response.ok) {
       // Corps de la réponse jamais affiché : il peut citer un hôte.
       throw new Error(
@@ -194,6 +202,78 @@ export async function deleteBranch(api, name) {
   return true;
 }
 
+/**
+ * Configuration Neon Auth de la branche (une instance par branche, doc Neon « Branching authentication ») :
+ * iss et aud des jetons = origine de base_url (src/env.ts).
+ * @param {Api} api @param {string} branchId
+ */
+export async function getAuthConfig(api, branchId) {
+  const auth = await call(api, `/branches/${branchId}/auth`, {}, { allowNotFound: true });
+  if (!auth) {
+    throw new Error(
+      "Neon Auth absent de la branche : l'activer sur la branche parente, puis recréer la branche de preview.",
+    );
+  }
+  /** @param {unknown} value */
+  const https = (value) => {
+    try {
+      const url = new URL(String(value));
+      return url.protocol === "https:" ? url : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const base = https(auth.base_url);
+  const jwks = https(auth.jwks_url);
+  if (!base || !jwks || jwks.origin !== base.origin) {
+    // Valeurs jamais citées : elles portent l'hôte de la branche.
+    throw new Error("Neon Auth : configuration Neon Auth inattendue (base_url ou jwks_url).");
+  }
+  return {
+    baseUrl: /** @type {string} */ (auth.base_url),
+    jwksUrl: /** @type {string} */ (auth.jwks_url),
+    issuer: base.origin,
+    audience: base.origin,
+  };
+}
+
+/** Origine https exacte (schéma + hôte, sans chemin, barre finale ni joker). @param {string} origin */
+function assertOrigin(origin) {
+  let ok = false;
+  try {
+    const url = new URL(origin);
+    ok = url.protocol === "https:" && url.origin === origin && !origin.includes("*");
+  } catch {
+    ok = false;
+  }
+  if (!ok) throw new Error("Domaine de confiance refusé : origine https exacte attendue.");
+}
+
+/**
+ * Ajoute `origin` aux domaines de confiance Neon Auth de la branche gérée `name`, s'il n'y est pas.
+ * @param {Api} api @param {string} name @param {string} origin @returns {Promise<boolean>} ajouté ?
+ */
+export async function trustOrigin(api, name, origin) {
+  assertManagedBranchName(name);
+  assertOrigin(origin);
+  const branch = await findBranch(api, name);
+  if (!branch) throw new Error("Branche introuvable.");
+  const path = `/branches/${branch.id}/auth/domains`;
+  const { domains = [] } = await call(api, path);
+  if (domains.some((/** @type {{ domain: string }} */ d) => d.domain === origin)) return false;
+  await call(api, path, {
+    method: "POST",
+    body: JSON.stringify({ domain: origin, auth_provider: "better_auth" }),
+  });
+  return true;
+}
+
+/** Valeurs à masquer d'une configuration Neon Auth : hôte, son premier segment, origine, URL. */
+function authSecretsOf(/** @type {Awaited<ReturnType<typeof getAuthConfig>>} */ auth) {
+  const host = new URL(auth.baseUrl).hostname;
+  return [host.split(".")[0], host, auth.issuer, auth.baseUrl, auth.jwksUrl];
+}
+
 /** Valeurs à masquer : hôte direct et pooler, leur premier segment (endpoint), mots de passe, URL. */
 function secretsOf(/** @type {Awaited<ReturnType<typeof createBranch>>} */ result) {
   const template = new URL(result.templateUrl);
@@ -251,12 +331,21 @@ export async function run(argv, env, io) {
     sleep: io.sleep,
   };
 
+  if (command === "trust") {
+    const added = await trustOrigin(api, name, required("TRUSTED_ORIGIN", env.TRUSTED_ORIGIN));
+    io.log(
+      added
+        ? `Domaine de confiance ajouté à Neon Auth de ${name}.`
+        : `Domaine de confiance déjà présent sur ${name}.`,
+    );
+    return;
+  }
   if (command === "delete") {
     const deleted = await deleteBranch(api, name);
     io.log(deleted ? `Branche ${name} supprimée.` : `Branche ${name} absente : rien à supprimer.`);
     return;
   }
-  if (command !== "create") throw new Error("Commande inconnue : create ou delete.");
+  if (command !== "create") throw new Error("Commande inconnue : create, trust ou delete.");
 
   const ownerEnv = required("--owner-env", option(args, "--owner-env"));
   const appEnv = required("--app-env", option(args, "--app-env"));
@@ -275,13 +364,27 @@ export async function run(argv, env, io) {
         : undefined,
   });
 
-  // Masques d'abord : aucune valeur ne doit atteindre le journal avant eux.
-  for (const value of new Set(secretsOf(result))) if (value) io.log(`::add-mask::${value}`);
+  // Lue avant toute écriture : sans Neon Auth sur la branche, rien n'est publié.
+  const auth = args.includes("--auth-env") ? await getAuthConfig(api, result.branchId) : undefined;
 
-  appendFileSync(githubEnv, line(ownerEnv, result.ownerUrl) + line(appEnv, result.appUrl));
+  // Masques d'abord : aucune valeur ne doit atteindre le journal avant eux.
+  const secrets = [...secretsOf(result), ...(auth ? authSecretsOf(auth) : [])];
+  for (const value of new Set(secrets)) if (value) io.log(`::add-mask::${value}`);
+
+  appendFileSync(
+    githubEnv,
+    line(ownerEnv, result.ownerUrl) +
+      line(appEnv, result.appUrl) +
+      (auth
+        ? line("NEON_AUTH_BASE_URL", auth.baseUrl) +
+          line("NEON_AUTH_JWKS_URL", auth.jwksUrl) +
+          line("NEON_AUTH_ISSUER", auth.issuer) +
+          line("NEON_AUTH_AUDIENCE", auth.audience)
+        : ""),
+  );
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, line("branch_id", result.branchId));
   io.log(
-    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${ownerEnv} et ${appEnv} posées.`,
+    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${ownerEnv} et ${appEnv}${auth ? " et NEON_AUTH_*" : ""} posées.`,
   );
 }
 

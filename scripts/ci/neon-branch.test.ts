@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,7 +9,9 @@ import {
   assertManagedBranchName,
   createBranch,
   deleteBranch,
+  getAuthConfig,
   run,
+  trustOrigin,
   withRole,
 } from "./neon-branch.mjs";
 
@@ -438,5 +440,258 @@ describe("commande create", () => {
       run(["create", "production", ...ARGS], env, io),
     ).rejects.toThrow(/ci\/ ou preview\//);
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+// Neon Auth de la branche fille : sa propre instance (doc Neon « Branching authentication »).
+const AUTH_HOST = `${ENDPOINT}.neonauth.eu-central-1.aws.neon.example`;
+const AUTH_BASE_URL = `https://${AUTH_HOST}/neondb/auth`;
+const AUTH_JWKS_URL = `${AUTH_BASE_URL}/.well-known/jwks.json`;
+const authRoute = (branchId: string, status = 200): Route => ({
+  method: "GET",
+  path: new RegExp(`/branches/${branchId}/auth$`),
+  status,
+  body:
+    status === 200
+      ? {
+          auth_provider: "better_auth",
+          branch_id: branchId,
+          base_url: AUTH_BASE_URL,
+          jwks_url: AUTH_JWKS_URL,
+        }
+      : { message: `pas d'auth sur ${AUTH_HOST}` },
+});
+
+describe("configuration Neon Auth de la branche", () => {
+  it("lit base_url et jwks_url de la branche ; iss et aud valent l'origine de base_url", async () => {
+    const { api, calls } = fakeNeonApi([authRoute("br-new")]);
+
+    const auth = await getAuthConfig(api, "br-new");
+
+    expect(calls[0]).toMatchObject({
+      method: "GET",
+      path: "/api/v2/projects/p/branches/br-new/auth",
+    });
+    expect(auth).toEqual({
+      baseUrl: AUTH_BASE_URL,
+      jwksUrl: AUTH_JWKS_URL,
+      issuer: `https://${AUTH_HOST}`,
+      audience: `https://${AUTH_HOST}`,
+    });
+  });
+
+  it("échoue explicitement, sans hôte, si Neon Auth n'est pas provisionné sur la branche", async () => {
+    const { api } = fakeNeonApi([authRoute("br-new", 404)]);
+
+    const error = await getAuthConfig(api, "br-new").catch((e: Error) => e);
+
+    expect(String(error)).toMatch(/Neon Auth absent de la branche/);
+    expect(String(error)).not.toContain(AUTH_HOST);
+    expect(String(error)).not.toContain(ENDPOINT);
+  });
+
+  it("refuse une configuration dont le JWKS n'est pas sur l'hôte de base_url", async () => {
+    const { api } = fakeNeonApi([
+      {
+        method: "GET",
+        path: /\/auth$/,
+        body: {
+          base_url: AUTH_BASE_URL,
+          jwks_url: "https://autre.example/jwks.json",
+        },
+      },
+    ]);
+
+    const error = await getAuthConfig(api, "br-new").catch((e: Error) => e);
+
+    expect(String(error)).toMatch(/configuration Neon Auth inattendue/);
+    expect(String(error)).not.toContain(AUTH_HOST);
+  });
+});
+
+describe("commande create --auth-env", () => {
+  function setup() {
+    const dir = mkdtempSync(join(tmpdir(), "neon-branch-auth-"));
+    const githubEnv = join(dir, "env");
+    const api = fakeNeonApi([
+      parentRoute("production"),
+      listing([]),
+      createRoute("br-new"),
+      resetRoute("neondb_owner", OWNER_PASSWORD),
+      resetRoute("app_backend", APP_PASSWORD),
+      operationsDone,
+      connectionUri,
+      authRoute("br-new"),
+    ]);
+    const out: string[] = [];
+    const writtenAtMask: string[] = [];
+    const io = {
+      fetch: api.fetch,
+      log: (line: string) => {
+        out.push(line);
+        if (line.startsWith("::add-mask::")) {
+          writtenAtMask.push(
+            existsSync(githubEnv) ? readFileSync(githubEnv, "utf8") : "",
+          );
+        }
+      },
+      sleep: async () => {},
+    };
+    const env = {
+      ...BASE_ENV,
+      GITHUB_ENV: githubEnv,
+      NEON_PARENT_BRANCH: "production",
+    };
+    return { out, io, env, githubEnv, writtenAtMask };
+  }
+  const ARGS = [
+    "--owner-env",
+    "DATABASE_URL",
+    "--app-env",
+    "DATABASE_AUTHENTICATED_URL",
+    "--auth-env",
+  ];
+
+  it("écrit les quatre NEON_AUTH_* de la branche dans $GITHUB_ENV", async () => {
+    const { env, io, githubEnv } = setup();
+
+    await run(["create", "preview/feat/x", ...ARGS], env, io);
+
+    const written = readFileSync(githubEnv, "utf8");
+    expect(written).toContain(`NEON_AUTH_BASE_URL=${AUTH_BASE_URL}\n`);
+    expect(written).toContain(`NEON_AUTH_JWKS_URL=${AUTH_JWKS_URL}\n`);
+    expect(written).toContain(`NEON_AUTH_ISSUER=https://${AUTH_HOST}\n`);
+    expect(written).toContain(`NEON_AUTH_AUDIENCE=https://${AUTH_HOST}\n`);
+  });
+
+  it("masque l'hôte, l'origine et les URL Neon Auth avant toute écriture", async () => {
+    const { out, env, io, writtenAtMask } = setup();
+
+    await run(["create", "preview/feat/x", ...ARGS], env, io);
+
+    const masks = out
+      .filter((l) => l.startsWith("::add-mask::"))
+      .map((l) => l.slice(12));
+    expect(masks).toEqual(
+      expect.arrayContaining([
+        AUTH_HOST,
+        `https://${AUTH_HOST}`,
+        AUTH_BASE_URL,
+        AUTH_JWKS_URL,
+      ]),
+    );
+    expect(writtenAtMask.every((content) => content === "")).toBe(true);
+    const plain = out.filter((l) => !l.startsWith("::add-mask::")).join("\n");
+    expect(plain).not.toContain(AUTH_HOST);
+  });
+
+  it("n'écrit aucune variable si Neon Auth manque sur la branche", async () => {
+    const { env, io, githubEnv } = setup();
+    const original = io.fetch.getMockImplementation()!;
+    io.fetch.mockImplementation(async (input, init) =>
+      String(input).endsWith("/auth")
+        ? Response.json({}, { status: 404 })
+        : original(input, init),
+    );
+
+    await expect(
+      run(["create", "preview/feat/x", ...ARGS], env, io),
+    ).rejects.toThrow(/Neon Auth absent/);
+    expect(existsSync(githubEnv)).toBe(false);
+  });
+});
+
+describe("domaine de confiance Neon Auth", () => {
+  const ORIGIN = "https://projet-git-feat-x-equipe.vercel.example";
+  const domainsRoute = (domains: string[]): Route => ({
+    method: "GET",
+    path: /\/branches\/br-preview\/auth\/domains$/,
+    body: {
+      domains: domains.map((domain) => ({
+        domain,
+        auth_provider: "better_auth",
+      })),
+    },
+  });
+  const addDomainRoute: Route = {
+    method: "POST",
+    path: /\/branches\/br-preview\/auth\/domains$/,
+    status: 201,
+    body: {},
+  };
+  const previewListing = listing([{ id: "br-preview", name: "preview/feat/x" }]);
+
+  it("ajoute l'origine de la preview à la branche preview", async () => {
+    const { api, calls } = fakeNeonApi([
+      previewListing,
+      domainsRoute([]),
+      addDomainRoute,
+    ]);
+
+    const added = await trustOrigin(api, "preview/feat/x", ORIGIN);
+
+    expect(added).toBe(true);
+    expect(calls.find((c) => c.method === "POST")).toEqual({
+      method: "POST",
+      path: "/api/v2/projects/p/branches/br-preview/auth/domains",
+      body: { domain: ORIGIN, auth_provider: "better_auth" },
+    });
+  });
+
+  it("ne rajoute pas une origine déjà présente (idempotent)", async () => {
+    const { api, calls } = fakeNeonApi([
+      previewListing,
+      domainsRoute([ORIGIN]),
+      addDomainRoute,
+    ]);
+
+    const added = await trustOrigin(api, "preview/feat/x", ORIGIN);
+
+    expect(added).toBe(false);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it.each([
+    "http://projet.vercel.example",
+    "https://projet.vercel.example/chemin",
+    "https://projet.vercel.example/",
+    "https://*.vercel.example",
+    "pas une url",
+  ])("refuse %s (origine https exacte attendue)", async (origin) => {
+    const { api, calls } = fakeNeonApi([previewListing, domainsRoute([])]);
+
+    await expect(trustOrigin(api, "preview/feat/x", origin)).rejects.toThrow(
+      /origine https/,
+    );
+    expect(calls).toHaveLength(0);
+  });
+
+  it("refuse une branche hors preview/ et ci/, et une branche absente", async () => {
+    const { api } = fakeNeonApi([listing([])]);
+
+    await expect(trustOrigin(api, "production", ORIGIN)).rejects.toThrow(
+      /ci\/ ou preview\//,
+    );
+    await expect(trustOrigin(api, "preview/feat/x", ORIGIN)).rejects.toThrow(
+      /introuvable/,
+    );
+  });
+
+  it("commande trust : lit l'origine dans TRUSTED_ORIGIN et ne l'affiche pas", async () => {
+    const { fetch, calls } = fakeNeonApi([
+      previewListing,
+      domainsRoute([]),
+      addDomainRoute,
+    ]);
+    const out: string[] = [];
+
+    await run(
+      ["trust", "preview/feat/x"],
+      { ...BASE_ENV, TRUSTED_ORIGIN: ORIGIN },
+      { fetch, log: (l) => out.push(l), sleep: async () => {} },
+    );
+
+    expect(calls.some((c) => c.method === "POST")).toBe(true);
+    expect(out.join("\n")).not.toContain("vercel.example");
   });
 });

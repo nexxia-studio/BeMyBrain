@@ -1,9 +1,13 @@
-# Base des previews (ADR-010) : la CI, pas le build Vercel, crée ou retrouve la branche Neon
-# `preview/<branche-git>` (fille de `production`, ADR-005 ; nom attendu par l'intégration Neon–Vercel),
-# réinitialise sur elle les mots de passe du propriétaire et d'app_backend, y applique les migrations de
-# la PR, et la supprime à la fermeture de la PR. Expiration à 10 jours, repoussée à chaque push.
-# Les variables de runtime de la preview (DATABASE_AUTHENTICATED_URL, NEON_AUTH_*) ne sont PAS posées ici :
-# décision A/B/C en attente (plan socle, tâche 17).
+# Base et variables des previews (ADR-010, option A : pas d'intégration Neon–Vercel). À chaque push de
+# PR, la CI crée ou retrouve la branche Neon `preview/<branche-git>` (fille de `production`, ADR-005),
+# réinitialise sur elle les mots de passe du propriétaire et d'app_backend, y applique les migrations,
+# pose sur Vercel les variables de runtime de la preview (DATABASE_AUTHENTICATED_URL, NEON_AUTH_*),
+# limitées à la branche git, redéploie la branche (le build lancé par le push a les anciennes valeurs),
+# puis ajoute l'URL de branche Vercel aux domaines de confiance Neon Auth de la branche Neon.
+# À la fermeture de la PR : variables Vercel de la branche supprimées, branche Neon supprimée.
+# Expiration de la branche Neon à 10 jours, repoussée à chaque push. Jamais DATABASE_URL sur Vercel.
+# NEON_AUTH_COOKIE_SECRET des previews est posé à la main (toutes les previews) : la CI n'y touche pas.
+# Dépôt public : toute valeur passée par $GITHUB_ENV est masquée par le script qui l'écrit.
 name: Preview database
 
 on:
@@ -26,7 +30,8 @@ jobs:
     name: Migrer la base de la preview
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Build Next complet du redéploiement inclus (attente ≤ 12 min dans vercel-preview-env.mjs).
+    timeout-minutes: 30
     steps:
       # Une PR de fork ne reçoit pas les secrets : échec explicite plutôt qu'un job sauté.
       - name: Refuser une PR de fork
@@ -43,7 +48,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # NEON_API_KEY n'existe que dans cette étape (et dans celle de suppression).
+      # NEON_API_KEY n'existe que dans les étapes neon-branch.mjs.
       - name: Créer ou retrouver la branche Neon de la preview
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
@@ -56,7 +61,25 @@ jobs:
           --owner-env DATABASE_URL
           --app-env DATABASE_AUTHENTICATED_URL
           --ttl-hours 240
+          --auth-env
       - run: pnpm db:migrate
+      # VERCEL_TOKEN n'existe que dans cette étape (et dans celle de suppression).
+      - name: Poser les variables de la preview sur Vercel et redéployer
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+          # Commit de la PR ; GITHUB_SHA serait le commit de fusion de test.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node scripts/ci/vercel-preview-env.mjs sync "$HEAD_REF"
+          node scripts/ci/vercel-preview-env.mjs deploy "$HEAD_REF" --origin-env PREVIEW_ORIGIN
+      - name: Ajouter la preview aux domaines de confiance Neon Auth
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          TRUSTED_ORIGIN: ${{ env.PREVIEW_ORIGIN }}
+        run: node scripts/ci/neon-branch.mjs trust "preview/$HEAD_REF"
 
   delete-preview:
     name: Supprimer la base de la preview
@@ -71,8 +94,16 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      # Script sans dépendance : pas d'installation.
+      # Scripts sans dépendance : pas d'installation.
+      - name: Supprimer les variables Vercel de la preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+        run: node scripts/ci/vercel-preview-env.mjs delete "$HEAD_REF"
+      # Même si la suppression Vercel échoue : la branche Neon ne doit pas survivre à la PR.
       - name: Supprimer la branche Neon de la preview
+        if: ${{ !cancelled() }}
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
