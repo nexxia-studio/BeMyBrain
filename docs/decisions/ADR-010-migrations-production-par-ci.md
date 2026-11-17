@@ -12,7 +12,7 @@ Le 2026-11-12, une migration lancée en local a atterri sur la branche Neon `pro
 - Les previews migrent aussi par la CI (GitHub Actions), sur leur propre branche Neon ; leur accès propriétaire est limité à cette branche et n'existe que dans la CI.
 - Pas d'intégration Neon–Vercel : elle n'injecte que `DATABASE_URL` (propriétaire) et des noms non configurables. Production : variables posées à la main dans Vercel. Previews (option A, 2026-11-12) : la CI pose sur Vercel, limitées à la branche git, `DATABASE_AUTHENTICATED_URL` et `NEON_AUTH_*` de la branche Neon de la preview, puis redéploie. Jeton `VERCEL_TOKEN` limité au projet Vercel (jeton de projet). L'app refuse de démarrer sur Vercel si `DATABASE_URL` est définie.
 - Deployment Protection de Vercel active sur les previews (vérifiée à la tâche 17).
-- Avant le multi-comptes (BRAIN-26), les previews partent de `staging`, plus de `production` (ADR-005).
+- Avant le premier module sensible (finance, santé ou contacts), les previews partent de `staging`, sans donnée ni compte réel, plus de `production` (ADR-005, BRAIN-34, décision d'Antoine du 2026-11-17).
 - En local et en CI, seule la plateforme fait foi (`GITHUB_ACTIONS=true` ou `VERCEL=1`) ; `CI` seule ne lève pas le garde-fou.
 
 ## Alternatives écartées
