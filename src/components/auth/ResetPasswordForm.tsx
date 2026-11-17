@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
@@ -19,13 +20,26 @@ const secondaryButtonClass =
 
 // Un seul état pour tout le parcours : le bouton envoyé (`intent`) choisit l'action serveur.
 // « Renvoyer un code » repasse par requestPasswordReset et efface l'erreur affichée.
+// Si l'appel lui-même lève (403 du pare-feu Vercel ou page 5xx, indiscernables côté client), on reste
+// à la même étape avec le même e-mail ; les erreurs de contrôle de Next sont relancées.
 async function dispatch(
   previous: ResetState,
   formData: FormData,
 ): Promise<ResetState> {
-  return formData.get("intent") === "reset"
-    ? resetPassword(previous, formData)
-    : requestPasswordReset(previous, formData);
+  try {
+    return formData.get("intent") === "reset"
+      ? await resetPassword(previous, formData)
+      : await requestPasswordReset(previous, formData);
+  } catch (error) {
+    unstable_rethrow(error);
+    if (previous.step === "code") return { ...previous, error: "submitFailed" };
+    const email = formData.get("email");
+    return {
+      step: "email",
+      email: typeof email === "string" ? email.trim().slice(0, 254) : "",
+      error: "submitFailed",
+    };
+  }
 }
 
 export function ResetPasswordForm() {

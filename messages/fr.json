@@ -34,7 +34,8 @@
       "unavailable": "Service momentanément indisponible. Réessaie dans un instant.",
       "invalidEmail": "Adresse e-mail invalide.",
       "invalidCode": "Code invalide ou expiré.",
-      "weakPassword": "Le mot de passe doit contenir au moins 8 caractères."
+      "weakPassword": "Le mot de passe doit contenir au moins 8 caractères.",
+      "submitFailed": "Trop de tentatives ou service indisponible. Réessaie dans une minute."
     }
   },
   "dashboard": {

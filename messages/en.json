@@ -34,7 +34,8 @@
       "unavailable": "Service temporarily unavailable. Try again in a moment.",
       "invalidEmail": "Invalid email address.",
       "invalidCode": "Invalid or expired code.",
-      "weakPassword": "Password must be at least 8 characters."
+      "weakPassword": "Password must be at least 8 characters.",
+      "submitFailed": "Too many attempts or service unavailable. Try again in a minute."
     }
   },
   "dashboard": {

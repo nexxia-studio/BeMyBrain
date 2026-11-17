@@ -16,17 +16,22 @@ import { getAuth, isAuthUnavailable } from "./server";
 // Erreurs renvoyées à l'écran : des codes, traduits par le composant. Jamais le message de
 // Neon Auth (il peut dire si un compte existe, ou porter l'adresse saisie).
 // L'e-mail saisi revient dans l'état pour être réaffiché (React 19 vide le formulaire après l'action).
+// `submitFailed` n'est posé que côté client, quand l'appel de l'action lui-même échoue (pare-feu, page 5xx).
 export type SignInState = {
-  error: "invalidCredentials" | "unavailable";
+  error: "invalidCredentials" | "unavailable" | "submitFailed";
   email: string;
 } | null;
 
 export type ResetState =
-  | { step: "email"; email?: string; error?: "invalidEmail" | "unavailable" }
+  | {
+      step: "email";
+      email?: string;
+      error?: "invalidEmail" | "unavailable" | "submitFailed";
+    }
   | {
       step: "code";
       email: string;
-      error?: "invalidCode" | "weakPassword" | "unavailable";
+      error?: "invalidCode" | "weakPassword" | "unavailable" | "submitFailed";
     };
 
 type AuthError = { code?: unknown; status?: unknown } | null | undefined;
