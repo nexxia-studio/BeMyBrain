@@ -67,8 +67,8 @@ jobs:
       - name: Poser les variables de la preview sur Vercel et redéployer
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
           # Commit de la PR ; GITHUB_SHA serait le commit de fusion de test.
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -98,8 +98,8 @@ jobs:
       - name: Supprimer les variables Vercel de la preview
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
         run: node scripts/ci/vercel-preview-env.mjs delete "$HEAD_REF"
       # Même si la suppression Vercel échoue : la branche Neon ne doit pas survivre à la PR.
       - name: Supprimer la branche Neon de la preview
