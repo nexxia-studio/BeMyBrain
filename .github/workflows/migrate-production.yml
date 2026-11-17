@@ -33,15 +33,23 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      # DATABASE_URL après pnpm install, dans le même job : inévitable, la migration EST du code de dépendance
+      # (drizzle-kit) qui doit tenir l'URL propriétaire. Limites : environnement `production` (main seulement),
+      # lockfile figé, aucun script d'installation de dépendance exécuté (allowBuilds tous à false dans
+      # pnpm-workspace.yaml). Aucune autre clé dans ce job ; NODE_OPTIONS et BASH_ENV vidés sur les étapes.
       - run: pnpm install --frozen-lockfile
       # GITHUB_ACTIONS=true lève le garde-fou NEON_PRODUCTION_HOST : la cible est fixée par le secret.
       - name: Migrer
         run: pnpm db:migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_OPTIONS: ""
+          BASH_ENV: ""
       # Rejouable : ne crée le workspace d'Antoine qu'une fois, ne modifie jamais une ligne existante.
       - name: Seed
         run: pnpm db:seed
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SEED_OWNER_USER_ID: ${{ vars.SEED_OWNER_USER_ID }}
+          NODE_OPTIONS: ""
+          BASH_ENV: ""

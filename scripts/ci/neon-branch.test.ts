@@ -12,6 +12,7 @@ import {
   getAuthConfig,
   run,
   trustOrigin,
+  redactPath,
   withRole,
 } from "./neon-branch.mjs";
 
@@ -22,7 +23,11 @@ const HOST = `${ENDPOINT}.eu-central-1.aws.neon.example`;
 const TEMPLATE_URI = `postgresql://neondb_owner:hérité%2Fpw@${HOST}/neondb?sslmode=require&channel_binding=require`;
 const OWNER_PASSWORD = "npg_owner/neuf";
 const APP_PASSWORD = "npg_app+neuf";
-const BASE_ENV = { NEON_API_KEY: "api-key", NEON_PROJECT_ID: "proj-fake" };
+const BASE_ENV = {
+  NEON_API_KEY: "api-key",
+  NEON_PROJECT_ID: "proj-fake",
+  DEFAULT_GIT_BRANCH: "main",
+};
 
 type Route = { method: string; path: RegExp; status?: number; body: unknown };
 type Call = { method: string; path: string; body?: unknown };
@@ -320,6 +325,18 @@ describe("création d'une branche", () => {
   });
 });
 
+describe("chemins cités dans les erreurs", () => {
+  it("remplace chaque identifiant de branche et chaque rôle, pas seulement le premier", () => {
+    const redacted = redactPath(
+      "/branches/br-aaa-1/roles/neondb_owner/x/br-bbb-2/roles/app_backend?q=br-ccc",
+    );
+
+    expect(redacted).toBe(
+      "/branches/<branche>/roles/<rôle>/x/<branche>/roles/<rôle>",
+    );
+  });
+});
+
 describe("suppression d'une branche", () => {
   it("supprime la branche trouvée par son nom", async () => {
     const { api, calls } = fakeNeonApi([
@@ -425,6 +442,24 @@ describe("commande create", () => {
     );
   });
 
+  it("sans --owner-env, réinitialise quand même le propriétaire mais n'écrit que l'URL app_backend", async () => {
+    const { fetch, env, io, githubEnv } = setup();
+
+    await run(
+      ["create", "ci/run-1-1", "--app-env", "DATABASE_TEST_AUTHENTICATED_URL"],
+      env,
+      io,
+    );
+
+    const resets = fetch.mock.calls
+      .map(([input]) => new URL(String(input)).pathname)
+      .filter((path) => path.endsWith("/reset_password"));
+    expect(resets).toHaveLength(2);
+    expect(readFileSync(githubEnv, "utf8")).toBe(
+      `DATABASE_TEST_AUTHENTICATED_URL=${withRole(TEMPLATE_URI, "app_backend", APP_PASSWORD)}\n`,
+    );
+  });
+
   it("publie l'identifiant de la branche en sortie de l'étape", async () => {
     const { env, io, githubOutput } = setup();
 
@@ -440,6 +475,33 @@ describe("commande create", () => {
       run(["create", "production", ...ARGS], env, io),
     ).rejects.toThrow(/ci\/ ou preview\//);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["create", "trust", "delete"])(
+    "%s : refuse la preview de la branche par défaut du dépôt, sans appel à l'API",
+    async (command) => {
+      const { fetch, env, io } = setup();
+
+      await expect(
+        run(
+          [command, "preview/main", ...ARGS],
+          { ...env, TRUSTED_ORIGIN: "https://projet.vercel.example" },
+          io,
+        ),
+      ).rejects.toThrow(/branche par défaut/);
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("exige le nom de la branche par défaut pour une branche preview/, pas pour ci/", async () => {
+    const { fetch, env, io } = setup();
+    const withoutDefault = { ...env, DEFAULT_GIT_BRANCH: "" };
+
+    await expect(
+      run(["create", "preview/feat/x", ...ARGS], withoutDefault, io),
+    ).rejects.toThrow(/DEFAULT_GIT_BRANCH manquante/);
+    expect(fetch).not.toHaveBeenCalled();
+    await run(["create", "ci/run-1-1", ...ARGS], withoutDefault, io);
   });
 });
 
@@ -665,6 +727,22 @@ describe("domaine de confiance Neon Auth", () => {
     );
     expect(calls).toHaveLength(0);
   });
+
+  it.each([{ default: true }, { protected: true }])(
+    "refuse une branche %o, sans lire ni modifier ses domaines",
+    async (flags) => {
+      const { api, calls } = fakeNeonApi([
+        listing([{ id: "br-preview", name: "preview/feat/x", ...flags }]),
+        domainsRoute([]),
+        addDomainRoute,
+      ]);
+
+      await expect(trustOrigin(api, "preview/feat/x", ORIGIN)).rejects.toThrow(
+        /protégée ou par défaut/,
+      );
+      expect(calls).toHaveLength(1);
+    },
+  );
 
   it("refuse une branche hors preview/ et ci/, et une branche absente", async () => {
     const { api } = fakeNeonApi([listing([])]);

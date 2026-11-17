@@ -7,14 +7,17 @@
 //   POST   /v10/projects/{id}/env               « Create one or more environment variables »
 //   PATCH  /v9/projects/{id}/env/{envId}        « Edit an environment variable »
 //   DELETE /v9/projects/{id}/env/{envId}        « Remove an environment variable »
-//   POST   /v13/deployments?forceNew=1          « Create a new deployment » (gitSource github, repoId)
+//   POST   /v13/deployments?forceNew=1          « Create a new deployment » (gitSource github, repoId, target)
 //   GET    /v13/deployments/{id}                « Get a deployment by ID or URL »
+//   GET    /v9/projects/{id}                    « Find a project by id or name » (nom, pour l'alias de branche)
+// Seul déployeur des previews : vercel.json coupe les déploiements git hors de main (git.deploymentEnabled).
 //
 // Usage :
 //   node scripts/ci/vercel-preview-env.mjs sync <branche-git>     (valeurs lues dans l'environnement)
 //   node scripts/ci/vercel-preview-env.mjs deploy <branche-git> --origin-env <VAR>  (HEAD_SHA, GITHUB_REPOSITORY_ID)
 //   node scripts/ci/vercel-preview-env.mjs delete <branche-git>
-// Variables : VERCEL_TOKEN (secret, posé sur ces seules étapes), VERCEL_PROJECT_ID, VERCEL_TEAM_ID.
+// Variables : VERCEL_TOKEN, VERCEL_PROJECT_ID, VERCEL_TEAM_ID (secrets, posés sur ces seules étapes) ;
+// DEFAULT_GIT_BRANCH (branche par défaut du dépôt, toujours refusée : c'est la production).
 // Messages : jamais de valeur, d'hôte, d'URL, d'identifiant de projet ou d'équipe, ni de corps de réponse.
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -31,33 +34,58 @@ export const PREVIEW_KEYS = Object.freeze([
 const POLL_MS = 10_000;
 const POLL_LIMIT = 72; // 12 min : build Next complet.
 const FAILED = new Set(["ERROR", "CANCELED"]);
+const REQUEST_TIMEOUT_MS = 30_000;
+const RETRIES = 5;
+const RETRY_BASE_MS = 2_000;
+const RETRY_MAX_MS = 30_000;
 
 /**
  * @typedef {{ token: string, projectId: string, teamId: string, fetch: typeof fetch, sleep?: (ms: number) => Promise<void> }} Api
  * @typedef {{ id: string, key: string, target?: string[] | string, gitBranch?: string }} EnvVar
- * @typedef {{ id: string, name: string }} Deployment
+ * @typedef {{ id: string }} Deployment
  */
 
 const defaultSleep = (/** @type {number} */ ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Appel REST borné dans le temps ; réessaie 429, 5xx et absence de réponse (attente exponentielle bornée).
+ * Un POST réessayé peut avoir abouti côté Vercel : le réessai échoue alors en 4xx, explicite, et un nouveau
+ * passage de la CI repart de l'état réel (sync lit l'existant, deploy force un nouveau build).
  * @param {Api} api @param {string} label description sans identifiant, pour les messages d'erreur
  * @param {string} path @param {Record<string, string>} [query] @param {RequestInit} [init]
  */
 async function call(api, label, path, query = {}, init = {}) {
+  const sleep = api.sleep ?? defaultSleep;
   const params = new URLSearchParams({ ...query, teamId: api.teamId });
-  const response = await api.fetch(`${API}${path}?${params}`, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${api.token}`,
-    },
-  });
-  // Corps jamais affiché : il peut citer une valeur, un projet ou une équipe.
-  if (!response.ok) throw new Error(`API Vercel : HTTP ${response.status} sur ${label}.`);
-  return response.json();
+  for (let attempt = 0; ; attempt++) {
+    const retry = attempt < RETRIES;
+    /** @type {Response} */
+    let response;
+    try {
+      response = await api.fetch(`${API}${path}?${params}`, {
+        ...init,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${api.token}`,
+        },
+      });
+    } catch {
+      // Erreur d'origine jamais citée (cause réseau, hôte).
+      if (!retry) throw new Error(`API Vercel : pas de réponse sur ${label}.`);
+      await sleep(Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS));
+      continue;
+    }
+    if ((response.status === 429 || response.status >= 500) && retry) {
+      await sleep(Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS));
+      continue;
+    }
+    // Corps jamais affiché : il peut citer une valeur, un projet ou une équipe.
+    if (!response.ok) throw new Error(`API Vercel : HTTP ${response.status} sur ${label}.`);
+    return response.json();
+  }
 }
 
 /** Nom de branche git accepté par Vercel (gitBranch ≤ 250) et sûr pour une ligne de journal. @param {string} gitBranch */
@@ -125,39 +153,49 @@ export async function deletePreviewEnv(api, gitBranch) {
 
 /**
  * Nouveau déploiement preview du commit de la PR : il lit les variables posées juste avant.
- * forceNew=1 : sinon Vercel peut réutiliser le build du même commit lancé par le push, sans ces variables.
+ * forceNew=1 : sinon Vercel peut réutiliser un build du même commit, sans ces variables.
+ * target "preview" demandé, et vérifié dans la réponse (null = preview, doc « Create a new deployment »).
  * @param {Api} api @param {{ gitBranch: string, sha: string, repoId: string }} source
  * @returns {Promise<Deployment>}
  */
 export async function deployBranch(api, { gitBranch, sha, repoId }) {
   assertGitBranch(gitBranch);
-  const { id, name } = await call(api, "POST deployments", "/v13/deployments", { forceNew: "1" }, {
+  const { id, target } = await call(api, "POST deployments", "/v13/deployments", { forceNew: "1" }, {
     method: "POST",
     body: JSON.stringify({
       // `project` l'emporte sur `name` (doc) ; `name` reste requis par le schéma.
       name: api.projectId,
       project: api.projectId,
+      target: "preview",
       gitSource: { type: "github", repoId, ref: gitBranch, sha },
     }),
   });
-  return { id, name };
+  if (target != null && target !== "preview") {
+    throw new Error(`Déploiement Vercel de cible ${String(target)} : cible preview attendue.`);
+  }
+  return { id };
 }
 
 /**
  * Attend que le déploiement soit prêt et ses alias posés, puis renvoie l'origine de l'alias de branche
- * (`<projet>-git-<branche>-<équipe>.vercel.app`, éventuellement tronqué : lu, jamais calculé).
- * @param {Api} api @param {Deployment} deployment
+ * (`<projet>-git-<branche>-<équipe>.vercel.app`, éventuellement tronqué : lu, jamais calculé). Le nom
+ * du projet est lu chez Vercel : le `name` du déploiement est l'identifiant envoyé, pas ce nom.
+ * @param {Api} api @param {string} deploymentId
  */
-export async function waitForBranchOrigin(api, deployment) {
+export async function waitForBranchOrigin(api, deploymentId) {
   const sleep = api.sleep ?? defaultSleep;
+  const { name: projectName } = await call(api, "GET project", `/v9/projects/${api.projectId}`);
+  if (!projectName) throw new Error("Projet Vercel sans nom : alias de branche introuvable.");
   for (let poll = 0; poll < POLL_LIMIT; poll++) {
-    const state = await call(api, "GET deployment", `/v13/deployments/${deployment.id}`);
+    const state = await call(api, "GET deployment", `/v13/deployments/${deploymentId}`);
+    // Message de Vercel jamais cité : il peut nommer un alias.
+    if (state.aliasError) throw new Error("Déploiement Vercel : erreur d'alias.");
     if (FAILED.has(state.readyState)) {
       throw new Error(`Déploiement Vercel en échec (${state.readyState}).`);
     }
     if (state.readyState === "READY" && state.aliasAssigned) {
       const alias = /** @type {string[]} */ (state.alias ?? []).find((a) =>
-        a.startsWith(`${deployment.name}-git-`),
+        a.startsWith(`${projectName}-git-`),
       );
       if (!alias) throw new Error("Déploiement Vercel prêt, mais alias de branche introuvable.");
       return `https://${alias}`;
@@ -203,6 +241,10 @@ export async function run(argv, env, io) {
     fetch: io.fetch,
     sleep: io.sleep,
   };
+  // Branche par défaut = production : jamais de variables ni de déploiement « preview » dessus.
+  if (gitBranch === required("DEFAULT_GIT_BRANCH", env.DEFAULT_GIT_BRANCH)) {
+    throw new Error("Branche git refusée : branche par défaut du dépôt (production).");
+  }
   /** @param {(string | undefined)[]} values */
   const mask = (values) => {
     for (const value of new Set(values)) if (value) io.log(`::add-mask::${value}`);
@@ -229,7 +271,7 @@ export async function run(argv, env, io) {
   const deployment = await deployBranch(api, { gitBranch, sha, repoId });
   mask([deployment.id]);
   io.log(`Redéploiement de la branche ${gitBranch} lancé ; attente de l'alias de branche.`);
-  const origin = await waitForBranchOrigin(api, deployment);
+  const origin = await waitForBranchOrigin(api, deployment.id);
   mask([new URL(origin).hostname, origin]);
   appendFileSync(githubEnv, line(originEnv, origin));
   io.log(`Preview prête ; ${originEnv} posée.`);

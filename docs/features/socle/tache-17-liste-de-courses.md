@@ -27,7 +27,7 @@ Règle pendant toute la séance : aucun secret ne passe par moi. Tu colles chaqu
 | 7 | Vercel | Créer le projet BeMyBrain, relié au dépôt, Francfort, production sur `main` | Je peux le créer via l'outil Vercel avec ton accord | 5 min |
 | 8 | Vercel, variables Production | `DATABASE_AUTHENTICATED_URL` (`app_backend` sur `production`) ; `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, `NEON_AUTH_ISSUER`, `NEON_AUTH_AUDIENCE` ; `NEON_AUTH_COOKIE_SECRET` | Mot de passe `app_backend` de prod : **1Password** ; URLs Neon Auth : console Neon (non secrètes, je peux te les donner) ; cookie : `openssl rand -base64 32`, nouveau | 15 min |
 | 9 | Vercel | Deployment Checks → « Migrer la production » | Réglages du projet | 5 min |
-| 10 | Vercel + GitHub | Jeton Vercel **limité au projet** → secret GitHub `VERCEL_TOKEN` ; variables `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` ; `NEON_AUTH_COOKIE_SECRET` de preview (nouveau, différent de la prod) | Jeton : CLI ou console Vercel ; ids : je te les donne | 15 min |
+| 10 | Vercel + GitHub | Jeton Vercel **limité au projet** → secrets GitHub `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` (secrets, pas variables : dépôt public) ; `NEON_AUTH_COOKIE_SECRET` de preview (nouveau, différent de la prod) | Jeton : CLI ou console Vercel ; ids : je te les donne | 15 min |
 | 10b | Vercel | Vérifier la Deployment Protection sur les previews | Moi, outil Vercel | 2 min |
 | 11 | Vercel, pare-feu | Rate limit des POST sur `/login` et `/reset-password` | Console Vercel | 10 min |
 | 12 | Neon Auth `production` | Activer `revoke_sessions_on_password_reset` ; domaine de confiance = URL Vercel de prod | Console Neon (toi : refusé à l'agent) | 5 min |

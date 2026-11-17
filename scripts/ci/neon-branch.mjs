@@ -8,11 +8,13 @@
 // (URL, hôte) ne sont pas masquées et s'afficheraient dans le bloc `env:` des étapes suivantes.
 //
 // Usage :
-//   node scripts/ci/neon-branch.mjs create <nom> --owner-env <VAR> --app-env <VAR> [--ttl-hours <n>] [--auth-env]
+//   node scripts/ci/neon-branch.mjs create <nom> [--owner-env <VAR>] --app-env <VAR> [--ttl-hours <n>] [--auth-env]
+//   (sans --owner-env, le mot de passe du propriétaire est réinitialisé mais son URL n'est écrite nulle part)
 //   node scripts/ci/neon-branch.mjs trust <nom>      (origine lue dans TRUSTED_ORIGIN)
 //   node scripts/ci/neon-branch.mjs delete <nom>
 // Variables : NEON_API_KEY, NEON_PROJECT_ID (secrets, posés sur cette seule étape) ;
-// NEON_PARENT_BRANCH (défaut test), NEON_DATABASE (défaut neondb), NEON_OWNER_ROLE (défaut neondb_owner).
+// NEON_PARENT_BRANCH (défaut test), NEON_DATABASE (défaut neondb), NEON_OWNER_ROLE (défaut neondb_owner) ;
+// DEFAULT_GIT_BRANCH (branche par défaut du dépôt), exigée pour une branche preview/ : sa preview est refusée.
 // Messages : jamais d'hôte, d'URL, de mot de passe ni de corps de réponse de l'API.
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -57,6 +59,17 @@ export function withRole(templateUrl, role, password) {
 }
 
 /**
+ * Chemin d'API citable dans un message : sans requête, chaque identifiant de branche et chaque rôle masqués.
+ * @param {string} path
+ */
+export function redactPath(path) {
+  return path
+    .split("?")[0]
+    .replace(/br-[\w-]+/g, "<branche>")
+    .replace(/roles\/[^/]+/g, "roles/<rôle>");
+}
+
+/**
  * @param {Api} api @param {string} path @param {RequestInit} [init]
  * @param {{ allowNotFound?: boolean }} [options] 404 → null au lieu d'une erreur.
  */
@@ -79,12 +92,7 @@ async function call(api, path, init = {}, options = {}) {
     if (response.status === 404 && options.allowNotFound) return null;
     if (!response.ok) {
       // Corps de la réponse jamais affiché : il peut citer un hôte.
-      throw new Error(
-        `API Neon : HTTP ${response.status} sur ${init.method ?? "GET"} ${path
-          .split("?")[0]
-          .replace(/br-[\w-]+/, "<branche>")
-          .replace(/roles\/[^/]+/, "roles/<rôle>")}.`,
-      );
+      throw new Error(`API Neon : HTTP ${response.status} sur ${init.method ?? "GET"} ${redactPath(path)}.`);
     }
     return response.json();
   }
@@ -258,6 +266,9 @@ export async function trustOrigin(api, name, origin) {
   assertOrigin(origin);
   const branch = await findBranch(api, name);
   if (!branch) throw new Error("Branche introuvable.");
+  if (branch.default || branch.protected) {
+    throw new Error("Branche protégée ou par défaut : domaine de confiance refusé.");
+  }
   const path = `/branches/${branch.id}/auth/domains`;
   const { domains = [] } = await call(api, path);
   if (domains.some((/** @type {{ domain: string }} */ d) => d.domain === origin)) return false;
@@ -323,6 +334,13 @@ function line(/** @type {string} */ key, /** @type {string} */ value) {
 export async function run(argv, env, io) {
   const [command, name = "", ...args] = argv;
   assertManagedBranchName(name);
+  // La preview de la branche par défaut (production) n'existe jamais : ni création, ni domaine, ni suppression.
+  if (
+    name.startsWith("preview/") &&
+    name === `preview/${required("DEFAULT_GIT_BRANCH", env.DEFAULT_GIT_BRANCH)}`
+  ) {
+    throw new Error("Nom de branche refusé : preview de la branche par défaut du dépôt.");
+  }
   /** @type {Api} */
   const api = {
     apiKey: required("NEON_API_KEY", env.NEON_API_KEY),
@@ -347,7 +365,7 @@ export async function run(argv, env, io) {
   }
   if (command !== "create") throw new Error("Commande inconnue : create, trust ou delete.");
 
-  const ownerEnv = required("--owner-env", option(args, "--owner-env"));
+  const ownerEnv = option(args, "--owner-env");
   const appEnv = required("--app-env", option(args, "--app-env"));
   const ttlHours = Number(option(args, "--ttl-hours") ?? 0);
   const githubEnv = required("GITHUB_ENV", env.GITHUB_ENV);
@@ -373,7 +391,7 @@ export async function run(argv, env, io) {
 
   appendFileSync(
     githubEnv,
-    line(ownerEnv, result.ownerUrl) +
+    (ownerEnv ? line(ownerEnv, result.ownerUrl) : "") +
       line(appEnv, result.appUrl) +
       (auth
         ? line("NEON_AUTH_BASE_URL", auth.baseUrl) +
@@ -384,7 +402,7 @@ export async function run(argv, env, io) {
   );
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, line("branch_id", result.branchId));
   io.log(
-    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${ownerEnv} et ${appEnv}${auth ? " et NEON_AUTH_*" : ""} posées.`,
+    `Branche ${name} ${result.created ? "créée" : "réutilisée"} ; mots de passe réinitialisés ; ${ownerEnv ? `${ownerEnv} et ` : ""}${appEnv}${auth ? " et NEON_AUTH_*" : ""} posées.`,
   );
 }
 

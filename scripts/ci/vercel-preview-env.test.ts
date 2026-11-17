@@ -252,16 +252,28 @@ describe("suppression des variables à la fermeture de la PR", () => {
   });
 });
 
+const PROJECT_NAME = "projet";
+const projectRoute: Route = {
+  method: "GET",
+  path: new RegExp(`^/v9/projects/${PROJECT}$`),
+  body: { id: PROJECT, name: PROJECT_NAME },
+};
+// `name` du déploiement = identifiant envoyé, jamais le nom du projet : la recherche ne s'y fie pas.
 const createDeployment: Route = {
   method: "POST",
   path: /^\/v13\/deployments$/,
-  body: { id: "dpl_new", name: "projet", readyState: "QUEUED", alias: [] },
+  body: { id: "dpl_new", name: PROJECT, readyState: "QUEUED", alias: [], target: null },
 };
 const deploymentState = (body: object): Route => ({
   method: "GET",
   path: /^\/v13\/deployments\/dpl_new$/,
-  body: { id: "dpl_new", name: "projet", ...body },
+  body: { id: "dpl_new", name: PROJECT, ...body },
 });
+const READY = {
+  readyState: "READY",
+  aliasAssigned: true,
+  alias: ["projet-antoine-equipe.vercel.example", BRANCH_ALIAS],
+};
 
 describe("redéploiement de la branche", () => {
   it("crée un déploiement preview depuis le commit de la PR, sans déduplication", async () => {
@@ -273,56 +285,101 @@ describe("redéploiement de la branche", () => {
       repoId: "42",
     });
 
-    expect(deployment).toEqual({ id: "dpl_new", name: "projet" });
+    expect(deployment).toEqual({ id: "dpl_new" });
     expect(calls[0].path).toBe("/v13/deployments");
     expect(calls[0].query.get("forceNew")).toBe("1");
     expect(calls[0].query.get("teamId")).toBe(TEAM);
     expect(calls[0].body).toEqual({
       name: PROJECT,
       project: PROJECT,
+      target: "preview",
       gitSource: { type: "github", repoId: "42", ref: BRANCH, sha: "abc123" },
     });
   });
+
+  it.each(["production", "staging"])(
+    "échoue si Vercel crée un déploiement de cible %s",
+    async (target) => {
+      const { api } = fakeVercelApi([
+        { ...createDeployment, body: { id: "dpl_new", target } },
+      ]);
+
+      await expect(
+        deployBranch(api, { gitBranch: BRANCH, sha: "abc123", repoId: "42" }),
+      ).rejects.toThrow(/cible preview attendue/);
+    },
+  );
 
   it("attend READY puis renvoie l'origine de l'alias de branche", async () => {
     const { api, fetch } = fakeVercelApi([]);
     const states = [
       { readyState: "BUILDING", alias: [] },
       { readyState: "READY", aliasAssigned: false, alias: [] },
-      {
-        readyState: "READY",
-        aliasAssigned: true,
-        alias: ["projet-antoine-equipe.vercel.example", BRANCH_ALIAS],
-      },
+      READY,
     ];
-    fetch.mockImplementation(async () =>
-      Response.json({ id: "dpl_new", name: "projet", ...states.shift() }),
+    fetch.mockImplementation(async (input: URL | RequestInfo) =>
+      new URL(String(input)).pathname.startsWith("/v9/projects/")
+        ? Response.json({ id: PROJECT, name: PROJECT_NAME })
+        : Response.json({ id: "dpl_new", name: PROJECT, ...states.shift() }),
     );
 
-    const origin = await waitForBranchOrigin(api, {
-      id: "dpl_new",
-      name: "projet",
-    });
+    const origin = await waitForBranchOrigin(api, "dpl_new");
 
     expect(origin).toBe(`https://${BRANCH_ALIAS}`);
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("trouve l'alias de branche par le nom du projet lu chez Vercel, jamais par le nom du déploiement", async () => {
+    const { api, calls } = fakeVercelApi([
+      projectRoute,
+      deploymentState({
+        ...READY,
+        alias: ["autre-git-feat-x-equipe.vercel.example", BRANCH_ALIAS],
+      }),
+    ]);
+
+    const origin = await waitForBranchOrigin(api, "dpl_new");
+
+    expect(origin).toBe(`https://${BRANCH_ALIAS}`);
+    expect(calls[0].path).toBe(`/v9/projects/${PROJECT}`);
+    expect(calls[0].query.get("teamId")).toBe(TEAM);
   });
 
   it.each(["ERROR", "CANCELED"])(
     "échoue si le déploiement finit en %s",
     async (state) => {
-      const { api } = fakeVercelApi([deploymentState({ readyState: state })]);
+      const { api } = fakeVercelApi([
+        projectRoute,
+        deploymentState({ readyState: state }),
+      ]);
 
-      await expect(
-        waitForBranchOrigin(api, { id: "dpl_new", name: "projet" }),
-      ).rejects.toThrow(
+      await expect(waitForBranchOrigin(api, "dpl_new")).rejects.toThrow(
         new RegExp(`Déploiement Vercel en échec \\(${state}\\)`),
       );
     },
   );
 
+  it("échoue tout de suite si Vercel signale une erreur d'alias, sans en citer le message", async () => {
+    const { api, fetch } = fakeVercelApi([
+      projectRoute,
+      deploymentState({
+        readyState: "BUILDING",
+        aliasError: { code: "alias_failed", message: `refusé ${BRANCH_ALIAS}` },
+      }),
+    ]);
+
+    const error = await waitForBranchOrigin(api, "dpl_new").catch(
+      (e: Error) => e,
+    );
+
+    expect(String(error)).toMatch(/erreur d'alias/);
+    expect(String(error)).not.toContain("vercel.example");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("échoue si aucun alias de branche n'est attribué", async () => {
     const { api } = fakeVercelApi([
+      projectRoute,
       deploymentState({
         readyState: "READY",
         aliasAssigned: true,
@@ -330,10 +387,9 @@ describe("redéploiement de la branche", () => {
       }),
     ]);
 
-    const error = await waitForBranchOrigin(api, {
-      id: "dpl_new",
-      name: "projet",
-    }).catch((e: Error) => e);
+    const error = await waitForBranchOrigin(api, "dpl_new").catch(
+      (e: Error) => e,
+    );
 
     expect(String(error)).toMatch(/alias de branche introuvable/);
     expect(String(error)).not.toContain("vercel.example");
@@ -341,12 +397,13 @@ describe("redéploiement de la branche", () => {
 
   it("abandonne un déploiement trop long", async () => {
     const { api } = fakeVercelApi([
+      projectRoute,
       deploymentState({ readyState: "BUILDING" }),
     ]);
 
-    await expect(
-      waitForBranchOrigin(api, { id: "dpl_new", name: "projet" }),
-    ).rejects.toThrow(/trop long/);
+    await expect(waitForBranchOrigin(api, "dpl_new")).rejects.toThrow(
+      /trop long/,
+    );
   });
 });
 
@@ -369,6 +426,87 @@ describe("erreurs de l'API Vercel", () => {
     for (const leak of [NEON_HOST, PROJECT, TEAM, "npg_secret"]) {
       expect(String(error)).not.toContain(leak);
     }
+  });
+
+  it.each([429, 500, 503])(
+    "réessaie un appel refusé par HTTP %i, avec une attente bornée",
+    async (status) => {
+      const { api, fetch } = fakeVercelApi([]);
+      const sleeps: number[] = [];
+      let failures = 2;
+      fetch.mockImplementation(async () =>
+        failures-- > 0
+          ? Response.json({}, { status })
+          : Response.json({ envs: [] }),
+      );
+
+      await deletePreviewEnv(
+        { ...api, sleep: async (ms: number) => void sleeps.push(ms) },
+        BRANCH,
+      );
+
+      expect(fetch).toHaveBeenCalledTimes(3);
+      expect(sleeps).toHaveLength(2);
+      expect(sleeps.every((ms) => ms > 0 && ms <= 30_000)).toBe(true);
+    },
+  );
+
+  it("abandonne après cinq réessais, sans citer le corps", async () => {
+    const { api, fetch } = fakeVercelApi([
+      { method: "GET", path: /\/env$/, status: 502, body: { host: NEON_HOST } },
+    ]);
+    const sleeps: number[] = [];
+
+    const error = await deletePreviewEnv(
+      { ...api, sleep: async (ms: number) => void sleeps.push(ms) },
+      BRANCH,
+    ).catch((e: Error) => e);
+
+    expect(String(error)).toMatch(/API Vercel : HTTP 502 sur GET env/);
+    expect(String(error)).not.toContain(NEON_HOST);
+    expect(fetch).toHaveBeenCalledTimes(6);
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(30_000);
+  });
+
+  it("ne réessaie pas une erreur 4xx autre que 429", async () => {
+    const { api, fetch } = fakeVercelApi([
+      { method: "GET", path: /\/env$/, status: 400, body: {} },
+    ]);
+
+    await expect(deletePreviewEnv(api, BRANCH)).rejects.toThrow(/HTTP 400/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("borne chaque requête dans le temps et réessaie une requête expirée", async () => {
+    const { api, fetch } = fakeVercelApi([]);
+    let first = true;
+    fetch.mockImplementation(async () => {
+      if (first) {
+        first = false;
+        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      }
+      return Response.json({ envs: [] });
+    });
+
+    await deletePreviewEnv(api, BRANCH);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    for (const [, init] of fetch.mock.calls) {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
+  it("abandonne une requête toujours en échec réseau, sans citer l'erreur d'origine", async () => {
+    const { api, fetch } = fakeVercelApi([]);
+    fetch.mockImplementation(async () => {
+      throw new TypeError(`fetch failed ${NEON_HOST}`);
+    });
+
+    const error = await deletePreviewEnv(api, BRANCH).catch((e: Error) => e);
+
+    expect(String(error)).toMatch(/API Vercel : pas de réponse sur GET env/);
+    expect(String(error)).not.toContain(NEON_HOST);
+    expect(fetch).toHaveBeenCalledTimes(6);
   });
 });
 
@@ -395,6 +533,7 @@ describe("commandes", () => {
       VERCEL_TOKEN: "jeton",
       VERCEL_PROJECT_ID: PROJECT,
       VERCEL_TEAM_ID: TEAM,
+      DEFAULT_GIT_BRANCH: "main",
       GITHUB_ENV: githubEnv,
       ...VALUES,
     };
@@ -422,6 +561,7 @@ describe("commandes", () => {
   it("deploy : redéploie, attend l'alias, le masque puis l'écrit dans la variable demandée", async () => {
     const { io, env, githubEnv, masks, plain, writtenAtMask } = setup([
       createDeployment,
+      projectRoute,
       deploymentState({
         readyState: "READY",
         aliasAssigned: true,
@@ -470,6 +610,7 @@ describe("commandes", () => {
         VERCEL_TOKEN: "jeton",
         VERCEL_PROJECT_ID: PROJECT,
         VERCEL_TEAM_ID: TEAM,
+        DEFAULT_GIT_BRANCH: "main",
       },
       io,
     );
@@ -486,5 +627,30 @@ describe("commandes", () => {
     await expect(
       run(["sync", BRANCH], { ...env, VERCEL_TOKEN: "" }, io),
     ).rejects.toThrow(/VERCEL_TOKEN manquante/);
+  });
+
+  it.each(["sync", "deploy", "delete"])(
+    "%s : refuse la branche par défaut du dépôt, sans appel à l'API",
+    async (command) => {
+      const { io, env, calls } = setup([envList([]), createEnv, createDeployment]);
+
+      await expect(
+        run(
+          [command, "main", "--origin-env", "PREVIEW_ORIGIN"],
+          { ...env, HEAD_SHA: "abc123", GITHUB_REPOSITORY_ID: "42" },
+          io,
+        ),
+      ).rejects.toThrow(/branche par défaut/);
+      expect(calls).toHaveLength(0);
+    },
+  );
+
+  it("exige le nom de la branche par défaut du dépôt", async () => {
+    const { io, env, calls } = setup([envList([]), createEnv]);
+
+    await expect(
+      run(["sync", BRANCH], { ...env, DEFAULT_GIT_BRANCH: "" }, io),
+    ).rejects.toThrow(/DEFAULT_GIT_BRANCH manquante/);
+    expect(calls).toHaveLength(0);
   });
 });
