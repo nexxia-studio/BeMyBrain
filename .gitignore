@@ -7,3 +7,18 @@ qa-screenshots/
 .claude/settings.local.json
 .claude/agent-memory/
 graphify-out/cache/
+
+# Next.js / outillage
+node_modules/
+.next/
+out/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+.DS_Store
+*.pem

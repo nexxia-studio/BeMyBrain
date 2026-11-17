@@ -16,4 +16,4 @@ L'app est en Next.js (App Router) sur Vercel. La base est Neon (Postgres), accé
 ## Conséquences
 - Les règles Supabase du kit sont remplacées par `.claude/rules/neon.md`.
 - Pas d'auth ni de stockage de fichiers fournis d'office : voir ADR-003 pour l'auth ; le stockage se décide au premier module qui en a besoin.
-- Les agents `security-auditor` et `explorer`, et le skill `feature`, citent encore Supabase : à adapter (ticket Linear du socle).
+- Les agents `security-auditor` et `explorer`, et le skill `feature`, citaient Supabase : adaptés dans BRAIN-2, le 2026-11-11.

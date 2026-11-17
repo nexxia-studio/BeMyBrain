@@ -7,14 +7,16 @@ Tant que l'app sert un seul utilisateur, un staging permanent n'apporte rien. Il
 
 ## Décision
 Au lancement, deux niveaux :
-- **Production** : branche git `main`, projet Vercel en production, branche Neon `main`.
+- **Production** : branche git `main`, projet Vercel en production, branche Neon `production` (nom par défaut de Neon).
 - **Preview** : une URL Vercel et une branche Neon jetable par pull request. C'est là que se font les tests et `/qa`.
+
+Région : Neon et Vercel en Europe, à Francfort (confirmé par Antoine le 2026-11-11). Projet Neon `bemybrain` créé au socle (le projet `my-first-project` du compte n'est pas celui de BeMyBrain). Tout environnement ajouté reste dans cette région.
 
 Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter en une heure : une branche Neon `staging` durable, un environnement Vercel « staging » avec son domaine et ses variables.
 
 ## Règles pour rester prêt
 - Aucune URL, aucun identifiant d'environnement dans le code : tout passe par des variables d'environnement, listées dans `.env.example`.
-- Les migrations s'appliquent par une commande unique, la même pour tous les environnements, lancée au déploiement.
+- Les migrations s'appliquent par une commande unique, la même pour tous les environnements, lancée au déploiement. Pour la production : par GitHub Actions au merge dans `main` (ADR-010).
 - Les données de départ (seed) sont rejouables sans doublon et ne contiennent aucune donnée personnelle.
 - L'auth a une URL par environnement (ADR-003).
 
@@ -22,6 +24,10 @@ Le staging n'est pas créé maintenant, mais rien ne doit empêcher de l'ajouter
 - Staging dès maintenant — un environnement de plus à maintenir et à surveiller pour un seul utilisateur.
 - Production seule sans previews — toute erreur de migration toucherait directement les vraies données.
 
+## Previews et staging (2026-11-17, décision d'Antoine)
+- Avant le premier module sensible (finance, santé, contacts ou clients Nexxia), les previews partent d'une branche Neon `staging` sans aucune donnée ni aucun compte réel, plus de `production` (BRAIN-34). D'ici là, les previews copient la production, quasi vide.
+- Le staging complet (environnement Vercel « staging », domaine) reste dans BRAIN-26.
+
 ## Conséquences
-- Le ticket d'ouverture multi-comptes (BRAIN-26) inclut la création du staging.
-- La branche Neon `main` contient les vraies données d'Antoine dès le premier jour : sauvegarde et restauration à vérifier dans le socle.
+- BRAIN-34 crée la branche `staging` et y rattache les previews ; BRAIN-26 complète le staging (Vercel).
+- La branche Neon `production` contient les vraies données d'Antoine dès le premier jour : sauvegarde et restauration à vérifier dans le socle.

@@ -1,0 +1,12 @@
+<!-- Source de l'icône d'app (DESIGN.md § 9) : glyphe « étincelle » sur la grille 24 × 24, trait 2.
+     Couleurs de la charte seulement : indigo #3D4FD6 (fond), blanc #FFFFFF (glyphe).
+     Les PNG de public/icons/ et src/app/favicon.ico en sont dérivés : node scripts/generate-icons.mjs -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="240" height="240">
+  <rect width="24" height="24" rx="8.4" fill="#3D4FD6"/>
+  <g transform="translate(6 6) scale(0.5)" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <g id="glyph">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+    </g>
+  </g>
+</svg>

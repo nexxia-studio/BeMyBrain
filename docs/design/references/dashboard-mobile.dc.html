@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>BeMyBrain — tableau de bord mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B3AA8}a:hover{color:#1B2033}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; width: 390px; height: 844px; box-sizing: border-box; padding: 60px 16px 0; background: #E8ECF5; font-family: 'Inter', sans-serif; color: #1B2033; display: flex; flex-direction: column; gap: 14px">
+<div aria-hidden="true" style="position: absolute; top: -120px; left: -140px; width: 380px; height: 380px; border-radius: 50%; background: #AFC0F4; filter: blur(80px); opacity: 0.9"></div>
+<div aria-hidden="true" style="position: absolute; top: 380px; right: -160px; width: 380px; height: 380px; border-radius: 50%; background: #D6C6F2; filter: blur(90px); opacity: 0.85"></div>
+<div style="position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px">
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px">BeMyBrain</span>
+<div role="group" aria-label="Côté affiché" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(27,32,51,0.07)">
+<button type="button" aria-pressed="true" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: none; background: #FFFFFF; color: #1B2033; font-family: inherit; font-size: 15px; font-weight: 600; box-shadow: 0 2px 8px rgba(38,48,92,0.14)">Privé</button>
+<button type="button" aria-pressed="false" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: none; background: transparent; color: #535A72; font-family: inherit; font-size: 15px; font-weight: 600">Pro</button>
+</div>
+</div>
+<section style="position: relative; padding: 22px; border-radius: 24px; background: {{accent}}; color: #FFFFFF; box-shadow: 0 14px 34px rgba(61,79,214,0.28); display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.86)">Jeudi 12 novembre</p>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 30px; line-height: 1.1">Bonjour Antoine.</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.45; color: rgba(255,255,255,0.9)">Quatre tâches et trois articles à acheter.</p>
+</section>
+<section style="background: rgba(255,255,255,0.58); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 8px 28px rgba(38,48,92,0.09); border-radius: 24px; box-sizing: border-box; position: relative; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; align-items: center"><p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">To-do · vie privée</p><a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 0">Tout voir</a></div>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6; flex: none"><span style="flex: 1">Comparer deux offres d’assurance</span><span style="font-size: 13px; color: #535A72">Auj.</span></label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6; flex: none"><span style="flex: 1">Commander le mini PC</span><span style="font-size: 13px; color: #535A72">Demain</span></label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6; flex: none"><span style="flex: 1">Encoder les dépenses</span><span style="font-size: 13px; color: #535A72">Ven.</span></label>
+</section>
+<div style="position: relative; display: flex; gap: 14px">
+<section style="background: rgba(255,255,255,0.58); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 8px 28px rgba(38,48,92,0.09); border-radius: 24px; box-sizing: border-box; flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Courses</p>
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; line-height: 1">3</span>
+<span style="font-size: 14px; color: #535A72">articles à acheter</span>
+</section>
+<section style="background: rgba(255,255,255,0.58); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 8px 28px rgba(38,48,92,0.09); border-radius: 24px; box-sizing: border-box; flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Budget</p>
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; line-height: 1">52 %</span>
+<span style="font-size: 14px; color: #8A3810; font-weight: 600">essentiels · + 2 pts</span>
+</section>
+</div>
+<nav aria-label="Navigation principale" style="background: rgba(255,255,255,0.58); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 8px 28px rgba(38,48,92,0.09); border-radius: 24px; box-sizing: border-box; position: absolute; left: 16px; right: 16px; bottom: 26px; border-radius: 30px; padding: 8px 10px; display: flex; align-items: center; gap: 2px">
+<a href="#" style="flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; font-size: 11px; font-weight: 600; color: #2B3AA8"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Accueil</a>
+<a href="#" style="flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; font-size: 11px; font-weight: 600; color: #535A72"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>To-do</a>
+<button type="button" aria-label="Ajouter rapidement" style="flex: none; width: 56px; height: 56px; border-radius: 50%; border: none; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(61,79,214,0.35)"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+<a href="#" style="flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; font-size: 11px; font-weight: 600; color: #535A72"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M21 19H3"/></svg>Finances</a>
+<a href="#" style="flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; font-size: 11px; font-weight: 600; color: #535A72"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h15l-1.5 9h-12z"/><path d="M5 7L4 4H2"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>Courses</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3D4FD6","options":["#3D4FD6","#0F6E84","#7A3FC4","#1B2033"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#3D4FD6' };
+}
+}
+</script>
+</body>
+</html>

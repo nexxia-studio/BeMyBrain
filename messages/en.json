@@ -1,0 +1,170 @@
+{
+  "app": {
+    "name": "BeMyBrain",
+    "description": "Your second brain: tasks, finances, health, home and clients in one place."
+  },
+  "auth": {
+    "signOut": "Sign out",
+    "login": {
+      "title": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "forgotPassword": "Forgot password?",
+      "resetDone": "Password saved. You can sign in."
+    },
+    "reset": {
+      "title": "New password",
+      "intro": "Enter your email: you'll get a code to choose a new password.",
+      "email": "Email",
+      "sendCode": "Get a code",
+      "sending": "Sending…",
+      "codeSent": "If an account exists for this address, a code has just been sent to it.",
+      "code": "Code from the email",
+      "newPassword": "New password",
+      "passwordHint": "At least 8 characters.",
+      "submit": "Save password",
+      "submitting": "Saving…",
+      "resendCode": "Send a new code",
+      "backToLogin": "Back to sign in"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid credentials.",
+      "unavailable": "Service temporarily unavailable. Try again in a moment.",
+      "invalidEmail": "Invalid email address.",
+      "invalidCode": "Invalid or expired code.",
+      "weakPassword": "Password must be at least 8 characters."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "workspace": "Workspace: <name></name>",
+    "today": {
+      "greeting": "Hello.",
+      "intro": "Nothing planned today in {spaces}. What matters will show up here.",
+      "introNoSpace": "No space on this side yet. Tiles will appear with the first space."
+    },
+    "tiles": {
+      "spaces": "Spaces covered",
+      "privateTodo": {
+        "eyebrow": "To-do",
+        "title": "Personal tasks",
+        "body": "No tasks yet. Tasks and their due dates will show up here."
+      },
+      "shopping": {
+        "eyebrow": "Groceries",
+        "title": "Shared list",
+        "body": "Nothing to buy."
+      },
+      "budget": {
+        "eyebrow": "Budget",
+        "title": "This month's target",
+        "body": "No expenses recorded."
+      },
+      "health": {
+        "eyebrow": "Health",
+        "title": "Sport and health",
+        "body": "This week's workouts, sleep and nutrition will show up here."
+      },
+      "home": {
+        "eyebrow": "Home",
+        "title": "Home and contracts",
+        "body": "Insurance, furniture and smart home will show up here."
+      },
+      "proTodo": {
+        "eyebrow": "To-do",
+        "title": "Work tasks",
+        "body": "No tasks yet. Today's tasks, by space, will show up here."
+      },
+      "clients": {
+        "eyebrow": "Clients",
+        "title": "Clients and projects",
+        "body": "Active clients and project progress will show up here."
+      },
+      "proFinances": {
+        "eyebrow": "Business finances",
+        "title": "Income and invoices",
+        "body": "Pending invoices and upcoming VAT will show up here."
+      },
+      "social": {
+        "eyebrow": "Social",
+        "title": "Content to publish",
+        "body": "The publishing calendar will show up here."
+      }
+    }
+  },
+  "noWorkspace": {
+    "title": "No workspace",
+    "body": "This account isn't linked to any workspace. Sign in with another account."
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "body": "The service is temporarily unavailable. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "shell": {
+    "navigation": "Main navigation",
+    "home": "Home",
+    "sideTitle": {
+      "private": "Personal life",
+      "pro": "Work life"
+    },
+    "side": {
+      "label": "Side shown",
+      "private": "Personal",
+      "pro": "Work"
+    },
+    "contexts": {
+      "label": "Spaces shown",
+      "all": "{count, plural, =2 {Both} other {All}}",
+      "menuLabel": "Spaces shown: {current}"
+    },
+    "search": "Search or add",
+    "searchShortcut": "⌘K",
+    "openPalette": "Open command palette",
+    "preferenceError": "Choice not saved. Try again.",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "title": "Language",
+      "description": "Choose the interface language. Your choice follows you on every device.",
+      "fr": "Français",
+      "en": "English",
+      "error": "Language not saved. Try again."
+    },
+    "account": {
+      "title": "Account"
+    }
+  },
+  "actions": {
+    "core": {
+      "listContexts": "List the spaces of one side, Private or Pro",
+      "setLocale": "Change the interface language"
+    }
+  },
+  "palette": {
+    "title": "Command palette",
+    "search": "Search commands",
+    "placeholder": "Search for a page or an action…",
+    "empty": "Nothing for \"{query}\". Try \"language\" or \"settings\".",
+    "groups": {
+      "navigation": "Go to",
+      "actions": "Actions"
+    },
+    "commands": {
+      "switchLocale": {
+        "fr": "Switch to French",
+        "en": "Switch to English"
+      },
+      "switchLocaleKeywords": "language langue translation"
+    },
+    "navigationKeywords": "page go open",
+    "current": "Current",
+    "pending": "Running…",
+    "error": "Action not run. Try again.",
+    "hint": "<kbd>↑↓</kbd> to choose, <kbd>Enter</kbd> to run, <kbd>Esc</kbd> to close"
+  }
+}

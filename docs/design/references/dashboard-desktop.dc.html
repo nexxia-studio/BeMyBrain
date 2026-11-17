@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>BeMyBrain — tableau de bord</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B3AA8}a:hover{color:#1B2033}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 1640px; box-sizing: border-box; padding: 24px clamp(14px, 2.4vw, 36px) 48px; background: #E8ECF5; font-family: 'Inter', sans-serif; color: #1B2033">
+<div aria-hidden="true" style="position: absolute; top: -160px; left: -120px; width: 620px; height: 620px; border-radius: 50%; background: #AFC0F4; filter: blur(110px); opacity: 0.85"></div>
+<div aria-hidden="true" style="position: absolute; top: 420px; right: -160px; width: 640px; height: 640px; border-radius: 50%; background: #D6C6F2; filter: blur(120px); opacity: 0.8"></div>
+<div aria-hidden="true" style="position: absolute; top: 1050px; left: 20%; width: 620px; height: 620px; border-radius: 50%; background: #BCE2EC; filter: blur(120px); opacity: 0.75"></div>
+<div style="position: relative; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+<header style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 14px; background: {{accent}}; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span>
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px">BeMyBrain</span>
+</div>
+<div role="group" aria-label="Côté affiché" style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(27,32,51,0.07)">
+<button type="button" onClick="{{showPrive}}" aria-pressed="{{isPrive}}" style="{{priveBtn}}">Privé</button>
+<button type="button" onClick="{{showPro}}" aria-pressed="{{isPro}}" style="{{proBtn}}">Pro</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(27,32,51,0.12); background: rgba(255,255,255,0.6); font-family: inherit; font-size: 15px; color: #535A72; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Chercher ou ajouter<span style="padding: 2px 8px; border-radius: 8px; background: rgba(27,32,51,0.08); font-size: 13px; font-weight: 600; color: #1B2033">⌘K</span></button>
+<button type="button" aria-label="Ajouter rapidement" style="width: 44px; height: 44px; border-radius: 50%; border: none; background: {{accent}}; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+</div>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px">
+<nav aria-label="Catégories" style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 240px; align-self: flex-start; padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72; padding: 8px 12px 6px">{{navTitle}}</p>
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="7">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<button type="button" onClick="{{n.toggle}}" aria-expanded="{{n.open}}" style="{{n.style}}">
+<span style="flex: 1; text-align: left">{{n.label}}</span>
+<sc-if value="{{n.hasKids}}" hint-placeholder-val="{{false}}">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="{{n.chev}}"><path d="M9 6l6 6-6 6"/></svg>
+</sc-if>
+</button>
+<sc-if value="{{n.open}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 2px 0 8px 18px">
+<sc-for list="{{n.kids}}" as="k" hint-placeholder-count="3">
+<a href="#" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; font-weight: 500; color: #535A72; text-decoration: none">{{k.label}}</a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="flex: 2 1 400px; min-height: 300px; padding: 28px; box-sizing: border-box; border-radius: 28px; background: {{accent}}; color: #FFFFFF; box-shadow: 0 18px 44px rgba(61,79,214,0.28); display: flex; flex-direction: column; justify-content: space-between; gap: 22px; min-width: 0">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.86)">Jeudi 12 novembre</p>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 40px; line-height: 1.08">Bonjour Antoine.</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: rgba(255,255,255,0.9); max-width: 420px">{{intro}}</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+<div style="flex: 1 1 110px; padding: 14px 16px; border-radius: 20px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.28); display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 600">{{s.value}}</span>
+<span style="font-size: 14px; color: rgba(255,255,255,0.9)">{{s.label}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 2 1 360px; min-height: 300px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">To-do</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">{{todoTitle}}</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Tout voir</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{tasks}}" as="t" hint-placeholder-count="4">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 12px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033">
+<input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6; flex: none">
+<span style="flex: 1; min-width: 0">{{t.label}}</span>
+<span style="{{t.chip}}">{{t.tag}}</span>
+<span style="font-size: 13px; color: #535A72; flex: none">{{t.due}}</span>
+</label>
+</sc-for>
+</div>
+</section>
+<sc-if value="{{isPrive}}" hint-placeholder-val="{{true}}">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 230px; min-height: 300px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Courses</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Liste partagée</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Ouvrir</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6"> Lait</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6"> Pain</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6"> Fruits</label>
+</div>
+<p style="margin: auto 0 0; font-size: 13px; color: #535A72">Modifiable par lien, sans compte.</p>
+</section>
+</sc-if>
+<sc-if value="{{isPro}}" hint-placeholder-val="{{false}}">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 230px; min-height: 300px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Finances pro</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">CBC et Accountable</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Détail</a>
+</div>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #535A72">Rentrées, factures en attente et TVA à prévoir.</p>
+</section>
+</sc-if>
+</div>
+<sc-if value="{{isPrive}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 6px 0"><p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Finances</p><h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 26px">Budget, placements et patrimoine</h2></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 2 1 400px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Budget</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Objectif 50 / 20 / 20 / 10</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Détail</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Essentiels <span style="color: #535A72">· cible 50 %</span></span><span style="font-weight: 600; color: #8A3810">52 % · + 2 pts</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 52%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Non-essentiels <span style="color: #535A72">· cible 20 %</span></span><span style="font-weight: 600; color: #1B2033">18 %</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 18%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Investissements <span style="color: #535A72">· cible 20 %</span></span><span style="font-weight: 600; color: #1B2033">20 %</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 20%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Épargne <span style="color: #535A72">· cible 10 %</span></span><span style="font-weight: 600; color: #1B2033">10 %</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 10%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 260px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Investissements</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">ETF, cryptos, actions</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Suivre</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>ETF · Trade Republic</span><span style="font-weight: 600; text-align: right">+ 4,2 %</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Cryptos</span><span style="font-weight: 600; text-align: right">+ 1,8 %</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Actions</span><span style="font-weight: 600; text-align: right">− 0,6 %</span></div>
+</div>
+<p style="margin: auto 0 0; font-size: 13px; color: #535A72">Versement hebdomadaire et liste de favoris.</p>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 240px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Assurances</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Contrats de la famille</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Comparer</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Habitation</span><span style="font-weight: 600; text-align: right">mars</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Santé</span><span style="font-weight: 600; text-align: right">janvier</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Voiture</span><span style="font-weight: 600; text-align: right">juin</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Familiale</span><span style="font-weight: 600; text-align: right">juin</span></div>
+</div>
+</section>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 2 1 400px; min-height: 200px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Transactions</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Dernières dépenses classées</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Tout voir</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Supermarché</span><span style="font-weight: 600; text-align: right">Alimentation</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Carburant</span><span style="font-weight: 600; text-align: right">Voiture</span></div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 240px; min-height: 200px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Mobilier</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Valeur après vétusté</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Ajouter</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Frigo · 2023</span><span style="font-weight: 600; text-align: right">640 €</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Fauteuil · 2021</span><span style="font-weight: 600; text-align: right">310 €</span></div>
+</div>
+</section>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 6px 0"><p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Santé</p><h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 26px">Sport, santé générale et nutrition</h2></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 2 1 380px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Sport</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Séances de la semaine</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Historique</a>
+</div>
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-family: 'Space Grotesk', sans-serif; font-size: 46px; font-weight: 600; color: #1B2033; line-height: 1">3</span><span style="font-size: 15px; color: #535A72">séances sur 4 prévues</span></div>
+<div style="display: flex; gap: 8px" aria-hidden="true"><span style="flex: 1; height: 10px; border-radius: 999px; background: {{accent}}"></span><span style="flex: 1; height: 10px; border-radius: 999px; background: {{accent}}"></span><span style="flex: 1; height: 10px; border-radius: 999px; background: {{accent}}"></span><span style="flex: 1; height: 10px; border-radius: 999px; background: rgba(27,32,51,0.12)"></span></div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Course à pied · Strava</span><span style="font-weight: 600; text-align: right">8 km</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Musculation</span><span style="font-weight: 600; text-align: right">55 min</span></div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 230px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Santé générale</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Apple Santé</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Voir</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Sommeil</span><span style="font-weight: 600; text-align: right">7 h 20</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>FC au repos</span><span style="font-weight: 600; text-align: right">54 bpm</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Poids</span><span style="font-weight: 600; text-align: right">stable</span></div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 250px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Nutrition</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Aujourd’hui</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Journal</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Calories <span style="color: #535A72">· objectif 2 400</span></span><span style="font-weight: 600; color: #1B2033">1 850</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 77%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Protéines <span style="color: #535A72">· objectif 140 g</span></span><span style="font-weight: 600; color: #1B2033">110 g</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 79%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; color: #1B2033"><span>Eau <span style="color: #535A72">· objectif 2,5 L</span></span><span style="font-weight: 600; color: #1B2033">1,5 L</span></div>
+<div style="height: 10px; border-radius: 999px; background: rgba(27,32,51,0.09); overflow: hidden"><div style="width: 60%; height: 100%; border-radius: 999px; background: {{accent}}"></div></div>
+</div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 220px; min-height: 320px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Compléments</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Prises du jour</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Gérer</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6"> Magnésium</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6"> Vitamine D</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 15px; color: #1B2033"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #3D4FD6"> Oméga-3</label>
+</div>
+</section>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 6px 0"><p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Et aussi</p><h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 26px">Maison, contacts, culture</h2></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 240px; min-height: 230px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Maison</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Home Assistant</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Piloter</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Solaire</span><span style="font-weight: 600; text-align: right">2,4 kW</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Thermostat</span><span style="font-weight: 600; text-align: right">20,5 °C</span></div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 220px; min-height: 230px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Contacts</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 20px">Anniversaires à venir</h3>
+<p style="margin: auto 0 0; font-size: 14px; line-height: 1.5; color: #535A72">Relié à l’agenda, pour ne plus en rater un.</p>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 220px; min-height: 230px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Culture</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 20px">Lecture en cours</h3>
+<p style="margin: auto 0 0; font-size: 14px; line-height: 1.5; color: #535A72">Objectif annuel, genres, livre du moment.</p>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 220px; min-height: 230px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Bucket list</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 20px">Souhaits et projets de vie</h3>
+<p style="margin: auto 0 0; font-size: 14px; line-height: 1.5; color: #535A72">Ce que je veux acheter, ce que je veux vivre.</p>
+</section>
+</div>
+</sc-if>
+<sc-if value="{{isPro}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 6px 0"><p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Nexxia</p><h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 26px">Clients, projets et contenu</h2></div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 2 1 380px; min-height: 300px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Nexxia</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Clients et projets</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Tout voir</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>HElo Cosmetics</span><span style="font-weight: 600; text-align: right">Boutiques Shopify</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>Julie Meessen Institut</span><span style="font-weight: 600; text-align: right">Site vitrine</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>G.Move</span><span style="font-weight: 600; text-align: right">Site vitrine</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>ViNiZ</span><span style="font-weight: 600; text-align: right">SaaS</span></div>
+</div>
+</section>
+<section style="background: rgba(255,255,255,0.56); backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 10px 36px rgba(38,48,92,0.09); border-radius: 28px; box-sizing: border-box; flex: 1 1 260px; min-height: 300px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #535A72">Réseaux</p>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #1B2033; font-size: 21px">Contenu à publier</h3>
+</div>
+<a href="#" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 4px">Calendrier</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>@nexxia.pro</span><span style="font-weight: 600; text-align: right">Instagram</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>@viniz.app</span><span style="font-weight: 600; text-align: right">Instagram · TikTok</span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 15px; color: #1B2033"><span>@travlrsoul</span><span style="font-weight: 600; text-align: right">Instagram · TikTok</span></div>
+</div>
+</section>
+</div>
+</sc-if>
+</main>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3D4FD6","options":["#3D4FD6","#0F6E84","#7A3FC4","#1B2033"]},"$preview":{"width":1440,"height":1640}}'>
+class Component extends DCLogic {
+renderVals() {
+const st = this.state || {};
+const side = st.side || 'prive';
+const open = st.open || { finances: true };
+const accent = this.props.accent ?? '#3D4FD6';
+const base = 'min-height: 44px; padding: 0 22px; border-radius: 999px; border: none; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; ';
+const on = base + 'background: #FFFFFF; color: #1B2033; box-shadow: 0 2px 8px rgba(38,48,92,0.14)';
+const off = base + 'background: transparent; color: #535A72';
+const chip = (bg, fg) => 'flex: none; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: ' + bg + '; color: ' + fg;
+const cPrive = chip('rgba(27,32,51,0.08)', '#1B2033');
+const cTrustup = chip('rgba(232,116,59,0.16)', '#8A3810');
+const cNexxia = chip('rgba(61,79,214,0.13)', '#2B3AA8');
+const prive = [
+{ label: 'Comparer deux offres d’assurance habitation', tag: 'Privé', chip: cPrive, due: 'Aujourd’hui' },
+{ label: 'Commander le mini PC pour la maison', tag: 'Privé', chip: cPrive, due: 'Demain' },
+{ label: 'Encoder les dépenses de la semaine', tag: 'Privé', chip: cPrive, due: 'Vendredi' }
+];
+const pro = [
+{ label: 'Modifications du site d’un Pro', tag: 'Trustup', chip: cTrustup, due: 'Aujourd’hui' },
+{ label: 'Site vitrine G.Move : page d’accueil', tag: 'Nexxia', chip: cNexxia, due: 'Demain' },
+{ label: 'Devis à envoyer', tag: 'Nexxia', chip: cNexxia, due: 'Vendredi' }
+];
+const isPrive = side === 'prive';
+const navPrive = [
+{ id: 'accueil', label: 'Accueil', kids: [] },
+{ id: 'todo', label: 'To-do', kids: [] },
+{ id: 'listes', label: 'Listes', kids: ['Courses', 'Souhaits d’achat', 'Projets de vie'] },
+{ id: 'finances', label: 'Finances', kids: ['Budget 50/20/20/10', 'Transactions', 'Investissements', 'Assurances', 'Mobilier'] },
+{ id: 'sante', label: 'Santé', kids: ['Sport', 'Santé générale', 'Nutrition', 'Compléments'] },
+{ id: 'maison', label: 'Maison', kids: [] },
+{ id: 'contacts', label: 'Contacts', kids: [] },
+{ id: 'culture', label: 'Culture', kids: ['Lectures', 'Podcasts'] }
+];
+const navPro = [
+{ id: 'accueil', label: 'Accueil', kids: [] },
+{ id: 'todo', label: 'To-do', kids: [] },
+{ id: 'nexxia', label: 'Nexxia', kids: ['Clients', 'Projets', 'Finances pro'] },
+{ id: 'trustup', label: 'Trustup', kids: ['Tâches du quotidien'] },
+{ id: 'reseaux', label: 'Réseaux sociaux', kids: ['@nexxia.pro', '@viniz.app', '@travlrsoul'] }
+];
+const itemBase = 'display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 14px; border-radius: 14px; border: none; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; ';
+const nav = (isPrive ? navPrive : navPro).map((n) => {
+const hasKids = n.kids.length > 0;
+const isOpen = hasKids && !!open[n.id];
+const active = n.id === 'accueil';
+return {
+label: n.label,
+hasKids: hasKids,
+open: isOpen,
+kids: n.kids.map((k) => ({ label: k })),
+style: itemBase + (active ? 'background: #FFFFFF; color: #1B2033; box-shadow: 0 2px 8px rgba(38,48,92,0.12)' : (isOpen ? 'background: rgba(255,255,255,0.55); color: #1B2033' : 'background: transparent; color: #1B2033')),
+chev: 'flex: none; color: #535A72; transition: transform 0.2s; transform: rotate(' + (isOpen ? '90deg' : '0deg') + ')',
+toggle: () => this.setState({ open: Object.assign({}, open, { [n.id]: !open[n.id] }) })
+};
+});
+return {
+accent: accent,
+isPrive: isPrive,
+isPro: !isPrive,
+priveBtn: isPrive ? on : off,
+proBtn: isPrive ? off : on,
+showPrive: () => this.setState({ side: 'prive' }),
+showPro: () => this.setState({ side: 'pro', open: Object.assign({}, open, { nexxia: true }) }),
+nav: nav,
+navTitle: isPrive ? 'Vie privée' : 'Vie pro',
+tasks: isPrive ? prive : pro,
+todoTitle: isPrive ? 'Vie privée' : 'Trustup et Nexxia',
+intro: isPrive ? 'Trois tâches, une liste de courses en cours et un budget presque dans la cible.' : 'Deux casquettes, une seule liste : Trustup la journée, Nexxia en complément.',
+stats: isPrive
+? [{ value: '3', label: 'tâches' }, { value: '3', label: 'articles à acheter' }, { value: '3/4', label: 'séances' }]
+: [{ value: '3', label: 'tâches' }, { value: '4', label: 'clients actifs' }, { value: '3', label: 'comptes sociaux' }]
+};
+}
+}
+</script>
+</body>
+</html>

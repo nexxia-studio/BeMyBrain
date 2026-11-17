@@ -1,0 +1,11 @@
+# Scripts d'installation refusés (pnpm n'exécute que ceux listés à true).
+# sharp et unrs-resolver livrent leurs binaires précompilés via des dépendances optionnelles ;
+# leur script postinstall ne sert qu'à compiler depuis les sources, inutile ici et code tiers exécuté en moins.
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  # Dépendances de next-intl (extraction de messages, non utilisée) ; binaires précompilés via dépendances optionnelles.
+  "@parcel/watcher": false
+  "@swc/core": false
+  # Dépendance de drizzle-kit ; binaire précompilé via @esbuild/<plateforme> (dépendance optionnelle), le postinstall ne fait que le vérifier.
+  esbuild: false

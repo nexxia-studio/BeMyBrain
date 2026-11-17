@@ -1,0 +1,403 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * Charte BeMyBrain — source unique : DESIGN.md (référence validée :
+ * docs/design/references/dashboard-desktop.dc.html et dashboard-mobile.dc.html).
+ * Aucune couleur hors de la référence (verrouillé par tests/design/tokens.test.ts).
+ * Thème clair seul ; le sombre redéfinira les mêmes tokens sémantiques (DESIGN.md § Thème sombre).
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+/* Valeurs fixes : tailles de texte, rayons, easing. */
+@theme {
+  --text-display: clamp(1.875rem, 1.643rem + 0.952vw, 2.5rem);
+  --text-display--line-height: 1.1;
+  --text-display--font-weight: 600;
+  --text-section: clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem);
+  --text-section--line-height: 1.2;
+  --text-section--font-weight: 600;
+  /* Titre de page (h1 de PageHeader, connexion, erreurs) : même échelle que text-section (DESIGN.md § 3). */
+  --text-page-title: clamp(1.375rem, 1.282rem + 0.381vw, 1.625rem);
+  --text-page-title--line-height: 1.2;
+  --text-page-title--font-weight: 600;
+  --text-title: 1.3125rem;
+  --text-title--line-height: 1.25;
+  --text-title--font-weight: 600;
+  --text-figure: clamp(2.125rem, 1.846rem + 1.143vw, 2.875rem);
+  --text-figure--line-height: 1;
+  --text-figure--font-weight: 600;
+  --text-stat: 1.75rem;
+  --text-stat--line-height: 1.1;
+  --text-stat--font-weight: 600;
+  --text-brand: 1.25rem;
+  --text-brand--line-height: 1.2;
+  --text-brand--font-weight: 600;
+  --text-lead: clamp(0.9375rem, 0.914rem + 0.095vw, 1rem);
+  --text-lead--line-height: 1.5;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.45;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.4;
+  --text-eyebrow: clamp(0.75rem, 0.727rem + 0.095vw, 0.8125rem);
+  --text-eyebrow--line-height: 1.3;
+  --text-eyebrow--letter-spacing: 0.06em;
+  --text-eyebrow--font-weight: 600;
+  --text-chip: 0.75rem;
+  --text-chip--line-height: 1.3;
+  --text-chip--font-weight: 600;
+  --text-tab: 0.6875rem;
+  --text-tab--line-height: 1.2;
+  --text-tab--font-weight: 600;
+
+  /* Rayons : seulement ceux de la charte (les défauts de Tailwind sont retirés) ; pilule = rounded-full. */
+  --radius-*: initial;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-bar: 30px;
+
+  /* Largeur max du contenu de la coque (DESIGN.md § 4). */
+  --container-content: 1400px;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Valeurs qui suivent :root (thème, mobile / ordinateur). */
+@theme inline {
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-space-grotesk), var(--font-inter), sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-on-primary: var(--ring-on-primary);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-glass: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  --color-row: var(--row-bg);
+  --color-track: var(--track);
+  --color-pill-track: var(--pill-track);
+  --color-scrim: var(--scrim);
+  --color-on-primary-muted: var(--on-primary-muted);
+  --color-on-primary-lead: var(--on-primary-lead);
+  --color-on-primary-surface: var(--on-primary-surface);
+  --color-on-primary-border: var(--on-primary-border);
+  --color-chip-neutral: var(--chip-neutral-bg);
+  --color-chip-neutral-foreground: var(--chip-neutral-fg);
+  --color-chip-warm: var(--chip-warm-bg);
+  --color-chip-warm-foreground: var(--chip-warm-fg);
+  --color-chip-indigo: var(--chip-indigo-bg);
+  --color-chip-indigo-foreground: var(--chip-indigo-fg);
+
+  --radius-tile: var(--tile-radius);
+
+  --shadow-glass: var(--glass-shadow);
+  --shadow-today: var(--today-shadow);
+  --shadow-raised: var(--raised-shadow);
+  --shadow-fab: var(--fab-shadow);
+
+  --spacing-grid: var(--space-grid);
+  --spacing-tile: var(--space-tile);
+  --spacing-today: var(--space-today);
+  --spacing-page: var(--space-page);
+  --spacing-safe-top: var(--safe-top);
+  --spacing-safe-right: var(--safe-right);
+  --spacing-safe-bottom: var(--safe-bottom);
+  --spacing-safe-left: var(--safe-left);
+  --spacing-page-top: var(--page-top);
+  --spacing-tabbar-offset: var(--tabbar-offset);
+  --spacing-tabbar-reserve: var(--tabbar-reserve);
+  --color-pill-active: var(--pill-active);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Palette de la référence : jamais utilisée directement dans un composant. */
+  --mist: #e8ecf5;
+  --halo-blue: #afc0f4;
+  --halo-lilac: #d6c6f2;
+  --halo-aqua: #bce2ec;
+  --ink: #1b2033;
+  --ink-muted: #535a72;
+  --indigo: #3d4fd6;
+  --indigo-deep: #2b3aa8;
+  --ember: #8a3810;
+  --ember-soft: #e8743b;
+  --white: #ffffff;
+
+  /* Sémantique (contrats shadcn + BeMyBrain). Ratios dans DESIGN.md § Couleurs. */
+  --background: var(--mist);
+  --foreground: var(--ink);
+  /* Carte = surface posée dans une tuile en verre : jamais de verre sur du verre. */
+  --card: var(--row-bg);
+  --card-foreground: var(--ink);
+  --popover: var(--white);
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-hover: var(--indigo-deep);
+  --primary-foreground: var(--white);
+  --secondary: rgb(255 255 255 / 0.6);
+  --secondary-foreground: var(--ink);
+  --muted: rgb(27 32 51 / 0.07);
+  --muted-foreground: var(--ink-muted);
+  --accent: rgb(255 255 255 / 0.55);
+  --accent-foreground: var(--ink);
+  --destructive: var(--ember);
+  --border: rgb(27 32 51 / 0.12);
+  --input: var(--ink-muted);
+  --ring: var(--indigo);
+  --ring-on-primary: var(--white);
+  --link: var(--indigo-deep);
+  --link-hover: var(--ink);
+
+  /* Graphiques : provisoire, à fixer au premier module qui trace un graphique. */
+  --chart-1: var(--indigo);
+  --chart-2: var(--indigo-deep);
+  --chart-3: var(--ember-soft);
+  --chart-4: var(--ink-muted);
+  --chart-5: var(--ink);
+
+  /* Barre latérale : surface en verre de premier niveau (posée sur le fond). */
+  --sidebar: var(--glass-bg);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--indigo);
+  --sidebar-primary-foreground: var(--white);
+  --sidebar-accent: var(--white);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--glass-border);
+  --sidebar-ring: var(--indigo);
+
+  --row-bg: rgb(255 255 255 / 0.5);
+  --track: rgb(27 32 51 / 0.09);
+  --pill-track: rgb(27 32 51 / 0.07);
+  --scrim: rgb(27 32 51 / 0.2);
+  /* Élément actif d'une pilule ou de la navigation : blanc + shadow-raised. */
+  --pill-active: var(--white);
+  --on-primary-muted: rgb(255 255 255 / 0.86);
+  --on-primary-lead: rgb(255 255 255 / 0.9);
+  --on-primary-surface: rgb(255 255 255 / 0.16);
+  --on-primary-border: rgb(255 255 255 / 0.28);
+  --chip-neutral-bg: rgb(27 32 51 / 0.08);
+  --chip-neutral-fg: var(--ink);
+  --chip-warm-bg: rgb(232 116 59 / 0.16);
+  --chip-warm-fg: var(--ember);
+  --chip-indigo-bg: rgb(61 79 214 / 0.13);
+  --chip-indigo-fg: var(--indigo-deep);
+
+  /* Verre et ombres (mobile d'abord). */
+  --glass-bg: rgb(255 255 255 / 0.58);
+  --glass-blur: 24px;
+  --glass-saturate: 150%;
+  --glass-border: rgb(255 255 255 / 0.75);
+  --glass-shadow: 0 8px 28px rgb(38 48 92 / 0.09);
+  --today-shadow: 0 14px 34px rgb(61 79 214 / 0.28);
+  --raised-shadow: 0 2px 8px rgb(38 48 92 / 0.14);
+  --fab-shadow: 0 8px 20px rgb(61 79 214 / 0.35);
+
+  /* Rayons et espacements responsives. */
+  --tile-radius: 24px;
+  --space-grid: 14px;
+  --space-tile: 18px;
+  --space-today: 22px;
+  --space-page: 16px;
+
+  /* Zones sûres iOS (viewportFit "cover", DESIGN.md § 9) : bas et côtés utiles ; haut à 0 en portrait
+     tant que la barre d'état est « default ». 0 hors iOS. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Coque (DESIGN.md § 5–6) : haut de page, barre d'onglets flottante et réserve du contenu sous elle
+     (hauteur de la barre : bouton d'ajout 56 + padding 2 × 8 + bord 2 × 1 = 74 px ; + 16 px d'air). */
+  --page-top: max(16px, var(--safe-top));
+  --tabbar-height: 74px;
+  --tabbar-offset: max(26px, calc(var(--safe-bottom) + 8px));
+  --tabbar-reserve: calc(var(--tabbar-height) + var(--tabbar-offset) + 16px);
+
+  /* Calques. */
+  --z-halo: -1;
+  --z-content: 1;
+  --z-header: 10;
+  --z-tabbar: 20;
+  --z-overlay: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+
+  /* Halos du fond, mobile : bleu en haut à gauche, lilas à droite. */
+  --halo-layers:
+    radial-gradient(
+      circle 270px at 50px 70px,
+      color-mix(in srgb, var(--halo-blue) 90%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      circle 280px at 92% 68%,
+      color-mix(in srgb, var(--halo-lilac) 85%, transparent),
+      transparent
+    );
+}
+
+/* Tablette. */
+@media (min-width: 640px) {
+  :root {
+    --space-grid: 16px;
+    --space-page: 24px;
+  }
+}
+
+/* Ordinateur : valeurs de dashboard-desktop.dc.html. */
+@media (min-width: 1024px) {
+  :root {
+    --glass-bg: rgb(255 255 255 / 0.56);
+    --glass-blur: 26px;
+    --glass-shadow: 0 10px 36px rgb(38 48 92 / 0.09);
+    --today-shadow: 0 18px 44px rgb(61 79 214 / 0.28);
+    --tile-radius: 28px;
+    --space-grid: 20px;
+    --space-tile: 24px;
+    --space-today: 28px;
+    --space-page: clamp(14px, 2.4vw, 36px);
+    --halo-layers:
+      radial-gradient(
+        circle 420px at 190px 150px,
+        color-mix(in srgb, var(--halo-blue) 85%, transparent),
+        transparent
+      ),
+      radial-gradient(
+        circle 440px at 89% 62%,
+        color-mix(in srgb, var(--halo-lilac) 80%, transparent),
+        transparent
+      ),
+      radial-gradient(
+        circle 430px at 41% 100%,
+        color-mix(in srgb, var(--halo-aqua) 75%, transparent),
+        transparent
+      );
+  }
+}
+
+/* Transparence réduite : surfaces opaques, même teinte que le verre posé sur la brume. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: color-mix(in srgb, var(--white) 56%, var(--mist));
+    --glass-blur: 0px;
+    --glass-saturate: 100%;
+  }
+}
+
+/* Mouvement réduit : rien ne glisse, rien ne boucle (Motion et GSAP coupent aussi de leur côté). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Moments signature du tableau de bord (DESIGN.md § 7) : leurs cibles restent masquées avant la première
+   peinture, le temps que GSAP arrive. L'attribut de <html> est posé par le script en ligne de la page et
+   retiré par chaque moment au démarrage, ou après 3 s (src/components/signature/signature-keys.ts). */
+html[data-signature-pending~="intro"] [data-signature="intro"],
+html[data-signature-pending~="reveal"] [data-signature="reveal"],
+html[data-signature-pending~="empty"] [data-signature="empty"] {
+  visibility: hidden;
+}
+
+/* Surface en verre dépoli (DESIGN.md § Verre). Jamais deux verres empilés. */
+@utility glass {
+  background-color: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur))
+    saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+  /* Fond brume + halos flous, fixes, sans image. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-halo);
+    pointer-events: none;
+    background-image: var(--halo-layers);
+  }
+  /* Césure selon <html lang> (FR plus long que EN). */
+  p {
+    hyphens: auto;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+  a {
+    color: var(--link);
+  }
+  a:hover {
+    color: var(--link-hover);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary);
+  }
+}
