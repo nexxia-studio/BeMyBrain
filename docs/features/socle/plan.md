@@ -169,8 +169,16 @@
     - `setLocale` en double (action directe des Réglages et `core.setLocale` de la palette) : assumé, cf. écarts ci-dessus.
   - Fini quand : tests verts.
 
+- [ ] **21. Message « trop de tentatives » sur les formulaires de connexion** (BRAIN-5, suite de la tâche 17 étape 11)
+  - Contexte : le pare-feu Vercel (`limite-connexion`, formule gratuite) refuse en 403 le 11e envoi en une minute. La Server Action reçoit alors une page HTML au lieu d'une réponse RSC ; Next lève « An unexpected response was received from the server » sans exposer le code HTTP (`server-action-reducer.js`), donc le 403 du pare-feu ne se distingue pas d'une page 5xx de Vercel. Décision d'Antoine (2026-11-17) : un message unique pour les deux cas.
+  - Périmètre strict : `LoginForm` et `ResetPasswordForm` uniquement. L'échec de l'envoi (exception levée par l'appel de la Server Action côté client) est intercepté dans le réducteur de `useActionState` et affiché dans le formulaire, sans passer par `src/app/error.tsx`. Les erreurs de contrôle de Next (redirection après connexion réussie) sont relancées (`unstable_rethrow`). Les erreurs déjà prévues (identifiants invalides, code expiré…) restent inchangées. L'e-mail saisi est conservé. Aucune nouvelle dépendance.
+  - Texte : clé `auth.errors.submitFailed` — FR « Trop de tentatives ou service indisponible. Réessaie dans une minute. » ; EN « Too many attempts or service unavailable. Try again in a minute. »
+  - Fichiers : `src/components/auth/LoginForm.tsx`, `src/components/auth/ResetPasswordForm.tsx`, leurs tests, `messages/fr.json`, `messages/en.json`, et le type d'erreur de `src/lib/auth/actions.ts` si besoin.
+  - Test à écrire d'abord : `LoginForm.test.tsx` — « un envoi rejeté affiche le message trop de tentatives dans le formulaire et garde l'e-mail » ; `ResetPasswordForm.test.tsx` — même cas à l'étape e-mail et à l'étape code (l'étape reste la même) ; une redirection de Next n'est pas avalée.
+  - Fini quand : tests verts, `pnpm lint` et `pnpm typecheck` verts, reviewer OK.
+
 ## Ordre et dépendances
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11. La tâche 12 peut se faire à tout moment avant la 13. 12 → 13 → 14 → 15 → 16. 17 dès que 5 est fait, au plus tard avant `/qa`. 18 après le premier déploiement en production. 19 après 17. 20 après 16.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11. La tâche 12 peut se faire à tout moment avant la 13. 12 → 13 → 14 → 15 → 16. 17 dès que 5 est fait, au plus tard avant `/qa`. 18 après le premier déploiement en production. 19 après 17. 20 après 16. 21 après 17 (étape 11).
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
