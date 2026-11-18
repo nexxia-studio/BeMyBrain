@@ -1,10 +1,11 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { syncSessionLocale } from "@/lib/session";
 
+import { appOrigin, returnPath } from "./return-path";
 import { HOME_PATH, LOGIN_PATH } from "./routes";
 import {
   requestResetSchema,
@@ -83,7 +84,9 @@ export async function signIn(
   }
   // Langue enregistrée du membre → NEXT_LOCALE, avant le premier rendu de l'app (ADR-007).
   await syncSessionLocale();
-  redirect(HOME_PATH);
+  // Page d'origine (session expirée, QA-1) : `next` vient du client, revalidé ici (chemin interne seul).
+  const next = returnPath(field(formData, "next"), appOrigin(await headers()));
+  redirect(next ?? HOME_PATH);
 }
 
 export async function signOut(): Promise<void> {

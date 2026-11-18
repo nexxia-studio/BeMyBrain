@@ -11,10 +11,10 @@ vi.mock("@/lib/auth/actions", () => ({ signIn }));
 
 import { LoginForm } from "./LoginForm";
 
-function renderForm() {
+function renderForm(next?: string) {
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
-      <LoginForm />
+      <LoginForm next={next} />
     </NextIntlClientProvider>,
   );
 }
@@ -73,6 +73,28 @@ describe("formulaire de connexion", () => {
         .getByLabelText(messages.auth.login.password)
         .getAttribute("autocomplete"),
     ).toBe("current-password");
+  });
+
+  it("transmet à l'action la page d'origine (session expirée), revalidée côté serveur", async () => {
+    signIn.mockResolvedValue({ error: "invalidCredentials", email: "" });
+    renderForm("/settings");
+
+    submit("a@example.test");
+
+    await waitFor(() => expect(signIn).toHaveBeenCalled());
+    const sent = signIn.mock.calls[0][1] as FormData;
+    expect(sent.get("next")).toBe("/settings");
+  });
+
+  it("sans page d'origine, n'envoie pas de next", async () => {
+    signIn.mockResolvedValue({ error: "invalidCredentials", email: "" });
+    renderForm();
+
+    submit("a@example.test");
+
+    await waitFor(() => expect(signIn).toHaveBeenCalled());
+    const sent = signIn.mock.calls[0][1] as FormData;
+    expect(sent.has("next")).toBe(false);
   });
 
   it("n'affiche aucune erreur avant l'envoi", () => {

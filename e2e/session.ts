@@ -6,7 +6,7 @@ import fr from "../messages/fr.json";
  * Compte e2e dédié, présent sur la branche Neon `dev` seulement, jamais en production. Les e2e connectés ne
  * tournent pas contre une preview tant qu'elle n'a pas de compte e2e.
  */
-function credentials(): { email: string; password: string } {
+export function credentials(): { email: string; password: string } {
   const email = process.env.E2E_USER_EMAIL;
   const password = process.env.E2E_USER_PASSWORD;
   if (!email || !password) {

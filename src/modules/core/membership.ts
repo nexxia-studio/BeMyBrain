@@ -1,7 +1,7 @@
 // Défense en plus : accès base, jamais dans un bundle client.
 import "server-only";
 
-import { withUserDb } from "@/db/client";
+import { InvalidTokenError, withUserDb } from "@/db/client";
 
 import { getMembership, type Membership } from "./queries";
 
@@ -17,4 +17,13 @@ export function resolveMembership(token: string): Promise<ResolvedMembership> {
     userId,
     ...(await getMembership(userId, tx)),
   }));
+}
+
+/**
+ * Jeton refusé par withUserDb (signature, expiration, iss, aud, sub) : la session n'est plus valable,
+ * requireSession renvoie vers /login. Prédicat plutôt que ré-export de la classe : src/lib n'importe rien
+ * de src/db (ADR-002).
+ */
+export function isRejectedToken(error: unknown): boolean {
+  return error instanceof InvalidTokenError;
 }

@@ -8,9 +8,18 @@ const getSessionToken = vi.hoisted(() => vi.fn());
 const getSession = vi.hoisted(() => vi.fn());
 const resolveMembership = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
+const requestHeaders = vi.hoisted(() => ({ current: new Headers() }));
+// Jeton refusé par withUserDb : classe factice reconnue par le prédicat du module (testé dans src/modules).
+const RejectedToken = vi.hoisted(() => class RejectedToken extends Error {});
 
 vi.mock("@/lib/auth/server", () => ({ getSessionToken, getSession }));
-vi.mock("@/modules/core/membership", () => ({ resolveMembership }));
+vi.mock("@/modules/core/membership", () => ({
+  resolveMembership,
+  isRejectedToken: (error: unknown) => error instanceof RejectedToken,
+}));
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => requestHeaders.current),
+}));
 vi.mock("./locale-cookie", () => ({ syncLocaleCookie }));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
@@ -80,6 +89,7 @@ beforeEach(() => {
     locale: "en",
   });
   syncLocaleCookie.mockReset().mockResolvedValue(undefined);
+  requestHeaders.current = new Headers();
 });
 
 afterEach(() => {
@@ -213,6 +223,76 @@ describe("requireSession", () => {
 
     expect(second.userId).toBe(other);
     expect(resolveMembership).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("session expirée : renvoi vers /login (QA-1)", () => {
+  const APP = { host: "bemybrain.test", "x-forwarded-proto": "https" };
+  const ACTION = "408598b1af6ee1d3946827f5f62fd65e1f908928e8";
+
+  function actionCall(referer: string) {
+    requestHeaders.current = new Headers({
+      ...APP,
+      "next-action": ACTION,
+      referer,
+    });
+  }
+
+  it("depuis une action, renvoie vers /login avec la page d'origine en paramètre next", async () => {
+    actionCall("https://bemybrain.test/settings?onglet=langue#haut");
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
+  });
+
+  it("depuis une action, un Referer d'une autre origine ne donne pas de next", async () => {
+    actionCall("https://autre.test/settings");
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/login$/);
+  });
+
+  it("depuis une action, un Referer vers /login ne donne pas de next", async () => {
+    actionCall("https://bemybrain.test/login");
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/login$/);
+  });
+
+  it("pendant le rendu d'une page (pas d'action), renvoie vers /login sans next : le Referer y est la page précédente", async () => {
+    requestHeaders.current = new Headers({
+      ...APP,
+      referer: "https://bemybrain.test/settings",
+    });
+    getSessionToken.mockResolvedValue(null);
+
+    const run = inRequest(() => requireSession());
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/login$/);
+  });
+
+  it("un jeton refusé par la base (expiré, signature) renvoie vers /login au lieu de lever", async () => {
+    actionCall("https://bemybrain.test/dashboard");
+    resolveMembership.mockRejectedValue(new RejectedToken());
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
+  });
+
+  it("toute autre erreur de la base remonte telle quelle (page d'erreur, jamais /login)", async () => {
+    const failure = new Error("Erreur de base de données");
+    resolveMembership.mockRejectedValue(failure);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toBe(failure);
   });
 });
 

@@ -1,5 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  CaughtBoundary,
+  expiredSessionRedirect,
+} from "../../../tests/factories/next-control";
 
 import {
   FAILURE_VISIBLE_MS,
@@ -72,5 +78,32 @@ describe("préférence d'affichage optimiste", () => {
 
     expect(midway).toBe(true);
     expect(result.current.failed).toBe(false);
+  });
+
+  it("session expirée : laisse Next naviguer vers /login, sans message d'échec", async () => {
+    const control = expiredSessionRedirect();
+    const save = vi
+      .fn<(next: string) => Promise<void>>()
+      .mockRejectedValue(control);
+    const onError = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(
+      () => useOptimisticPreference<string>("private", save),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <CaughtBoundary onError={onError}>{children}</CaughtBoundary>
+        ),
+      },
+    );
+    const failedBefore = result.current.failed;
+
+    act(() => result.current.update("pro"));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(control));
+    expect(failedBefore).toBe(false);
+    expect(result.current.failed).toBe(false);
+    consoleError.mockRestore();
   });
 });

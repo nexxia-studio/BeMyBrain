@@ -11,12 +11,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
+import {
+  CaughtBoundary,
+  expiredSessionRedirect,
+} from "../../../tests/factories/next-control";
 
 const push = vi.hoisted(() => vi.fn());
 const runAction = vi.hoisted(() => vi.fn());
 const pathname = vi.hoisted(() => ({ current: "/dashboard" }));
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (importOriginal) => ({
+  // redirect et unstable_rethrow réels : le renvoi vers /login d'une session expirée (QA-1).
+  ...(await importOriginal<typeof import("next/navigation")>()),
   useRouter: () => ({ push }),
   usePathname: () => pathname.current,
 }));
@@ -276,6 +282,37 @@ describe("palette de commandes", () => {
         fr.palette.error,
       ),
     );
+  });
+
+  it("session expirée : laisse Next naviguer vers /login, sans message d'échec", async () => {
+    const control = expiredSessionRedirect();
+    runAction.mockRejectedValue(control);
+    const onError = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    render(
+      <CaughtBoundary onError={onError}>
+        <NextIntlClientProvider locale="fr" messages={fr}>
+          <CommandPaletteProvider>
+            <PaletteTrigger label="déclencheur" className="">
+              +
+            </PaletteTrigger>
+          </CommandPaletteProvider>
+        </NextIntlClientProvider>
+      </CaughtBoundary>,
+    );
+    pressShortcut();
+
+    fireEvent.click(
+      await screen.findByRole("option", {
+        name: fr.palette.commands.switchLocale.en,
+      }),
+    );
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(control));
+    expect(screen.queryByText(fr.palette.error)).toBeNull();
+    consoleError.mockRestore();
   });
 
   it("navigue vers une section sans passer par le registre, puis se ferme", async () => {

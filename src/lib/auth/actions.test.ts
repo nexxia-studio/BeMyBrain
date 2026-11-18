@@ -18,7 +18,16 @@ vi.mock("./server", async (importOriginal) => ({
   getAuth: () => fakeAuth,
 }));
 vi.mock("@/lib/session", () => ({ syncSessionLocale }));
-vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
+const requestHeaders = vi.hoisted(() => ({
+  current: new Headers({
+    host: "bemybrain.test",
+    "x-forwarded-proto": "https",
+  }),
+}));
+vi.mock("next/headers", () => ({
+  cookies: async () => cookieStore,
+  headers: async () => requestHeaders.current,
+}));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -68,6 +77,48 @@ describe("connexion", () => {
       email: EMAIL,
       password: "motdepasse",
     });
+  });
+
+  it("après connexion, revient à la page d'origine passée en next (session expirée, QA-1)", async () => {
+    fakeAuth.signIn.email.mockResolvedValue({ data: {}, error: null });
+
+    const run = signIn(
+      null,
+      form({ email: EMAIL, password: "motdepasse", next: "/settings" }),
+    );
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/settings$/);
+  });
+
+  it.each([
+    "//evil.test",
+    "/\\evil.test",
+    "https://autre.test/settings",
+    "/login",
+    "settings",
+  ])(
+    "revalide next à la connexion : %j invalide mène au tableau de bord",
+    async (next) => {
+      fakeAuth.signIn.email.mockResolvedValue({ data: {}, error: null });
+
+      const run = signIn(
+        null,
+        form({ email: EMAIL, password: "motdepasse", next }),
+      );
+
+      await expect(run).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+    },
+  );
+
+  it("ne garde que le chemin de next (ni paramètres ni fragment)", async () => {
+    fakeAuth.signIn.email.mockResolvedValue({ data: {}, error: null });
+
+    const run = signIn(
+      null,
+      form({ email: EMAIL, password: "motdepasse", next: "/settings?x=1#y" }),
+    );
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/settings$/);
   });
 
   it("après connexion réussie, recopie la langue enregistrée avant de rediriger", async () => {

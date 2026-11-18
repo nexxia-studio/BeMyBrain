@@ -102,6 +102,50 @@ describe("proxy d'authentification", () => {
     expect(isAllowed(response)).toBe(true);
   });
 
+  // QA-1 : le 307 vers /login sur le POST d'une Server Action est suivi par le fetch du client ; /login
+  // répond sans flux RSC, le client lève « An unexpected response… » et affiche un échec au lieu de
+  // naviguer. L'action se garde elle-même (requireSession → redirect lisible par le client).
+  function actionRequest(path: string, cookie?: string) {
+    return new NextRequest(new URL(path, ORIGIN), {
+      method: "POST",
+      headers: {
+        "next-action": "408598b1af6ee1d3946827f5f62fd65e1f908928e8",
+        ...(cookie ? { cookie } : {}),
+      },
+    });
+  }
+
+  it("laisse passer une Server Action sans session : l'action renvoie elle-même vers /login", async () => {
+    const response = await proxy(actionRequest("/dashboard"));
+
+    expect(isAllowed(response)).toBe(true);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("laisse passer une Server Action dont la session est refusée par l'auth, avec la CSP", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(null, { status: 401 })),
+    );
+
+    const response = await proxy(
+      actionRequest("/settings", `${SESSION_COOKIE}=expire`),
+    );
+
+    expect(isAllowed(response)).toBe(true);
+    expect(response.headers.get("content-security-policy")).toContain(
+      "frame-ancestors 'none'",
+    );
+  });
+
+  it("redirige toujours un POST sans en-tête Next-Action (formulaire sans JavaScript)", async () => {
+    const response = await proxy(
+      new NextRequest(new URL("/dashboard", ORIGIN), { method: "POST" }),
+    );
+
+    expect(response.status).toBe(307);
+  });
+
   it("ne protège pas /reset-password-bis par erreur de préfixe", async () => {
     const response = await proxy(request("/reset-password-bis"));
 

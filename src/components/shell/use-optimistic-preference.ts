@@ -8,6 +8,8 @@ import {
   useTransition,
 } from "react";
 
+import { settleAction } from "@/lib/settle-action";
+
 // Le message d'échec s'efface seul après ce délai, ou au geste suivant.
 export const FAILURE_VISIBLE_MS = 5000;
 
@@ -16,7 +18,8 @@ export const FAILURE_VISIBLE_MS = 5000;
  * d'espace) : le contrôle reste cliquable et change tout de suite ; `pending` alimente `aria-busy`.
  * Si l'enregistrement échoue, `shown` revient à la valeur enregistrée (fin de la transition) et `failed`
  * passe à vrai, le temps d'afficher un message. Seul l'échec du dernier `update` compte : un
- * enregistrement dépassé par un geste plus récent n'affiche rien.
+ * enregistrement dépassé par un geste plus récent n'affiche rien. Un renvoi vers /login (session expirée)
+ * n'est pas un échec : il est relancé et Next navigue.
  */
 export function useOptimisticPreference<T>(
   saved: T,
@@ -38,11 +41,9 @@ export function useOptimisticPreference<T>(
     setFailed(false);
     startTransition(async () => {
       setShown(next);
-      try {
-        await save(next);
-      } catch {
-        if (request === latestRequest.current) setFailed(true);
-      }
+      // Session expirée : le renvoi vers /login est relancé par settleAction, Next navigue.
+      const outcome = await settleAction(() => save(next));
+      if (!outcome.ok && request === latestRequest.current) setFailed(true);
     });
   }
 
