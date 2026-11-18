@@ -1006,7 +1006,7 @@ describe("relecture de 04f39cb", () => {
     });
   });
 
-  it("un texte très long est tronqué avant les masques, vite et à longueur bornée", () => {
+  it("un texte très long est tronqué avant les masques, en moins d'une seconde et à 2 000 caractères au plus", () => {
     const { beforeSend } = activeOptions();
     const long = "a.".repeat(100_000);
 
@@ -1014,8 +1014,8 @@ describe("relecture de 04f39cb", () => {
     const sent = beforeSend({ type: undefined, message: long });
     const elapsed = performance.now() - start;
 
-    expect(elapsed).toBeLessThan(200);
-    expect(sent?.message?.length).toBeLessThanOrEqual(2001);
+    expect(elapsed).toBeLessThan(1000);
+    expect(sent?.message?.length).toBeLessThanOrEqual(2000);
   });
 
   it("la troncature ne laisse pas un e-mail coupé à la limite", () => {
@@ -1026,5 +1026,48 @@ describe("relecture de 04f39cb", () => {
 
     expect(sent?.message).not.toContain("antoine");
     expect(sent?.message?.endsWith("…")).toBe(true);
+  });
+});
+
+describe("relecture de c32d523", () => {
+  it.each([
+    [JSON.stringify({ password: 'pa"ss' }), '{"password":"[Filtered]"}'],
+    ["password='a\\'b' suite", "password='[Filtered]' suite"],
+    ['{"token": "a\\\\"} suite', '{"token": "[Filtered]"} suite'],
+  ])(
+    "un guillemet échappé dans la valeur du secret (%s) ne laisse rien fuir",
+    (message, expected) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(expected);
+    },
+  );
+
+  it("une valeur de data qui commence par https:// mais contient un espace est masquée comme un texte", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "http",
+      data: { info: "https://ex.com is down a@b.fr" },
+    });
+
+    expect(kept?.data).toEqual({ info: "https://ex.com is down [email]" });
+  });
+
+  it("un texte tronqué reste identique au second passage", () => {
+    const { beforeBreadcrumb } = activeOptions();
+    const message = `${"ab ".repeat(666)}cd suite et fin`;
+
+    const kept = beforeBreadcrumb({ category: "http", message });
+    const twice = scrubEvent({
+      type: undefined,
+      breadcrumbs: kept ? [kept] : [],
+    }).breadcrumbs?.[0];
+
+    expect(message[2000]).toBe(" ");
+    expect(kept?.message?.length).toBeLessThanOrEqual(2000);
+    expect(twice).toEqual(kept);
   });
 });

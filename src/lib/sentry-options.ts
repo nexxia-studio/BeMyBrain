@@ -185,9 +185,9 @@ const TEXT_MASKS: TextMask[] = [
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
   // Clé de secret, seule ou en suffixe après « _ » (user_password, access_token), ou secret_… (secret_key),
   // suivie de « = » ou « : », y compris en JSON (« "password":"x" »). Valeur entre guillemets : masquée jusqu'au
-  // guillemet fermant (ou la fin) ; sans guillemet : jusqu'à un espace ou « & » (paramètre suivant d'une query).
+  // guillemet fermant non échappé (ou la fin) ; sans guillemet : jusqu'à un espace ou « & » (paramètre suivant d'une query).
   [
-    /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))("?\s*[:=]\s*)("[^"]*"?|'[^']*'?|[^\s&]+)/giu,
+    /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))("?\s*[:=]\s*)("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|[^\s&]+)/giu,
     maskSecretValue,
   ],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
@@ -212,6 +212,7 @@ function withoutQuery(url: string): string {
 function maskText(text: string): string {
   return TEXT_MASKS.reduce(
     (masked, [pattern, replacement]) =>
+      // Branches identiques : seul le typage l'impose (String.replace n'accepte pas l'union des deux formes).
       typeof replacement === "string"
         ? masked.replace(pattern, replacement)
         : masked.replace(pattern, replacement),
@@ -219,9 +220,10 @@ function maskText(text: string): string {
   );
 }
 
+/** Résultat « … » compris borné à MAX_TEXT_LENGTH : le second passage (scrubEvent) le laisse identique. */
 function truncate(text: string): string {
   if (text.length <= MAX_TEXT_LENGTH) return text;
-  let end = MAX_TEXT_LENGTH;
+  let end = MAX_TEXT_LENGTH - 1;
   if (!/\s/u.test(text[end])) {
     while (end > 0 && !/\s/u.test(text[end - 1])) end--;
   }
@@ -389,16 +391,18 @@ function maskPath(path: string): string | undefined {
   );
 }
 
-/** Valeur libre de `data` d'un fil : texte masqué, nombre, booléen ou vide gardé, objet remplacé. */
 /**
- * Valeur libre de `data` d'un fil : une valeur qui ressemble à une URL (http(s) absolue ou chemin « / ») est
+ * Valeur libre de `data` d'un fil : une valeur qui ressemble à une URL (http(s) absolue ou chemin « / », sans espace) est
  * nettoyée comme `url` (undefined → clé retirée) ; texte masqué ; nombre, booléen ou vide gardé ; objet remplacé.
  */
 function maskDataValue(value: unknown): unknown {
   if (value === undefined || value === null) return value;
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (HTTP_URL.test(trimmed) || trimmed.startsWith("/"))
+    if (
+      !/\s/u.test(trimmed) &&
+      (HTTP_URL.test(trimmed) || trimmed.startsWith("/"))
+    )
       return scrubBreadcrumbUrl(trimmed);
   }
   return maskParam(value);
