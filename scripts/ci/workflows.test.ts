@@ -91,9 +91,10 @@ describe("workflow de production", () => {
     expect(script(pending)).not.toContain("${{");
   });
 
-  it("la migration attend status-pending, garde son nom affiché et ne pose plus aucun statut", () => {
+  it("la migration attend status-pending, porte un nom affiché distinct du commit status et ne pose aucun statut", () => {
     expect(migrate).toMatch(/\n {4}needs: status-pending\n/);
-    expect(migrate).toMatch(/\n {4}name: Migrer la production\n/);
+    expect(migrate).toMatch(/\n {4}name: Migration production \(job\)\n/);
+    expect(migrate).not.toMatch(/\n {4}name: Migrer la production\n/);
     expect(migrate).not.toContain("gh api");
     expect(migrate).not.toContain("/statuses/");
     expect(migrate).not.toContain("GH_TOKEN");

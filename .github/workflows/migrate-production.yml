@@ -43,8 +43,9 @@ jobs:
           NODE_OPTIONS: ""
           BASH_ENV: ""
 
+  # Nom affiché distinct du commit status « Migrer la production » : seul ce contexte compte pour Vercel.
   migrate-production:
-    name: Migrer la production
+    name: Migration production (job)
     needs: status-pending
     runs-on: ubuntu-latest
     timeout-minutes: 15
