@@ -12,6 +12,7 @@ import { useState, useTransition } from "react";
 
 import { setLocale } from "@/app/(app)/settings/actions";
 import { type AppLocale, locales } from "@/i18n/locales";
+import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
 
 type LocalePickerProps = {
@@ -28,11 +29,9 @@ export function LocalePicker({ locale }: LocalePickerProps) {
     if (next === locale) return;
     setFailed(false);
     startTransition(async () => {
-      try {
-        await setLocale(next);
-      } catch {
-        setFailed(true);
-      }
+      // Session expirée : le renvoi vers /login est relancé par settleAction, Next navigue.
+      const outcome = await settleAction(() => setLocale(next));
+      if (!outcome.ok) setFailed(true);
     });
   }
 

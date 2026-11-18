@@ -8,13 +8,37 @@ const getSessionToken = vi.hoisted(() => vi.fn());
 const getSession = vi.hoisted(() => vi.fn());
 const resolveMembership = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
+const requestHeaders = vi.hoisted(() => ({ current: new Headers() }));
 
-vi.mock("@/lib/auth/server", () => ({ getSessionToken, getSession }));
-vi.mock("@/modules/core/membership", () => ({ resolveMembership }));
+// AuthUnavailableError réelle ; seules les lectures de session sont simulées.
+vi.mock("@/lib/auth/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/server")>()),
+  getSessionToken,
+  getSession,
+}));
+// Prédicat isRejectedToken réel, sur les vraies erreurs de withUserDb (tests/factories/token-errors.ts) :
+// une panne du JWKS ne doit jamais passer pour un jeton refusé (audit QA-1). Seule la lecture est simulée.
+vi.mock("@/db/client", async () => {
+  const { InvalidTokenError } =
+    await import("../../tests/factories/token-errors");
+  return { InvalidTokenError, withUserDb: vi.fn() };
+});
+vi.mock("@/modules/core/membership", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/core/membership")>()),
+  resolveMembership,
+}));
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => requestHeaders.current),
+}));
 vi.mock("./locale-cookie", () => ({ syncLocaleCookie }));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
+  }),
+  // Erreurs de contrôle de Next (redirect, rendu dynamique) : simulées par le préfixe CONTROL: ou REDIRECT:.
+  unstable_rethrow: vi.fn((error: unknown) => {
+    if (error instanceof Error && /^(CONTROL|REDIRECT):/.test(error.message))
+      throw error;
   }),
 }));
 
@@ -38,7 +62,19 @@ vi.mock("react", () => {
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
 
+import { AuthUnavailableError } from "@/lib/auth/server";
+
 import {
+  InvalidTokenError as RejectedToken,
+  JWKS_OUTAGES,
+  TokenVerificationUnavailableError,
+  unknownKeyError,
+  verificationError,
+} from "../../tests/factories/token-errors";
+
+import {
+  hasActiveSession,
+  redirectIfRejectedToken,
   requireSession,
   requireSessionToken,
   requireSessionWithToken,
@@ -80,6 +116,7 @@ beforeEach(() => {
     locale: "en",
   });
   syncLocaleCookie.mockReset().mockResolvedValue(undefined);
+  requestHeaders.current = new Headers();
 });
 
 afterEach(() => {
@@ -216,6 +253,156 @@ describe("requireSession", () => {
   });
 });
 
+describe("session expirée : renvoi vers /login (QA-1)", () => {
+  const APP = { host: "bemybrain.test", "x-forwarded-proto": "https" };
+  const ACTION = "408598b1af6ee1d3946827f5f62fd65e1f908928e8";
+
+  function actionCall(referer: string) {
+    requestHeaders.current = new Headers({
+      ...APP,
+      "next-action": ACTION,
+      referer,
+    });
+  }
+
+  it("depuis une action, renvoie vers /login avec la page d'origine en paramètre next", async () => {
+    actionCall("https://bemybrain.test/settings?onglet=langue#haut");
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
+  });
+
+  it("depuis une action, un Referer d'une autre origine ne donne pas de next", async () => {
+    actionCall("https://autre.test/settings");
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/login$/);
+  });
+
+  it("depuis une action, un Referer vers /login ne donne pas de next", async () => {
+    actionCall("https://bemybrain.test/login");
+    getSessionToken.mockResolvedValue(null);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/login$/);
+  });
+
+  it("pendant le rendu d'une page (pas d'action), renvoie vers /login sans next : le Referer y est la page précédente", async () => {
+    requestHeaders.current = new Headers({
+      ...APP,
+      referer: "https://bemybrain.test/settings",
+    });
+    getSessionToken.mockResolvedValue(null);
+
+    const run = inRequest(() => requireSession());
+
+    await expect(run).rejects.toThrow(/^REDIRECT:\/login$/);
+  });
+
+  it("un jeton refusé par la base (expiré, signature) renvoie vers /login au lieu de lever", async () => {
+    actionCall("https://bemybrain.test/dashboard");
+    resolveMembership.mockRejectedValue(new RejectedToken());
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
+  });
+
+  it("après la garde (jeton expiré entre-temps), un jeton refusé renvoie vers /login avec le même next", async () => {
+    actionCall("https://bemybrain.test/settings");
+
+    const run = redirectIfRejectedToken(new RejectedToken());
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
+  });
+
+  it("journalise un jeton refusé par son seul code jose (erreur de configuration iss/aud visible)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    actionCall("https://bemybrain.test/settings");
+    resolveMembership.mockRejectedValue(
+      new RejectedToken("ERR_JWT_CLAIM_VALIDATION_FAILED"),
+    );
+
+    await requireSessionWithToken().catch(() => {});
+
+    expect(warn.mock.calls).toEqual([
+      [
+        "[session] jeton refusé, renvoi vers /login",
+        { code: "ERR_JWT_CLAIM_VALIDATION_FAILED" },
+      ],
+    ]);
+    warn.mockRestore();
+  });
+
+  it("journalise un jeton refusé sans code par un code fixe, rien d'autre", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    actionCall("https://bemybrain.test/settings");
+
+    await redirectIfRejectedToken(new RejectedToken()).catch(() => {});
+
+    expect(warn.mock.calls).toEqual([
+      ["[session] jeton refusé, renvoi vers /login", { code: "unknown" }],
+    ]);
+    warn.mockRestore();
+  });
+
+  it("après la garde, une autre erreur ne redirige pas", async () => {
+    actionCall("https://bemybrain.test/settings");
+
+    const run = redirectIfRejectedToken(new Error("Erreur de base de données"));
+
+    await expect(run).resolves.toBeUndefined();
+  });
+
+  it("un jeton signé par une clé inconnue du JWKS (kid absent) renvoie vers /login", async () => {
+    actionCall("https://bemybrain.test/dashboard");
+    resolveMembership.mockRejectedValue(await unknownKeyError());
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
+  });
+
+  it.each(JWKS_OUTAGES)(
+    "garde : %s → l'erreur remonte (page d'erreur), jamais /login",
+    async (_label, outage) => {
+      actionCall("https://bemybrain.test/dashboard");
+      const failure = await verificationError(outage());
+      resolveMembership.mockRejectedValue(failure);
+
+      const run = requireSessionWithToken();
+
+      await expect(run).rejects.toBe(failure);
+    },
+  );
+
+  it.each(JWKS_OUTAGES)(
+    "après la garde (runAction, setLocale) : %s → pas de renvoi vers /login",
+    async (_label, outage) => {
+      actionCall("https://bemybrain.test/settings");
+      const failure = await verificationError(outage());
+
+      const run = redirectIfRejectedToken(failure);
+
+      await expect(run).resolves.toBeUndefined();
+    },
+  );
+
+  it("toute autre erreur de la base remonte telle quelle (page d'erreur, jamais /login)", async () => {
+    const failure = new Error("Erreur de base de données");
+    resolveMembership.mockRejectedValue(failure);
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toBe(failure);
+  });
+});
+
 describe("syncSessionLocale (après connexion)", () => {
   it("après connexion, le cookie NEXT_LOCALE reçoit la locale enregistrée", async () => {
     await syncSessionLocale();
@@ -242,5 +429,144 @@ describe("syncSessionLocale (après connexion)", () => {
     await expect(run).resolves.toBeUndefined();
     expect(JSON.stringify(warn.mock.calls)).not.toContain(JWT_USER);
     warn.mockRestore();
+  });
+});
+
+describe("hasActiveSession (/login ouvert en étant connecté, QA-2)", () => {
+  it("vrai quand le JWT est obtenu et accepté par la base", async () => {
+    const active = await hasActiveSession();
+
+    expect(active).toBe(true);
+    expect(resolveMembership).toHaveBeenCalledWith("eyJ.jwt.signe");
+  });
+
+  it("vrai aussi sans appartenance : le tableau de bord renverra vers la page sans workspace", async () => {
+    resolveMembership.mockResolvedValue({
+      userId: JWT_USER,
+      workspace: null,
+      locale: null,
+    });
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(true);
+  });
+
+  it("faux sans session, sans rien lire en base", async () => {
+    getSessionToken.mockResolvedValue(null);
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    expect(resolveMembership).not.toHaveBeenCalled();
+  });
+
+  it("faux quand le cache de session dit connecté mais que l'auth refuse le JWT (pas de boucle /login ↔ /dashboard)", async () => {
+    getSession.mockResolvedValue({ user: { id: CACHED_USER } });
+    getSessionToken.mockResolvedValue(null);
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it("faux quand la base refuse le jeton (expiré, signature) : même critère que le tableau de bord", async () => {
+    resolveMembership.mockRejectedValue(new RejectedToken());
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+  });
+
+  it.each(JWKS_OUTAGES)(
+    "faux quand le JWKS est en panne (%s) : le formulaire reste affiché, sans erreur",
+    async (_label, outage) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      resolveMembership.mockRejectedValue(await verificationError(outage()));
+
+      const active = await hasActiveSession();
+
+      expect(active).toBe(false);
+      warn.mockRestore();
+    },
+  );
+
+  it("faux quand l'auth est indisponible : le formulaire reste affiché", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    getSessionToken.mockRejectedValue(new AuthUnavailableError(503));
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    warn.mockRestore();
+  });
+
+  it.each([
+    [new AuthUnavailableError(503), "AuthUnavailableError"],
+    [
+      new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT"),
+      "TokenVerificationUnavailableError",
+    ],
+  ])(
+    "journalise le nom de l'erreur (%s), pour distinguer panne et configuration",
+    async (failure, name) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      resolveMembership.mockRejectedValue(failure);
+
+      await hasActiveSession();
+
+      expect(warn.mock.calls).toEqual([
+        ["[session] session non vérifiée sur /login", { error: name }],
+      ]);
+      warn.mockRestore();
+    },
+  );
+
+  it("faux quand la base est en panne : seul le nom de l'erreur est journalisé, ni message ni cause", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resolveMembership.mockRejectedValue(
+      new Error(`panne ${JWT_USER}`, { cause: new Error("a@b.c") }),
+    );
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    expect(warn.mock.calls).toEqual([
+      ["[session] session non vérifiée sur /login", { error: "Error" }],
+    ]);
+    warn.mockRestore();
+  });
+
+  it("un nom d'erreur hors forme de nom de classe n'est pas journalisé", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resolveMembership.mockRejectedValue(
+      Object.assign(new Error("x"), { name: `panne ${JWT_USER}` }),
+    );
+
+    await hasActiveSession();
+
+    expect(warn.mock.calls).toEqual([
+      ["[session] session non vérifiée sur /login", { error: "unknown" }],
+    ]);
+    warn.mockRestore();
+  });
+
+  it("ne redirige jamais elle-même (appelée depuis /login)", async () => {
+    resolveMembership.mockRejectedValue(new RejectedToken());
+
+    await hasActiveSession();
+
+    const { redirect } = await import("next/navigation");
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("laisse remonter une erreur de contrôle de Next (rendu dynamique)", async () => {
+    const control = new Error("CONTROL:dynamic");
+    getSessionToken.mockRejectedValue(control);
+
+    const run = hasActiveSession();
+
+    await expect(run).rejects.toBe(control);
   });
 });

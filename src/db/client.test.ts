@@ -3,6 +3,8 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
 import {
   createLocalJWKSet,
+  createRemoteJWKSet,
+  customFetch,
   exportJWK,
   generateKeyPair,
   SignJWT,
@@ -15,11 +17,18 @@ import { notFound, redirect } from "next/navigation";
 import { DomainError } from "@/lib/errors";
 
 import {
+  JWKS_OUTAGES,
+  unknownKeyError,
+  verificationError,
+} from "../../tests/factories/token-errors";
+
+import {
   createTokenVerifier,
   createWithUserDb,
   DatabaseError,
   IdentityNotAppliedError,
   InvalidTokenError,
+  TokenVerificationUnavailableError,
   type UserDb,
   type UserTx,
   type VerifiedClaims,
@@ -376,5 +385,177 @@ describe("withUserDb", () => {
     expect(error).toBeInstanceOf(ProbeError);
     expect(error.code).toBe("invalid_error_code");
     expect(`${error.message} ${error.stack}`).not.toContain("a@b.c");
+  });
+});
+
+describe("vérification du jeton : panne du JWKS distincte d'un jeton refusé (audit QA-1)", () => {
+  it.each(JWKS_OUTAGES)(
+    "%s : panne de vérification, jamais un jeton refusé",
+    async (_label, outage) => {
+      const error = await verificationError(outage());
+
+      expect(error).toBeInstanceOf(TokenVerificationUnavailableError);
+      expect(error).not.toBeInstanceOf(InvalidTokenError);
+    },
+  );
+
+  it("la panne garde un message fixe, sans cause chaînée", async () => {
+    const error = (await verificationError(
+      new TypeError("fetch failed https://auth.example.test/jwks"),
+    )) as Error;
+
+    expect(error.message).toBe("Vérification du jeton indisponible");
+    expect(error.cause).toBeUndefined();
+  });
+
+  it("garde le code jose de la panne, pas son message", async () => {
+    const [, timeout] = JWKS_OUTAGES[0];
+
+    const error = (await verificationError(timeout())) as { code?: string };
+
+    expect(error.code).toBe("ERR_JWKS_TIMEOUT");
+  });
+
+  it("une clé inconnue d'un JWKS lu avec succès (kid absent) est un jeton refusé", async () => {
+    const error = await unknownKeyError();
+
+    expect(error).toBeInstanceOf(InvalidTokenError);
+  });
+
+  it("withUserDb laisse passer la panne telle quelle, sans ouvrir de transaction", async () => {
+    const { db, transaction } = fakeDb();
+    const outage = new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT");
+    const withUserDb = createWithUserDb({
+      verify: async () => {
+        throw outage;
+      },
+      db,
+    });
+
+    const run = withUserDb("eyJ.jwt.signe", async () => "lu");
+
+    await expect(run).rejects.toBe(outage);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+// Comportement réel de jose (createRemoteJWKSet, comme src/db/client.ts) sans réseau : le JWKS est servi par
+// un fetch simulé (`customFetch` de jose). Verrouille le classement refus / panne si jose change.
+describe("vérification du jeton contre un vrai JWKS distant de jose", () => {
+  type Jwk = Awaited<ReturnType<typeof exportJWK>>;
+  type Mode = "ok" | "down" | "500";
+
+  async function jwk(pair: KeyPair, kid: string): Promise<Jwk> {
+    return { ...(await exportJWK(pair.publicKey)), kid, alg: "EdDSA" };
+  }
+
+  /** JWKS distant servi par un fetch simulé ; `mode` et `keys` modifiables entre deux vérifications. */
+  function remoteVerifier(
+    keys: Jwk[],
+    options: { cooldownDuration?: number } = {},
+  ) {
+    const state = { mode: "ok" as Mode, keys };
+    const fetchJwks = async () => {
+      if (state.mode === "down") throw new TypeError("fetch failed");
+      if (state.mode === "500") return new Response("panne", { status: 500 });
+      return Response.json({ keys: state.keys });
+    };
+    const keySet = createRemoteJWKSet(
+      new URL("https://auth.example.test/jwks"),
+      {
+        [customFetch]: fetchJwks,
+        ...options,
+      },
+    );
+    return {
+      state,
+      verify: createTokenVerifier(keySet, {
+        issuer: ISSUER,
+        audience: AUDIENCE,
+      }),
+    };
+  }
+
+  function sign(pair: KeyPair, kid?: string) {
+    return new SignJWT({ sub: USER_ID })
+      .setProtectedHeader(kid ? { alg: "EdDSA", kid } : { alg: "EdDSA" })
+      .setIssuer(ISSUER)
+      .setAudience(AUDIENCE)
+      .setExpirationTime("5m")
+      .sign(pair.privateKey);
+  }
+
+  async function outcome(
+    verify: ReturnType<typeof createTokenVerifier>,
+    token: string,
+  ) {
+    return verify(token).then(
+      () => "accepté",
+      (error: unknown) =>
+        error instanceof InvalidTokenError
+          ? "refusé"
+          : error instanceof TokenVerificationUnavailableError
+            ? "panne"
+            : "imprévu",
+    );
+  }
+
+  it("accepte un jeton valide signé par une clé du JWKS", async () => {
+    const { verify } = remoteVerifier([await jwk(trusted, "a")]);
+
+    const result = await outcome(verify, await sign(trusted, "a"));
+
+    expect(result).toBe("accepté");
+  });
+
+  it("kid inconnu après un rechargement réussi du JWKS : jeton refusé", async () => {
+    const { verify } = remoteVerifier([await jwk(trusted, "a")], {
+      cooldownDuration: 0,
+    });
+    await verify(await sign(trusted, "a"));
+
+    const result = await outcome(verify, await sign(attacker, "inconnu"));
+
+    expect(result).toBe("refusé");
+  });
+
+  it("kid inconnu et JWKS en erreur HTTP 500 au rechargement : panne", async () => {
+    const { verify, state } = remoteVerifier([await jwk(trusted, "a")], {
+      cooldownDuration: 0,
+    });
+    await verify(await sign(trusted, "a"));
+    state.mode = "500";
+
+    const result = await outcome(verify, await sign(attacker, "inconnu"));
+
+    expect(result).toBe("panne");
+  });
+
+  it("JWKS injoignable (réseau coupé) : panne", async () => {
+    const { verify, state } = remoteVerifier([await jwk(trusted, "a")]);
+    state.mode = "down";
+
+    const result = await outcome(verify, await sign(trusted, "a"));
+
+    expect(result).toBe("panne");
+  });
+
+  it("jeton sans kid et JWKS à deux clés : panne (jose n'essaie pas chaque candidate)", async () => {
+    const { verify } = remoteVerifier([
+      await jwk(trusted, "a"),
+      await jwk(attacker, "b"),
+    ]);
+
+    const result = await outcome(verify, await sign(trusted));
+
+    expect(result).toBe("panne");
+  });
+
+  it("kid connu mais signature d'une autre clé : jeton refusé", async () => {
+    const { verify } = remoteVerifier([await jwk(trusted, "a")]);
+
+    const result = await outcome(verify, await sign(attacker, "a"));
+
+    expect(result).toBe("refusé");
   });
 });

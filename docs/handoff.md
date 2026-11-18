@@ -1,26 +1,28 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-18 — session : `/feature socle` puis `/handoff` (Claude Code)
+**Dernière mise à jour** : 2026-11-18 — session : `/qa socle` puis `/handoff` (Claude Code)
 
 ## Où on en est
-- `feat/socle` à `8093468`, poussée ; `main` à `a462ee7` (PR #3 et #4 fusionnées). Plan : `docs/features/socle/plan.md`.
-- Production en ligne, connexion et espace d'Antoine OK (fr ; contextes Privé, Trustup, Nexxia).
-- Cochées : 1 à 16, 20, 21. Ouvertes : 17 (reste manuel), 18, 19. Corps des tâches 11 à 16, 20, 21 à déplacer dans « Terminé ».
-- Pare-feu `limite-connexion` testé : 12 GET en 200, 11e et 12e POST en 403.
-- Tests : 830 verts à la tâche 21 (2026-11-17, non relancé). Tests rouges : aucun rapporté.
+- `feat/socle` poussée (code à `98a011a`, puis docs du handoff) ; `main` à `91caed4` (PR #5 et #6 fusionnées). Plan : `docs/features/socle/plan.md`.
+- Tâches 1 à 21 closes ; corps des tâches 11 à 21 déplacés dans « Terminé ».
+- Tâche 17 close avec limite : aucun Deployment Check actif, Vercel peut mettre la production en ligne avant la fin de la migration. Parade : migrations rétrocompatibles ; suite BRAIN-37.
+- Production en ligne sur `91caed4`. `/qa socle` du 2026-11-18 : 5 PASS, 0 FAIL, scénario 5 non joué (`docs/features/socle/qa-report.md`).
+- Tests : 1 067 verts (passage complet 2026-11-18). Tests rouges : aucun.
 
 ## Prochaine étape
-Confirmer avec Antoine l'étape 9 de la tâche 17 (Deployment Checks « Migrer la production » importé par SHA) ; puis cocher 17 (Android noté restant) et faire la tâche 18.
-
-Commande de reprise :
-`Lis docs/handoff.md et docs/features/socle/plan.md, puis continue : confirme avec moi l'étape 9 de la tâche 17, puis tâche 18.`
+QA-1 (session expirée → `/login`, [security]) puis QA-2 (`/login` ouvert connecté → `/dashboard`) : implementer en TDD, reviewer, security-auditor pour QA-1 ; puis clôture du socle.
 
 ## Suite
-- Tâche 18 : restauration de `production` sur une branche de test, lecture du workspace, suppression ; fenêtre notée (6 h en gratuit). Runbook dans `docs/`.
-- Tâche 19 : `console.error` de `src/app/(app)/actions.ts` → `captureException` ; Sentry (région UE), alerte Slack (manuel).
-- Puis `/qa socle`, `/handoff` final. Push libre sur `feat/socle`, jamais `main` sans accord.
+- Clôture : PR vers `main` seulement sur accord d'Antoine ; `/handoff` final.
+- Essai Android (scénario 5) reporté avant le multi-comptes (BRAIN-26).
+- BRAIN-35 : source maps Sentry (garde-fou de build). BRAIN-36 : deux GET `/settings` par clic (faible priorité). BRAIN-37 : ordre migration / mise en ligne, avant le premier module sensible.
 
 ## Questions ouvertes
-- E-mails Neon Auth : vérifier qu'ils tutoient. Tâche 9 : une preview hérite-t-elle des comptes de `production` ? À confirmer.
+- E-mails Neon Auth : tutoient-ils ? Une preview hérite-t-elle des comptes de `production` ? (tâche 9)
+- Règle Seer de la PR 1135934 laissée (organisation).
+- Issue de test BEMYBRAIN-1 encore ouverte dans Sentry.
+- Jeton Vercel CI à renouveler avant le 2027-02-08 (échéance 2027-02-15).
 - MCP Vercel sans accès au pare-feu (404) ; reconnecter l'intégration pour agir depuis Claude.
-- Revue 21 optionnelle : `typedEmail` recopié. Jeton Vercel CI : échéance 2027-02-15. Clone local : `main` en retard, `git pull` avant comparaison.
+
+Commande de reprise :
+`Lis docs/handoff.md et docs/features/socle/plan.md, puis exécute les corrections QA-1 et QA-2 du plan socle avec subagent-driven-development (implementer, reviewer, security-auditor pour QA-1), puis prépare la clôture du socle.`

@@ -31,7 +31,12 @@ async function submit(
   }
 }
 
-export function LoginForm() {
+type LoginFormProps = {
+  /** Page d'origine (session expirée, QA-1), déjà filtrée par la page ; revalidée par l'action signIn. */
+  next?: string;
+};
+
+export function LoginForm({ next }: LoginFormProps) {
   const t = useTranslations("auth");
   const [state, action, pending] = useActionState<SignInState, FormData>(
     submit,
@@ -41,6 +46,7 @@ export function LoginForm() {
 
   return (
     <form action={action} className="flex flex-col gap-4">
+      {next && <input type="hidden" name="next" value={next} />}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="login-email" className="text-sm font-medium">
           {t("login.email")}

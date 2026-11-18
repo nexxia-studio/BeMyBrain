@@ -3,6 +3,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import messages from "../../../messages/fr.json";
+import {
+  CaughtBoundary,
+  expiredSessionRedirect,
+} from "../../../tests/factories/next-control";
 
 const setLocale = vi.hoisted(() => vi.fn());
 
@@ -81,5 +85,27 @@ describe("choix de la langue", () => {
       ),
     );
     expect(option("Français").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("session expirée : laisse Next naviguer vers /login, sans message d'échec", async () => {
+    const control = expiredSessionRedirect();
+    setLocale.mockRejectedValue(control);
+    const onError = vi.fn();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    render(
+      <CaughtBoundary onError={onError}>
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          <LocalePicker locale="fr" />
+        </NextIntlClientProvider>
+      </CaughtBoundary>,
+    );
+
+    fireEvent.click(option("English"));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(control));
+    expect(screen.queryByText("Langue non enregistrée. Réessaie.")).toBeNull();
+    consoleError.mockRestore();
   });
 });

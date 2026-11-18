@@ -41,10 +41,45 @@ export default async function proxy(request: NextRequest) {
   // Marqueur interne, toujours écrasé : readCspNonce ne lit le nonce que s'il vient d'ici.
   headers.set(CSP_NONCE_MARKER_HEADER, nonce);
   // Le SDK transmet au rendu les en-têtes de la requête qu'il reçoit (NextResponse.next({ request })).
-  const response = FILE_LIKE_PATH.test(request.nextUrl.pathname)
+  let response = FILE_LIKE_PATH.test(request.nextUrl.pathname)
     ? NextResponse.next({ request: { headers } })
     : await middleware(new NextRequest(request, { headers }));
+  if (isServerActionCall(request) && isLoginRedirect(response)) {
+    response = passThrough(response, headers);
+  }
   response.headers.set("content-security-policy", policy);
+  return response;
+}
+
+// Appel de Server Action par le client de Next : POST avec l'en-tête Next-Action.
+function isServerActionCall(request: NextRequest) {
+  return request.method === "POST" && request.headers.has("next-action");
+}
+
+function isLoginRedirect(response: Response) {
+  const location = response.headers.get("location");
+  return (
+    response.status >= 300 &&
+    response.status < 400 &&
+    location !== null &&
+    new URL(location, "http://localhost").pathname === LOGIN_PATH
+  );
+}
+
+/**
+ * Server Action sans session (QA-1) : un 307 vers /login serait suivi par le fetch du client, /login
+ * répondrait sans flux RSC et le client afficherait un échec au lieu de naviguer. L'action passe donc :
+ * elle appelle elle-même requireSession (règle frontend.md « Session », vérifiée par
+ * tests/lint/unguarded-actions.ts), qui renvoie vers /login par `redirect`, que le client de Next suit.
+ * La garde des actions n'a jamais été le proxy (garde optimiste) mais requireSession, posée en première
+ * instruction de chaque action non publique ; les pages restent redirigées ici comme avant.
+ * Les cookies posés par le SDK (effacement du cache de session périmé) sont conservés.
+ */
+function passThrough(redirect: Response, headers: Headers) {
+  const response = NextResponse.next({ request: { headers } });
+  for (const cookie of redirect.headers.getSetCookie()) {
+    response.headers.append("set-cookie", cookie);
+  }
   return response;
 }
 

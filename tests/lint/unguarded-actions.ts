@@ -185,6 +185,38 @@ export function findUnguardedActions(
   file: string,
   publicActions: readonly string[] = [],
 ): UnguardedAction[] {
+  return scan(source, file, publicActions, "actions");
+}
+
+// Méthodes HTTP qu'un route.ts de Next peut exporter ; ses autres exports (dynamic, runtime…) sont des options.
+const ROUTE_HANDLERS = [
+  "GET",
+  "HEAD",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "OPTIONS",
+];
+
+/**
+ * Gestionnaires de route non gardés (route.ts) : chaque méthode HTTP exportée commence par la garde de
+ * session, mêmes règles que les Server Actions, sans directive "use server" requise. Le proxy laisse
+ * passer les POST `next-action` (QA-1) : il ne protège pas un gestionnaire de route.
+ */
+export function findUnguardedRouteHandlers(
+  source: string,
+  file: string,
+): UnguardedAction[] {
+  return scan(source, file, [], "routes");
+}
+
+function scan(
+  source: string,
+  file: string,
+  publicActions: readonly string[],
+  mode: "actions" | "routes",
+): UnguardedAction[] {
   const sourceFile = ts.createSourceFile(
     file,
     source,
@@ -216,10 +248,14 @@ export function findUnguardedActions(
   ) => {
     if (fn) judged.add(fn);
     if (publicActions.includes(name)) return;
+    if (mode === "routes" && !ROUTE_HANDLERS.includes(name)) return;
     if (!fn || !isGuarded(fn, trustedGuards)) refuse(fn ?? node, name);
   };
 
-  if (prologue(sourceFile.statements).directives.includes("use server")) {
+  if (
+    mode === "routes" ||
+    prologue(sourceFile.statements).directives.includes("use server")
+  ) {
     const locals = localValues(sourceFile);
     for (const statement of sourceFile.statements) {
       const exported = hasModifier(statement, ts.SyntaxKind.ExportKeyword);

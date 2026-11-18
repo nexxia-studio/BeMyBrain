@@ -6,13 +6,26 @@ const saveMemberLocale = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
 const calls = vi.hoisted(() => [] as string[]);
+// Jeton refusé (expiré entre la garde et withUserDb) : la vraie reconnaissance est testée dans session.test.ts.
+const RejectedToken = vi.hoisted(() => class RejectedToken extends Error {});
+const redirectIfRejectedToken = vi.hoisted(() =>
+  vi.fn(async (error: unknown) => {
+    if (error instanceof RejectedToken)
+      throw new Error("REDIRECT:/login?next=%2Fsettings");
+  }),
+);
 
-vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
+vi.mock("@/lib/session", () => ({
+  requireSessionWithToken,
+  redirectIfRejectedToken,
+}));
 vi.mock("@/modules/core/locale", () => ({ saveMemberLocale }));
 vi.mock("@/lib/locale-cookie", () => ({ syncLocaleCookie }));
 vi.mock("next/cache", () => ({ refresh }));
 
 import { localeSchema } from "@/modules/core/schemas";
+
+import { TokenVerificationUnavailableError } from "../../../../tests/factories/token-errors";
 
 import { setLocale } from "./actions";
 
@@ -74,6 +87,27 @@ describe("changer de langue (Server Action)", () => {
     await expect(setLocale("en")).rejects.toThrow("member_not_found");
     expect(syncLocaleCookie).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("un jeton expiré entre la garde et l'écriture renvoie vers /login, sans cookie", async () => {
+    saveMemberLocale.mockRejectedValue(new RejectedToken());
+
+    const run = setLocale("en");
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
+    expect(syncLocaleCookie).not.toHaveBeenCalled();
+  });
+
+  // Emplacement de l'appel seulement : redirectIfRejectedToken est simulé ici. La garantie « une panne du
+  // JWKS ne renvoie jamais vers /login » est dans src/lib/session.test.ts (vraies erreurs de withUserDb).
+  it("une erreur non reconnue comme jeton refusé remonte telle quelle, sans cookie", async () => {
+    const outage = new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT");
+    saveMemberLocale.mockRejectedValue(outage);
+
+    const run = setLocale("en");
+
+    await expect(run).rejects.toBe(outage);
+    expect(syncLocaleCookie).not.toHaveBeenCalled();
   });
 
   it("refuse sans session, avant toute écriture", async () => {

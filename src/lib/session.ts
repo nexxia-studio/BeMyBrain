@@ -1,11 +1,17 @@
 import "server-only";
 
-import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
+import { appOrigin, returnPath } from "@/lib/auth/return-path";
 import { getSessionToken } from "@/lib/auth/server";
 import { LOGIN_PATH, NO_WORKSPACE_PATH } from "@/lib/auth/routes";
-import { resolveMembership } from "@/modules/core/membership";
+import {
+  isRejectedToken,
+  rejectedTokenCode,
+  resolveMembership,
+} from "@/modules/core/membership";
 
 import { syncLocaleCookie } from "./locale-cookie";
 
@@ -19,12 +25,51 @@ export type AppSession = {
 
 export type ResolvedSession = { session: AppSession; token: string };
 
+/**
+ * Renvoi vers /login, session absente ou refusée. Depuis une Server Action (en-tête Next-Action), la page
+ * d'origine est l'en-tête Referer : son chemin seul part en `next` s'il est de la même origine que l'app
+ * (returnPath), revalidé à la connexion. Pendant le rendu d'une page, le Referer est la page précédente,
+ * pas celle demandée : pas de `next` (retour au tableau de bord).
+ */
+async function redirectToLogin(): Promise<never> {
+  const request = await headers();
+  const next = request.has("next-action")
+    ? returnPath(request.get("referer"), appOrigin(request))
+    : null;
+  redirect(
+    next ? `${LOGIN_PATH}?${new URLSearchParams({ next })}` : LOGIN_PATH,
+  );
+}
+
+/**
+ * Jeton refusé par withUserDb (expiré entre la garde et l'écriture, signature) → /login, même `next` que la
+ * garde, après un journal du seul code jose. Toute autre erreur : rien, l'appelant la traite. À appeler dans le `catch` d'une Server Action,
+ * après `unstable_rethrow`, pour qu'un jeton expiré ne passe pas pour une panne.
+ */
+export async function redirectIfRejectedToken(error: unknown): Promise<void> {
+  const code = rejectedTokenCode(error);
+  if (code === null) return;
+  // Code jose seul : rend visible une erreur de configuration (iss, aud, horloge) qui enverrait tout le
+  // monde vers /login. Ni jeton, ni claims, ni identifiant.
+  console.warn("[session] jeton refusé, renvoi vers /login", { code });
+  await redirectToLogin();
+}
+
 async function loadSession(): Promise<ResolvedSession> {
+  // Session refusée par Neon Auth (401…) → null ; Neon Auth indisponible → AuthUnavailableError, qui remonte.
   const token = await getSessionToken();
-  if (!token) redirect(LOGIN_PATH);
+  if (!token) return redirectToLogin();
 
   // Vérifie le jeton (signature, iss, aud, exp) et lit l'appartenance en une seule transaction.
-  const { userId, workspace } = await resolveMembership(token);
+  // Jeton refusé (expiré entre-temps, signature) → /login ; toute autre erreur remonte.
+  let membership: Awaited<ReturnType<typeof resolveMembership>>;
+  try {
+    membership = await resolveMembership(token);
+  } catch (error) {
+    await redirectIfRejectedToken(error);
+    throw error;
+  }
+  const { userId, workspace } = membership;
   // Pas de création automatique ; la page cible est hors de (app) : pas de boucle.
   if (!workspace) redirect(NO_WORKSPACE_PATH);
   // Langue : pas de recopie ici (aucune écriture de cookie pendant un rendu). NEXT_LOCALE est recopié
@@ -46,8 +91,9 @@ const resolveSession = cache(loadSession);
 
 /**
  * Session serveur résolue : utilisateur et workspace, sans le jeton (rien de secret si elle est
- * passée à un composant client). Sans session → /login ; sans workspace → /no-workspace (les deux par
- * `redirect`, qui interrompt aussi une Server Action). Auth indisponible (AuthUnavailableError) →
+ * passée à un composant client). Sans session, session refusée par Neon Auth ou jeton refusé → /login
+ * (`?next=<chemin>` depuis une Server Action, voir redirectToLogin) ; sans workspace → /no-workspace (les
+ * deux par `redirect`, qui interrompt aussi une Server Action). Auth indisponible (AuthUnavailableError) →
  * l'erreur remonte (page d'erreur), jamais /login.
  * À appeler dans chaque page de (app), chaque lecture de données et au début de chaque Server Action
  * non publique (règle frontend.md « Session ») : ni le proxy ni le layout ne suffisent.
@@ -74,6 +120,41 @@ export async function requireSessionToken(): Promise<string> {
  */
 export async function requireSessionWithToken(): Promise<ResolvedSession> {
   return resolveSession();
+}
+
+// Forme d'un nom de classe : tout autre `name` (modifiable par n'importe quel code) n'est pas journalisé.
+const CLASS_NAME = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
+
+function errorName(error: unknown): string {
+  return error instanceof Error && CLASS_NAME.test(error.name)
+    ? error.name
+    : "unknown";
+}
+
+/**
+ * Vrai si la requête porte une session que les pages de (app) accepteraient (QA-2 : /login ouvert en étant
+ * connecté → renvoi). Même critère que requireSession (JWT obtenu, puis accepté par la base), jamais le seul
+ * cache de getSession() : une session présente mais refusée ferait boucler /login ↔ /dashboard. Une
+ * appartenance absente compte comme connecté (le tableau de bord renvoie vers /no-workspace, hors de (app)).
+ * Ne redirige jamais. Tout échec (jeton refusé, auth indisponible, base en panne) → false : le formulaire
+ * reste affiché, la connexion ne dépend pas de ce confort. Erreurs de contrôle de Next relancées.
+ */
+export async function hasActiveSession(): Promise<boolean> {
+  try {
+    const token = await getSessionToken();
+    if (!token) return false;
+    await resolveMembership(token);
+    return true;
+  } catch (error) {
+    unstable_rethrow(error);
+    if (!isRejectedToken(error)) {
+      // Nom de classe seul (panne ou configuration), jamais le message ni la cause.
+      console.warn("[session] session non vérifiée sur /login", {
+        error: errorName(error),
+      });
+    }
+    return false;
+  }
 }
 
 /**

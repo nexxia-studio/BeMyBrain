@@ -11,6 +11,15 @@ const runActionWithToken = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/server", () => ({ getSessionToken }));
 vi.mock("@/modules/core/membership", () => ({ resolveMembership }));
 vi.mock("@/modules/actions/run", () => ({ runActionWithToken }));
+// Appel sans Referer exploitable : renvoi vers /login sans page d'origine.
+vi.mock("next/headers", () => ({
+  headers: async () =>
+    new Headers({
+      host: "bemybrain.test",
+      "x-forwarded-proto": "https",
+      "next-action": "408598b1af6ee1d3946827f5f62fd65e1f908928e8",
+    }),
+}));
 
 import { runAction } from "./actions";
 

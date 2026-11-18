@@ -17,9 +17,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
 
-import { runAction, type RunActionResult } from "@/app/(app)/actions";
+import { runAction } from "@/app/(app)/actions";
 import { isActivePath } from "@/components/shell/nav-items";
 import { defaultLocale, isLocale } from "@/i18n/locales";
+import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
 
 import {
@@ -40,8 +41,6 @@ type PalettePanelProps = {
   /** Ferme la palette (commande lancée avec succès). */
   onDone: () => void;
 };
-
-const FAILED: RunActionResult = { ok: false };
 
 export function PalettePanel({ onDone }: PalettePanelProps) {
   const t = useTranslations("palette");
@@ -87,10 +86,11 @@ export function PalettePanel({ onDone }: PalettePanelProps) {
       return;
     }
     startTransition(async () => {
-      const outcome = await runAction(item.action, item.params).catch(
-        () => FAILED,
+      // Rejet de l'appel = échec ; session expirée : renvoi vers /login relancé, Next navigue.
+      const outcome = await settleAction(() =>
+        runAction(item.action, item.params),
       );
-      if (outcome.ok) onDone();
+      if (outcome.ok && outcome.value.ok) onDone();
       else setFailed(true);
     });
   }

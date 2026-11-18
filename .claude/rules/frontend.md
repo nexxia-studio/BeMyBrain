@@ -16,3 +16,4 @@ paths:
 - Mobile d'abord (ADR-008) : concevoir et vérifier à 390 px avant 1440 px. Navigation au pouce. Zones tactiles ≥ 44 px.
 - Tests : Vitest + Testing Library, un fichier `*.test.tsx` à côté du composant pour toute logique conditionnelle. Pas de test de snapshot.
 - Session : toute page de `(app)`, toute lecture de données et toute Server Action non publique (`"use server"`) appelle elle-même `requireSession()`. Ne jamais compter sur le layout ni sur le proxy seuls (audit tâche 10).
+- Gestionnaires de route (`route.ts`) : chaque méthode exportée appelle elle-même `requireSession()` en première instruction (verrou `tests/lint/route-handlers.test.ts` sur tout `src/app`, hors exceptions listées dans le test : `PUBLIC_ROUTES`, chaque ajout relu). Le proxy laisse passer tout POST portant `next-action` sans session (QA-1) : il ne protège ni les actions ni les routes.
