@@ -15,6 +15,9 @@ const ENTRY = "[project]/src/app/(app)/dashboard/page";
 const GSAP_FINGERPRINT = "GreenSockGlobals";
 // Option de zod v4 lue par sa sonde `Function("")`, que la CSP de production refuse (violation eval).
 const ZOD_FINGERPRINT = "jitless";
+// Porte globale du SDK Sentry (@sentry/core), présente dans tout morceau qui embarque le SDK navigateur.
+// Chargé à la demande par src/lib/sentry-client.ts, seulement si Sentry est actif.
+const SENTRY_FINGERPRINT = "__SENTRY__";
 
 type BuildManifest = { rootMainFiles: string[]; polyfillFiles: string[] };
 type ClientReferenceManifest = { entryJSFiles: Record<string, string[]> };
@@ -66,6 +69,20 @@ describe("bundle initial de /dashboard", () => {
     const initial = initialFiles();
 
     expect(initial.filter(contains(ZOD_FINGERPRINT))).toEqual([]);
+  });
+
+  it("le SDK Sentry n'est pas dans le bundle initial de /dashboard (chargement différé)", () => {
+    const initial = initialFiles();
+
+    expect(initial.filter(contains(SENTRY_FINGERPRINT))).toEqual([]);
+  });
+
+  it("témoin : le SDK Sentry est bien dans un morceau chargé à la demande", () => {
+    const chunks = readdirSync(join(NEXT_DIR, "static/chunks"))
+      .filter((name) => name.endsWith(".js"))
+      .map((name) => `static/chunks/${name}`);
+
+    expect(chunks.some(contains(SENTRY_FINGERPRINT))).toBe(true);
   });
 
   it("témoin : gsap est bien dans un morceau chargé à la demande", () => {

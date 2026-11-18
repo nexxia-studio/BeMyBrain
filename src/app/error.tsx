@@ -2,9 +2,10 @@
 
 // Curseurs nexxia-design : VARIANCE 2 · MOTION 1 · DENSITY 3 — baseline provisoire, fixée avec DESIGN.md (tâche 12).
 // Mobile d'abord : une colonne centrée, pleine largeur à 390 px, plafonnée à max-w-sm au-delà (pas de multi-colonnes).
-import { captureException } from "@sentry/nextjs";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
+
+import { reportClientError } from "@/lib/sentry-client";
 
 type ErrorPageProps = {
   error: Error & { digest?: string };
@@ -14,13 +15,13 @@ type ErrorPageProps = {
 /**
  * Erreur d'un segment (ex. Neon Auth indisponible, AuthUnavailableError). Texte fixe et traduit :
  * jamais `error.message` ni `digest`, qui peuvent porter un détail interne. L'erreur est envoyée à Sentry
- * (inactif hors production/preview), comme dans global-error.
+ * (chargé à la demande, rien hors production/preview), comme dans global-error.
  */
 export default function ErrorPage({ error, retry }: ErrorPageProps) {
   const t = useTranslations("errors");
 
   useEffect(() => {
-    captureException(error);
+    reportClientError(error);
   }, [error]);
 
   return (

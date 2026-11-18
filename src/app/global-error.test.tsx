@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../messages/errors/en.json";
 import fr from "../../messages/errors/fr.json";
 
-const captureException = vi.hoisted(() => vi.fn());
-vi.mock("@sentry/nextjs", () => ({ captureException }));
+const reportClientError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sentry-client", () => ({ reportClientError }));
 
 import GlobalError from "./global-error";
 
@@ -16,7 +16,7 @@ function renderGlobalError(error: unknown, retry = vi.fn()) {
 }
 
 beforeEach(() => {
-  captureException.mockClear();
+  reportClientError.mockClear();
   vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-BE"]);
 });
 
@@ -59,11 +59,11 @@ describe("page d'erreur globale", () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it("envoie l'erreur à Sentry", () => {
+  it("envoie l'erreur à Sentry, chargé à la demande (rien si inactif : src/lib/sentry-client.ts)", () => {
     const error = new Error("x");
 
     renderGlobalError(error);
 
-    expect(captureException).toHaveBeenCalledWith(error);
+    expect(reportClientError).toHaveBeenCalledWith(error);
   });
 });

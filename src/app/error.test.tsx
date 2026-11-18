@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import errors from "../../messages/errors/fr.json";
 import fr from "../../messages/fr.json";
 
-const captureException = vi.hoisted(() => vi.fn());
-vi.mock("@sentry/nextjs", () => ({ captureException }));
+const reportClientError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sentry-client", () => ({ reportClientError }));
 
 import ErrorPage from "./error";
 
@@ -23,7 +23,7 @@ function renderError(error: Error & { digest?: string }, retry = vi.fn()) {
 }
 
 beforeEach(() => {
-  captureException.mockClear();
+  reportClientError.mockClear();
 });
 
 describe("page d'erreur", () => {
@@ -51,11 +51,11 @@ describe("page d'erreur", () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it("envoie l'erreur à Sentry", () => {
+  it("envoie l'erreur à Sentry, chargé à la demande (rien si inactif : src/lib/sentry-client.ts)", () => {
     const error = new Error("x");
 
     renderError(error);
 
-    expect(captureException).toHaveBeenCalledWith(error);
+    expect(reportClientError).toHaveBeenCalledWith(error);
   });
 });

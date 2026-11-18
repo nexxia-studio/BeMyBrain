@@ -2,7 +2,6 @@
 
 // Curseurs nexxia-design : VARIANCE 2 · MOTION 1 · DENSITY 3 — mêmes que src/app/error.tsx, dont c'est le pendant.
 // Mobile d'abord : une colonne centrée, pleine largeur à 390 px, plafonnée à max-w-sm au-delà (pas de multi-colonnes).
-import { captureException } from "@sentry/nextjs";
 import { createTranslator } from "next-intl";
 import { useEffect, useSyncExternalStore } from "react";
 
@@ -11,6 +10,7 @@ import {
   defaultLocale,
   resolveClientLocale,
 } from "@/i18n/locales";
+import { reportClientError } from "@/lib/sentry-client";
 
 import enErrors from "../../messages/errors/en.json";
 import frErrors from "../../messages/errors/fr.json";
@@ -44,7 +44,7 @@ function readClientLocale(): AppLocale {
 /**
  * Erreur du layout racine (Next remplace tout le document). Texte fixe et traduit : jamais le message ni le
  * digest de l'erreur. La langue vient de `<html lang>` de la page remplacée (choix enregistré de l'utilisateur),
- * à défaut du navigateur ; au rendu serveur, fr. L'erreur est envoyée à Sentry (inactif hors production/preview).
+ * à défaut du navigateur ; au rendu serveur, fr. L'erreur est envoyée à Sentry (chargé à la demande, rien hors production/preview).
  */
 export default function GlobalError({ error, retry }: GlobalErrorProps) {
   const locale = useSyncExternalStore(
@@ -59,7 +59,7 @@ export default function GlobalError({ error, retry }: GlobalErrorProps) {
   });
 
   useEffect(() => {
-    captureException(error);
+    reportClientError(error);
   }, [error]);
 
   return (
