@@ -177,21 +177,48 @@ function maskSecretValue(
   return `${key}${separator}${quote}[Filtered]${quote}`;
 }
 
+// Regex des secrets, assemblée à partir de morceaux nommés. Chaque morceau est un littéral (`.source`) : pas de
+// double échappement. Pas de retour arrière coûteux : la valeur se termine par une étoile gloutonne suivie
+// d'éléments optionnels, elle ne peut pas échouer une fois commencée.
+// Clé : passwd, password, pwd, token ou secret, seule ou en suffixe après « _ » (user_password, access_token),
+// ou secret_… (secret_key).
+const SECRET_KEY = /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))/
+  .source;
+// Séparateur : « = » ou « : », précédé du guillemet fermant de la clé en JSON (« " » ou « \" » si échappé deux fois).
+const SECRET_SEPARATOR = /(\\?"?\s*[:=]\s*)/.source;
+// Valeur « \"…\" » (JSON échappé deux fois) : un échappement « \\x » est consommé d'abord, puis tout jusqu'au
+// « \" » fermant (ou la fin).
+const SECRET_VALUE_ESCAPED_DOUBLE = /\\"(?:\\\\[\s\S]|(?!\\")[\s\S])*(?:\\")?/
+  .source;
+// Valeur « \'…\' » : même règle avec l'apostrophe.
+const SECRET_VALUE_ESCAPED_SINGLE = /\\'(?:\\\\[\s\S]|(?!\\')[\s\S])*(?:\\')?/
+  .source;
+// Valeur « "…" » : jusqu'au guillemet fermant non échappé (ou la fin), échappements compris (retour à la ligne).
+const SECRET_VALUE_DOUBLE = /"(?:[^"\\]|\\[\s\S])*"?/.source;
+// Valeur « '…' » : même règle avec l'apostrophe.
+const SECRET_VALUE_SINGLE = /'(?:[^'\\]|\\[\s\S])*'?/.source;
+// Valeur nue : jusqu'à un espace ou « & » (paramètre suivant d'une query) ; « … » exclu, sinon la marque de
+// troncature après « password: » serait masquée au second passage et le résultat changerait.
+const SECRET_VALUE_BARE = /[^\s&…]+/.source;
+const SECRET_PATTERN = new RegExp(
+  `${SECRET_KEY}${SECRET_SEPARATOR}(${[
+    SECRET_VALUE_ESCAPED_DOUBLE,
+    SECRET_VALUE_ESCAPED_SINGLE,
+    SECRET_VALUE_DOUBLE,
+    SECRET_VALUE_SINGLE,
+    SECRET_VALUE_BARE,
+  ].join("|")})`,
+  "giu",
+);
+
 // Secrets ou données personnelles reconnaissables dans un texte libre (message d'erreur, log).
 // Ordre : l'URL Postgres d'abord (son « user:mdp@hôte » ressemble à un e-mail) ; l'hôte Neon en dernier
 // (masqué avant, il casserait le masque d'un e-mail ou d'une URL Postgres et en laisserait une partie).
 const TEXT_MASKS: TextMask[] = [
   [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
-  // Clé de secret, seule ou en suffixe après « _ » (user_password, access_token), ou secret_… (secret_key),
-  // suivie de « = » ou « : », y compris en JSON (« "password":"x" ») et en JSON échappé deux fois
-  // (« {\"password\":\"x\"} », clé et valeur délimitées par « \" »). Valeur entre guillemets : masquée jusqu'au
-  // guillemet fermant non échappé (ou la fin), échappements compris (retour à la ligne) ; sans guillemet :
-  // jusqu'à un espace ou « & » (paramètre suivant d'une query).
-  [
-    /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))(\\?"?\s*[:=]\s*)(\\"(?:(?!\\")[\s\S])*(?:\\")?|\\'(?:(?!\\')[\s\S])*(?:\\')?|"(?:[^"\\]|\\[\s\S])*"?|'(?:[^'\\]|\\[\s\S])*'?|[^\s&]+)/giu,
-    maskSecretValue,
-  ],
+  // Clé de secret suivie d'une valeur, masquée en entier (voir SECRET_PATTERN).
+  [SECRET_PATTERN, maskSecretValue],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
   [/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu, "[email]"],
   [/[\w-]+(?:\.[\w-]+)*\.neon\.tech/giu, "[neon]"],

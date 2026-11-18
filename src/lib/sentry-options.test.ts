@@ -1127,3 +1127,44 @@ describe("relecture de efd693f", () => {
     },
   );
 });
+
+describe("relecture de 52c2798", () => {
+  it("un guillemet échappé dans un secret en JSON échappé deux fois ne laisse rien fuir", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: '{\\"password\\":\\"a\\\\\\"b c\\"}',
+    });
+
+    expect(sent?.message).toBe('{\\"password\\":\\"[Filtered]\\"}');
+    expect(sent?.message).not.toContain("b c");
+  });
+
+  it("un secret coupé par la troncature (« password: … ») reste identique au second passage", () => {
+    const { beforeBreadcrumb } = activeOptions();
+    const message = `${"x ".repeat(990)}password: s tail`;
+
+    const kept = beforeBreadcrumb({ category: "http", message });
+    const twice = scrubEvent({
+      type: undefined,
+      breadcrumbs: kept ? [kept] : [],
+    }).breadcrumbs?.[0];
+
+    expect(kept?.message?.endsWith("password: …")).toBe(true);
+    expect(twice).toEqual(kept);
+  });
+
+  it("un texte piégé de 200 000 caractères pour la regex des secrets est traité en moins d'une seconde", () => {
+    const { beforeSend } = activeOptions();
+    const message = `{\\"password\\":\\"${'\\\\\\\\\\"'.repeat(40_000)}`;
+
+    const start = performance.now();
+    const sent = beforeSend({ type: undefined, message });
+    const elapsed = performance.now() - start;
+
+    expect(message.length).toBeGreaterThan(200_000);
+    expect(elapsed).toBeLessThan(1000);
+    expect(sent?.message?.length).toBeLessThanOrEqual(2000);
+  });
+});
