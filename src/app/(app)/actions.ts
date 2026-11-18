@@ -5,7 +5,10 @@ import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { syncLocaleCookie } from "@/lib/locale-cookie";
-import { requireSessionWithToken } from "@/lib/session";
+import {
+  redirectIfRejectedToken,
+  requireSessionWithToken,
+} from "@/lib/session";
 import { ActionError } from "@/modules/actions/errors";
 import { runActionWithToken } from "@/modules/actions/run";
 import { localeSchema } from "@/modules/core/schemas";
@@ -62,6 +65,8 @@ export async function runAction(
   } catch (error) {
     // Erreurs de contrôle de Next (redirect, notFound) : jamais avalées (docs/gotchas.md).
     unstable_rethrow(error);
+    // Jeton expiré entre la garde et la base : renvoi vers /login, pas une panne (QA-1).
+    await redirectIfRejectedToken(error);
     if (error instanceof ActionError) {
       console.warn("[actions] action refusée", { code: error.code });
       return { ok: false };

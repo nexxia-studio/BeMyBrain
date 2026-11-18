@@ -138,6 +138,22 @@ describe("proxy d'authentification", () => {
     );
   });
 
+  it("laisse passer une Server Action en gardant l'effacement du cache de session périmé posé par le SDK", async () => {
+    // Cache de session sans jeton de session : le SDK décide /login et efface le cache (Set-Cookie maxAge 0).
+    const stale = "__Secure-neon-auth.local.session_data";
+
+    const response = await proxy(
+      actionRequest("/settings", `${stale}=cache-perime`),
+    );
+
+    expect(isAllowed(response)).toBe(true);
+    expect(response.headers.get("location")).toBeNull();
+    const cleared = response.headers
+      .getSetCookie()
+      .find((cookie) => cookie.startsWith(`${stale}=;`));
+    expect(cleared).toMatch(/Max-Age=0/i);
+  });
+
   it("redirige toujours un POST sans en-tête Next-Action (formulaire sans JavaScript)", async () => {
     const response = await proxy(
       new NextRequest(new URL("/dashboard", ORIGIN), { method: "POST" }),

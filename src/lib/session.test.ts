@@ -48,6 +48,7 @@ vi.mock("react", () => {
 });
 
 import {
+  redirectIfRejectedToken,
   requireSession,
   requireSessionToken,
   requireSessionWithToken,
@@ -284,6 +285,22 @@ describe("session expirée : renvoi vers /login (QA-1)", () => {
     const run = requireSessionWithToken();
 
     await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
+  });
+
+  it("après la garde (jeton expiré entre-temps), un jeton refusé renvoie vers /login avec le même next", async () => {
+    actionCall("https://bemybrain.test/settings");
+
+    const run = redirectIfRejectedToken(new RejectedToken());
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
+  });
+
+  it("après la garde, une autre erreur ne redirige pas", async () => {
+    actionCall("https://bemybrain.test/settings");
+
+    const run = redirectIfRejectedToken(new Error("Erreur de base de données"));
+
+    await expect(run).resolves.toBeUndefined();
   });
 
   it("toute autre erreur de la base remonte telle quelle (page d'erreur, jamais /login)", async () => {

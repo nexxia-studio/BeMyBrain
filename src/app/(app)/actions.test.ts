@@ -7,8 +7,19 @@ const syncLocaleCookie = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
 const captureException = vi.hoisted(() => vi.fn());
 const calls = vi.hoisted(() => [] as string[]);
+// Jeton refusé (expiré entre la garde et withUserDb) : la vraie reconnaissance est testée dans session.test.ts.
+const RejectedToken = vi.hoisted(() => class RejectedToken extends Error {});
+const redirectIfRejectedToken = vi.hoisted(() =>
+  vi.fn(async (error: unknown) => {
+    if (error instanceof RejectedToken)
+      throw new Error("REDIRECT:/login?next=%2Fdashboard");
+  }),
+);
 
-vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
+vi.mock("@/lib/session", () => ({
+  requireSessionWithToken,
+  redirectIfRejectedToken,
+}));
 vi.mock("@/modules/actions/run", () => ({ runActionWithToken }));
 vi.mock("@/lib/locale-cookie", () => ({ syncLocaleCookie }));
 vi.mock("next/cache", () => ({ refresh }));
@@ -105,6 +116,16 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(outcome).toEqual({ ok: false });
     expect(syncLocaleCookie).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("un jeton expiré entre la garde et la base renvoie vers /login, sans panne ni Sentry", async () => {
+    runActionWithToken.mockRejectedValue(new RejectedToken());
+
+    const run = runAction("core.setLocale", { locale: "en" });
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
+    expect(captureException).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it("un refus attendu n'est journalisé que par son code, jamais comme une panne", async () => {

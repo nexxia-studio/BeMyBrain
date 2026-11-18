@@ -3,7 +3,10 @@
 import { refresh } from "next/cache";
 
 import { syncLocaleCookie } from "@/lib/locale-cookie";
-import { requireSessionWithToken } from "@/lib/session";
+import {
+  redirectIfRejectedToken,
+  requireSessionWithToken,
+} from "@/lib/session";
 import { saveMemberLocale } from "@/modules/core/locale";
 import { localeSchema } from "@/modules/core/schemas";
 
@@ -13,13 +16,21 @@ import { localeSchema } from "@/modules/core/schemas";
 /**
  * Langue de l'interface (ADR-007) : enregistrée sur l'appartenance du workspace de la session (source de
  * vérité), recopiée dans NEXT_LOCALE, puis la route est rafraîchie (URL inchangée). Langue inconnue →
- * rien n'est écrit. Échec d'enregistrement → l'erreur remonte, le cookie n'est pas touché.
+ * rien n'est écrit. Échec d'enregistrement → l'erreur remonte, le cookie n'est pas touché ; jeton expiré
+ * entre-temps → /login.
  */
 export async function setLocale(locale: unknown): Promise<void> {
   const { session, token } = await requireSessionWithToken();
   const parsed = localeSchema.safeParse(locale);
   if (!parsed.success) return;
-  const saved = await saveMemberLocale(token, session.workspaceId, parsed.data);
+  let saved: Awaited<ReturnType<typeof saveMemberLocale>>;
+  try {
+    saved = await saveMemberLocale(token, session.workspaceId, parsed.data);
+  } catch (error) {
+    // Jeton expiré entre la garde et l'écriture : renvoi vers /login (QA-1) ; le reste remonte.
+    await redirectIfRejectedToken(error);
+    throw error;
+  }
   await syncLocaleCookie(saved);
   refresh();
 }

@@ -37,6 +37,15 @@ async function redirectToLogin(): Promise<never> {
   );
 }
 
+/**
+ * Jeton refusé par withUserDb (expiré entre la garde et l'écriture, signature) → /login, même `next` que la
+ * garde. Toute autre erreur : rien, l'appelant la traite. À appeler dans le `catch` d'une Server Action,
+ * après `unstable_rethrow`, pour qu'un jeton expiré ne passe pas pour une panne.
+ */
+export async function redirectIfRejectedToken(error: unknown): Promise<void> {
+  if (isRejectedToken(error)) await redirectToLogin();
+}
+
 async function loadSession(): Promise<ResolvedSession> {
   // Session refusée par Neon Auth (401…) → null ; Neon Auth indisponible → AuthUnavailableError, qui remonte.
   const token = await getSessionToken();
@@ -48,7 +57,7 @@ async function loadSession(): Promise<ResolvedSession> {
   try {
     membership = await resolveMembership(token);
   } catch (error) {
-    if (isRejectedToken(error)) return redirectToLogin();
+    await redirectIfRejectedToken(error);
     throw error;
   }
   const { userId, workspace } = membership;
