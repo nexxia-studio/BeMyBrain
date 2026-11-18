@@ -14,6 +14,8 @@ Index lu par Claude au démarrage (via `@docs/README.md` dans CLAUDE.md). Une li
 | `decisions/ADR-008-pwa-mobile-d-abord.md` | Web app installable, mobile d'abord, logique hors des composants | Avant tout écran |
 | `decisions/ADR-009-registre-d-actions.md` | Actions déclarées une fois, appelables par la palette, l'assistant, WhatsApp et Slack | Avant toute action utilisateur |
 | `decisions/ADR-010-migrations-production-par-ci.md` | Migrations de production par GitHub Actions ; aucun accès propriétaire de prod en local ni sur Vercel | Avant toute migration ou config d'environnement |
+| `runbooks/restauration-production.md` | Restaurer la production Neon, fenêtre de 6 h, test du 2026-11-18 | En cas de perte de données en production |
+| `runbooks/sentry.md` | Sentry : projet, activation, données personnelles, alerte e-mail, limite du chargement différé | Avant de toucher à Sentry, en cas d'erreur en production |
 | `features/<nom>/` | `spec.md`, `plan.md`, `qa-report.md` d'une feature | Pendant la feature |
 | `features/_template/` | Modèles de spec et de plan | Au `/feature` |
 | `design/references/` | Visuels de référence (liquid glass, bento) | Avant DESIGN.md et toute UI |

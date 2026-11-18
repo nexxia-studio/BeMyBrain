@@ -45,3 +45,21 @@ export function resolveLocale({
 
   return fromHeader ?? defaultLocale;
 }
+
+/**
+ * Langue côté navigateur, quand ni le cookie (httpOnly) ni le fournisseur next-intl ne sont lisibles
+ * (src/app/global-error.tsx) : `<html lang>`, posé par le layout racine depuis la langue enregistrée,
+ * puis les langues du navigateur, puis fr.
+ */
+export function resolveClientLocale({
+  documentLang,
+  languages,
+}: {
+  documentLang: string | null | undefined;
+  languages: readonly string[];
+}): AppLocale {
+  return resolveLocale({
+    cookie: documentLang,
+    acceptLanguage: languages.join(","),
+  });
+}

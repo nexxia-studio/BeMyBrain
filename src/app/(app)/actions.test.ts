@@ -5,12 +5,14 @@ const requireSessionWithToken = vi.hoisted(() => vi.fn());
 const runActionWithToken = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
+const captureException = vi.hoisted(() => vi.fn());
 const calls = vi.hoisted(() => [] as string[]);
 
 vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
 vi.mock("@/modules/actions/run", () => ({ runActionWithToken }));
 vi.mock("@/lib/locale-cookie", () => ({ syncLocaleCookie }));
 vi.mock("next/cache", () => ({ refresh }));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import { ActionError } from "@/modules/actions/errors";
 
@@ -115,32 +117,76 @@ describe("runAction (Server Action unique de la palette)", () => {
       code: "invalid_params",
     });
     expect(console.error).not.toHaveBeenCalled();
+    expect(captureException).not.toHaveBeenCalled();
   });
 
-  it("une vraie panne est journalisée en erreur côté serveur, sans les paramètres du client", async () => {
+  it("une vraie panne part à Sentry avec le nom de l'action seul, sans les paramètres du client ni la session", async () => {
     const failure = new Error("Erreur de base de données");
     runActionWithToken.mockRejectedValue(failure);
 
     const outcome = await runAction("core.setLocale", { locale: "secret-en" });
 
     expect(outcome).toEqual({ ok: false });
+    expect(captureException).toHaveBeenCalledWith(failure, {
+      tags: { action: "core.setLocale" },
+    });
+    const sent = JSON.stringify(captureException.mock.calls);
+    for (const leak of [
+      "secret-en",
+      "eyJ.jwt.signe",
+      SESSION.userId,
+      SESSION.workspaceId,
+    ]) {
+      expect(sent).not.toContain(leak);
+    }
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("une vraie panne est aussi journalisée côté serveur, avec l'erreur seule (Sentry peut être inactif)", async () => {
+    const failure = new Error("Erreur de base de données");
+    runActionWithToken.mockRejectedValue(failure);
+
+    await runAction("core.setLocale", { locale: "secret-en" });
+
     expect(console.error).toHaveBeenCalledWith(
       "[actions] action en échec",
       failure,
     );
-    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
-      "secret-en",
+    const logged = JSON.stringify(
+      vi.mocked(console.error).mock.calls,
+      (_key, value: unknown) =>
+        value instanceof Error ? { message: value.message } : value,
     );
-    expect(console.warn).not.toHaveBeenCalled();
+    for (const leak of [
+      "secret-en",
+      "eyJ.jwt.signe",
+      SESSION.userId,
+      SESSION.workspaceId,
+    ]) {
+      expect(logged).not.toContain(leak);
+    }
   });
 
-  it("si la recopie du cookie échoue après l'écriture en base, annonce le succès et journalise la panne", async () => {
+  it("un nom d'action qui n'a pas la forme du registre ne part pas en tag", async () => {
+    runActionWithToken.mockRejectedValue(new Error("panne"));
+
+    await runAction("antoine@example.test", {});
+
+    expect(captureException).toHaveBeenCalledWith(expect.any(Error), {
+      tags: { action: "invalid" },
+    });
+  });
+
+  it("si la recopie du cookie échoue après l'écriture en base, annonce le succès, envoie la panne à Sentry et la journalise", async () => {
     const failure = new Error("cookies indisponibles");
     syncLocaleCookie.mockRejectedValue(failure);
 
     const outcome = await runAction("core.setLocale", { locale: "en" });
 
     expect(outcome).toEqual({ ok: true, result: "en" });
+    expect(captureException).toHaveBeenCalledWith(failure, {
+      tags: { action: "core.setLocale" },
+    });
     expect(console.error).toHaveBeenCalledWith(
       "[actions] effets web en échec après l'action",
       failure,

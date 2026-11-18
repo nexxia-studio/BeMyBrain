@@ -7,6 +7,7 @@ import {
   createNonce,
   CSP_NONCE_MARKER_HEADER,
 } from "@/lib/security-headers";
+import { sentryDsnOrigin } from "@/lib/sentry-options";
 
 // Convention Next 16 : proxy.ts remplace middleware.ts (runtime Node.js).
 // Toute page sans session valide est redirigée vers /login, sauf les routes publiques.
@@ -32,6 +33,8 @@ export default async function proxy(request: NextRequest) {
   const policy = contentSecurityPolicy({
     nonce,
     isDevelopment: process.env.NODE_ENV === "development",
+    // Origine du DSN seulement (https, URL valide), rien si SENTRY_DSN est absente.
+    sentryOrigin: sentryDsnOrigin(process.env.SENTRY_DSN),
   });
   const headers = new Headers(request.headers);
   headers.set("content-security-policy", policy);

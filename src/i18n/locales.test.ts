@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveLocale } from "./locales";
+import { resolveClientLocale, resolveLocale } from "./locales";
 
 describe("resolveLocale", () => {
   it("un cookie NEXT_LOCALE=de retombe sur fr", () => {
@@ -75,5 +75,31 @@ describe("resolveLocale", () => {
     const locale = resolveLocale(input);
 
     expect(locale).toBe("en");
+  });
+});
+
+describe("resolveClientLocale (page d'erreur globale, hors du fournisseur next-intl)", () => {
+  it("prend la langue de <html lang>, posée par le layout racine depuis la langue enregistrée", () => {
+    const input = { documentLang: "en", languages: ["fr-BE"] };
+
+    const locale = resolveClientLocale(input);
+
+    expect(locale).toBe("en");
+  });
+
+  it("sans <html lang> valable, suit les langues du navigateur", () => {
+    const input = { documentLang: "", languages: ["de-DE", "en-US"] };
+
+    const locale = resolveClientLocale(input);
+
+    expect(locale).toBe("en");
+  });
+
+  it("sans rien d'exploitable, retombe sur fr", () => {
+    const input = { documentLang: "de", languages: [] };
+
+    const locale = resolveClientLocale(input);
+
+    expect(locale).toBe("fr");
   });
 });

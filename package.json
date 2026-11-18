@@ -21,6 +21,7 @@
     "@gsap/react": "^2.1.2",
     "@neon/auth": "0.8.2",
     "@neondatabase/serverless": "^1.2.0",
+    "@sentry/nextjs": "11.13.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "drizzle-orm": "^0.45.4",

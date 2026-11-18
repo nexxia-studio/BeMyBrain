@@ -33,7 +33,7 @@ Antoine se connecte à BeMyBrain en production et arrive sur un tableau de bord 
 - [ ] Quand une date, un nombre ou un montant s'affiche, alors il est formaté selon la langue choisie.
 - [ ] Quand un texte d'interface est écrit en dur dans un composant, ou qu'une clé manque dans une des deux langues, alors un test automatisé échoue.
 - [ ] Quand Antoine ouvre l'app dans Safari iOS ou Chrome Android, alors il peut l'ajouter à l'écran d'accueil et elle s'ouvre en plein écran, avec son icône et son nom (ADR-008).
-- [ ] Quand une erreur se produit en production, alors elle apparaît dans Sentry et une alerte arrive dans le canal Slack choisi, sans donnée personnelle dans l'événement.
+- [ ] Quand une erreur se produit en production, alors elle apparaît dans Sentry et une alerte arrive par e-mail à Antoine, sans donnée personnelle dans l'événement. (Slack remplacé par l'e-mail le 2026-11-18 : l'intégration Slack de Sentry est payante, on reste en formule gratuite ; Slack possible plus tard via BRAIN-27.) Aucune alerte pour les previews ni le local.
 - [ ] Quand Antoine ouvre la palette de commandes (⌘K, ou bouton sur mobile), alors il peut naviguer et lancer les actions du registre ; une action aux paramètres invalides ne s'exécute pas (ADR-009).
 - [ ] Quand on lit le registre d'actions, alors chaque action déclare nom, description, paramètres validés et lecture ou écriture, et le registre n'importe ni React ni Next (ADR-009).
 - [ ] Quand on cherche une règle métier dans `src/components/` ou `src/app/`, alors on n'en trouve aucune : elle est dans `src/modules/` (ADR-008).

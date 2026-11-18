@@ -164,6 +164,47 @@ describe("politique de sécurité du contenu posée par le proxy", () => {
     ).toBe(nonce);
   });
 
+  function connectSrc(policy: string | null) {
+    return policy
+      ?.split("; ")
+      .find((directive) => directive.startsWith("connect-src "));
+  }
+
+  it("connect-src contient l'origine du DSN et rien d'autre de nouveau ; sans DSN, inchangée", async () => {
+    vi.stubEnv("SENTRY_DSN", "");
+    const without = await proxy(request("/login"));
+    vi.stubEnv("SENTRY_DSN", "https://clepublique@o1.ingest.de.sentry.io/42");
+
+    const withDsn = await proxy(request("/login"));
+
+    expect(connectSrc(without.headers.get("content-security-policy"))).toBe(
+      "connect-src 'self'",
+    );
+    expect(connectSrc(withDsn.headers.get("content-security-policy"))).toBe(
+      "connect-src 'self' https://o1.ingest.de.sentry.io",
+    );
+    expect(
+      withDsn.headers.get("x-middleware-request-content-security-policy"),
+    ).toContain("https://o1.ingest.de.sentry.io");
+  });
+
+  it.each([
+    "http://cle@o1.ingest.sentry.io/42",
+    "pas une url",
+    "https://cle@o1.ingest.example.test/42",
+  ])(
+    "n'élargit pas connect-src pour un DSN non https, invalide ou hors sentry.io (%s)",
+    async (dsn) => {
+      vi.stubEnv("SENTRY_DSN", dsn);
+
+      const response = await proxy(request("/login"));
+
+      expect(connectSrc(response.headers.get("content-security-policy"))).toBe(
+        "connect-src 'self'",
+      );
+    },
+  );
+
   it("pose aussi la CSP sur la redirection vers /login", async () => {
     const response = await proxy(request("/dashboard"));
 
