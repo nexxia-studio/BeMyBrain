@@ -101,3 +101,4 @@
 - `git add $C` / `git commit -- $C` en échec « pathspec did not match » avec une liste de chemins dans une variable → zsh ne découpe pas une variable non citée sur les espaces → tableau `C=(a b)` puis `git commit -- $C` (ou chemins littéraux) ; jamais `git commit -a`.
 - Fabrique d'un `vi.mock` jamais rappelée après `vi.resetModules()` → le registre des mocks n'est pas vidé → `vi.doMock` à chaque chargement (`src/lib/sentry-client.test.ts`).
 - `expect(yaml).not.toContain("uses:")` échoue à tort → `statuses:` contient `uses:` → motif ancré `/^\s*(?:- )?uses:/m`.
+- Test Sentry qui ne voit aucun envoi → un DSN hors `https://*.sentry.io` (ex. `example.test`) laisse Sentry inactif sans rien signaler (validation de `sentryOptions`) → DSN factice en `*.sentry.io`, transport factice pour ne rien envoyer.
