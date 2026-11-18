@@ -1185,6 +1185,21 @@ describe("audit de 9e34af1", () => {
     },
   );
 
+  it.each([
+    // Apostrophes échappées deux fois : « \\\' » (apostrophe d'origine) et « \\\\ » (barre d'origine).
+    ["password=\\'a\\\\\\'b\\' suite", "password=\\'[Filtered]\\' suite"],
+    ["password=\\'a\\\\\\\\\\' suite", "password=\\'[Filtered]\\' suite"],
+  ])(
+    "une valeur \\'…\\' à apostrophe ou barre échappée (%s) est masquée en entier",
+    (message, expected) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(expected);
+    },
+  );
+
   it.each(['S"Z', 'S\\"Z', 'x"y z', 'x\\"y z', "a\\", "a\\'b c"])(
     "en JSON échappé deux fois, le mot de passe %s est masqué sans toucher à la suite",
     (password) => {
@@ -1199,7 +1214,7 @@ describe("audit de 9e34af1", () => {
     },
   );
 
-  it("propriété : aucun mot de passe aléatoire ne fuit, en forme nue, JSON ou JSON échappé deux fois", () => {
+  it("propriété : aucun mot de passe aléatoire ne fuit, en forme nue, JSON, JSON échappé deux fois ou \\'…\\'", () => {
     // Générateur déterministe (mulberry32, graine fixe) : mêmes cas à chaque exécution.
     let seed = 0x5eed;
     function random(): number {
@@ -1226,7 +1241,7 @@ describe("audit de 9e34af1", () => {
 
     const start = performance.now();
     for (let i = 0; i < 5000; i++) {
-      const form = i % 3;
+      const form = i % 4;
       const alphabet = form === 0 ? BARE_ALPHABET : ALPHABET;
       const password = `${MARKER}${randomText(alphabet, 2, 8)}${MARKER}${randomText(alphabet, 2, 8)}${MARKER}`;
       const message =
@@ -1234,7 +1249,12 @@ describe("audit de 9e34af1", () => {
           ? `password=${password}`
           : form === 1
             ? JSON.stringify({ password, user: "bob" })
-            : JSON.stringify(JSON.stringify({ password, user: "bob" }));
+            : form === 2
+              ? JSON.stringify(JSON.stringify({ password, user: "bob" }))
+              : // Forme « \'…\' » : barre d'origine → quatre barres, apostrophe d'origine → trois barres + apostrophe.
+                `password=\\'${password
+                  .replace(/\\/g, "\\\\\\\\")
+                  .replace(/'/g, "\\\\\\'")}\\' suite`;
       const sent = scrubEvent({ type: undefined, message });
       if (sent.message?.includes(MARKER)) leaks.push(message);
     }
