@@ -1,6 +1,6 @@
 # Plan — Socle
 
-**Spec** : `spec.md` · **Branche** : `feat/socle` · **Créé le** : 2026-11-11 · **Révisé le** : 2026-11-18 (tâches 11 à 21 closes, corps retirés vers « Terminé » ; QA-1 et QA-2 ajoutées) — 2026-11-12 (tâches 1 à 10 closes, previews option A ADR-010, projet Vercel à créer) — 2026-11-11 (ADR-006 à 009, Sentry) · **Tickets** : BRAIN-2 à BRAIN-7
+**Spec** : `spec.md` · **Branche** : `feat/socle` · **Créé le** : 2026-11-11 · **Révisé le** : 2026-11-18 (socle clos : tâches 1 à 21 et QA-1, QA-2 dans « Terminé » ; PR #7 fusionnée, `main` à `20c1fce`) — 2026-11-12 (tâches 1 à 10 closes, previews option A ADR-010, projet Vercel à créer) — 2026-11-11 (ADR-006 à 009, Sentry) · **Tickets** : BRAIN-2 à BRAIN-7
 
 <!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
 <!-- [security] = security-auditor passe après le reviewer. -->
@@ -59,30 +59,13 @@
 
 ## Tâches
 
-Aucune tâche ouverte : les tâches 1 à 21 sont dans « Terminé ». Reste les corrections QA ci-dessous.
+Aucune tâche ouverte : les tâches 1 à 21 et les corrections QA-1 et QA-2 sont dans « Terminé ». Socle clos le 2026-11-18.
 
 ## Ordre et dépendances
 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11. La tâche 12 peut se faire à tout moment avant la 13. 12 → 13 → 14 → 15 → 16. 17 dès que 5 est fait, au plus tard avant `/qa`. 18 après le premier déploiement en production. 19 après 17. 20 après 16. 21 après 17 (étape 11).
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
-
-- [ ] **QA-1. Session expirée pendant une action → renvoi vers /login** [security] (QA socle du 2026-11-18, décision d'Antoine)
-  - Constat : session expirée, une action (ex. bascule Privé / Pro) répond « Choix non enregistré. Réessaie. » sans renvoyer vers `/login` ; chaque nouvel essai échoue de même.
-  - À faire : sur une action refusée faute de session, renvoyer vers `/login` ; après connexion, revenir à la page d'origine si c'est simple (chemin interne relatif seulement, jamais une URL externe : pas de redirection ouverte).
-  - Test à écrire d'abord : action avec session expirée → redirection vers `/login` (et paramètre de retour validé) ; e2e session expirée.
-  - Précisions d'Antoine (2026-11-18) :
-    - Cause d'abord : le premier test rouge établit la vraie cause (renvoi avalé côté client, ou session refusée / jeton rejeté sans renvoi côté serveur) avant tout code de correction ; la cause est rapportée.
-    - Détection serveur (`src/lib/session.ts`) : pas de jeton, session refusée par Neon Auth ou jeton rejeté (`InvalidTokenError`) → `/login` ; Neon Auth indisponible (`AuthUnavailableError`) → page d'erreur, jamais `/login`.
-    - Page de retour : `/login?next=<chemin>`, chemin lu dans l'en-tête `Referer`, retenu seulement si son origine est celle de l'app ; on ne garde que le chemin (ni paramètres d'URL ni fragment). Revalidé à la connexion ; sinon `/dashboard`. Test : `//`, `\`, URL complète, autre origine, chemin avec paramètres.
-    - Côté client, mécanisme commun : le renvoi vers `/login` passe partout où une action est attrapée (bascule Privé / Pro et filtre d'espace via `use-optimistic-preference.ts`, palette `PalettePanel.tsx`, changement de langue `LocalePicker.tsx`, et les `catch` serveur de `src/app/(app)/actions.ts`), par un seul utilitaire partagé, pas un correctif par composant.
-  - Fini quand : tests verts, reviewer et security-auditor OK.
-
-- [ ] **QA-2. /login ouvert en étant connecté → renvoi vers le tableau de bord** (QA socle du 2026-11-18, décision d'Antoine)
-  - Constat : un utilisateur connecté qui ouvre `/login` voit le formulaire.
-  - À faire : session valide sur `/login` → redirection vers `/dashboard`.
-  - Test à écrire d'abord : `/login` avec session → `/dashboard` ; sans session → formulaire.
-  - Fini quand : tests verts, reviewer OK.
 
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. Corps des tâches 1 à 10 retirés le 2026-11-12 : historique dans `git log -p -- docs/features/socle/plan.md`. -->
@@ -107,3 +90,5 @@ Aucune tâche ouverte : les tâches 1 à 21 sont dans « Terminé ». Reste les 
 - [x] **19. Brancher Sentry et l'alerte e-mail** [security] [manuel] + code (BRAIN-4) — 2026-11-18, PR #5 (`3e5e4a4`) et PR #6 (`91caed4`). Alerte par e-mail (Slack écarté). Source maps : BRAIN-35. Deployment Check : BRAIN-37.
 - [x] **20. Registre d'actions et palette de commandes** [security] (BRAIN-7, ADR-009) — 2026-11-16, `cd6d023`, corrections `01dc658`, `b07d7fc`, `12dcec4`, `1182dc4` et suivants. Reports ouverts : rôle owner/member (avec la première action réservée à l'owner), projecteur de sortie, rate limit de `runAction` (pare-feu, tâche 17).
 - [x] **21. Message « trop de tentatives » sur les formulaires de connexion** (BRAIN-5) — 2026-11-17, `b551d13`. `typedEmail` recopié dans les deux formulaires (à déplacer si la règle `"use server"` change).
+- [x] **QA-1. Session expirée pendant une action → renvoi vers /login** [security] (QA socle du 2026-11-18) — 2026-11-18, `3d07d0c`, `1055914`, `f43eaf8`, `fe8e88f`, `1759064` ; reviewer et security-auditor OK. Cause : le proxy répondait 307 vers `/login` au POST de la Server Action (voir `docs/gotchas.md`).
+- [x] **QA-2. /login ouvert en étant connecté → tableau de bord** (QA socle du 2026-11-18) — 2026-11-18, `123198a`, `5e6a27b` ; reviewer OK.

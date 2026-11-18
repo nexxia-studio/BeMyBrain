@@ -11,7 +11,7 @@ Chaque module métier vit dans `src/modules/<module>/` et expose ses lectures et
 ## Modules
 | Module | Dossier | Rôle | Dépend de | État |
 | --- | --- | --- | --- | --- |
-| socle | `src/app`, `src/db`, `src/modules/core` | login, workspace, contextes Privé/Pro, coque bento | Neon, auth | spec écrite |
+| socle | `src/app`, `src/db`, `src/modules/core` | login, workspace, contextes Privé/Pro, coque bento | Neon, auth | clos 2026-11-18 |
 | tasks | `src/modules/tasks` | to-do unifiée Privé / Trustup / Nexxia, tags | socle | à spécifier |
 | lists | `src/modules/lists` | bucket lists, liste de courses partagée par lien | socle | à spécifier |
 | finance | `src/modules/finance` | budget, transactions, investissements, assurances, mobilier | socle | plus tard |
@@ -26,7 +26,7 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 | `contexts` | `workspace_id` | Privé, Trustup, Nexxia… | `kind` : `private` ou `pro` ; l'utilisateur crée les siens |
 
 ## Flux critiques
-1. Connexion : écran login → auth → session serveur → `workspaceId` résolu → coque.
+1. Connexion : écran login → auth → session serveur → `workspaceId` résolu → coque. Session expirée pendant une action → `/login?next=<chemin interne>` → retour sur la page.
 2. Lecture d'un module : page serveur → `queries.ts` (filtre `workspace_id`) → rendu.
 
 ## Intégrations externes
