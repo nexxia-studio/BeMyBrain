@@ -1,30 +1,27 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-12 — session : `/feature socle` (Claude Code)
+**Dernière mise à jour** : 2026-11-18 — session : `/feature socle` puis `/handoff` (Claude Code)
 
 ## Où on en est
-- Feature socle, branche `feat/socle` poussée, dernier commit `e541685`. Plan : `docs/features/socle/plan.md`.
-- Cochées : 1 à 10 (dans « Terminé ») et 12 (encore dans « Tâches », à déplacer).
-- Code fait, non coché : 11 (vérifs d'Antoine sur `dev`), 13 (essai d'installation, après 17), 17 (manuel restant).
-- Thème clair (DESIGN.md § 8 accepté). Previews : option A (ADR-010). 436 tests verts, e2e 6/6 (rapporté, non relancé).
-- Tests rouges : aucun rapporté.
+- `feat/socle` à `8093468`, poussée ; `main` à `a462ee7` (PR #3 et #4 fusionnées). Plan : `docs/features/socle/plan.md`.
+- Production en ligne, connexion et espace d'Antoine OK (fr ; contextes Privé, Trustup, Nexxia).
+- Cochées : 1 à 16, 20, 21. Ouvertes : 17 (reste manuel), 18, 19. Corps des tâches 11 à 16, 20, 21 à déplacer dans « Terminé ».
+- Pare-feu `limite-connexion` testé : 12 GET en 200, 11e et 12e POST en 403.
+- Tests : 830 verts à la tâche 21 (2026-11-17, non relancé). Tests rouges : aucun rapporté.
 
 ## Prochaine étape
-Antoine installe Impeccable (`/plugin marketplace add pbakaus/impeccable`), redémarre, puis :
-`Lis docs/handoff.md et continue : tâche 14 de docs/features/socle/plan.md.`
-Push libre sur `feat/socle` après chaque tâche ; jamais `main` sans accord.
+Confirmer avec Antoine les étapes 9 (Deployment Checks « Migrer la production »), 10 bis (protection des previews) et 12 (`revoke_sessions_on_password_reset` sur `production`) de la tâche 17 ; puis cocher 17 et faire la tâche 18.
 
-## Manuel avant la fin de la tâche 17
-- Neon : protéger `production` ; `revoke_sessions_on_password_reset` sur `production`.
-- Neon : `drizzle.__drizzle_migrations` sur `test` doit compter les migrations 0000 à 0005.
-- Vercel : créer le projet BeMyBrain (aucun n'existe). Étapes 1 à 11 de la tâche 17.
+Commande de reprise :
+`Lis docs/handoff.md et docs/features/socle/plan.md, puis continue : confirme avec moi les étapes 9, 10 bis et 12 de la tâche 17, puis tâche 18.`
+
+## Suite
+- Tâche 18 : restauration de `production` sur une branche de test, lecture du workspace, suppression ; fenêtre notée (6 h en gratuit). Runbook dans `docs/`.
+- Tâche 19 : `console.error` de `src/app/(app)/actions.ts` → `captureException` ; Sentry (région UE), alerte Slack (manuel).
+- Puis `/qa socle`, `/handoff` final. Push libre sur `feat/socle`, jamais `main` sans accord.
 
 ## Questions ouvertes
-- Tâche 11 : `/dashboard` affiche « Espace de travail : BeMyBrain », reconnexion, pas de 500 après 5 min.
-- Tâche 10 : décoder un vrai jeton (`iss`, `aud`) pour confirmer `NEON_AUTH_ISSUER` / `AUDIENCE`.
-- Tâche 9 : une preview hérite-t-elle des comptes de `production` ? À vérifier en 17.
-
-## Skills et agents pour la suite
-1. Tâche 14 : `implementer` puis `reviewer`. Tâches 16 et 20 : `security-auditor` après `reviewer`.
-2. Tâches 14, 15, 16 (UI) : skill `nexxia-design` + `references/anti-slop.md`, puis `/impeccable critique`.
-3. Tâches 17, 18, 19 (`[manuel]`) : session principale via MCP, après accord d'Antoine. Puis `/qa socle`.
+- Standard Protection des previews à revérifier ; journal `test` (0000 à 0005) non vérifié (étape 2).
+- E-mails Neon Auth : vérifier qu'ils tutoient. Tâche 9 : une preview hérite-t-elle des comptes de `production` ? À confirmer.
+- MCP Vercel sans accès au pare-feu (404) ; reconnecter l'intégration pour agir depuis Claude.
+- Revue 21 optionnelle : `typedEmail` recopié. Jeton Vercel CI : échéance 2027-02-15. Clone local : `main` en retard, `git pull` avant comparaison.
