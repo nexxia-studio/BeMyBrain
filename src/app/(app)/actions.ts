@@ -1,5 +1,6 @@
 "use server";
 
+import { captureException } from "@sentry/nextjs";
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
@@ -22,14 +23,27 @@ async function applyWebEffects(name: string, result: unknown): Promise<void> {
   refresh();
 }
 
+// Forme d'un nom du registre (`module.action`) : seul ce qui y ressemble part en tag, jamais un texte libre.
+const ACTION_NAME = /^[a-z]+\.[A-Za-z]+$/;
+
+function captureActionFailure(error: unknown, name: unknown): void {
+  captureException(error, {
+    tags: {
+      action:
+        typeof name === "string" && ACTION_NAME.test(name) ? name : "invalid",
+    },
+  });
+}
+
 /**
  * Server Action unique de la palette (ADR-009) : session d'abord, puis registre. Le `workspaceId` est celui
  * de la session, l'utilisateur celui du jeton vérifié ; `name` et `params` viennent du client et ne servent
  * qu'à choisir et paramétrer l'action, jamais journalisés. Nom inconnu, paramètres invalides ou contexte
  * incomplet (ActionError, refus attendu) → `{ ok: false }`, rien d'exécuté, seul le code est journalisé.
- * Toute autre erreur (base, identité non appliquée…) est une panne : journalisée en erreur, puis `{ ok: false }`.
- * Une fois l'action réussie, l'écriture est faite : un échec des effets web (cookie, rendu) est journalisé
+ * Toute autre erreur (base, identité non appliquée…) est une panne : envoyée à Sentry, puis `{ ok: false }`.
+ * Une fois l'action réussie, l'écriture est faite : un échec des effets web (cookie, rendu) est envoyé à Sentry
  * mais n'annonce pas un échec trompeur (la langue enregistrée sera recopiée à la prochaine connexion).
+ * Sentry ne reçoit que l'erreur et le nom de l'action en tag : ni paramètres, ni session, ni jeton.
  */
 export async function runAction(
   name: unknown,
@@ -51,16 +65,14 @@ export async function runAction(
       console.warn("[actions] action refusée", { code: error.code });
       return { ok: false };
     }
-    // raccourci: journal serveur seulement — captureException de Sentry à la tâche 19.
-    console.error("[actions] action en échec", error);
+    captureActionFailure(error, name);
     return { ok: false };
   }
   try {
     await applyWebEffects(outcome.name, outcome.result);
   } catch (error) {
     unstable_rethrow(error);
-    // raccourci: journal serveur seulement — captureException de Sentry à la tâche 19.
-    console.error("[actions] effets web en échec après l'action", error);
+    captureActionFailure(error, outcome.name);
   }
   return { ok: true, result: outcome.result };
 }
