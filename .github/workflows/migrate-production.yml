@@ -24,7 +24,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
+    # Permissions du job : elles remplacent celles du workflow, d'où contents: read recopié.
+    # actions: read et statuses: write pour le commit status de Vercel, rien de plus large.
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
     steps:
+      # Deployment Check Vercel : pose un commit status « Migrer la production » (en attente, puis succès ou
+      # échec en fin de job), que l'import par SHA de Vercel voit. GITHUB_TOKEN par défaut, aucun secret.
+      - uses: vercel/repository-dispatch/actions/status@30f760c6640485cd92f8c785ef361382555fb712 # v1
+        with:
+          name: Migrer la production
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

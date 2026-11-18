@@ -51,3 +51,33 @@ describe("workflow des previews", () => {
     );
   });
 });
+
+describe("workflow de production", () => {
+  const source = workflow("migrate-production.yml");
+
+  it("le job Migrer la production pose le commit status Vercel par une action épinglée par SHA, avec actions: read et statuses: write", () => {
+    const migrate = job(source, "migrate-production");
+    const firstStep = migrate.slice(migrate.indexOf("    steps:\n"));
+
+    expect(firstStep).toMatch(
+      /^ {4}steps:\n(?: {6}#.*\n)* {6}- uses: vercel\/repository-dispatch\/actions\/status@30f760c6640485cd92f8c785ef361382555fb712 # v1\n {8}with:\n {10}name: Migrer la production\n/,
+    );
+    expect(migrate).toMatch(
+      /\n {4}permissions:\n {6}contents: read\n {6}actions: read\n {6}statuses: write\n {4}\w/,
+    );
+    expect(migrate).not.toMatch(
+      /contents: write|id-token|pull-requests|deployments|write-all/,
+    );
+  });
+
+  it("le pas de statut Vercel n'utilise aucun secret, seulement le GITHUB_TOKEN par défaut", () => {
+    const migrate = job(source, "migrate-production");
+    const statusStep = migrate.slice(
+      migrate.indexOf("- uses: vercel/repository-dispatch"),
+      migrate.indexOf("- uses: actions/checkout"),
+    );
+
+    expect(statusStep).not.toContain("secrets.");
+    expect(statusStep).not.toContain("token");
+  });
+});

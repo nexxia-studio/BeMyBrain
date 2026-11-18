@@ -4,7 +4,12 @@
 // node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md.
 // Les autres en-têtes, sans nonce, sont posés sur toutes les routes par next.config.ts.
 
-type CspOptions = { nonce: string; isDevelopment: boolean };
+type CspOptions = {
+  nonce: string;
+  isDevelopment: boolean;
+  /** Origine https du point d'ingestion Sentry (dérivée de SENTRY_DSN par src/proxy.ts), ou rien. */
+  sentryOrigin?: string;
+};
 
 /**
  * En-tête de requête interne posé par src/proxy.ts (toujours écrasé, jamais repris du client) : copie du
@@ -14,11 +19,13 @@ export const CSP_NONCE_MARKER_HEADER = "x-bmb-csp-nonce";
 
 /**
  * CSP d'une page. Polices `next/font` auto-hébergées ('self'), Neon Auth appelé côté serveur seulement
- * (aucune origine tierce dans connect-src). Sentry (tâche 19) devra ajouter son point d'ingestion.
+ * (aucune origine tierce dans connect-src). Seule exception : le point d'ingestion de Sentry, envoyé
+ * directement par le navigateur (pas de tunnel : il ouvrirait une route publique de relais chez nous).
  */
 export function contentSecurityPolicy({
   nonce,
   isDevelopment,
+  sentryOrigin,
 }: CspOptions): string {
   const directives: string[][] = [
     ["default-src", "'self'"],
@@ -41,7 +48,7 @@ export function contentSecurityPolicy({
     ["style-src-attr", "'unsafe-inline'"],
     ["img-src", "'self'", "blob:", "data:"],
     ["font-src", "'self'"],
-    ["connect-src", "'self'"],
+    ["connect-src", "'self'", ...(sentryOrigin ? [sentryOrigin] : [])],
     ["object-src", "'none'"],
     ["base-uri", "'self'"],
     ["form-action", "'self'"],

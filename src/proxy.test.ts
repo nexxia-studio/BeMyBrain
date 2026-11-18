@@ -164,6 +164,43 @@ describe("politique de sécurité du contenu posée par le proxy", () => {
     ).toBe(nonce);
   });
 
+  function connectSrc(policy: string | null) {
+    return policy
+      ?.split("; ")
+      .find((directive) => directive.startsWith("connect-src "));
+  }
+
+  it("connect-src contient l'origine du DSN et rien d'autre de nouveau ; sans DSN, inchangée", async () => {
+    vi.stubEnv("SENTRY_DSN", "");
+    const without = await proxy(request("/login"));
+    vi.stubEnv("SENTRY_DSN", "https://cle-publique@o1.ingest.example.test/42");
+
+    const withDsn = await proxy(request("/login"));
+
+    expect(connectSrc(without.headers.get("content-security-policy"))).toBe(
+      "connect-src 'self'",
+    );
+    expect(connectSrc(withDsn.headers.get("content-security-policy"))).toBe(
+      "connect-src 'self' https://o1.ingest.example.test",
+    );
+    expect(
+      withDsn.headers.get("x-middleware-request-content-security-policy"),
+    ).toContain("https://o1.ingest.example.test");
+  });
+
+  it.each(["http://cle@o1.ingest.example.test/42", "pas une url"])(
+    "n'élargit pas connect-src pour un DSN non https ou invalide (%s)",
+    async (dsn) => {
+      vi.stubEnv("SENTRY_DSN", dsn);
+
+      const response = await proxy(request("/login"));
+
+      expect(connectSrc(response.headers.get("content-security-policy"))).toBe(
+        "connect-src 'self'",
+      );
+    },
+  );
+
   it("pose aussi la CSP sur la redirection vers /login", async () => {
     const response = await proxy(request("/dashboard"));
 
