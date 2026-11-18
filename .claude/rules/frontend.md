@@ -7,7 +7,7 @@ paths:
 
 - Composants : fonction nommée, props typées explicitement, un composant par fichier, nom de fichier = nom du composant en PascalCase.
 - Aucune règle métier dans un composant (ADR-008) : elle vit dans `src/modules/`. Aucun import de `@/db/*` ni de `drizzle-orm` dans `src/app/**` ou `src/components/**`. Les données arrivent par les fonctions de `src/modules/<module>/`, appelées côté serveur avec le `workspaceId` de la session.
-- Textes : uniquement via `next-intl` (ADR-007), clés dans `messages/fr.json` et `messages/en.json`. Aucun texte en dur dans un `.tsx`, y compris `aria-label`, `title`, `alt`, `placeholder`. Le contenu saisi par l'utilisateur n'est pas traduit.
+- Textes : uniquement via `next-intl` (ADR-007), clés dans `messages/fr.json` et `messages/en.json`, sauf la section `errors` : `messages/errors/{fr,en}.json`, recomposée sous `errors` par `src/i18n/request.ts` (la page d'erreur globale ne charge que ces textes). Parité : `tests/i18n/messages-parity.test.ts`. Aucun texte en dur dans un `.tsx`, y compris `aria-label`, `title`, `alt`, `placeholder`. Le contenu saisi par l'utilisateur n'est pas traduit.
 - UI : shadcn/ui + Tailwind. Couleurs, polices, espacements : tokens définis dans DESIGN.md et déclarés dans `@theme` (Tailwind v4), jamais de valeur arbitraire en dur (`#36f1a6`, `mt-[13px]`).
 - Formulaires : validés par zod, le même schéma que côté serveur quand il existe.
 - Montants : stockés en `_cents`, formatés seulement à l'affichage par `next-intl` selon la langue. Jamais de float monétaire.
