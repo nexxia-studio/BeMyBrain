@@ -524,6 +524,10 @@ export function sentryOptions(env: SentryEnv) {
   // Même règle que la CSP (connect-src) : un DSN hors https://*.sentry.io laisse Sentry inactif, sinon
   // le navigateur enverrait vers une origine que la CSP bloque, et le serveur vers une origine non vérifiée.
   // Pendant `next build` (prérendu), jamais actif : une erreur de build n'est pas une erreur de production.
+  // Next 16.4.6 ignore déjà `register()` d'instrumentation dans cette phase
+  // (next/dist/server/lib/router-utils/instrumentation-globals.external.js pour Node,
+  // next/dist/server/web/globals.js pour edge) : cette condition est une seconde sécurité, si une config Sentry
+  // était chargée par un autre chemin.
   const enabled =
     env.NEXT_PHASE !== NEXT_BUILD_PHASE &&
     sentryDsnOrigin(env.SENTRY_DSN) !== undefined &&

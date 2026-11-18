@@ -385,15 +385,66 @@ describe("CLI Sentry au build webpack (`next build --webpack`)", () => {
     );
   });
 
-  it("le vrai garde-fou refuse ce build Vercel : SENTRY_AUTH_TOKEN nommée, valeur jamais affichée", async () => {
+});
+
+/** Erreur levée au chargement de next.config.ts, undefined s'il se charge. */
+async function loadConfigError(): Promise<Error | undefined> {
+  return loadConfig().then(
+    () => undefined,
+    (caught: unknown) => caught as Error,
+  );
+}
+
+describe("vrai garde-fou du build Vercel, appelé par next.config.ts", () => {
+  beforeEach(() => {
     guard.bypass = false;
+    vi.stubEnv("SENTRY_AUTH_TOKEN", undefined);
+    vi.stubEnv("SENTRY_ORG", undefined);
+    vi.stubEnv("SENTRY_PROJECT", undefined);
+  });
 
-    const error = await loadConfig().then(
-      () => undefined,
-      (caught: unknown) => caught as Error,
-    );
+  it.each([
+    "SENTRY_AUTH_TOKEN",
+    "SENTRY_ORG",
+    "SENTRY_PROJECT",
+    "SENTRY_RELEASE",
+    "SENTRY_URL",
+  ])(
+    "%s seule dans l'environnement : build refusé, variable nommée, valeur jamais affichée",
+    async (name) => {
+      vi.stubEnv(name, "valeur_factice_a_ne_pas_afficher");
 
-    expect(error?.message).toMatch(/SENTRY_AUTH_TOKEN/);
-    expect(error?.message).not.toContain("sntrys_jeton_factice");
+      const error = await loadConfigError();
+
+      expect(error?.message).toContain(name);
+      expect(error?.message).toContain("BRAIN-35");
+      expect(error?.message).not.toContain("valeur_factice_a_ne_pas_afficher");
+    },
+  );
+
+  it("build webpack sans aucune variable de la CLI : refusé, --webpack nommé", async () => {
+    vi.stubEnv("TURBOPACK", undefined);
+    process.argv = [...originalArgv, "build", "--webpack"];
+
+    const error = await loadConfigError();
+
+    expect(error?.message).toContain("--webpack");
+    expect(error?.message).toContain("BRAIN-35");
+  });
+
+  it("build hors Turbopack sans --webpack (Rspack par variable) : refusé", async () => {
+    vi.stubEnv("TURBOPACK", undefined);
+    vi.stubEnv("NEXT_RSPACK", "1");
+
+    const error = await loadConfigError();
+
+    expect(error?.message).toContain("Turbopack");
+    expect(error?.message).toContain("BRAIN-35");
+  });
+
+  it("build Turbopack sans variable de la CLI : la config se charge", async () => {
+    const error = await loadConfigError();
+
+    expect(error).toBeUndefined();
   });
 });

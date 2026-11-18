@@ -1,6 +1,6 @@
 // Garde-fou du build Vercel (plan socle, tâche 19) : le DSN est inliné au build (clé `env` de next.config.ts).
 // Une production ou une preview construite sans DSN valide aurait Sentry inactif, sans aucun signal :
-// le build échoue plutôt. Même chose si le build pourrait appeler la CLI Sentry (variables de la CLI, `--webpack`).
+// le build échoue plutôt. Même chose si le build pourrait appeler la CLI Sentry (variables de la CLI, `--webpack`, build hors Turbopack).
 // Aucun effet en local, en CI (pas de VERCEL), avec VERCEL_ENV=development ni hors `next build`.
 import { sentryDsnOrigin } from "./sentry-options";
 
@@ -13,6 +13,7 @@ export type SentryBuildEnv = {
   SENTRY_PROJECT?: string | undefined;
   SENTRY_RELEASE?: string | undefined;
   SENTRY_URL?: string | undefined;
+  TURBOPACK?: string | undefined;
 };
 
 // Variables lues par le plugin de build de Sentry pour appeler la CLI (release, set-commits, deploy, source maps).
@@ -35,7 +36,7 @@ const REMEDY =
 
 /**
  * Lève une erreur si un build Vercel n'est pas production/preview, porte une variable de la CLI Sentry ou `--webpack`,
- * ou n'a pas de DSN https://*.sentry.io. N'affiche jamais de valeur.
+ * n'est pas construit par Turbopack, ou n'a pas de DSN https://*.sentry.io. N'affiche jamais de valeur.
  */
 export function assertSentryDsnAtBuild(
   env: SentryBuildEnv,
@@ -59,6 +60,17 @@ export function assertSentryDsnAtBuild(
     );
   }
 
+  if (!env.SENTRY_DSN) {
+    throw new Error(
+      `SENTRY_DSN absente pour ce build Vercel (${env.VERCEL_ENV}) : Sentry serait inactif. ${REMEDY}`,
+    );
+  }
+  if (sentryDsnOrigin(env.SENTRY_DSN) === undefined) {
+    throw new Error(
+      `SENTRY_DSN invalide pour ce build Vercel (${env.VERCEL_ENV}) : https et hôte *.sentry.io attendus, Sentry serait inactif. ${REMEDY}`,
+    );
+  }
+
   // Chemins vers la CLI Sentry (plugin webpack, hook d'après compilation) : refusés. Seul le nom est affiché.
   const cliVariable = SENTRY_CLI_VARIABLES.find((name) => Boolean(env[name]));
   if (cliVariable !== undefined) {
@@ -71,15 +83,12 @@ export function assertSentryDsnAtBuild(
       `Build Vercel (${env.VERCEL_ENV}) lancé avec --webpack : le plugin webpack de Sentry pourrait appeler la CLI. Rétablir la commande de build par défaut (Turbopack), puis redéployer. ${CLI_REMEDY}`,
     );
   }
-
-  if (!env.SENTRY_DSN) {
+  // `next build` pose TURBOPACK avant de charger next.config (parseBundlerArgs, next/dist/cli/next-build.js) : « auto »
+  // sans option, « 1 » avec --turbopack. Absente → webpack ou Rspack (IS_WEBPACK_TEST, NEXT_RSPACK,
+  // NEXT_TEST_USE_RSPACK). « 0 » ou « false » : le SDK Sentry détecte webpack (detectActiveBundler). Refusé.
+  if (!env.TURBOPACK || env.TURBOPACK === "0" || env.TURBOPACK === "false") {
     throw new Error(
-      `SENTRY_DSN absente pour ce build Vercel (${env.VERCEL_ENV}) : Sentry serait inactif. ${REMEDY}`,
-    );
-  }
-  if (sentryDsnOrigin(env.SENTRY_DSN) === undefined) {
-    throw new Error(
-      `SENTRY_DSN invalide pour ce build Vercel (${env.VERCEL_ENV}) : https et hôte *.sentry.io attendus, Sentry serait inactif. ${REMEDY}`,
+      `Build Vercel (${env.VERCEL_ENV}) hors Turbopack refusé : avec webpack ou Rspack, le plugin de build de Sentry pourrait appeler la CLI. Rétablir la commande de build par défaut (\`next build\`), sans variable de bundler, puis redéployer. ${CLI_REMEDY}`,
     );
   }
 }

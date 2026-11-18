@@ -15,7 +15,7 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 // Rien n'est écrit dans le dépôt ; un DSN est public par nature (il finit dans le navigateur), ce n'est pas
 // un secret. Variable absente (local, CI) → clé omise, `undefined` au runtime, Sentry inactif.
 // Build Vercel production ou preview sans DSN https://*.sentry.io, avec une variable de la CLI Sentry ou avec
-// `--webpack` → le build échoue (src/lib/sentry-build-guard.ts).
+// `--webpack` ou hors Turbopack → le build échoue (src/lib/sentry-build-guard.ts).
 assertSentryDsnAtBuild(
   {
     VERCEL: process.env.VERCEL,
@@ -26,6 +26,7 @@ assertSentryDsnAtBuild(
     SENTRY_PROJECT: process.env.SENTRY_PROJECT,
     SENTRY_RELEASE: process.env.SENTRY_RELEASE,
     SENTRY_URL: process.env.SENTRY_URL,
+    TURBOPACK: process.env.TURBOPACK,
   },
   process.argv,
 );
