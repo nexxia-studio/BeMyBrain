@@ -1071,3 +1071,59 @@ describe("relecture de c32d523", () => {
     expect(twice).toEqual(kept);
   });
 });
+
+describe("relecture de efd693f", () => {
+  function twicePassed(message: string) {
+    const kept = activeOptions().beforeBreadcrumb({
+      category: "http",
+      message,
+    });
+    const twice = scrubEvent({
+      type: undefined,
+      breadcrumbs: kept ? [kept] : [],
+    }).breadcrumbs?.[0];
+    return { kept, twice };
+  }
+
+  it.each([
+    ['password="ab\\\ncd hunter2" suite', 'password="[Filtered]" suite'],
+    ["password='ab\\\ncd hunter2' suite", "password='[Filtered]' suite"],
+  ])(
+    "un retour à la ligne échappé dans la valeur du secret (%j) ne laisse rien fuir",
+    (message, expected) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(expected);
+    },
+  );
+
+  it.each([
+    ['{\\"password\\":\\"abc def\\"}', '{\\"password\\":\\"[Filtered]\\"}'],
+    ['password=\\"abc def\\" suite', 'password=\\"[Filtered]\\" suite'],
+    ["password=\\'abc def\\' suite", "password=\\'[Filtered]\\' suite"],
+  ])(
+    "un secret en JSON échappé deux fois (%s) est masqué en entier",
+    (message, expected) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(expected);
+    },
+  );
+
+  it.each([
+    ["e-mail", `${"x ".repeat(997)}a@b.fr`],
+    ["secret et e-mail", `${"x ".repeat(990)}pwd=a a@b.fr`],
+  ])(
+    "un texte que les masques allongent au-delà de la limite (%s) reste borné et stable",
+    (_, message) => {
+      const { kept, twice } = twicePassed(message);
+
+      expect(kept?.message?.length).toBeLessThanOrEqual(2000);
+      expect(twice).toEqual(kept);
+    },
+  );
+});

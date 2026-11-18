@@ -173,7 +173,7 @@ function maskSecretValue(
   separator: string,
   value: string,
 ): string {
-  const quote = value[0] === '"' || value[0] === "'" ? value[0] : "";
+  const quote = /^\\?["']/.exec(value)?.[0] ?? "";
   return `${key}${separator}${quote}[Filtered]${quote}`;
 }
 
@@ -184,10 +184,12 @@ const TEXT_MASKS: TextMask[] = [
   [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
   // Clé de secret, seule ou en suffixe après « _ » (user_password, access_token), ou secret_… (secret_key),
-  // suivie de « = » ou « : », y compris en JSON (« "password":"x" »). Valeur entre guillemets : masquée jusqu'au
-  // guillemet fermant non échappé (ou la fin) ; sans guillemet : jusqu'à un espace ou « & » (paramètre suivant d'une query).
+  // suivie de « = » ou « : », y compris en JSON (« "password":"x" ») et en JSON échappé deux fois
+  // (« {\"password\":\"x\"} », clé et valeur délimitées par « \" »). Valeur entre guillemets : masquée jusqu'au
+  // guillemet fermant non échappé (ou la fin), échappements compris (retour à la ligne) ; sans guillemet :
+  // jusqu'à un espace ou « & » (paramètre suivant d'une query).
   [
-    /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))("?\s*[:=]\s*)("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|[^\s&]+)/giu,
+    /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))(\\?"?\s*[:=]\s*)(\\"(?:(?!\\")[\s\S])*(?:\\")?|\\'(?:(?!\\')[\s\S])*(?:\\')?|"(?:[^"\\]|\\[\s\S])*"?|'(?:[^'\\]|\\[\s\S])*'?|[^\s&]+)/giu,
     maskSecretValue,
   ],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
@@ -205,12 +207,14 @@ function withoutQuery(url: string): string {
 }
 
 /**
- * Masque e-mails, JWT, URL Postgres, hôtes Neon, secrets et jetons Bearer d'un texte libre. Tronqué d'abord à
- * MAX_TEXT_LENGTH : les masques e-mail et Neon sont quadratiques (200 000 caractères ≈ 30 s). Le dernier mot
- * coupé par la limite est retiré : coupé, un e-mail ou un secret ne serait plus reconnu.
+ * Masque e-mails, JWT, URL Postgres, hôtes Neon, secrets et jetons Bearer d'un texte libre. Tronqué à
+ * MAX_TEXT_LENGTH avant les masques (les masques e-mail et Neon sont quadratiques : 200 000 caractères ≈ 30 s),
+ * puis de nouveau après (un masque peut allonger le texte : « a@b.fr » → « [email] »), pour que le second passage
+ * (scrubEvent) laisse le résultat identique. Le dernier mot coupé par la limite est retiré : coupé, un e-mail ou un
+ * secret ne serait plus reconnu.
  */
 function maskText(text: string): string {
-  return TEXT_MASKS.reduce(
+  const masked = TEXT_MASKS.reduce(
     (masked, [pattern, replacement]) =>
       // Branches identiques : seul le typage l'impose (String.replace n'accepte pas l'union des deux formes).
       typeof replacement === "string"
@@ -218,9 +222,10 @@ function maskText(text: string): string {
         : masked.replace(pattern, replacement),
     truncate(text),
   );
+  return truncate(masked);
 }
 
-/** Résultat « … » compris borné à MAX_TEXT_LENGTH : le second passage (scrubEvent) le laisse identique. */
+/** Résultat « … » compris borné à MAX_TEXT_LENGTH ; un texte déjà dans la limite est rendu tel quel. */
 function truncate(text: string): string {
   if (text.length <= MAX_TEXT_LENGTH) return text;
   let end = MAX_TEXT_LENGTH - 1;
