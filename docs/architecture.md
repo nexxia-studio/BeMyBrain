@@ -34,6 +34,7 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 | --- | --- | --- |
 | Neon | base de données | `DATABASE_URL` dans `.env` (jamais ici) |
 | Vercel | hébergement, previews, cron | projet Vercel |
+| Sentry | erreurs de production et de preview, alerte e-mail (projet région UE) | `SENTRY_DSN` dans Vercel (jamais ici) |
 | Linear | suivi (équipe BeMyBrain, préfixe BRAIN) | — |
 
 Les intégrations de données (banque, Strava, Apple Santé, Home Assistant…) sont décrites dans `docs/roadmap.md`.
