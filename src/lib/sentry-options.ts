@@ -16,12 +16,17 @@ import type {
 export type SentryEnv = {
   SENTRY_DSN?: string | undefined;
   VERCEL_ENV?: string | undefined;
+  /** Phase Next, lue au runtime côté serveur et edge seulement (le navigateur ne la reçoit pas). */
+  NEXT_PHASE?: string | undefined;
 };
 
 /** Options valables sur les trois runtimes : une clé inconnue de l'un d'eux casse la compilation. */
 type SentryInitOptions = BrowserOptions & NodeOptions & EdgeOptions;
 
 const ACTIVE_ENVIRONMENTS = new Set(["production", "preview"]);
+// Valeur de PHASE_PRODUCTION_BUILD (next/dist/shared/lib/constants.js), posée par `next build` dans son processus
+// avant le prérendu (next/dist/build/index.js), héritée par les workers de prérendu (next/dist/lib/worker.js).
+const NEXT_BUILD_PHASE = "phase-production-build";
 
 // Liste blanche : seuls ces en-têtes restent dans un événement, tout autre est retiré (referer et origin,
 // qui portent une URL avec sa query string, cookie, authorization, IP, géolocalisation Vercel, en-têtes à venir).
@@ -509,7 +514,7 @@ export function sentryDsnOrigin(dsn: string | undefined): string | undefined {
 
 /**
  * Options de `Sentry.init`, identiques sur les trois runtimes. Actif seulement avec un DSN https://*.sentry.io ET sur une
- * production ou une preview Vercel : jamais en local, en CI, sous Vitest ni sous Playwright.
+ * production ou une preview Vercel, hors `next build` : jamais en local, en CI, sous Vitest ni sous Playwright.
  * Aucune clé `integrations` ni `replays*` : pas de session replay.
  * Aucun `tracesSampleRate` : pas de tracing ; `tracePropagationTargets` vide : aucun en-tête
  * `sentry-trace` / `baggage` ajouté aux requêtes sortantes (sans liste, le SDK serveur les pose partout).
@@ -518,7 +523,9 @@ export function sentryOptions(env: SentryEnv) {
   const environment = env.VERCEL_ENV;
   // Même règle que la CSP (connect-src) : un DSN hors https://*.sentry.io laisse Sentry inactif, sinon
   // le navigateur enverrait vers une origine que la CSP bloque, et le serveur vers une origine non vérifiée.
+  // Pendant `next build` (prérendu), jamais actif : une erreur de build n'est pas une erreur de production.
   const enabled =
+    env.NEXT_PHASE !== NEXT_BUILD_PHASE &&
     sentryDsnOrigin(env.SENTRY_DSN) !== undefined &&
     environment !== undefined &&
     ACTIVE_ENVIRONMENTS.has(environment);

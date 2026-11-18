@@ -99,3 +99,75 @@ describe("garde-fou SENTRY_DSN au build Vercel", () => {
     expect(message).not.toContain("valeurinattendue");
   });
 });
+
+describe("garde-fou CLI Sentry au build Vercel", () => {
+  const SECRET_VALUE = "valeursecretefactice";
+
+  /** Message d'erreur du garde-fou, vide s'il ne lève rien. */
+  function guardMessage(
+    extra: Parameters<typeof assertSentryDsnAtBuild>[0],
+    argv: readonly string[] = BUILD_ARGV,
+  ): string {
+    try {
+      assertSentryDsnAtBuild(
+        { VERCEL: "1", VERCEL_ENV: "production", SENTRY_DSN: DSN, ...extra },
+        argv,
+      );
+    } catch (error) {
+      return (error as Error).message;
+    }
+    return "";
+  }
+
+  it.each([
+    "SENTRY_AUTH_TOKEN",
+    "SENTRY_ORG",
+    "SENTRY_PROJECT",
+    "SENTRY_RELEASE",
+    "SENTRY_URL",
+  ] as const)(
+    "%s définie sur un build Vercel : erreur qui nomme la variable et renvoie à BRAIN-35, sans sa valeur",
+    (name) => {
+      const message = guardMessage({ [name]: SECRET_VALUE });
+
+      expect(message).toContain(name);
+      expect(message).toContain("BRAIN-35");
+      expect(message).not.toContain(SECRET_VALUE);
+    },
+  );
+
+  it.each(["production", "preview"])(
+    "build Vercel %s lancé avec --webpack : erreur qui nomme --webpack",
+    (vercelEnv) => {
+      const message = guardMessage({ VERCEL_ENV: vercelEnv }, [
+        ...BUILD_ARGV,
+        "--webpack",
+      ]);
+
+      expect(message).toContain("--webpack");
+      expect(message).toContain("BRAIN-35");
+    },
+  );
+
+  it("variable Sentry vide sur un build Vercel : rien", () => {
+    const message = guardMessage({ SENTRY_AUTH_TOKEN: "", SENTRY_URL: "" });
+
+    expect(message).toBe("");
+  });
+
+  it.each([
+    ["local ou CI (pas de VERCEL)", { VERCEL: undefined }, BUILD_ARGV],
+    ["vercel dev", { VERCEL_ENV: "development" }, BUILD_ARGV],
+    ["next dev sur Vercel", {}, ["/usr/bin/node", "next", "dev", "--webpack"]],
+  ] as const)(
+    "%s avec jeton Sentry et --webpack : rien",
+    (_label, env, argv) => {
+      const message = guardMessage(
+        { ...env, SENTRY_AUTH_TOKEN: SECRET_VALUE },
+        [...argv, "--webpack"],
+      );
+
+      expect(message).toBe("");
+    },
+  );
+});

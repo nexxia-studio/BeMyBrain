@@ -7,6 +7,8 @@ import { sentryOptions } from "./src/lib/sentry-options";
 const options = sentryOptions({
   SENTRY_DSN: process.env.SENTRY_DSN,
   VERCEL_ENV: process.env.VERCEL_ENV,
+  // Posée par `next build` : Sentry coupé pendant le prérendu (src/lib/sentry-options.ts).
+  NEXT_PHASE: process.env.NEXT_PHASE,
 });
 
 if (options.enabled) Sentry.init(options);

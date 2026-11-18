@@ -11,6 +11,9 @@ Dernière vérification : 2026-11-18 (tâche 19 du plan socle).
 - `SENTRY_DSN` posée par Antoine dans Vercel. Inactif en local, en CI, sous Vitest et Playwright.
 - Le DSN est figé au build (clé `env` de `next.config.ts`), pas lu au runtime. La variable doit être cochée pour Production ET Preview (toutes les branches). Après tout changement de la variable : redéployer, sinon l'ancien build garde l'ancienne valeur.
 - Garde-fou (`src/lib/sentry-build-guard.ts`) : un build Vercel `production` ou `preview` sans `SENTRY_DSN` valide (https, `*.sentry.io`) échoue, avec un message qui n'affiche pas la valeur. Aucun effet en local, en CI ni en `vercel dev`.
+- Même garde-fou, CLI Sentry : le build Vercel échoue si `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_RELEASE` ou `SENTRY_URL` est définie, ou si la commande de build contient `--webpack`. Le message nomme la variable, jamais sa valeur. À lever volontairement avec BRAIN-35 (source maps).
+- Plugin webpack de Sentry coupé (`webpack.disableSentryConfig` dans `next.config.ts`) : un `next build --webpack` n'appelle jamais la CLI. Sans effet sur notre build (Turbopack).
+- Sentry coupé pendant `next build` : serveur et edge ne s'initialisent pas quand `NEXT_PHASE` vaut `phase-production-build` (posée par Next pour le prérendu).
 - Pas de tunnel : `tunnelRoute: false` explicite dans `next.config.ts`. Sans lui, le SDK crée seul une route `/sentry-tunnel` sur les builds Vercel. Avertissement de dépréciation de l'option au build : attendu.
 - Options communes : `src/lib/sentry-options.ts`. Navigateur : `src/lib/sentry-client.ts` (SDK chargé à la demande). Serveur : `sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation.ts`.
 

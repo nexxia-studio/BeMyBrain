@@ -14,12 +14,18 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 // littéraux `process.env.SENTRY_DSN` / `process.env.VERCEL_ENV`, dans les bundles client et serveur.
 // Rien n'est écrit dans le dépôt ; un DSN est public par nature (il finit dans le navigateur), ce n'est pas
 // un secret. Variable absente (local, CI) → clé omise, `undefined` au runtime, Sentry inactif.
-// Build Vercel production ou preview sans DSN https://*.sentry.io → le build échoue (src/lib/sentry-build-guard.ts).
+// Build Vercel production ou preview sans DSN https://*.sentry.io, avec une variable de la CLI Sentry ou avec
+// `--webpack` → le build échoue (src/lib/sentry-build-guard.ts).
 assertSentryDsnAtBuild(
   {
     VERCEL: process.env.VERCEL,
     VERCEL_ENV: process.env.VERCEL_ENV,
     SENTRY_DSN: process.env.SENTRY_DSN,
+    SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
+    SENTRY_ORG: process.env.SENTRY_ORG,
+    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
+    SENTRY_RELEASE: process.env.SENTRY_RELEASE,
+    SENTRY_URL: process.env.SENTRY_URL,
   },
   process.argv,
 );
@@ -67,6 +73,10 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   release: { create: false, finalize: false },
   // Hook d'après compilation (upload, release) inutile sans source maps : pas branché du tout.
   useRunAfterProductionCompileHook: false,
+  // Build webpack (`next build --webpack`, pas le nôtre) : sans cette option, le SDK ajoute son plugin webpack, dont
+  // l'afterEmit appelle la CLI (set-commits, deploy) dès que SENTRY_AUTH_TOKEN est présent, même avec release.create
+  // à false. Sans effet sous Turbopack. Le garde-fou du build refuse aussi `--webpack` sur Vercel.
+  webpack: { disableSentryConfig: true },
   // Pas de tracing dans le socle : pas de hook de navigation à brancher.
   suppressOnRouterTransitionStartWarning: true,
   // Bundle allégé : ni débogage, ni tracing (aucun tracesSampleRate ; retirer excludeTracing le jour où on trace),

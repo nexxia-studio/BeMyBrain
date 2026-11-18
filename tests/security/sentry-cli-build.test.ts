@@ -89,6 +89,21 @@ vi.mock("@sentry/nextjs/config", async (importActual) => {
     },
   };
 });
+// Garde-fou du build Vercel (src/lib/sentry-build-guard.ts) contourné par défaut : il refuse justement cet
+// environnement (jeton Sentry présent). Chaque couche est testée seule ; un test le remet en place.
+const guard = vi.hoisted(() => ({ bypass: true }));
+vi.mock("../../src/lib/sentry-build-guard", async (importActual) => {
+  const actual =
+    await importActual<typeof import("../../src/lib/sentry-build-guard")>();
+  return {
+    ...actual,
+    assertSentryDsnAtBuild: (
+      ...args: Parameters<typeof actual.assertSentryDsnAtBuild>
+    ) => {
+      if (!guard.bypass) actual.assertSentryDsnAtBuild(...args);
+    },
+  };
+});
 vi.mock("next-intl/plugin", () => ({
   default: () => (config: NextConfig) => config,
 }));
@@ -126,6 +141,7 @@ async function runAfterProductionCompile(config: NextConfig): Promise<void> {
 }
 
 beforeEach(() => {
+  guard.bypass = true;
   sdk.options = undefined;
   cli.clients = [];
   cli.commands = [];
@@ -211,8 +227,8 @@ describe("CLI Sentry au build", () => {
     for (const key of ["authToken", "org", "project", "sentryUrl"]) {
       expect(options).not.toHaveProperty(key);
     }
-    // Pas de bascule vers webpack ni d'API d'upload à la main.
-    expect(options).not.toHaveProperty("webpack");
+    // Plugin webpack de Sentry coupé (build `--webpack`), sans API d'upload à la main.
+    expect(options.webpack).toEqual({ disableSentryConfig: true });
     expect(options).not.toHaveProperty("errorHandler");
   });
 
@@ -277,5 +293,107 @@ describe("CLI Sentry au build", () => {
         "sourcemap.upload",
       ]),
     );
+  });
+});
+
+/** Faux compilateur webpack : enregistre les abonnements aux hooks, ne compile rien. */
+function fakeWebpackCompiler() {
+  const taps = new Map<string, ((...args: unknown[]) => unknown)[]>();
+  const hook = (name: string) => {
+    const register = (_plugin: unknown, fn: (...args: unknown[]) => unknown) => {
+      taps.set(name, [...(taps.get(name) ?? []), fn]);
+    };
+    return { tap: register, tapAsync: register, tapPromise: register };
+  };
+  const compiler = {
+    hooks: new Proxy({}, { get: (_target, name) => hook(String(name)) }),
+    options: { plugins: [], mode: "production" },
+  };
+  return { compiler, taps };
+}
+
+type WebpackFunction = (
+  config: Record<string, unknown>,
+  context: Record<string, unknown>,
+) => { plugins?: { _name?: string; apply: (compiler: unknown) => void }[] };
+
+/** Lance la fonction webpack de la config comme `next build --webpack` (serveur Node), puis afterEmit. */
+async function runWebpackBuild(config: NextConfig): Promise<void> {
+  const webpack = config.webpack as WebpackFunction | undefined;
+  if (!webpack) return;
+  const result = webpack(
+    { entry: {}, plugins: [], module: { rules: [] } },
+    {
+      isServer: true,
+      dev: false,
+      dir: projectDir,
+      nextRuntime: "nodejs",
+      buildId: "build-factice",
+      config: {},
+      webpack: { DefinePlugin: class DefinePlugin {} },
+    },
+  );
+  for (const plugin of result.plugins ?? []) {
+    if (plugin._name !== "sentry-webpack-plugin") continue;
+    const { compiler, taps } = fakeWebpackCompiler();
+    plugin.apply(compiler);
+    for (const afterEmit of taps.get("afterEmit") ?? []) {
+      await new Promise<void>((resolve, reject) =>
+        afterEmit(
+          { outputOptions: { path: join(projectDir, ".next") }, assets: {} },
+          (error?: unknown) => (error ? reject(error) : resolve()),
+        ),
+      );
+    }
+  }
+}
+
+describe("CLI Sentry au build webpack (`next build --webpack`)", () => {
+  beforeEach(() => {
+    vi.stubEnv("TURBOPACK", undefined);
+    process.argv = [...originalArgv, "build", "--webpack"];
+  });
+
+  it("next.config.ts traité par le vrai SDK : aucune fonction webpack, ni CLI chargée, ni sous-processus", async () => {
+    stubCommitSha("c");
+    const loadsBefore = cli.loads.length;
+
+    const config = await loadConfig();
+    await runWebpackBuild(config);
+
+    expect(config).not.toHaveProperty("webpack");
+    expect(cli.loads.slice(loadsBefore)).toEqual([]);
+    expect(cli.clients).toEqual([]);
+    expect(cli.commands).toEqual([]);
+    expect(subprocessCalls()).toEqual([]);
+  });
+
+  it("témoin : plugin webpack réactivé (option retirée), la CLI pose commits et deploy malgré release.create à false", async () => {
+    stubCommitSha("d");
+    await loadConfig();
+    const withoutWebpackOption = { ...sdk.options };
+    delete withoutWebpackOption.webpack;
+
+    const config = sdk.real!({}, withoutWebpackOption);
+    await runWebpackBuild(config);
+
+    expect(cli.loads).toContain("sentry");
+    expect(realSentryPackageLoaded()).toBe(false);
+    expect(cli.clients[0]).toMatchObject({ token: "sntrys_jeton_factice" });
+    expect(cli.commands).toEqual(
+      expect.arrayContaining(["release.set-commits", "release.deploy"]),
+    );
+  });
+
+  it("le vrai garde-fou refuse ce build Vercel : SENTRY_AUTH_TOKEN nommée, valeur jamais affichée", async () => {
+    guard.bypass = false;
+
+    const error = await loadConfig().then(
+      () => undefined,
+      (caught: unknown) => caught as Error,
+    );
+
+    expect(error?.message).toMatch(/SENTRY_AUTH_TOKEN/);
+    expect(error?.message).not.toContain("sntrys_jeton_factice");
   });
 });
