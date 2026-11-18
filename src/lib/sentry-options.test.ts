@@ -868,14 +868,14 @@ describe("relecture de 2cb0322", () => {
   });
 
   it.each([
-    ["/u/100%25", "/u/100%25"],
+    ["/u/100%25", undefined],
     ["/a%3Fb%23c", "/a%3Fb%23c"],
   ])("le chemin %s reste stable au second passage", (url, expected) => {
     const { beforeBreadcrumb } = activeOptions();
 
     const kept = beforeBreadcrumb({ category: "fetch", data: { url } });
 
-    expect(kept?.data).toEqual({ url: expected });
+    expect(kept?.data).toEqual(expected === undefined ? {} : { url: expected });
     expect(twicePassed(kept)).toEqual(kept);
   });
 
@@ -923,7 +923,7 @@ describe("relecture de 2cb0322", () => {
     },
   );
 
-  it("une valeur de data qui est une URL http(s) perd query et fragment", () => {
+  it("une valeur de data qui est une URL http(s) d'un autre site est réduite à son origine", () => {
     const { beforeBreadcrumb } = activeOptions();
 
     const kept = beforeBreadcrumb({
@@ -935,8 +935,96 @@ describe("relecture de 2cb0322", () => {
     });
 
     expect(kept?.data).toEqual({
-      "http.url": "https://ex.com/a",
-      "url.full": "HTTP://ex.com/b",
+      "http.url": "https://ex.com",
+      "url.full": "http://ex.com",
     });
+  });
+});
+
+describe("relecture de 04f39cb", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ["password=ab,cd", "password=[Filtered]"],
+    ["password=p&ss", "password=[Filtered]&ss"],
+    ["password=p;ss suite", "password=[Filtered] suite"],
+    ['{"password":"a b c"}', '{"password":"[Filtered]"}'],
+    ['{"password": "a b"}', '{"password": "[Filtered]"}'],
+    ["password='a b' suite", "password='[Filtered]' suite"],
+    ["secret_key=abc", "secret_key=[Filtered]"],
+    ['{"secret_key": "a, b"}', '{"secret_key": "[Filtered]"}'],
+  ])(
+    "la valeur entière du secret de « %s » est masquée",
+    (message, expected) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(expected);
+    },
+  );
+
+  it.each([
+    ["/u/%25zz/a%2540b.fr"],
+    ["/u/a%2540b.fr%25zz"],
+    ["https://app.example.test/u/a%25%2540b.fr"],
+  ])("un chemin dont un décodage suivant échoue (%s) est retiré", (url) => {
+    vi.stubGlobal("location", { origin: "https://app.example.test" });
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url, method: "GET" },
+    });
+
+    expect(kept?.data).toEqual({ method: "GET" });
+  });
+
+  it("les valeurs de data qui ressemblent à une URL sont nettoyées comme url", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "http",
+      data: {
+        "http.target": "/r?code=abc",
+        "http.url": " https://ex.com/a?code=1",
+        "url.full": "https://ex.com/u/a%40b.fr",
+        "url.path": "/u/a%2540b.fr",
+        "url.bad": "/u/%E0%A4%A",
+        method: "GET",
+      },
+    });
+
+    expect(kept?.data).toEqual({
+      "http.target": "/r",
+      "http.url": "https://ex.com",
+      "url.full": "https://ex.com",
+      "url.path": "/u/[email]",
+      method: "GET",
+    });
+  });
+
+  it("un texte très long est tronqué avant les masques, vite et à longueur bornée", () => {
+    const { beforeSend } = activeOptions();
+    const long = "a.".repeat(100_000);
+
+    const start = performance.now();
+    const sent = beforeSend({ type: undefined, message: long });
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(200);
+    expect(sent?.message?.length).toBeLessThanOrEqual(2001);
+  });
+
+  it("la troncature ne laisse pas un e-mail coupé à la limite", () => {
+    const { beforeSend } = activeOptions();
+    const message = `${"x ".repeat(995)}antoine@example.test suite`;
+
+    const sent = beforeSend({ type: undefined, message });
+
+    expect(sent?.message).not.toContain("antoine");
+    expect(sent?.message?.endsWith("…")).toBe(true);
   });
 });

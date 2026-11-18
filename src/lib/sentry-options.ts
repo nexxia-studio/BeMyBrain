@@ -68,7 +68,9 @@ const URL_BREADCRUMB_KEYS = ["url", "from", "to"] as const;
 const RELATIVE_BASE = "https://relative.invalid";
 // Décodages successifs admis pour le chemin d'une URL de fil (« a%2540b » = deux).
 const MAX_PATH_DECODES = 3;
-// Valeur libre de `data` lue comme une URL : query et fragment retirés.
+// Longueur maximale d'un texte libre avant masquage (voir maskText).
+const MAX_TEXT_LENGTH = 2000;
+// Valeur libre de `data` lue comme une URL absolue (voir maskDataValue).
 const HTTP_URL = /^https?:\/\//i;
 // Seules balises envoyées pour un clic, lues sur l'élément ou, sans indice (addBreadcrumb manuel, second passage
 // par scrubEvent), dans le message : liste fermée, un mot quelconque (« dupont », « x-foo ») ne passe pas.
@@ -159,17 +161,34 @@ const QUERY_BREADCRUMB_KEYS = [
   "http.fragment",
 ];
 
+type TextMask = [
+  RegExp,
+  string | ((match: string, ...groups: string[]) => string),
+];
+
+/** Valeur d'un secret masquée en entier ; ses guillemets éventuels gardés. */
+function maskSecretValue(
+  _match: string,
+  key: string,
+  separator: string,
+  value: string,
+): string {
+  const quote = value[0] === '"' || value[0] === "'" ? value[0] : "";
+  return `${key}${separator}${quote}[Filtered]${quote}`;
+}
+
 // Secrets ou données personnelles reconnaissables dans un texte libre (message d'erreur, log).
 // Ordre : l'URL Postgres d'abord (son « user:mdp@hôte » ressemble à un e-mail) ; l'hôte Neon en dernier
 // (masqué avant, il casserait le masque d'un e-mail ou d'une URL Postgres et en laisserait une partie).
-const TEXT_MASKS: [RegExp, string][] = [
+const TEXT_MASKS: TextMask[] = [
   [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
-  // Clé de secret, seule ou en suffixe après « _ » (user_password, access_token), suivie de « = » ou « : »,
-  // y compris en JSON (« "password":"x" ») : la valeur est masquée, la clé et la ponctuation gardées.
+  // Clé de secret, seule ou en suffixe après « _ » (user_password, access_token), ou secret_… (secret_key),
+  // suivie de « = » ou « : », y compris en JSON (« "password":"x" »). Valeur entre guillemets : masquée jusqu'au
+  // guillemet fermant (ou la fin) ; sans guillemet : jusqu'à un espace ou « & » (paramètre suivant d'une query).
   [
-    /\b((?:\w*?_)?(?:passwd|password|pwd|secret|token))("?\s*[:=]\s*"?)[^\s"',;&}]+/giu,
-    "$1$2[Filtered]",
+    /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))("?\s*[:=]\s*)("[^"]*"?|'[^']*'?|[^\s&]+)/giu,
+    maskSecretValue,
   ],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
   [/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu, "[email]"],
@@ -185,12 +204,28 @@ function withoutQuery(url: string): string {
   return url.split(/[?#]/, 1)[0];
 }
 
-/** Masque e-mails, JWT, URL Postgres et jetons Bearer d'un texte libre. */
+/**
+ * Masque e-mails, JWT, URL Postgres, hôtes Neon, secrets et jetons Bearer d'un texte libre. Tronqué d'abord à
+ * MAX_TEXT_LENGTH : les masques e-mail et Neon sont quadratiques (200 000 caractères ≈ 30 s). Le dernier mot
+ * coupé par la limite est retiré : coupé, un e-mail ou un secret ne serait plus reconnu.
+ */
 function maskText(text: string): string {
   return TEXT_MASKS.reduce(
-    (masked, [pattern, replacement]) => masked.replace(pattern, replacement),
-    text,
+    (masked, [pattern, replacement]) =>
+      typeof replacement === "string"
+        ? masked.replace(pattern, replacement)
+        : masked.replace(pattern, replacement),
+    truncate(text),
   );
+}
+
+function truncate(text: string): string {
+  if (text.length <= MAX_TEXT_LENGTH) return text;
+  let end = MAX_TEXT_LENGTH;
+  if (!/\s/u.test(text[end])) {
+    while (end > 0 && !/\s/u.test(text[end - 1])) end--;
+  }
+  return `${text.slice(0, end)}…`;
 }
 
 /** Une chaîne est masquée, un nombre ou un booléen gardé, tout autre valeur remplacée. */
@@ -328,8 +363,8 @@ function scrubBreadcrumbUrl(value: string): string | undefined {
 /** Chemin décodé (un e-mail encodé « a%40b.fr » devient visible au masque) puis masqué ; codage invalide → undefined. */
 function maskPath(path: string): string | undefined {
   // Décodage répété (« a%2540b » → « a%40b » → « a@b ») : un e-mail encodé plusieurs fois reste visible au masque.
-  // Premier décodage en échec → codage invalide, retiré ; échec d'un décodage suivant → « % » littéral, on s'arrête.
-  // Encore décodable après MAX_PATH_DECODES passages → retiré.
+  // Tout décodage en échec (codage invalide, « % » littéral) ou chemin encore décodable après MAX_PATH_DECODES
+  // passages → retiré.
   let decoded: string;
   try {
     decoded = decodeURIComponent(path);
@@ -341,7 +376,7 @@ function maskPath(path: string): string | undefined {
     try {
       next = decodeURIComponent(decoded);
     } catch {
-      break;
+      return undefined;
     }
     if (next === decoded) break;
     if (pass >= MAX_PATH_DECODES) return undefined;
@@ -355,10 +390,17 @@ function maskPath(path: string): string | undefined {
 }
 
 /** Valeur libre de `data` d'un fil : texte masqué, nombre, booléen ou vide gardé, objet remplacé. */
+/**
+ * Valeur libre de `data` d'un fil : une valeur qui ressemble à une URL (http(s) absolue ou chemin « / ») est
+ * nettoyée comme `url` (undefined → clé retirée) ; texte masqué ; nombre, booléen ou vide gardé ; objet remplacé.
+ */
 function maskDataValue(value: unknown): unknown {
   if (value === undefined || value === null) return value;
-  if (typeof value === "string" && HTTP_URL.test(value))
-    return maskText(withoutQuery(value));
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (HTTP_URL.test(trimmed) || trimmed.startsWith("/"))
+      return scrubBreadcrumbUrl(trimmed);
+  }
   return maskParam(value);
 }
 
@@ -406,7 +448,10 @@ function scrubBreadcrumb(
   for (const key of QUERY_BREADCRUMB_KEYS) delete data[key];
   const urlKeys: readonly string[] = URL_BREADCRUMB_KEYS;
   for (const [key, value] of Object.entries(data)) {
-    if (!urlKeys.includes(key)) data[key] = maskDataValue(value);
+    if (urlKeys.includes(key)) continue;
+    const masked = maskDataValue(value);
+    if (masked === undefined && value !== undefined) delete data[key];
+    else data[key] = masked;
   }
   return { ...scrubbed, data };
 }
