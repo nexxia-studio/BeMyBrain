@@ -4,6 +4,7 @@
 // pas de replay, pas de tracing, et un nettoyage explicite de chaque événement.
 import type {
   Breadcrumb,
+  BreadcrumbHint,
   BrowserOptions,
   EdgeOptions,
   ErrorEvent,
@@ -65,9 +66,12 @@ const CONTENTLESS_BREADCRUMBS = new Set(["ui.input", "console"]);
 const URL_BREADCRUMB_KEYS = ["url", "from", "to"] as const;
 // Base fictive pour résoudre une URL relative ; une URL qui en sort (« //hôte/… ») vise un autre site.
 const RELATIVE_BASE = "https://relative.invalid";
-// Balise HTML telle que la sérialise le SDK (minuscules), suivie de rien, d'un id, d'une classe ou d'un attribut.
-// Un nom de composant (data-sentry-component, ex. « TaskCard ») ne passe pas : une balise ou rien.
-const SAFE_TAG = /^([a-z][a-z0-9-]*)(?=$|[#.[])/;
+// Nom de balise HTML, lu sur l'élément cliqué (jamais dans le sélecteur sérialisé, qui porte les libellés).
+const SAFE_TAG = /^[a-z][a-z0-9-]*$/;
+const WEB_PROTOCOLS = new Set(["http:", "https:"]);
+// Hôte d'une branche Neon (identifiant d'infrastructure) : masqué dans les fils.
+const NEON_HOST_SUFFIX = ".neon.tech";
+const NEON_PLACEHOLDER = "https://[neon]";
 // Données des fils HTTP serveur (conventions OpenTelemetry) qui portent la query string ou le fragment.
 const QUERY_BREADCRUMB_KEYS = [
   "url.query",
@@ -185,30 +189,27 @@ export function scrubEvent<T extends Event>(event: T): T {
   return scrubbed;
 }
 
-/** Dernier segment d'un sélecteur « a > b > c », sans couper sur un « > » placé entre guillemets (libellé). */
-function lastSelectorSegment(selector: string): string {
-  let start = 0;
-  let quoted = false;
-  for (let i = 0; i < selector.length; i++) {
-    if (selector[i] === '"') quoted = !quoted;
-    else if (!quoted && selector.startsWith(" > ", i)) start = i + 3;
-  }
-  return selector.slice(start);
-}
-
 /**
- * Message d'un clic (`ui.click`) : sélecteur CSS de l'élément et de ses parents, avec id, classes, aria-label,
- * title, name, alt (htmlTreeAsString, @sentry/browser-utils 11.13.0), ou nom de composant. Seule la balise
- * de l'élément cliqué est gardée ; rien si elle n'est pas sûre.
+ * Balise de l'élément cliqué, lue sur la cible de l'événement DOM que le SDK navigateur passe en indice.
+ * Le message du SDK (sélecteur CSS avec id, classes, aria-label, title, name, alt et parents, ou nom de
+ * composant) n'est jamais analysé : un libellé à guillemets impairs pourrait y passer pour une balise.
+ * Sans élément lisible (serveur, autre fil `ui.*`) : rien. Aucune dépendance à `Element` global.
  */
-function clickedTag(message: string | undefined): string | undefined {
-  if (message === undefined) return undefined;
-  return SAFE_TAG.exec(lastSelectorSegment(message))?.[1];
+function clickedTag(hint: BreadcrumbHint | undefined): string | undefined {
+  const event: unknown = hint?.event;
+  if (typeof event !== "object" || event === null) return undefined;
+  const target: unknown = (event as { target?: unknown }).target;
+  if (typeof target !== "object" || target === null) return undefined;
+  const tagName: unknown = (target as { tagName?: unknown }).tagName;
+  if (typeof tagName !== "string") return undefined;
+  const tag = tagName.toLowerCase();
+  return SAFE_TAG.test(tag) ? tag : undefined;
 }
 
 /**
  * URL d'un fil : relative ou de la page → chemin sans query ni fragment ; autre site (ou toute URL absolue
- * côté serveur, sans `location`) → origine seule ; non analysable ou sans origine → undefined (retirée).
+ * côté serveur, sans `location`) → origine seule ; hôte Neon → `https://[neon]` ; schéma autre que http(s)
+ * (blob:, data:, ftp:…) ou non analysable → undefined (retirée).
  */
 function scrubBreadcrumbUrl(value: string): string | undefined {
   const pageOrigin = (globalThis as { location?: { origin?: string } }).location
@@ -220,11 +221,17 @@ function scrubBreadcrumbUrl(value: string): string | undefined {
     return undefined;
   }
   if (resolved.origin === RELATIVE_BASE) return withoutQuery(value);
-  if (resolved.origin === "null") return undefined;
+  if (!WEB_PROTOCOLS.has(resolved.protocol)) return undefined;
+  const host = resolved.hostname;
+  if (host === NEON_HOST_SUFFIX.slice(1) || host.endsWith(NEON_HOST_SUFFIX))
+    return NEON_PLACEHOLDER;
   return resolved.origin === pageOrigin ? resolved.pathname : resolved.origin;
 }
 
-function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
+function scrubBreadcrumb(
+  breadcrumb: Breadcrumb,
+  hint?: BreadcrumbHint,
+): Breadcrumb {
   if (breadcrumb.category && CONTENTLESS_BREADCRUMBS.has(breadcrumb.category)) {
     const { message, data, ...rest } = breadcrumb;
     void message;
@@ -234,8 +241,9 @@ function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
   if (breadcrumb.category?.startsWith("ui.")) {
     // `data` retiré : il porte le nom du composant (ui.component_name).
     const { message, data, ...rest } = breadcrumb;
+    void message;
     void data;
-    const tag = clickedTag(message);
+    const tag = clickedTag(hint);
     return tag === undefined ? rest : { ...rest, message: tag };
   }
   if (!breadcrumb.data) return breadcrumb;
@@ -287,7 +295,9 @@ export function sentryOptions(env: SentryEnv) {
     dataCollection: DATA_COLLECTION,
     tracePropagationTargets: [],
     beforeSend: (event: ErrorEvent): ErrorEvent | null => scrubEvent(event),
-    beforeBreadcrumb: (breadcrumb: Breadcrumb): Breadcrumb =>
-      scrubBreadcrumb(breadcrumb),
+    beforeBreadcrumb: (
+      breadcrumb: Breadcrumb,
+      hint?: BreadcrumbHint,
+    ): Breadcrumb => scrubBreadcrumb(breadcrumb, hint),
   } satisfies SentryInitOptions;
 }

@@ -362,43 +362,59 @@ describe("fil d'Ariane envoyé à Sentry", () => {
     });
   });
 
-  it("un clic ne garde que la balise de l'élément cliqué, sans libellé ni parent", () => {
+  // Indice passé par le SDK navigateur avec un fil de clic : l'événement DOM, dont la cible est l'élément.
+  function clickHint(target: unknown) {
+    return { event: { target } };
+  }
+
+  it("un clic ne garde que la balise de l'élément cliqué, lue sur l'élément, sans libellé ni parent", () => {
     const { beforeBreadcrumb } = activeOptions();
 
-    const kept = beforeBreadcrumb({
-      category: "ui.click",
-      message:
-        'main#tache-rdv.liste > li.min-h-11[title="RDV médecin"] > button#supprimer-rdv.min-h-11[aria-label="Supprimer la tâche RDV médecin"][type="submit"][name="rdv"][title="RDV médecin"]',
-      data: { "ui.component_name": "TaskCard" },
-    });
+    const kept = beforeBreadcrumb(
+      {
+        category: "ui.click",
+        message:
+          'main#tache-rdv.liste > li.min-h-11[title="RDV médecin"] > button#supprimer-rdv.min-h-11[aria-label="Supprimer la tâche RDV médecin"][type="submit"][name="rdv"][title="RDV médecin"]',
+        data: { "ui.component_name": "TaskCard" },
+      },
+      clickHint({ tagName: "BUTTON" }),
+    );
 
     expect(kept).toEqual({ category: "ui.click", message: "button" });
   });
 
-  it("un libellé contenant « > » ne fait pas passer un de ses mots pour une balise", () => {
+  it("un libellé à guillemets impairs ne fait jamais passer un de ses mots pour une balise", () => {
     const { beforeBreadcrumb } = activeOptions();
+    const message = 'button[aria-label="Supprimer 13" > rdv.medecin"]';
 
-    const kept = beforeBreadcrumb({
-      category: "ui.click",
-      message: 'div > button[aria-label="RDV > medecin"]',
-    });
+    const withElement = beforeBreadcrumb(
+      { category: "ui.click", message },
+      clickHint({ tagName: "BUTTON" }),
+    );
+    const withoutHint = beforeBreadcrumb({ category: "ui.click", message });
 
-    expect(kept?.message).toBe("button");
+    expect(withElement).toEqual({ category: "ui.click", message: "button" });
+    expect(withoutHint).toEqual({ category: "ui.click" });
   });
 
   it.each([
-    ["div.a > TaskCard", "nom de composant (data-sentry-component)"],
-    ["TaskCard", "nom de composant seul"],
-    ["<unknown>", "élément inconnu"],
-    ['div > "]', "segment sans balise"],
-  ])("un clic sans balise sûre (%s, %s) part sans message", (message) => {
+    ["sans indice", undefined],
+    ["sans événement", {}],
+    ["cible absente", { event: {} }],
+    ["cible sans tagName", clickHint({ nodeName: "BUTTON" })],
+    ["tagName non textuel", clickHint({ tagName: 42 })],
+    ["tagName hors balise", clickHint({ tagName: "RDV médecin" })],
+  ])("un clic sans balise sûre (%s) part sans message ni donnée", (_, hint) => {
     const { beforeBreadcrumb } = activeOptions();
 
-    const kept = beforeBreadcrumb({
-      category: "ui.click",
-      message,
-      data: { "ui.component_name": "TaskCard" },
-    });
+    const kept = beforeBreadcrumb(
+      {
+        category: "ui.click",
+        message: "div.a > TaskCard",
+        data: { "ui.component_name": "TaskCard" },
+      },
+      hint,
+    );
 
     expect(kept).toEqual({ category: "ui.click" });
   });
@@ -455,6 +471,7 @@ describe("URL des fils d'Ariane", () => {
   it.each([
     ["https://rdv médecin.test/x", "absolue non analysable"],
     ["data:text/plain,RDV médecin", "sans origine"],
+    ["ftp://fichiers.autre.test/rdv", "schéma ftp"],
     ["//[RDV médecin", "sans protocole non analysable"],
   ])("une URL %s (%s) est retirée", (url) => {
     expect(scrubbedUrls({ url, method: "GET" })).toEqual({ method: "GET" });
@@ -485,4 +502,46 @@ describe("origine du DSN pour la CSP", () => {
       expect(sentryDsnOrigin(dsn)).toBeUndefined();
     },
   );
+});
+
+describe("URL des fils d'Ariane, schémas et hôtes d'infrastructure", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("une URL blob: de la même origine que la page est retirée", () => {
+    vi.stubGlobal("location", { origin: "https://app.example.test" });
+
+    const kept = activeOptions().beforeBreadcrumb({
+      category: "fetch",
+      data: {
+        url: "blob:https://app.example.test/3f6c1d2e-rdv",
+        method: "GET",
+      },
+    });
+
+    expect(kept?.data).toEqual({ method: "GET" });
+  });
+
+  it.each([
+    "https://ep-rdv-medecin-123456.eu-central-1.aws.neon.tech/sql?q=1",
+    "https://ep-x.c-2.eu-central-1.aws.neon.tech:443/",
+    "https://neon.tech/api",
+  ])("une URL Neon (%s) part sans l'hôte de la branche", (url) => {
+    const kept = activeOptions().beforeBreadcrumb({
+      category: "http",
+      data: { url },
+    });
+
+    expect(kept?.data).toEqual({ url: "https://[neon]" });
+  });
+
+  it("un hôte qui ne fait que contenir neon.tech n'est pas confondu avec Neon", () => {
+    const kept = activeOptions().beforeBreadcrumb({
+      category: "http",
+      data: { url: "https://pasneon.tech/x" },
+    });
+
+    expect(kept?.data).toEqual({ url: "https://pasneon.tech" });
+  });
 });

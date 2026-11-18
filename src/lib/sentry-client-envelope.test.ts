@@ -105,7 +105,8 @@ describe("enveloppes du client Sentry navigateur", () => {
       }
     ).breadcrumbs;
     const click = breadcrumbs?.find((crumb) => crumb.category === "ui.click");
-    // Le SDK a bien sérialisé le clic (élément de data-sentry-component : nom du composant) ; il part vidé.
+    // Le SDK met le sélecteur (libellés, id, classes, parents) dans le message et le nom du composant
+    // (data-sentry-component d'un parent) dans data["ui.component_name"] : il ne reste que la balise.
     expect(click?.message).toBe("button");
     expect(click).not.toHaveProperty("data");
     expect(event).not.toMatch(/RDV|rdv|TaskCard|supprimer|min-h-11|grille/);
