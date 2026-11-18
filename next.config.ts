@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
 // Import relatif : next.config.ts est chargé hors des alias tsconfig.
+import { assertSentryDsnAtBuild } from "./src/lib/sentry-build-guard";
 import { securityHeaders } from "./src/lib/security-headers";
 
 // next-intl sans routage i18n (ADR-007) : la locale vient de src/i18n/request.ts.
@@ -13,6 +14,16 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 // littéraux `process.env.SENTRY_DSN` / `process.env.VERCEL_ENV`, dans les bundles client et serveur.
 // Rien n'est écrit dans le dépôt ; un DSN est public par nature (il finit dans le navigateur), ce n'est pas
 // un secret. Variable absente (local, CI) → clé omise, `undefined` au runtime, Sentry inactif.
+// Build Vercel production ou preview sans DSN https://*.sentry.io → le build échoue (src/lib/sentry-build-guard.ts).
+assertSentryDsnAtBuild(
+  {
+    VERCEL: process.env.VERCEL,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    SENTRY_DSN: process.env.SENTRY_DSN,
+  },
+  process.argv,
+);
+
 const sentryBuildEnv = Object.fromEntries(
   (["SENTRY_DSN", "VERCEL_ENV"] as const).flatMap((name) => {
     const value = process.env[name];
@@ -48,6 +59,10 @@ const nextConfig: NextConfig = {
 // (reportées, BRAIN-35 ; pas de SENTRY_AUTH_TOKEN), pas de release créée, pas de télémétrie du plugin.
 export default withSentryConfig(withNextIntl(nextConfig), {
   telemetry: false,
+  // Pas de tunnel (décision d'Antoine, 2026-11-18) : `false` explicite. Option absente, le SDK 11.13 écrit sur un
+  // build Vercel une route publique /sentry-tunnel et une réécriture de toute requête
+  // `content-type: application/x-sentry-envelope` vers elle. Option dépréciée : un avertissement au build, assumé.
+  tunnelRoute: false,
   sourcemaps: { disable: true },
   release: { create: false, finalize: false },
   // Hook d'après compilation (upload, release) inutile sans source maps : pas branché du tout.

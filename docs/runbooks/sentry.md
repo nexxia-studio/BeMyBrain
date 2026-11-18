@@ -8,7 +8,10 @@ Dernière vérification : 2026-11-18 (tâche 19 du plan socle).
 
 ## Activation
 - Actif seulement si `SENTRY_DSN` a une origine `https://*.sentry.io` (même règle que la CSP, `sentryDsnOrigin`) ET `VERCEL_ENV` vaut `production` ou `preview`. Un DSN mal formé ou hors sentry.io laisse Sentry inactif, sans erreur. Environnement Sentry = `VERCEL_ENV`.
-- `SENTRY_DSN` posée par Antoine dans Vercel (Production et Preview). Inactif en local, en CI, sous Vitest et Playwright.
+- `SENTRY_DSN` posée par Antoine dans Vercel. Inactif en local, en CI, sous Vitest et Playwright.
+- Le DSN est figé au build (clé `env` de `next.config.ts`), pas lu au runtime. La variable doit être cochée pour Production ET Preview (toutes les branches). Après tout changement de la variable : redéployer, sinon l'ancien build garde l'ancienne valeur.
+- Garde-fou (`src/lib/sentry-build-guard.ts`) : un build Vercel `production` ou `preview` sans `SENTRY_DSN` valide (https, `*.sentry.io`) échoue, avec un message qui n'affiche pas la valeur. Aucun effet en local, en CI ni en `vercel dev`.
+- Pas de tunnel : `tunnelRoute: false` explicite dans `next.config.ts`. Sans lui, le SDK crée seul une route `/sentry-tunnel` sur les builds Vercel. Avertissement de dépréciation de l'option au build : attendu.
 - Options communes : `src/lib/sentry-options.ts`. Navigateur : `src/lib/sentry-client.ts` (SDK chargé à la demande). Serveur : `sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation.ts`.
 
 ## Données personnelles

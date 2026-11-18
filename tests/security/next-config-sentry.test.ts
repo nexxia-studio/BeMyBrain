@@ -25,15 +25,18 @@ beforeEach(() => {
   vi.stubEnv("VERCEL_ENV", undefined);
 });
 
+const originalArgv = process.argv;
+
 afterEach(() => {
   vi.unstubAllEnvs();
+  process.argv = originalArgv;
 });
 
 describe("build Sentry de next.config", () => {
-  it("n'ouvre aucun tunnel : pas de route publique de relais sur notre domaine", async () => {
+  it("n'ouvre aucun tunnel : tunnelRoute vaut exactement false (absent, le SDK en crée un sur Vercel)", async () => {
     const { options } = await loadConfig();
 
-    expect(options).not.toHaveProperty("tunnelRoute");
+    expect(options).toHaveProperty("tunnelRoute", false);
   });
 
   it("n'envoie rien au build : ni source maps, ni release, ni télémétrie", async () => {
@@ -61,5 +64,20 @@ describe("build Sentry de next.config", () => {
     const { config } = await loadConfig();
 
     expect(config.env).toEqual({});
+  });
+
+  it("build Vercel de preview sans SENTRY_DSN : le chargement de la config échoue", async () => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    process.argv = [...originalArgv, "build"];
+
+    await expect(loadConfig()).rejects.toThrow(/SENTRY_DSN absente/);
+  });
+
+  it("build hors Vercel sans SENTRY_DSN (local, CI) : la config se charge", async () => {
+    vi.stubEnv("VERCEL", undefined);
+    process.argv = [...originalArgv, "build"];
+
+    await expect(loadConfig()).resolves.toBeDefined();
   });
 });
