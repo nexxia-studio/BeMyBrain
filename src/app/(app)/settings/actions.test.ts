@@ -98,7 +98,9 @@ describe("changer de langue (Server Action)", () => {
     expect(syncLocaleCookie).not.toHaveBeenCalled();
   });
 
-  it("une panne du JWKS après la garde remonte telle quelle (message d'échec), jamais /login", async () => {
+  // Emplacement de l'appel seulement : redirectIfRejectedToken est simulé ici. La garantie « une panne du
+  // JWKS ne renvoie jamais vers /login » est dans src/lib/session.test.ts (vraies erreurs de withUserDb).
+  it("une erreur non reconnue comme jeton refusé remonte telle quelle, sans cookie", async () => {
     const outage = new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT");
     saveMemberLocale.mockRejectedValue(outage);
 

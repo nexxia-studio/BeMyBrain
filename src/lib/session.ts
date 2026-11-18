@@ -7,7 +7,11 @@ import { cache } from "react";
 import { appOrigin, returnPath } from "@/lib/auth/return-path";
 import { getSessionToken } from "@/lib/auth/server";
 import { LOGIN_PATH, NO_WORKSPACE_PATH } from "@/lib/auth/routes";
-import { isRejectedToken, resolveMembership } from "@/modules/core/membership";
+import {
+  isRejectedToken,
+  rejectedTokenCode,
+  resolveMembership,
+} from "@/modules/core/membership";
 
 import { syncLocaleCookie } from "./locale-cookie";
 
@@ -39,11 +43,16 @@ async function redirectToLogin(): Promise<never> {
 
 /**
  * Jeton refusé par withUserDb (expiré entre la garde et l'écriture, signature) → /login, même `next` que la
- * garde. Toute autre erreur : rien, l'appelant la traite. À appeler dans le `catch` d'une Server Action,
+ * garde, après un journal du seul code jose. Toute autre erreur : rien, l'appelant la traite. À appeler dans le `catch` d'une Server Action,
  * après `unstable_rethrow`, pour qu'un jeton expiré ne passe pas pour une panne.
  */
 export async function redirectIfRejectedToken(error: unknown): Promise<void> {
-  if (isRejectedToken(error)) await redirectToLogin();
+  const code = rejectedTokenCode(error);
+  if (code === null) return;
+  // Code jose seul : rend visible une erreur de configuration (iss, aud, horloge) qui enverrait tout le
+  // monde vers /login. Ni jeton, ni claims, ni identifiant.
+  console.warn("[session] jeton refusé, renvoi vers /login", { code });
+  await redirectToLogin();
 }
 
 async function loadSession(): Promise<ResolvedSession> {
@@ -113,14 +122,6 @@ export async function requireSessionWithToken(): Promise<ResolvedSession> {
   return resolveSession();
 }
 
-/**
- * Vrai si la requête porte une session que les pages de (app) accepteraient (QA-2 : /login ouvert en étant
- * connecté → renvoi). Même critère que requireSession (JWT obtenu, puis accepté par la base), jamais le seul
- * cache de getSession() : une session présente mais refusée ferait boucler /login ↔ /dashboard. Une
- * appartenance absente compte comme connecté (le tableau de bord renvoie vers /no-workspace, hors de (app)).
- * Ne redirige jamais. Tout échec (jeton refusé, auth indisponible, base en panne) → false : le formulaire
- * reste affiché, la connexion ne dépend pas de ce confort. Erreurs de contrôle de Next relancées.
- */
 // Forme d'un nom de classe : tout autre `name` (modifiable par n'importe quel code) n'est pas journalisé.
 const CLASS_NAME = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
 
@@ -130,6 +131,14 @@ function errorName(error: unknown): string {
     : "unknown";
 }
 
+/**
+ * Vrai si la requête porte une session que les pages de (app) accepteraient (QA-2 : /login ouvert en étant
+ * connecté → renvoi). Même critère que requireSession (JWT obtenu, puis accepté par la base), jamais le seul
+ * cache de getSession() : une session présente mais refusée ferait boucler /login ↔ /dashboard. Une
+ * appartenance absente compte comme connecté (le tableau de bord renvoie vers /no-workspace, hors de (app)).
+ * Ne redirige jamais. Tout échec (jeton refusé, auth indisponible, base en panne) → false : le formulaire
+ * reste affiché, la connexion ne dépend pas de ce confort. Erreurs de contrôle de Next relancées.
+ */
 export async function hasActiveSession(): Promise<boolean> {
   try {
     const token = await getSessionToken();

@@ -27,3 +27,12 @@ export function resolveMembership(token: string): Promise<ResolvedMembership> {
 export function isRejectedToken(error: unknown): boolean {
   return error instanceof InvalidTokenError;
 }
+
+/**
+ * Code jose d'un jeton refusé (`ERR_…`, déjà filtré par withUserDb), « unknown » s'il n'en a pas, null pour
+ * toute autre erreur. Seule donnée journalisable d'un refus : ni jeton, ni claims, ni identifiant.
+ */
+export function rejectedTokenCode(error: unknown): string | null {
+  if (!(error instanceof InvalidTokenError)) return null;
+  return error.code ?? "unknown";
+}

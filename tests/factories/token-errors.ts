@@ -13,7 +13,8 @@ const USER_ID = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 
 /**
  * Ce que lève la clé distante de jose (`createRemoteJWKSet`) quand Neon Auth ne sert pas son JWKS :
- * délai dépassé, réponse non 200, JSON illisible, coupure réseau (fetch sans code), jeu de clés invalide.
+ * délai dépassé, réponse non 200, JSON illisible, coupure réseau (fetch sans code), jeu de clés invalide,
+ * clé non importable, plusieurs clés candidates pour un jeton sans kid.
  * Le jeton n'y est pour rien : panne, jamais un refus.
  */
 export const JWKS_OUTAGES: [string, () => unknown][] = [
@@ -34,6 +35,14 @@ export const JWKS_OUTAGES: [string, () => unknown][] = [
   ],
   ["coupure réseau (TypeError sans code)", () => new TypeError("fetch failed")],
   ["jeu de clés invalide (ERR_JWKS_INVALID)", () => new errors.JWKSInvalid()],
+  [
+    "clé publiée non importable (ERR_JOSE_NOT_SUPPORTED)",
+    () => new errors.JOSENotSupported("Unsupported JWK"),
+  ],
+  [
+    "jeton sans kid et JWKS à plusieurs clés (ERR_JWKS_MULTIPLE_MATCHING_KEYS)",
+    () => new errors.JWKSMultipleMatchingKeys(),
+  ],
 ];
 
 /** Erreur réelle de createTokenVerifier quand la clé de vérification lève `cause` sur un jeton bien formé. */

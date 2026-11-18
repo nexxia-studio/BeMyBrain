@@ -130,7 +130,9 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(console.error).not.toHaveBeenCalled();
   });
 
-  it("une panne du JWKS après la garde est une panne (Sentry, échec générique), jamais un renvoi vers /login", async () => {
+  // Emplacement de l'appel seulement : redirectIfRejectedToken est simulé ici. La garantie « une panne du
+  // JWKS ne renvoie jamais vers /login » est dans src/lib/session.test.ts (vraies erreurs de withUserDb).
+  it("une erreur non reconnue comme jeton refusé suit le chemin des pannes (Sentry, échec générique)", async () => {
     runActionWithToken.mockRejectedValue(
       new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT"),
     );

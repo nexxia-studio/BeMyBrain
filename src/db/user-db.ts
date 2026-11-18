@@ -44,8 +44,15 @@ export class TokenVerificationUnavailableError extends Error {
 }
 
 // Codes jose d'un refus du jeton lui-même : expiré, claims (iss, aud, exp requis), signature, forme, algorithme.
-// ERR_JWKS_NO_MATCHING_KEY (kid absent) aussi : createRemoteJWKSet ne le lève qu'avec un JWKS lu avec succès
-// (rechargé, ou lu il y a moins de 30 s) ; un rechargement en échec lève sa propre erreur, classée en panne.
+// Comportement réel verrouillé par src/db/client.test.ts (« vrai JWKS distant de jose »), jose 6.2.17.
+// - ERR_JWKS_NO_MATCHING_KEY (kid absent) = refus : createRemoteJWKSet ne le lève qu'avec un JWKS lu avec
+//   succès (rechargé, ou lu il y a moins de `cooldownDuration`, 30 s par défaut) ; un rechargement en échec
+//   lève sa propre erreur, classée en panne. Limite assumée : juste après une rotation de clé, pendant ces
+//   30 s, un jeton légitime au nouveau kid est refusé (→ /login), sans rechargement du JWKS.
+// - ERR_JOSE_NOT_SUPPORTED = panne : côté jeton, jose ne le lève que pour un en-tête `crit` inconnu, jamais
+//   émis par Neon Auth ; côté JWKS, il vient de l'import d'une clé mal publiée.
+// - ERR_JWKS_MULTIPLE_MATCHING_KEYS = panne : jeton sans kid face à un JWKS à plusieurs clés, jose
+//   n'essaie pas chaque candidate ; c'est la publication des clés, pas le jeton, qui empêche de conclure.
 // Tout le reste (ERR_JWKS_TIMEOUT, ERR_JOSE_GENERIC, ERR_JWKS_INVALID, TypeError réseau sans code…) = panne.
 const TOKEN_REFUSAL_CODES = new Set([
   "ERR_JWT_EXPIRED",
@@ -54,7 +61,6 @@ const TOKEN_REFUSAL_CODES = new Set([
   "ERR_JWS_INVALID",
   "ERR_JWT_INVALID",
   "ERR_JOSE_ALG_NOT_ALLOWED",
-  "ERR_JOSE_NOT_SUPPORTED",
   "ERR_JWKS_NO_MATCHING_KEY",
 ]);
 

@@ -321,6 +321,36 @@ describe("session expirée : renvoi vers /login (QA-1)", () => {
     await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
   });
 
+  it("journalise un jeton refusé par son seul code jose (erreur de configuration iss/aud visible)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    actionCall("https://bemybrain.test/settings");
+    resolveMembership.mockRejectedValue(
+      new RejectedToken("ERR_JWT_CLAIM_VALIDATION_FAILED"),
+    );
+
+    await requireSessionWithToken().catch(() => {});
+
+    expect(warn.mock.calls).toEqual([
+      [
+        "[session] jeton refusé, renvoi vers /login",
+        { code: "ERR_JWT_CLAIM_VALIDATION_FAILED" },
+      ],
+    ]);
+    warn.mockRestore();
+  });
+
+  it("journalise un jeton refusé sans code par un code fixe, rien d'autre", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    actionCall("https://bemybrain.test/settings");
+
+    await redirectIfRejectedToken(new RejectedToken()).catch(() => {});
+
+    expect(warn.mock.calls).toEqual([
+      ["[session] jeton refusé, renvoi vers /login", { code: "unknown" }],
+    ]);
+    warn.mockRestore();
+  });
+
   it("après la garde, une autre erreur ne redirige pas", async () => {
     actionCall("https://bemybrain.test/settings");
 
