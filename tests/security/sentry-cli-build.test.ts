@@ -300,7 +300,10 @@ describe("CLI Sentry au build", () => {
 function fakeWebpackCompiler() {
   const taps = new Map<string, ((...args: unknown[]) => unknown)[]>();
   const hook = (name: string) => {
-    const register = (_plugin: unknown, fn: (...args: unknown[]) => unknown) => {
+    const register = (
+      _plugin: unknown,
+      fn: (...args: unknown[]) => unknown,
+    ) => {
       taps.set(name, [...(taps.get(name) ?? []), fn]);
     };
     return { tap: register, tapAsync: register, tapPromise: register };
@@ -384,7 +387,6 @@ describe("CLI Sentry au build webpack (`next build --webpack`)", () => {
       expect.arrayContaining(["release.set-commits", "release.deploy"]),
     );
   });
-
 });
 
 /** Erreur levée au chargement de next.config.ts, undefined s'il se charge. */
