@@ -1,7 +1,7 @@
 # Migrations et seed de production (ADR-010) : au push sur main, depuis l'environnement GitHub protégé
 # `production`, le seul endroit où existe l'accès propriétaire de la branche Neon production.
 # Ordre avec Vercel : Vercel construit la production en parallèle, mais une « Deployment Check »
-# GitHub (Vercel > Settings > Build and Deployment > Deployment Checks) sur le job « Migrer la production »
+# GitHub (Vercel > Settings > Build and Deployment > Deployment Checks) sur le commit status « Migrer la production »
 # retient l'attribution du domaine de production jusqu'au succès de ce job. Aucun secret Vercel.
 # Nom du job unique dans le dépôt : Vercel et GitHub identifient les checks par ce nom.
 name: Production
@@ -25,17 +25,25 @@ jobs:
     timeout-minutes: 15
     environment: production
     # Permissions du job : elles remplacent celles du workflow, d'où contents: read recopié.
-    # actions: read et statuses: write pour le commit status de Vercel, rien de plus large.
+    # statuses: write pour le commit status lu par la Deployment Check de Vercel, rien de plus large.
+    # Seul workflow du dépôt à avoir statuses: write (verrouillé par scripts/ci/workflows.test.ts).
     permissions:
       contents: read
-      actions: read
       statuses: write
     steps:
-      # Deployment Check Vercel : pose un commit status « Migrer la production » (en attente, puis succès ou
-      # échec en fin de job), que l'import par SHA de Vercel voit. GITHUB_TOKEN par défaut, aucun secret.
-      - uses: vercel/repository-dispatch/actions/status@30f760c6640485cd92f8c785ef361382555fb712 # v1
-        with:
-          name: Migrer la production
+      # Deployment Check Vercel : commit status « Migrer la production » sur le commit poussé, en attente ici,
+      # succès ou échec au dernier pas. gh (préinstallé sur le runner) et le GITHUB_TOKEN du job : aucune
+      # action tierce, aucun secret. Avant l'install : aucun code de dépendance n'a encore tourné.
+      - name: Statut Vercel en attente
+        run: >-
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA"
+          -f state=pending -f context="Migrer la production"
+          -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          NODE_OPTIONS: ""
+          BASH_ENV: ""
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -62,5 +70,20 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SEED_OWNER_USER_ID: ${{ vars.SEED_OWNER_USER_ID }}
+          NODE_OPTIONS: ""
+          BASH_ENV: ""
+      # Toujours exécuté, échec, annulation et délai dépassé compris : success seulement si tout le job a
+      # réussi, failure sinon (jamais laissé en attente). job.status passe par l'environnement, pas par le script.
+      - name: Statut Vercel final
+        if: always()
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then state=success; else state=failure; fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
+            -f state="$state" -f context="Migrer la production" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          JOB_STATUS: ${{ job.status }}
           NODE_OPTIONS: ""
           BASH_ENV: ""
