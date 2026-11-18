@@ -47,6 +47,52 @@ function contains(fingerprint: string) {
 }
 const containsGsap = contains(GSAP_FINGERPRINT);
 
+// Le chargeur d'un import dynamique nomme les morceaux à télécharger par leur chemin.
+const CHUNK_PATH = /static\/chunks\/[\w.-]+\.js/g;
+// Appel d'un module chargé à la demande par Turbopack (`e.A(31427)`), dont la définition peut vivre dans un
+// autre petit morceau (constaté le 2026-11-18 : le chargeur sorti de sentry-client dans un morceau de 214 octets).
+const ASYNC_MODULE_CALL = /\.A\((\d+)\)/g;
+// Niveaux d'indirection suivis depuis sentry-client (un suffit aujourd'hui).
+const MAX_LOADER_DEPTH = 3;
+
+function readChunk(file: string): string {
+  return readFileSync(join(NEXT_DIR, file), "utf8");
+}
+
+/** Morceaux qui définissent le module `id` : entrée `,<id>,<fabrique>` du tableau poussé dans TURBOPACK. */
+function chunksDefining(id: string, chunks: string[]): string[] {
+  const definition = new RegExp(`[,[]${id},(?:\\(|[\\w$]+=>|function)`);
+  return chunks.filter((file) => definition.test(readChunk(file)));
+}
+
+/**
+ * Chemins de morceaux que sentry-client fait télécharger : ceux nommés dans son morceau, et ceux nommés dans
+ * les morceaux qui définissent les modules qu'il appelle par `.A(<id>)` (jusqu'à MAX_LOADER_DEPTH niveaux).
+ */
+function chunksLoadedFrom(start: string, chunks: string[]): string[] {
+  const loaded = new Set<string>();
+  const seenIds = new Set<string>();
+  let loaders = [start];
+  for (
+    let depth = 0;
+    depth <= MAX_LOADER_DEPTH && loaders.length > 0;
+    depth++
+  ) {
+    const next: string[] = [];
+    for (const loader of loaders) {
+      const source = readChunk(loader);
+      for (const path of source.match(CHUNK_PATH) ?? []) loaded.add(path);
+      for (const [, id] of source.matchAll(ASYNC_MODULE_CALL)) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+        next.push(...chunksDefining(id, chunks));
+      }
+    }
+    loaders = next;
+  }
+  return [...loaded];
+}
+
 function initialFiles(): string[] {
   const build = readJson<BuildManifest>("build-manifest.json");
   const entries = readClientReferenceManifest().entryJSFiles[ENTRY] ?? [];
@@ -85,12 +131,9 @@ describe("bundle initial de /dashboard", () => {
       .map((name) => `static/chunks/${name}`);
     const client = chunks.filter(contains(SENTRY_CLIENT_FINGERPRINT));
     expect(client, "morceau de sentry-client introuvable").toHaveLength(1);
-    // Le chargeur de l'import dynamique nomme les morceaux à télécharger par leur chemin.
-    const source = readFileSync(join(NEXT_DIR, client[0] ?? ""), "utf8");
-    const loaded = [
-      ...new Set(source.match(/static\/chunks\/[\w.-]+\.js/g) ?? []),
-    ];
+    const loaded = chunksLoadedFrom(client[0] ?? "", chunks);
 
+    expect(loaded, "aucun morceau chargé par sentry-client").not.toEqual([]);
     expect(loaded.filter(contains(SENTRY_FINGERPRINT))).not.toEqual([]);
   });
 
