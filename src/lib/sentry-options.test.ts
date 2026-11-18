@@ -1,6 +1,6 @@
 // @vitest-environment node
 import type { Breadcrumb, ErrorEvent } from "@sentry/nextjs";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -357,20 +357,107 @@ describe("fil d'Ariane envoyé à Sentry", () => {
     });
 
     expect(kept?.data).toEqual({
-      url: "https://api.example.test/x",
+      url: "https://api.example.test",
       "http.method": "GET",
     });
   });
 
-  it("un clic garde son sélecteur", () => {
+  it("un clic ne garde que la balise de l'élément cliqué, sans libellé ni parent", () => {
     const { beforeBreadcrumb } = activeOptions();
 
     const kept = beforeBreadcrumb({
       category: "ui.click",
-      message: "main > button",
+      message:
+        'main#tache-rdv.liste > li.min-h-11[title="RDV médecin"] > button#supprimer-rdv.min-h-11[aria-label="Supprimer la tâche RDV médecin"][type="submit"][name="rdv"][title="RDV médecin"]',
+      data: { "ui.component_name": "TaskCard" },
     });
 
-    expect(kept?.message).toBe("main > button");
+    expect(kept).toEqual({ category: "ui.click", message: "button" });
+  });
+
+  it("un libellé contenant « > » ne fait pas passer un de ses mots pour une balise", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "ui.click",
+      message: 'div > button[aria-label="RDV > medecin"]',
+    });
+
+    expect(kept?.message).toBe("button");
+  });
+
+  it.each([
+    ["div.a > TaskCard", "nom de composant (data-sentry-component)"],
+    ["TaskCard", "nom de composant seul"],
+    ["<unknown>", "élément inconnu"],
+    ['div > "]', "segment sans balise"],
+  ])("un clic sans balise sûre (%s, %s) part sans message", (message) => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "ui.click",
+      message,
+      data: { "ui.component_name": "TaskCard" },
+    });
+
+    expect(kept).toEqual({ category: "ui.click" });
+  });
+});
+
+describe("URL des fils d'Ariane", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function scrubbedUrls(data: Record<string, unknown>) {
+    return activeOptions().beforeBreadcrumb({ category: "fetch", data })?.data;
+  }
+
+  it("une URL d'un autre site est réduite à son origine", () => {
+    vi.stubGlobal("location", { origin: "https://app.example.test" });
+
+    expect(
+      scrubbedUrls({
+        url: "https://api.autre.test:8443/v1/taches/rdv-medecin?jeton=x#y",
+        from: "//cdn.autre.test/a/b?c=d",
+        to: "https://app.example.test.autre.test/x",
+      }),
+    ).toEqual({
+      url: "https://api.autre.test:8443",
+      from: "https://cdn.autre.test",
+      to: "https://app.example.test.autre.test",
+    });
+  });
+
+  it("une URL absolue de la même origine que la page est réduite à son chemin", () => {
+    vi.stubGlobal("location", { origin: "https://app.example.test" });
+
+    expect(
+      scrubbedUrls({
+        url: "https://app.example.test/api/x?email=antoine%40example.test#f",
+      }),
+    ).toEqual({ url: "/api/x" });
+  });
+
+  it("côté serveur (sans location), toute URL absolue est réduite à son origine", () => {
+    expect(scrubbedUrls({ url: "https://app.example.test/api/x?q=1" })).toEqual(
+      { url: "https://app.example.test" },
+    );
+  });
+
+  it("une URL relative garde son chemin, sans query ni fragment", () => {
+    expect(scrubbedUrls({ url: "/api/x?q=1#f", to: "taches/1#f" })).toEqual({
+      url: "/api/x",
+      to: "taches/1",
+    });
+  });
+
+  it.each([
+    ["https://rdv médecin.test/x", "absolue non analysable"],
+    ["data:text/plain,RDV médecin", "sans origine"],
+    ["//[RDV médecin", "sans protocole non analysable"],
+  ])("une URL %s (%s) est retirée", (url) => {
+    expect(scrubbedUrls({ url, method: "GET" })).toEqual({ method: "GET" });
   });
 });
 

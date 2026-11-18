@@ -43,7 +43,7 @@ afterEach(async () => {
   client = undefined;
 });
 
-async function sentEnvelopes(): Promise<string[]> {
+async function sentEnvelopes(beforeCapture?: () => void): Promise<string[]> {
   const bodies: string[] = [];
   client = sdk.init({
     ...sentryOptions({ SENTRY_DSN: DSN, VERCEL_ENV: "preview" }),
@@ -57,6 +57,7 @@ async function sentEnvelopes(): Promise<string[]> {
         return { statusCode: 200 };
       }),
   });
+  beforeCapture?.();
   sdk.captureException(new Error("panne"));
   // La session ouverte par browserSessionIntegration part d'elle-même au premier temps mort du navigateur ;
   // envoyée ici sans attendre.
@@ -82,5 +83,31 @@ describe("enveloppes du client Sentry navigateur", () => {
     expect(session).toBeDefined();
     expect(session).not.toContain("{{auto}}");
     expect(session).not.toContain("ip_address");
+  });
+
+  it("un clic part réduit à la balise de l'élément, sans libellé, id, classe ni composant", async () => {
+    const bodies = await sentEnvelopes(() => {
+      document.body.innerHTML = `
+        <main id="liste-rdv" class="grille">
+          <section data-sentry-component="TaskCard">
+            <button id="supprimer-rdv" class="min-h-11" type="submit" name="rdv-medecin"
+              aria-label="Supprimer la tâche RDV médecin" title="RDV médecin">x</button>
+          </section>
+        </main>`;
+      document.querySelector("button")?.click();
+    });
+
+    const event = bodies.find((body) => body.includes('"type":"event"'));
+    expect(event).toBeDefined();
+    const breadcrumbs = (
+      JSON.parse(event?.split("\n")[2] ?? "{}") as {
+        breadcrumbs?: { category?: string; message?: string; data?: unknown }[];
+      }
+    ).breadcrumbs;
+    const click = breadcrumbs?.find((crumb) => crumb.category === "ui.click");
+    // Le SDK a bien sérialisé le clic (élément de data-sentry-component : nom du composant) ; il part vidé.
+    expect(click?.message).toBe("button");
+    expect(click).not.toHaveProperty("data");
+    expect(event).not.toMatch(/RDV|rdv|TaskCard|supprimer|min-h-11|grille/);
   });
 });

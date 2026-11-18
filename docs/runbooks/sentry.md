@@ -16,6 +16,7 @@ Dernière vérification : 2026-11-18 (tâche 19 du plan socle).
 
 ## Données personnelles
 - Aucune : `dataCollection` tout coupé (ni IP, ni cookies, ni corps, ni query string), en-têtes en liste blanche, `user` réduit à `id`, messages masqués.
+- Fils d'Ariane : un clic est réduit au type d'élément (`button`, sans libellé, id, classe ni composant) ; une URL d'un autre site est réduite à son origine, une URL de l'app à son chemin, sans query ni fragment.
 - IP non stockée côté projet Sentry (réglage du projet). Pas de session replay, pas de tracing.
 
 ## Ce que Sentry déduit côté serveur (constaté sur BEMYBRAIN-1, preview, 2026-11-18)

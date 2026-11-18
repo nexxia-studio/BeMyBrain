@@ -63,6 +63,11 @@ const KEPT_CONTEXTS = new Set([
 // Fils d'Ariane dont le message ou les données peuvent porter une saisie ou un objet journalisé.
 const CONTENTLESS_BREADCRUMBS = new Set(["ui.input", "console"]);
 const URL_BREADCRUMB_KEYS = ["url", "from", "to"] as const;
+// Base fictive pour résoudre une URL relative ; une URL qui en sort (« //hôte/… ») vise un autre site.
+const RELATIVE_BASE = "https://relative.invalid";
+// Balise HTML telle que la sérialise le SDK (minuscules), suivie de rien, d'un id, d'une classe ou d'un attribut.
+// Un nom de composant (data-sentry-component, ex. « TaskCard ») ne passe pas : une balise ou rien.
+const SAFE_TAG = /^([a-z][a-z0-9-]*)(?=$|[#.[])/;
 // Données des fils HTTP serveur (conventions OpenTelemetry) qui portent la query string ou le fragment.
 const QUERY_BREADCRUMB_KEYS = [
   "url.query",
@@ -180,6 +185,45 @@ export function scrubEvent<T extends Event>(event: T): T {
   return scrubbed;
 }
 
+/** Dernier segment d'un sélecteur « a > b > c », sans couper sur un « > » placé entre guillemets (libellé). */
+function lastSelectorSegment(selector: string): string {
+  let start = 0;
+  let quoted = false;
+  for (let i = 0; i < selector.length; i++) {
+    if (selector[i] === '"') quoted = !quoted;
+    else if (!quoted && selector.startsWith(" > ", i)) start = i + 3;
+  }
+  return selector.slice(start);
+}
+
+/**
+ * Message d'un clic (`ui.click`) : sélecteur CSS de l'élément et de ses parents, avec id, classes, aria-label,
+ * title, name, alt (htmlTreeAsString, @sentry/browser-utils 11.13.0), ou nom de composant. Seule la balise
+ * de l'élément cliqué est gardée ; rien si elle n'est pas sûre.
+ */
+function clickedTag(message: string | undefined): string | undefined {
+  if (message === undefined) return undefined;
+  return SAFE_TAG.exec(lastSelectorSegment(message))?.[1];
+}
+
+/**
+ * URL d'un fil : relative ou de la page → chemin sans query ni fragment ; autre site (ou toute URL absolue
+ * côté serveur, sans `location`) → origine seule ; non analysable ou sans origine → undefined (retirée).
+ */
+function scrubBreadcrumbUrl(value: string): string | undefined {
+  const pageOrigin = (globalThis as { location?: { origin?: string } }).location
+    ?.origin;
+  let resolved: URL;
+  try {
+    resolved = new URL(value, RELATIVE_BASE);
+  } catch {
+    return undefined;
+  }
+  if (resolved.origin === RELATIVE_BASE) return withoutQuery(value);
+  if (resolved.origin === "null") return undefined;
+  return resolved.origin === pageOrigin ? resolved.pathname : resolved.origin;
+}
+
 function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
   if (breadcrumb.category && CONTENTLESS_BREADCRUMBS.has(breadcrumb.category)) {
     const { message, data, ...rest } = breadcrumb;
@@ -187,10 +231,20 @@ function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
     void data;
     return rest;
   }
+  if (breadcrumb.category?.startsWith("ui.")) {
+    // `data` retiré : il porte le nom du composant (ui.component_name).
+    const { message, data, ...rest } = breadcrumb;
+    void data;
+    const tag = clickedTag(message);
+    return tag === undefined ? rest : { ...rest, message: tag };
+  }
   if (!breadcrumb.data) return breadcrumb;
   const data = { ...breadcrumb.data };
   for (const key of URL_BREADCRUMB_KEYS) {
-    if (typeof data[key] === "string") data[key] = withoutQuery(data[key]);
+    if (typeof data[key] !== "string") continue;
+    const url = scrubBreadcrumbUrl(data[key]);
+    if (url === undefined) delete data[key];
+    else data[key] = url;
   }
   for (const key of QUERY_BREADCRUMB_KEYS) delete data[key];
   return { ...breadcrumb, data };
