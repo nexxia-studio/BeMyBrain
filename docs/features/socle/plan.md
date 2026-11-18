@@ -146,7 +146,7 @@
     14. Merge dans `main` : « Migrer la production » vert, puis domaine de production attribué ; seed : « workspace déjà présent » ou créé une fois.
     15. Essai d'installation iPhone (Safari) et Android (Chrome) sur l'URL HTTPS de production, audit d'installabilité Chrome. Fait le 2026-11-18 : iPhone validé (et message « trop de tentatives » vu au 11e envoi), audit Chrome sans erreur ; Android restant.
 
-- [ ] **18. Vérifier la restauration de la production** [manuel] (BRAIN-4)
+- [x] **18. Vérifier la restauration de la production** [manuel] (BRAIN-4) — 2026-11-18, runbook `docs/runbooks/restauration-production.md` (copies lues puis supprimées ; dates obtenues différentes des dates demandées, écart noté ; règle : 6 h)
   - Actions : après le seed de production, restaurer la branche Neon `production` à un instant passé sur une branche de test, lire le workspace d'Antoine, supprimer la branche. Noter la fenêtre de restauration de la formule Neon.
   - Fini quand : procédure et date de vérification écrites dans un runbook dans `docs/`.
 
