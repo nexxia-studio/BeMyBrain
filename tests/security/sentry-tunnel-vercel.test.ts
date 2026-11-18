@@ -58,6 +58,8 @@ beforeEach(() => {
   vi.stubEnv("VERCEL", "1");
   vi.stubEnv("VERCEL_ENV", "preview");
   vi.stubEnv("SENTRY_DSN", DSN);
+  // Posée par `next build` (Turbopack, défaut de Next 16) avant de lire next.config.ts ; exigée par le garde-fou.
+  vi.stubEnv("TURBOPACK", "auto");
   process.argv = [...originalArgv, "build"];
 });
 

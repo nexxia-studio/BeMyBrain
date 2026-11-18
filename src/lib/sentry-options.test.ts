@@ -1264,3 +1264,29 @@ describe("audit de 9e34af1", () => {
     expect(elapsed).toBeLessThan(2000);
   });
 });
+
+describe("Sentry pendant le build Next", () => {
+  it("prérendu de `next build` (NEXT_PHASE=phase-production-build) : inactif, même avec DSN valide en production", () => {
+    const options = sentryOptions({
+      SENTRY_DSN: DSN,
+      VERCEL_ENV: "production",
+      NEXT_PHASE: "phase-production-build",
+    });
+
+    expect(options.enabled).toBe(false);
+    expect(options.dsn).toBeUndefined();
+  });
+
+  it.each([undefined, "phase-production-server"])(
+    "hors build (NEXT_PHASE=%s) : actif",
+    (phase) => {
+      const options = sentryOptions({
+        SENTRY_DSN: DSN,
+        VERCEL_ENV: "production",
+        NEXT_PHASE: phase,
+      });
+
+      expect(options.enabled).toBe(true);
+    },
+  );
+});
