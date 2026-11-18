@@ -71,6 +71,11 @@ Aucune tâche ouverte : les tâches 1 à 21 sont dans « Terminé ». Reste les 
   - Constat : session expirée, une action (ex. bascule Privé / Pro) répond « Choix non enregistré. Réessaie. » sans renvoyer vers `/login` ; chaque nouvel essai échoue de même.
   - À faire : sur une action refusée faute de session, renvoyer vers `/login` ; après connexion, revenir à la page d'origine si c'est simple (chemin interne relatif seulement, jamais une URL externe : pas de redirection ouverte).
   - Test à écrire d'abord : action avec session expirée → redirection vers `/login` (et paramètre de retour validé) ; e2e session expirée.
+  - Précisions d'Antoine (2026-11-18) :
+    - Cause d'abord : le premier test rouge établit la vraie cause (renvoi avalé côté client, ou session refusée / jeton rejeté sans renvoi côté serveur) avant tout code de correction ; la cause est rapportée.
+    - Détection serveur (`src/lib/session.ts`) : pas de jeton, session refusée par Neon Auth ou jeton rejeté (`InvalidTokenError`) → `/login` ; Neon Auth indisponible (`AuthUnavailableError`) → page d'erreur, jamais `/login`.
+    - Page de retour : `/login?next=<chemin>`, chemin lu dans l'en-tête `Referer`, retenu seulement si son origine est celle de l'app ; on ne garde que le chemin (ni paramètres d'URL ni fragment). Revalidé à la connexion ; sinon `/dashboard`. Test : `//`, `\`, URL complète, autre origine, chemin avec paramètres.
+    - Côté client, mécanisme commun : le renvoi vers `/login` passe partout où une action est attrapée (bascule Privé / Pro et filtre d'espace via `use-optimistic-preference.ts`, palette `PalettePanel.tsx`, changement de langue `LocalePicker.tsx`, et les `catch` serveur de `src/app/(app)/actions.ts`), par un seul utilitaire partagé, pas un correctif par composant.
   - Fini quand : tests verts, reviewer et security-auditor OK.
 
 - [ ] **QA-2. /login ouvert en étant connecté → renvoi vers le tableau de bord** (QA socle du 2026-11-18, décision d'Antoine)
