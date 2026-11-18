@@ -1,7 +1,7 @@
 import "server-only";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 import { appOrigin, returnPath } from "@/lib/auth/return-path";
@@ -111,6 +111,29 @@ export async function requireSessionToken(): Promise<string> {
  */
 export async function requireSessionWithToken(): Promise<ResolvedSession> {
   return resolveSession();
+}
+
+/**
+ * Vrai si la requête porte une session que les pages de (app) accepteraient (QA-2 : /login ouvert en étant
+ * connecté → renvoi). Même critère que requireSession (JWT obtenu, puis accepté par la base), jamais le seul
+ * cache de getSession() : une session présente mais refusée ferait boucler /login ↔ /dashboard. Une
+ * appartenance absente compte comme connecté (le tableau de bord renvoie vers /no-workspace, hors de (app)).
+ * Ne redirige jamais. Tout échec (jeton refusé, auth indisponible, base en panne) → false : le formulaire
+ * reste affiché, la connexion ne dépend pas de ce confort. Erreurs de contrôle de Next relancées.
+ */
+export async function hasActiveSession(): Promise<boolean> {
+  try {
+    const token = await getSessionToken();
+    if (!token) return false;
+    await resolveMembership(token);
+    return true;
+  } catch (error) {
+    unstable_rethrow(error);
+    if (!isRejectedToken(error)) {
+      console.warn("[session] session non vérifiée sur /login");
+    }
+    return false;
+  }
 }
 
 /**

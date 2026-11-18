@@ -25,6 +25,11 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
+  // Erreurs de contrôle de Next (redirect, rendu dynamique) : simulées par le préfixe CONTROL: ou REDIRECT:.
+  unstable_rethrow: vi.fn((error: unknown) => {
+    if (error instanceof Error && /^(CONTROL|REDIRECT):/.test(error.message))
+      throw error;
+  }),
 }));
 
 // Build « react-server » de React, celle que Next charge pour les Server Components : son `cache`
@@ -48,6 +53,7 @@ vi.mock("react", () => {
 });
 
 import {
+  hasActiveSession,
   redirectIfRejectedToken,
   requireSession,
   requireSessionToken,
@@ -339,5 +345,92 @@ describe("syncSessionLocale (après connexion)", () => {
     await expect(run).resolves.toBeUndefined();
     expect(JSON.stringify(warn.mock.calls)).not.toContain(JWT_USER);
     warn.mockRestore();
+  });
+});
+
+describe("hasActiveSession (/login ouvert en étant connecté, QA-2)", () => {
+  it("vrai quand le JWT est obtenu et accepté par la base", async () => {
+    const active = await hasActiveSession();
+
+    expect(active).toBe(true);
+    expect(resolveMembership).toHaveBeenCalledWith("eyJ.jwt.signe");
+  });
+
+  it("vrai aussi sans appartenance : le tableau de bord renverra vers la page sans workspace", async () => {
+    resolveMembership.mockResolvedValue({
+      userId: JWT_USER,
+      workspace: null,
+      locale: null,
+    });
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(true);
+  });
+
+  it("faux sans session, sans rien lire en base", async () => {
+    getSessionToken.mockResolvedValue(null);
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    expect(resolveMembership).not.toHaveBeenCalled();
+  });
+
+  it("faux quand le cache de session dit connecté mais que l'auth refuse le JWT (pas de boucle /login ↔ /dashboard)", async () => {
+    getSession.mockResolvedValue({ user: { id: CACHED_USER } });
+    getSessionToken.mockResolvedValue(null);
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it("faux quand la base refuse le jeton (expiré, signature) : même critère que le tableau de bord", async () => {
+    resolveMembership.mockRejectedValue(new RejectedToken());
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+  });
+
+  it("faux quand l'auth est indisponible : le formulaire reste affiché", async () => {
+    getSessionToken.mockRejectedValue(
+      new Error("Service d'authentification indisponible"),
+    );
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+  });
+
+  it("faux quand la base est en panne, sans journaliser de donnée", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resolveMembership.mockRejectedValue(new Error(`panne ${JWT_USER}`));
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(JWT_USER);
+    warn.mockRestore();
+  });
+
+  it("ne redirige jamais elle-même (appelée depuis /login)", async () => {
+    resolveMembership.mockRejectedValue(new RejectedToken());
+
+    await hasActiveSession();
+
+    const { redirect } = await import("next/navigation");
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("laisse remonter une erreur de contrôle de Next (rendu dynamique)", async () => {
+    const control = new Error("CONTROL:dynamic");
+    getSessionToken.mockRejectedValue(control);
+
+    const run = hasActiveSession();
+
+    await expect(run).rejects.toBe(control);
   });
 });
