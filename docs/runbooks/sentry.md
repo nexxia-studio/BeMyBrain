@@ -7,7 +7,7 @@ Dernière vérification : 2026-11-18 (tâche 19 du plan socle).
 - Formule gratuite. Source maps reportées (BRAIN-35) : piles d'appels minifiées côté navigateur.
 
 ## Activation
-- Actif seulement si `SENTRY_DSN` est défini ET `VERCEL_ENV` vaut `production` ou `preview`. Environnement Sentry = `VERCEL_ENV`.
+- Actif seulement si `SENTRY_DSN` a une origine `https://*.sentry.io` (même règle que la CSP, `sentryDsnOrigin`) ET `VERCEL_ENV` vaut `production` ou `preview`. Un DSN mal formé ou hors sentry.io laisse Sentry inactif, sans erreur. Environnement Sentry = `VERCEL_ENV`.
 - `SENTRY_DSN` posée par Antoine dans Vercel (Production et Preview). Inactif en local, en CI, sous Vitest et Playwright.
 - Options communes : `src/lib/sentry-options.ts`. Navigateur : `src/lib/sentry-client.ts` (SDK chargé à la demande). Serveur : `sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation.ts`.
 
