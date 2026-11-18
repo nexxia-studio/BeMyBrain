@@ -10,10 +10,10 @@
 - Tests : 830 verts à la tâche 21 (2026-11-17, non relancé). Tests rouges : aucun rapporté.
 
 ## Prochaine étape
-Confirmer avec Antoine les étapes 9 (Deployment Checks « Migrer la production »), 10 bis (protection des previews) et 12 (`revoke_sessions_on_password_reset` sur `production`) de la tâche 17 ; puis cocher 17 et faire la tâche 18.
+Confirmer avec Antoine l'étape 9 de la tâche 17 (Deployment Checks « Migrer la production » importé par SHA) ; puis cocher 17 (Android noté restant) et faire la tâche 18.
 
 Commande de reprise :
-`Lis docs/handoff.md et docs/features/socle/plan.md, puis continue : confirme avec moi les étapes 9, 10 bis et 12 de la tâche 17, puis tâche 18.`
+`Lis docs/handoff.md et docs/features/socle/plan.md, puis continue : confirme avec moi l'étape 9 de la tâche 17, puis tâche 18.`
 
 ## Suite
 - Tâche 18 : restauration de `production` sur une branche de test, lecture du workspace, suppression ; fenêtre notée (6 h en gratuit). Runbook dans `docs/`.
@@ -21,7 +21,6 @@ Commande de reprise :
 - Puis `/qa socle`, `/handoff` final. Push libre sur `feat/socle`, jamais `main` sans accord.
 
 ## Questions ouvertes
-- Standard Protection des previews à revérifier ; journal `test` (0000 à 0005) non vérifié (étape 2).
 - E-mails Neon Auth : vérifier qu'ils tutoient. Tâche 9 : une preview hérite-t-elle des comptes de `production` ? À confirmer.
 - MCP Vercel sans accès au pare-feu (404) ; reconnecter l'intégration pour agir depuis Claude.
 - Revue 21 optionnelle : `typedEmail` recopié. Jeton Vercel CI : échéance 2027-02-15. Clone local : `main` en retard, `git pull` avant comparaison.
