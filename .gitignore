@@ -22,3 +22,6 @@ next-env.d.ts
 .vercel
 .DS_Store
 *.pem
+
+# Captures de /qa : gardées en local, hors du dépôt public
+docs/features/*/qa/

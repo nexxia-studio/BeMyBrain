@@ -192,6 +192,18 @@
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
 
+- [ ] **QA-1. Session expirée pendant une action → renvoi vers /login** [security] (QA socle du 2026-11-18, décision d'Antoine)
+  - Constat : session expirée, une action (ex. bascule Privé / Pro) répond « Choix non enregistré. Réessaie. » sans renvoyer vers `/login` ; chaque nouvel essai échoue de même.
+  - À faire : sur une action refusée faute de session, renvoyer vers `/login` ; après connexion, revenir à la page d'origine si c'est simple (chemin interne relatif seulement, jamais une URL externe : pas de redirection ouverte).
+  - Test à écrire d'abord : action avec session expirée → redirection vers `/login` (et paramètre de retour validé) ; e2e session expirée.
+  - Fini quand : tests verts, reviewer et security-auditor OK.
+
+- [ ] **QA-2. /login ouvert en étant connecté → renvoi vers le tableau de bord** (QA socle du 2026-11-18, décision d'Antoine)
+  - Constat : un utilisateur connecté qui ouvre `/login` voit le formulaire.
+  - À faire : session valide sur `/login` → redirection vers `/dashboard`.
+  - Test à écrire d'abord : `/login` avec session → `/dashboard` ; sans session → formulaire.
+  - Fini quand : tests verts, reviewer OK.
+
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. Corps des tâches 1 à 10 retirés le 2026-11-12 : historique dans `git log -p -- docs/features/socle/plan.md`. -->
 - [x] **1. Adapter le kit à Neon + Drizzle et aux ADR 006–009** (BRAIN-2) — 2026-11-11, `42b5a84`
