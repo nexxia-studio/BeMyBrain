@@ -24,7 +24,13 @@ Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et uti
 
 ## Formules gratuites (2026-11-16)
 - Neon reste en formule gratuite (décision d'Antoine) : la branche `production` n'est **pas protégée** (suppression et reset possibles par toute clé du projet ; les branches filles héritent des mots de passe du parent, d'où leur réinitialisation par `scripts/ci/neon-branch.mjs`). Fenêtre de restauration : 6 h.
-- Vercel reste en formule gratuite (Hobby) : Deployment Checks à vérifier dans les réglages du projet ; sinon plan B (déploiement de production déclenché par le workflow après la migration).
+- Vercel reste en formule gratuite (Hobby).
+
+## Limite : ordre migration / mise en ligne (2026-11-18)
+- Aujourd'hui, rien n'empêche Vercel de mettre la production en ligne avant la fin de la migration : au merge dans `main`, le build Vercel et « Migrer la production » tournent en parallèle. La décision « avant le déploiement Vercel » ci-dessus n'est donc pas garantie.
+- Deployment Checks essayé sans succès : l'import « Import from GitHub » répond « No configured checks found », avec le check run du job comme avec le commit status « Migrer la production » posé par `gh api` (vérifié sur le commit de fusion de la PR #5). Recherches arrêtées (décision d'Antoine).
+- Parade en vigueur : migrations rétrocompatibles (`.claude/rules/neon.md`) : ajouter d'abord, retirer dans un déploiement suivant ; le nouveau code doit tourner sur l'ancien schéma.
+- Suite : BRAIN-37, avant le premier module sensible : la CI déploie la production après la migration (déploiement automatique de `main` coupé dans `vercel.json`), comme pour les previews.
 - À réexaminer quand la to-do (premier module à vraies données) part en production.
 
 ## Dépôt public (2026-11-16)
