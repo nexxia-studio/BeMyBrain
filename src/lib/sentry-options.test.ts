@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { sentryDsnOrigin, sentryOptions } from "./sentry-options";
+import { scrubEvent, sentryDsnOrigin, sentryOptions } from "./sentry-options";
 
 // DSN de forme réelle sur sentry.io (seule origine admise), avec une clé et un projet fictifs.
 const DSN = "https://clepublique@o1.ingest.de.sentry.io/42";
@@ -543,5 +543,158 @@ describe("URL des fils d'Ariane, schémas et hôtes d'infrastructure", () => {
     });
 
     expect(kept?.data).toEqual({ url: "https://pasneon.tech" });
+  });
+});
+
+describe("nettoyage complémentaire (audit de sécurité)", () => {
+  const NEON_HOST = "ep-rdv-123456.eu-central-1.aws.neon.tech";
+
+  it("un hôte Neon est masqué dans la valeur d'une exception", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      exception: {
+        values: [
+          { type: "Error", value: `getaddrinfo ENOTFOUND ${NEON_HOST}` },
+        ],
+      },
+    });
+
+    expect(sent?.exception?.values?.[0]?.value).toBe(
+      "getaddrinfo ENOTFOUND [neon]",
+    );
+  });
+
+  it("une URL Postgres vers Neon reste masquée en entier, sans fuite du mot de passe", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: `postgresql://neondb_owner:mdp@${NEON_HOST}/neondb refusé`,
+    });
+
+    expect(sent?.message).toBe("[postgres-url] refusé");
+  });
+
+  it("un e-mail sur un domaine Neon reste masqué en entier", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: `écrire à antoine@${NEON_HOST}`,
+    });
+
+    expect(sent?.message).toBe("écrire à [email]");
+  });
+
+  it.each([
+    [
+      "child_process",
+      "Child process errored with 'connect ECONNREFUSED antoine@example.test'",
+      "Child process errored with 'connect ECONNREFUSED [email]'",
+    ],
+    ["manuel", "appel avec Bearer abc.def-123", "appel avec Bearer [Filtered]"],
+    [
+      "http",
+      `getaddrinfo ENOTFOUND ${NEON_HOST}`,
+      "getaddrinfo ENOTFOUND [neon]",
+    ],
+  ])("le message d'un fil %s est masqué", (category, message, expected) => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({ category, message });
+
+    expect(kept).toEqual({ category, message: expected });
+  });
+
+  it("une valeur url, from ou to qui n'est pas une chaîne est retirée", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: {
+        url: {
+          href: "https://app.example.test/x?email=antoine%40example.test",
+        },
+        from: ["/reset-password?email=antoine%40example.test"],
+        to: 42,
+        method: "GET",
+      },
+    });
+
+    expect(kept?.data).toEqual({ method: "GET" });
+  });
+
+  it("le chemin d'une URL relative est masqué", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url: "/x/antoine@example.com?q=1" },
+    });
+
+    expect(kept?.data).toEqual({ url: "/x/[email]" });
+  });
+
+  it("beforeSend repasse les fils d'Ariane de l'événement au nettoyage", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      breadcrumbs: [
+        {
+          category: "ui.click",
+          message: 'button[aria-label="RDV médecin"]',
+          data: { "ui.component_name": "TaskCard" },
+        },
+        { category: "console", message: "antoine@example.test" },
+        {
+          category: "fetch",
+          message: "Bearer abc.def-123",
+          data: {
+            url: "https://api.autre.test/x?email=antoine%40example.test",
+          },
+        },
+      ],
+    });
+
+    expect(sent?.breadcrumbs).toEqual([
+      { category: "ui.click" },
+      { category: "console" },
+      {
+        category: "fetch",
+        message: "Bearer [Filtered]",
+        data: { url: "https://api.autre.test" },
+      },
+    ]);
+  });
+
+  it("un fil déjà nettoyé ne change plus au second passage", () => {
+    const { beforeBreadcrumb } = activeOptions();
+    const once = [
+      beforeBreadcrumb(
+        { category: "ui.click", message: "div > button#x" },
+        { event: { target: { tagName: "BUTTON" } } },
+      ),
+      beforeBreadcrumb({
+        category: "http",
+        data: { url: `https://${NEON_HOST}/sql` },
+      }),
+      beforeBreadcrumb({
+        category: "fetch",
+        data: { url: "https://api.autre.test/x" },
+      }),
+      beforeBreadcrumb({ category: "fetch", data: { url: "/api/x?q=1" } }),
+    ];
+
+    const twice = scrubEvent({
+      type: undefined,
+      breadcrumbs: once,
+    }).breadcrumbs;
+
+    expect(twice).toEqual(once);
+    expect(once[0]).toEqual({ category: "ui.click", message: "button" });
+    expect(once[1]?.data).toEqual({ url: "https://[neon]" });
   });
 });

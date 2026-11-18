@@ -81,12 +81,14 @@ const QUERY_BREADCRUMB_KEYS = [
 ];
 
 // Secrets ou données personnelles reconnaissables dans un texte libre (message d'erreur, log).
-// Ordre : l'URL Postgres d'abord (son « user:mdp@hôte » ressemble à un e-mail).
+// Ordre : l'URL Postgres d'abord (son « user:mdp@hôte » ressemble à un e-mail) ; l'hôte Neon en dernier
+// (masqué avant, il casserait le masque d'un e-mail ou d'une URL Postgres et en laisserait une partie).
 const TEXT_MASKS: [RegExp, string][] = [
   [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
   [/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu, "[email]"],
+  [/[\w-]+(?:\.[\w-]+)*\.neon\.tech/giu, "[neon]"],
 ];
 
 // Point d'ingestion admis dans la CSP : https, hôte sans caractère spécial, sous-domaine de sentry.io.
@@ -168,6 +170,12 @@ export function scrubEvent<T extends Event>(event: T): T {
     scrubbed.user = event.user.id === undefined ? {} : { id: event.user.id };
   }
   if (event.contexts) scrubbed.contexts = scrubContexts(event.contexts);
+  // Filet : un fil ajouté sans passer par beforeBreadcrumb (ou par une intégration qui le contourne).
+  if (event.breadcrumbs) {
+    scrubbed.breadcrumbs = event.breadcrumbs.map((breadcrumb) =>
+      scrubBreadcrumb(breadcrumb),
+    );
+  }
   if (event.message !== undefined) scrubbed.message = maskText(event.message);
   if (event.logentry) {
     const { message, params } = event.logentry;
@@ -212,6 +220,8 @@ function clickedTag(hint: BreadcrumbHint | undefined): string | undefined {
  * (blob:, data:, ftp:…) ou non analysable → undefined (retirée).
  */
 function scrubBreadcrumbUrl(value: string): string | undefined {
+  // Déjà nettoyée (second passage par scrubEvent) : « [neon] » n'est pas un hôte analysable.
+  if (value === NEON_PLACEHOLDER) return value;
   const pageOrigin = (globalThis as { location?: { origin?: string } }).location
     ?.origin;
   let resolved: URL;
@@ -220,12 +230,14 @@ function scrubBreadcrumbUrl(value: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (resolved.origin === RELATIVE_BASE) return withoutQuery(value);
+  if (resolved.origin === RELATIVE_BASE) return maskText(withoutQuery(value));
   if (!WEB_PROTOCOLS.has(resolved.protocol)) return undefined;
   const host = resolved.hostname;
   if (host === NEON_HOST_SUFFIX.slice(1) || host.endsWith(NEON_HOST_SUFFIX))
     return NEON_PLACEHOLDER;
-  return resolved.origin === pageOrigin ? resolved.pathname : resolved.origin;
+  return resolved.origin === pageOrigin
+    ? maskText(resolved.pathname)
+    : resolved.origin;
 }
 
 function scrubBreadcrumb(
@@ -243,19 +255,28 @@ function scrubBreadcrumb(
     const { message, data, ...rest } = breadcrumb;
     void message;
     void data;
-    const tag = clickedTag(hint);
+    // Sans indice (second passage par scrubEvent), un message déjà réduit à une balise est gardé tel quel.
+    const tag =
+      clickedTag(hint) ??
+      (message !== undefined && SAFE_TAG.test(message) ? message : undefined);
     return tag === undefined ? rest : { ...rest, message: tag };
   }
-  if (!breadcrumb.data) return breadcrumb;
+  const scrubbed: Breadcrumb = { ...breadcrumb };
+  // Message libre d'un fil (intégration child_process de @sentry/node, addBreadcrumb manuel).
+  if (breadcrumb.message !== undefined)
+    scrubbed.message = maskText(breadcrumb.message);
+  if (!breadcrumb.data) return scrubbed;
   const data = { ...breadcrumb.data };
   for (const key of URL_BREADCRUMB_KEYS) {
-    if (typeof data[key] !== "string") continue;
-    const url = scrubBreadcrumbUrl(data[key]);
+    if (!(key in data)) continue;
+    const value: unknown = data[key];
+    const url =
+      typeof value === "string" ? scrubBreadcrumbUrl(value) : undefined;
     if (url === undefined) delete data[key];
     else data[key] = url;
   }
   for (const key of QUERY_BREADCRUMB_KEYS) delete data[key];
-  return { ...breadcrumb, data };
+  return { ...scrubbed, data };
 }
 
 /** Origine https d'un DSN sentry.io (point d'ingestion, sans la clé), pour connect-src ; rien sinon. */
