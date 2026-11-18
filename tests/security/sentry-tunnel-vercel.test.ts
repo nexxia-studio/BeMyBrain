@@ -80,6 +80,7 @@ describe("relais Sentry sur un build Vercel", () => {
 
   it("témoin : mêmes options sans tunnelRoute, le SDK crée la route et la réécriture", async () => {
     vi.resetModules();
+    // Réimport ici : après resetModules, le mock ne rejoue pas la capture des options ; c'est ce chargement qui remplit sdk.options.
     await import("../../next.config");
     const { tunnelRoute, ...withoutTunnelRoute } = sdk.options ?? {};
     void tunnelRoute;

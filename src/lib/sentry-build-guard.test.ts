@@ -65,13 +65,37 @@ describe("garde-fou SENTRY_DSN au build Vercel", () => {
     ).not.toThrow();
   });
 
-  it("sur Vercel mais hors next build (next dev, next start) : rien", () => {
+  it.each(["dev", "start"])(
+    "sur Vercel mais hors next build (next %s) : rien",
+    (command) => {
+      expect(() =>
+        assertSentryDsnAtBuild({ VERCEL: "1", VERCEL_ENV: "preview" }, [
+          "/usr/bin/node",
+          "next",
+          command,
+        ]),
+      ).not.toThrow();
+    },
+  );
+
+  it("VERCEL=1, VERCEL_ENV absent, build : erreur", () => {
     expect(() =>
-      assertSentryDsnAtBuild({ VERCEL: "1", VERCEL_ENV: "preview" }, [
-        "/usr/bin/node",
-        "next",
-        "start",
-      ]),
-    ).not.toThrow();
+      assertSentryDsnAtBuild({ VERCEL: "1", SENTRY_DSN: DSN }, BUILD_ARGV),
+    ).toThrow(/VERCEL_ENV/);
+  });
+
+  it("VERCEL_ENV inattendu : erreur, sans afficher la valeur", () => {
+    let message = "";
+    try {
+      assertSentryDsnAtBuild(
+        { VERCEL: "1", VERCEL_ENV: "valeurinattendue", SENTRY_DSN: DSN },
+        BUILD_ARGV,
+      );
+    } catch (error) {
+      message = (error as Error).message;
+    }
+
+    expect(message).toMatch(/VERCEL_ENV/);
+    expect(message).not.toContain("valeurinattendue");
   });
 });

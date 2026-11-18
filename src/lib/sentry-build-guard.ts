@@ -1,6 +1,6 @@
 // Garde-fou du build Vercel (plan socle, tâche 19) : le DSN est inliné au build (clé `env` de next.config.ts).
 // Une production ou une preview construite sans DSN valide aurait Sentry inactif, sans aucun signal :
-// le build échoue plutôt. Aucun effet en local, en CI (pas de VERCEL), en `vercel dev` ni hors `next build`.
+// le build échoue plutôt. Aucun effet en local, en CI (pas de VERCEL), avec VERCEL_ENV=development ni hors `next build`.
 import { sentryDsnOrigin } from "./sentry-options";
 
 export type SentryBuildEnv = {
@@ -14,18 +14,28 @@ const GUARDED_ENVIRONMENTS = new Set(["production", "preview"]);
 const REMEDY =
   "Dans Vercel, cocher SENTRY_DSN pour Production ET Preview (toutes les branches), au format https://<clé>@<hôte>.sentry.io/<projet>, puis redéployer. Voir docs/runbooks/sentry.md.";
 
-/** Lève une erreur si un build Vercel production/preview n'a pas de DSN https://*.sentry.io. N'affiche jamais la valeur. */
+/** Lève une erreur si un build Vercel n'est pas production/preview ou n'a pas de DSN https://*.sentry.io. N'affiche jamais de valeur. */
 export function assertSentryDsnAtBuild(
   env: SentryBuildEnv,
   argv: readonly string[],
 ): void {
-  // Mêmes conditions que le SDK pour reconnaître un build Vercel (setUpManagedTunnelVercelRoute).
+  // Condition du SDK pour reconnaître un build Vercel (setUpManagedTunnelVercelRoute).
   const isVercelBuild =
     Boolean(env.VERCEL) &&
-    env.VERCEL_ENV !== undefined &&
-    GUARDED_ENVIRONMENTS.has(env.VERCEL_ENV) &&
+    env.VERCEL_ENV !== "development" &&
     argv.includes("build");
   if (!isVercelBuild) return;
+
+  // VERCEL_ENV absente (variables système non exposées) ou inattendue : on ne sait pas si
+  // c'est une production ou une preview, Sentry resterait inactif sans signal. Valeur jamais affichée.
+  if (
+    env.VERCEL_ENV === undefined ||
+    !GUARDED_ENVIRONMENTS.has(env.VERCEL_ENV)
+  ) {
+    throw new Error(
+      "VERCEL_ENV absente ou inattendue pour ce build Vercel (production ou preview attendu) : Sentry serait inactif. Dans Vercel, activer « Automatically expose System Environment Variables », puis redéployer. Voir docs/runbooks/sentry.md.",
+    );
+  }
 
   if (!env.SENTRY_DSN) {
     throw new Error(
