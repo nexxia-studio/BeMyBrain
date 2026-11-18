@@ -549,6 +549,10 @@ describe("URL des fils d'Ariane, schémas et hôtes d'infrastructure", () => {
 describe("nettoyage complémentaire (audit de sécurité)", () => {
   const NEON_HOST = "ep-rdv-123456.eu-central-1.aws.neon.tech";
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("un hôte Neon est masqué dans la valeur d'une exception", () => {
     const { beforeSend } = activeOptions();
 
@@ -671,6 +675,7 @@ describe("nettoyage complémentaire (audit de sécurité)", () => {
   });
 
   it("un fil déjà nettoyé ne change plus au second passage", () => {
+    vi.stubGlobal("location", { origin: "https://app.example.test" });
     const { beforeBreadcrumb } = activeOptions();
     const once = [
       beforeBreadcrumb(
@@ -686,6 +691,11 @@ describe("nettoyage complémentaire (audit de sécurité)", () => {
         data: { url: "https://api.autre.test/x" },
       }),
       beforeBreadcrumb({ category: "fetch", data: { url: "/api/x?q=1" } }),
+      beforeBreadcrumb({
+        category: "fetch",
+        data: { url: "https://app.example.test/x/antoine@example.com?q=1" },
+      }),
+      beforeBreadcrumb({ category: "fetch", data: { url: "/u/a%40b.fr" } }),
     ];
 
     const twice = scrubEvent({
@@ -696,5 +706,118 @@ describe("nettoyage complémentaire (audit de sécurité)", () => {
     expect(twice).toEqual(once);
     expect(once[0]).toEqual({ category: "ui.click", message: "button" });
     expect(once[1]?.data).toEqual({ url: "https://[neon]" });
+    expect(once[4]?.data).toEqual({ url: "/x/[email]" });
+    expect(once[5]?.data).toEqual({ url: "/u/[email]" });
+  });
+});
+
+describe("relecture de 2371036", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["dupont", "rdv-cardiologue-lundi"])(
+    "un clic sans indice dont le message (%s) n'est pas une balise HTML standard part sans message",
+    (message) => {
+      const { beforeBreadcrumb, beforeSend } = activeOptions();
+
+      const first = beforeBreadcrumb({ category: "ui.click", message });
+      const viaEvent = beforeSend({
+        type: undefined,
+        breadcrumbs: [{ category: "ui.click", message }],
+      });
+
+      expect(first).toEqual({ category: "ui.click" });
+      expect(viaEvent?.breadcrumbs).toEqual([{ category: "ui.click" }]);
+    },
+  );
+
+  it("un clic avec un indice à cible illisible part sans message, jamais avec le sien", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb(
+      { category: "ui.click", message: "antoine" },
+      { event: { target: {} } },
+    );
+
+    expect(kept).toEqual({ category: "ui.click" });
+  });
+
+  it("un clic indiqué par une balise HTML de la liste, sans indice, la garde", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({ category: "ui.click", message: "button" });
+
+    expect(kept).toEqual({ category: "ui.click", message: "button" });
+  });
+
+  it("une URL de même origine perd son e-mail du chemin", () => {
+    vi.stubGlobal("location", { origin: "https://app.example.test" });
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url: "https://app.example.test/x/antoine@example.com?q=1" },
+    });
+
+    expect(kept?.data).toEqual({ url: "/x/[email]" });
+  });
+
+  it("un e-mail encodé (%40) dans un chemin est masqué", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url: "/u/a%40b.fr" },
+    });
+
+    expect(kept?.data).toEqual({ url: "/u/[email]" });
+  });
+
+  it("un chemin au codage invalide est retiré", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url: "/u/%E0%A4%A", method: "GET" },
+    });
+
+    expect(kept?.data).toEqual({ method: "GET" });
+  });
+
+  it("un mot de passe en clair (password=, pwd=) est masqué dans un texte", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: "host=ep-x.neon.tech password=secret PWD=autre",
+    });
+
+    expect(sent?.message).toBe(
+      "host=[neon] password=[Filtered] PWD=[Filtered]",
+    );
+  });
+
+  it("les autres valeurs de data d'un fil sont masquées", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "http",
+      data: {
+        foo: "a@b.fr",
+        objet: { email: "a@b.fr" },
+        status_code: 500,
+        ok: false,
+        method: "GET",
+      },
+    });
+
+    expect(kept?.data).toEqual({
+      foo: "[email]",
+      objet: "[Filtered]",
+      status_code: 500,
+      ok: false,
+      method: "GET",
+    });
   });
 });

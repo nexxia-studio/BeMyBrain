@@ -68,6 +68,83 @@ const URL_BREADCRUMB_KEYS = ["url", "from", "to"] as const;
 const RELATIVE_BASE = "https://relative.invalid";
 // Nom de balise HTML, lu sur l'élément cliqué (jamais dans le sélecteur sérialisé, qui porte les libellés).
 const SAFE_TAG = /^[a-z][a-z0-9-]*$/;
+// Balises admises dans un clic sans indice (addBreadcrumb manuel, second passage par scrubEvent) : liste fermée,
+// un mot quelconque (« dupont ») ne passe pas pour une balise.
+const STANDARD_TAGS = new Set([
+  "a",
+  "abbr",
+  "article",
+  "aside",
+  "audio",
+  "b",
+  "body",
+  "button",
+  "canvas",
+  "caption",
+  "circle",
+  "code",
+  "dd",
+  "details",
+  "dialog",
+  "div",
+  "dl",
+  "dt",
+  "em",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "g",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "hr",
+  "i",
+  "iframe",
+  "img",
+  "input",
+  "label",
+  "legend",
+  "li",
+  "main",
+  "menu",
+  "nav",
+  "ol",
+  "optgroup",
+  "option",
+  "output",
+  "p",
+  "path",
+  "picture",
+  "pre",
+  "progress",
+  "rect",
+  "section",
+  "select",
+  "small",
+  "span",
+  "strong",
+  "summary",
+  "svg",
+  "table",
+  "tbody",
+  "td",
+  "textarea",
+  "tfoot",
+  "th",
+  "thead",
+  "time",
+  "tr",
+  "u",
+  "ul",
+  "use",
+  "video",
+]);
 const WEB_PROTOCOLS = new Set(["http:", "https:"]);
 // Hôte d'une branche Neon (identifiant d'infrastructure) : masqué dans les fils.
 const NEON_HOST_SUFFIX = ".neon.tech";
@@ -86,6 +163,7 @@ const QUERY_BREADCRUMB_KEYS = [
 const TEXT_MASKS: [RegExp, string][] = [
   [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
+  [/\b(password|pwd)=\S+/giu, "$1=[Filtered]"],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
   [/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu, "[email]"],
   [/[\w-]+(?:\.[\w-]+)*\.neon\.tech/giu, "[neon]"],
@@ -230,14 +308,29 @@ function scrubBreadcrumbUrl(value: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (resolved.origin === RELATIVE_BASE) return maskText(withoutQuery(value));
+  if (resolved.origin === RELATIVE_BASE) return maskPath(withoutQuery(value));
   if (!WEB_PROTOCOLS.has(resolved.protocol)) return undefined;
   const host = resolved.hostname;
   if (host === NEON_HOST_SUFFIX.slice(1) || host.endsWith(NEON_HOST_SUFFIX))
     return NEON_PLACEHOLDER;
   return resolved.origin === pageOrigin
-    ? maskText(resolved.pathname)
+    ? maskPath(resolved.pathname)
     : resolved.origin;
+}
+
+/** Chemin décodé (un e-mail encodé « a%40b.fr » devient visible au masque) puis masqué ; codage invalide → undefined. */
+function maskPath(path: string): string | undefined {
+  try {
+    return maskText(decodeURIComponent(path));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Valeur libre de `data` d'un fil : texte masqué, nombre, booléen ou vide gardé, objet remplacé. */
+function maskDataValue(value: unknown): unknown {
+  if (value === undefined || value === null) return value;
+  return maskParam(value);
 }
 
 function scrubBreadcrumb(
@@ -255,10 +348,14 @@ function scrubBreadcrumb(
     const { message, data, ...rest } = breadcrumb;
     void message;
     void data;
-    // Sans indice (second passage par scrubEvent), un message déjà réduit à une balise est gardé tel quel.
+    // Avec un indice : seule la balise lue sur la cible, jamais le message. Sans indice (addBreadcrumb manuel,
+    // second passage par scrubEvent) : le message seulement s'il est une balise HTML de la liste fermée.
     const tag =
-      clickedTag(hint) ??
-      (message !== undefined && SAFE_TAG.test(message) ? message : undefined);
+      hint === undefined
+        ? message !== undefined && STANDARD_TAGS.has(message)
+          ? message
+          : undefined
+        : clickedTag(hint);
     return tag === undefined ? rest : { ...rest, message: tag };
   }
   const scrubbed: Breadcrumb = { ...breadcrumb };
@@ -276,6 +373,10 @@ function scrubBreadcrumb(
     else data[key] = url;
   }
   for (const key of QUERY_BREADCRUMB_KEYS) delete data[key];
+  const urlKeys: readonly string[] = URL_BREADCRUMB_KEYS;
+  for (const [key, value] of Object.entries(data)) {
+    if (!urlKeys.includes(key)) data[key] = maskDataValue(value);
+  }
   return { ...scrubbed, data };
 }
 
