@@ -39,7 +39,11 @@ const SUBPROCESS_FUNCTIONS = [
   "spawnSync",
 ] as const;
 
-/** Appels faits au faux paquet `sentry` : chargements, créations de client, commandes. */
+/**
+ * Appels faits au faux paquet `sentry`. `loads` cumule sur tout le fichier : cli.js du plugin ne fait son
+ * `require("sentry")` qu'une fois par processus (cache CommonJS, non vidé par vi.resetModules), quel que soit l'ordre
+ * des tests. `clients` et `commands` sont remis à zéro à chaque test.
+ */
 const cli = {
   loads: [] as string[],
   clients: [] as Record<string, unknown>[],
@@ -99,6 +103,13 @@ function subprocessCalls(): unknown[][] {
   return subprocessSpies.flatMap((spy) => spy.mock.calls);
 }
 
+/** Le vrai paquet `sentry` n'a jamais été évalué : seul le faux a répondu aux `require`. */
+function realSentryPackageLoaded(): boolean {
+  return Object.keys(nodeRequire.cache).some((file) =>
+    /[\\/]node_modules[\\/]sentry[\\/]/.test(file),
+  );
+}
+
 /** Lance la partie d'après compilation du build, comme le fait `next build` sous Turbopack. */
 async function runAfterProductionCompile(config: NextConfig): Promise<void> {
   const hook = (
@@ -115,7 +126,7 @@ async function runAfterProductionCompile(config: NextConfig): Promise<void> {
 }
 
 beforeEach(() => {
-  cli.loads = [];
+  sdk.options = undefined;
   cli.clients = [];
   cli.commands = [];
   // `require("sentry")` (et l'ancien `@sentry/cli`) détourné vers le faux paquet, sans réseau.
@@ -133,8 +144,11 @@ beforeEach(() => {
     }
     return originalLoad.call(this, request, parent, isMain);
   });
+  // Aucun sous-processus réel : tout appel est enregistré puis refusé.
   subprocessSpies = SUBPROCESS_FUNCTIONS.map((name) =>
-    vi.spyOn(childProcess, name),
+    vi.spyOn(childProcess, name).mockImplementation(() => {
+      throw new Error(`sous-processus refusé par le test : ${name}`);
+    }),
   );
 
   // Build Vercel de production sous Turbopack (défaut de `next build` en Next 16), DSN valide.
@@ -150,11 +164,8 @@ beforeEach(() => {
   vi.stubEnv("VERCEL_ENV", "production");
   vi.stubEnv("TURBOPACK", "auto");
   vi.stubEnv("SENTRY_DSN", DSN);
-  // SHA fourni par Vercel : le SDK ne lance pas `git rev-parse` pour nommer la release.
-  vi.stubEnv(
-    "VERCEL_GIT_COMMIT_SHA",
-    "0123456789abcdef0123456789abcdef01234567",
-  );
+  // Côté @sentry/nextjs, c'est `release.create: false` qui évite `git rev-parse` (resolveReleaseName). Le SHA
+  // Vercel ne sert qu'aux témoins : il nomme la release sans git ; chaque témoin pose le sien (stubCommitSha).
   vi.stubEnv("VERCEL_GIT_REPO_OWNER", "proprietaire");
   vi.stubEnv("VERCEL_GIT_REPO_SLUG", "depot");
   vi.stubEnv("VERCEL_URL", "bemybrain.example.test");
@@ -170,6 +181,14 @@ afterEach(() => {
   vi.restoreAllMocks();
   rmSync(projectDir, { recursive: true, force: true });
 });
+
+/**
+ * SHA propre à chaque témoin : le plugin ne pose qu'un deploy par nom de release et par processus
+ * (`_deployedReleases`), un nom partagé rendrait le résultat dépendant de l'ordre des tests.
+ */
+function stubCommitSha(digit: string): void {
+  vi.stubEnv("VERCEL_GIT_COMMIT_SHA", digit.repeat(40));
+}
 
 /** Charge next.config.ts avec le vrai SDK ; remplit sdk.options. */
 async function loadConfig(): Promise<NextConfig> {
@@ -198,28 +217,32 @@ describe("CLI Sentry au build", () => {
   });
 
   it("next.config.ts traité par le vrai SDK : aucun hook d'après compilation, ni CLI chargée, ni sous-processus", async () => {
-    const config = await loadConfig();
+    const loadsBefore = cli.loads.length;
 
-    expect(config.compiler).not.toHaveProperty("runAfterProductionCompile");
-    expect(config).not.toHaveProperty("webpack");
+    const config = await loadConfig();
+    const loadsAfterConfig = cli.loads.slice(loadsBefore);
     await runAfterProductionCompile(config);
 
-    expect(cli.loads).toEqual([]);
+    expect(loadsAfterConfig).toEqual([]);
+    expect(config.compiler).not.toHaveProperty("runAfterProductionCompile");
+    expect(config).not.toHaveProperty("webpack");
+    expect(cli.loads.slice(loadsBefore)).toEqual([]);
     expect(cli.clients).toEqual([]);
     expect(cli.commands).toEqual([]);
     expect(subprocessCalls()).toEqual([]);
   });
 
   it("témoin : hook réactivé (option retirée), le jeton de l'environnement suffit, la CLI pose commits et deploy", async () => {
+    stubCommitSha("a");
     await loadConfig();
-    const { useRunAfterProductionCompileHook, ...withoutHookOption } =
-      sdk.options ?? {};
-    void useRunAfterProductionCompileHook;
+    const withoutHookOption = { ...sdk.options };
+    delete withoutHookOption.useRunAfterProductionCompileHook;
 
-    const config = sdk.real!({}, withoutHookOption);
+    const config = sdk.real!({}, { ...withoutHookOption, telemetry: false });
     await runAfterProductionCompile(config);
 
     expect(cli.loads).toContain("sentry");
+    expect(realSentryPackageLoaded()).toBe(false);
     expect(cli.clients[0]).toMatchObject({ token: "sntrys_jeton_factice" });
     expect(cli.commands).toEqual(
       expect.arrayContaining(["release.set-commits", "release.deploy"]),
@@ -227,11 +250,13 @@ describe("CLI Sentry au build", () => {
   });
 
   it("témoin : hook réactivé avec source maps et création de release, la CLI crée la release et envoie les source maps", async () => {
+    stubCommitSha("b");
     await loadConfig();
     const config = sdk.real!(
       {},
       {
         ...sdk.options,
+        telemetry: false,
         useRunAfterProductionCompileHook: true,
         authToken: "sntrys_autre_jeton_factice",
         sourcemaps: { disable: false },
@@ -240,7 +265,8 @@ describe("CLI Sentry au build", () => {
     );
     await runAfterProductionCompile(config);
 
-    // Pas de cli.loads ici : le cache CommonJS de Node garde `sentry` chargé par le témoin précédent.
+    expect(cli.loads).toContain("sentry");
+    expect(realSentryPackageLoaded()).toBe(false);
     expect(cli.clients[0]).toMatchObject({
       token: "sntrys_autre_jeton_factice",
     });
