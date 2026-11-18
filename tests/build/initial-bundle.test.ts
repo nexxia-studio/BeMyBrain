@@ -18,6 +18,8 @@ const ZOD_FINGERPRINT = "jitless";
 // Porte globale du SDK Sentry (@sentry/core), présente dans tout morceau qui embarque le SDK navigateur.
 // Chargé à la demande par src/lib/sentry-client.ts, seulement si Sentry est actif.
 const SENTRY_FINGERPRINT = "__SENTRY__";
+// Message console de src/lib/sentry-client.ts : repère le morceau qui porte loadSentry et son chargeur.
+const SENTRY_CLIENT_FINGERPRINT = "Sentry indisponible, erreur non envoyée";
 
 type BuildManifest = { rootMainFiles: string[]; polyfillFiles: string[] };
 type ClientReferenceManifest = { entryJSFiles: Record<string, string[]> };
@@ -77,12 +79,19 @@ describe("bundle initial de /dashboard", () => {
     expect(initial.filter(contains(SENTRY_FINGERPRINT))).toEqual([]);
   });
 
-  it("témoin : le SDK Sentry est bien dans un morceau chargé à la demande", () => {
+  it("témoin : le SDK Sentry est dans un morceau chargé à la demande par sentry-client", () => {
     const chunks = readdirSync(join(NEXT_DIR, "static/chunks"))
       .filter((name) => name.endsWith(".js"))
       .map((name) => `static/chunks/${name}`);
+    const client = chunks.filter(contains(SENTRY_CLIENT_FINGERPRINT));
+    expect(client, "morceau de sentry-client introuvable").toHaveLength(1);
+    // Le chargeur de l'import dynamique nomme les morceaux à télécharger par leur chemin.
+    const source = readFileSync(join(NEXT_DIR, client[0] ?? ""), "utf8");
+    const loaded = [
+      ...new Set(source.match(/static\/chunks\/[\w.-]+\.js/g) ?? []),
+    ];
 
-    expect(chunks.some(contains(SENTRY_FINGERPRINT))).toBe(true);
+    expect(loaded.filter(contains(SENTRY_FINGERPRINT))).not.toEqual([]);
   });
 
   it("témoin : gsap est bien dans un morceau chargé à la demande", () => {

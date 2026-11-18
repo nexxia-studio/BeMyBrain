@@ -15,23 +15,32 @@ const options = sentryOptions({
 
 let sdk: Promise<SentrySdk> | undefined;
 
-/** Importe et initialise le SDK une seule fois ; `undefined` si Sentry est inactif. */
+/**
+ * Importe et initialise le SDK une seule fois ; `undefined` si Sentry est inactif. Import échoué (réseau,
+ * déploiement remplacé) : la promesse est oubliée pour qu'un appel suivant retente, et le rejet remonte.
+ */
 export function loadSentry(): Promise<SentrySdk> | undefined {
   if (!options.enabled) return undefined;
-  sdk ??= import("@sentry/nextjs").then((Sentry) => {
-    Sentry.init(options);
-    return Sentry;
-  });
+  sdk ??= import("@sentry/nextjs").then(
+    (Sentry) => {
+      Sentry.init(options);
+      return Sentry;
+    },
+    (error: unknown) => {
+      sdk = undefined;
+      throw error;
+    },
+  );
   return sdk;
 }
 
 /** Envoie une erreur à Sentry après son initialisation ; rien si Sentry est inactif. */
 export function reportClientError(error: unknown): void {
-  // Morceau du SDK introuvable (réseau, déploiement remplacé) : plus personne à qui signaler, on oublie la
-  // promesse pour qu'une erreur suivante retente le chargement.
+  // SDK introuvable ou capture en panne : plus personne à qui signaler, une ligne en console (jamais muet).
+  // Ce message repère aussi ce module dans la build (tests/build/initial-bundle.test.ts).
   loadSentry()
     ?.then((Sentry) => Sentry.captureException(error))
-    .catch(() => {
-      sdk = undefined;
+    .catch((failure: unknown) => {
+      console.error("Sentry indisponible, erreur non envoyée", failure);
     });
 }
