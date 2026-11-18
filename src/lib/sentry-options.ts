@@ -211,7 +211,7 @@ export function sentryDsnOrigin(dsn: string | undefined): string | undefined {
 }
 
 /**
- * Options de `Sentry.init`, identiques sur les trois runtimes. Actif seulement avec un DSN ET sur une
+ * Options de `Sentry.init`, identiques sur les trois runtimes. Actif seulement avec un DSN https://*.sentry.io ET sur une
  * production ou une preview Vercel : jamais en local, en CI, sous Vitest ni sous Playwright.
  * Aucune clé `integrations` ni `replays*` : pas de session replay.
  * Aucun `tracesSampleRate` : pas de tracing ; `tracePropagationTargets` vide : aucun en-tête
@@ -219,8 +219,10 @@ export function sentryDsnOrigin(dsn: string | undefined): string | undefined {
  */
 export function sentryOptions(env: SentryEnv) {
   const environment = env.VERCEL_ENV;
+  // Même règle que la CSP (connect-src) : un DSN hors https://*.sentry.io laisse Sentry inactif, sinon
+  // le navigateur enverrait vers une origine que la CSP bloque, et le serveur vers une origine non vérifiée.
   const enabled =
-    Boolean(env.SENTRY_DSN) &&
+    sentryDsnOrigin(env.SENTRY_DSN) !== undefined &&
     environment !== undefined &&
     ACTIVE_ENVIRONMENTS.has(environment);
 

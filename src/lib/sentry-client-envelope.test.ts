@@ -34,7 +34,7 @@ const sdk = require(
 ) as ClientSdk;
 
 // Clé en `\w+` : le SDK refuse un DSN dont la clé publique contient un tiret.
-const DSN = "https://clepublique@o1.ingest.example.test/42";
+const DSN = "https://clepublique@o1.ingest.de.sentry.io/42";
 
 let client: SentryClient | undefined;
 

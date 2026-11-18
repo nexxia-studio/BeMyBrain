@@ -68,7 +68,7 @@ describe("Sentry navigateur, chargé à la demande", () => {
     expect(sdk.loaded).not.toHaveBeenCalled();
   });
 
-  it("actif : importe le SDK et l'initialise une seule fois avec les options communes", async () => {
+  it("actif : importe le SDK et l'initialise une seule fois avec les options filtrées complètes", async () => {
     const { loadSentry } = await loadModule({
       SENTRY_DSN: DSN,
       VERCEL_ENV: "preview",
@@ -83,8 +83,13 @@ describe("Sentry navigateur, chargé à la demande", () => {
         enabled: true,
         dsn: DSN,
         environment: "preview",
+        dataCollection: expect.objectContaining({ userInfo: false }),
+        tracePropagationTargets: [],
+        beforeSend: expect.any(Function),
+        beforeBreadcrumb: expect.any(Function),
       }),
     );
+    expect(sdk.init.mock.calls[0]?.[0]).not.toHaveProperty("tracesSampleRate");
   });
 
   it("actif : une erreur est envoyée après l'initialisation du SDK", async () => {

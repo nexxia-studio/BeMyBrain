@@ -7,8 +7,8 @@ import { join } from "node:path";
 
 import { sentryDsnOrigin, sentryOptions } from "./sentry-options";
 
-// DSN de forme réelle, sur un domaine réservé aux tests (aucun identifiant de notre projet Sentry).
-const DSN = "https://cle-publique@o1.ingest.example.test/42";
+// DSN de forme réelle sur sentry.io (seule origine admise), avec une clé et un projet fictifs.
+const DSN = "https://clepublique@o1.ingest.de.sentry.io/42";
 
 function activeOptions() {
   return sentryOptions({ SENTRY_DSN: DSN, VERCEL_ENV: "preview" });
@@ -55,6 +55,31 @@ describe("options communes de Sentry", () => {
     expect(options.enabled).toBe(true);
     expect(options.dsn).toBe(DSN);
   });
+
+  it("DSN valide sur sentry.io : Sentry est actif avec ce DSN", () => {
+    const options = sentryOptions({ SENTRY_DSN: DSN, VERCEL_ENV: "preview" });
+
+    expect(options.enabled).toBe(true);
+    expect(options.dsn).toBe(DSN);
+  });
+
+  it.each([
+    "pas une url",
+    "http://clepublique@o1.ingest.sentry.io/42",
+    "https://clepublique@o1.ingest.example.test/42",
+    "https://clepublique@evilsentry.io/42",
+  ])(
+    "DSN hors sentry.io ou non https : Sentry est inactif, même règle que la CSP (%s)",
+    (dsn) => {
+      const options = sentryOptions({
+        SENTRY_DSN: dsn,
+        VERCEL_ENV: "production",
+      });
+
+      expect(options.enabled).toBe(false);
+      expect(options.dsn).toBeUndefined();
+    },
+  );
 
   it("aucune option retirée du SDK v11 : pas de sendDefaultPii", () => {
     const options = activeOptions();
