@@ -23,7 +23,7 @@ Dernière vérification : 2026-11-18 (tâche 19 du plan socle).
 - L'IP de connexion arrive toujours chez Sentry : c'est l'adresse réseau de la requête, aucun SDK ne peut l'éviter.
 - IP, deux verrous : le SDK envoie `infer_ip: "never"` (`dataCollection.userInfo: false`, testé dans `src/lib/sentry-client-envelope.test.ts`), et « Prevent Storing of IP Addresses » est actif sur le projet. Résultat constaté : `user.ip_address` vide.
 - Géolocalisation : Sentry calcule `user.geo` (pays, ville, région) à partir de l'IP de connexion, même avec les deux verrous IP (doc Sentry, « Server-Side Scrubbing », section Geographic Information). Constaté : FR, Paris. Le SDK ne peut pas l'empêcher : le calcul a lieu à l'ingestion.
-- Parade documentée par Sentry : règle d'Advanced Data Scrubbing `[Remove] [Anything] from [$user.geo.**]` (Security & Privacy du projet).
+- Parade documentée par Sentry : règle d'Advanced Data Scrubbing `[Remove] [Anything] from [$user.geo.**]`, posée sur le projet `bemybrain` seulement (Settings → Projects → bemybrain → Security & Privacy). Choix par projet, pas d'organisation (décision d'Antoine, 2026-11-18) : les autres projets Nexxia ne sont pas touchés, et un nouveau projet ne l'hérite pas. À reposer sur chaque projet qui en a besoin.
 - Déduits aussi de l'en-tête User-Agent : navigateur, système, modèle d'appareil (ex. Chrome Mobile, Android 16, Pixel 10). Fuseau et langue viennent du contexte `culture` envoyé par le SDK.
 - Fils d'Ariane : Sentry remplace par `[Filtered]` les valeurs qui ressemblent à un secret (constaté sur deux URL de requêtes `fetch`).
 
