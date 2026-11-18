@@ -821,3 +821,122 @@ describe("relecture de 2371036", () => {
     });
   });
 });
+
+describe("relecture de 2cb0322", () => {
+  function twicePassed(
+    kept: ReturnType<ReturnType<typeof activeOptions>["beforeBreadcrumb"]>,
+  ) {
+    return scrubEvent({ type: undefined, breadcrumbs: kept ? [kept] : [] })
+      .breadcrumbs?.[0];
+  }
+
+  it.each(["MARK", "X-FOO"])(
+    "un clic sur une balise hors liste (%s) part sans message, au premier comme au second passage",
+    (tagName) => {
+      const { beforeBreadcrumb } = activeOptions();
+
+      const kept = beforeBreadcrumb(
+        { category: "ui.click", message: "div > mark" },
+        { event: { target: { tagName } } },
+      );
+
+      expect(kept).toEqual({ category: "ui.click" });
+      expect(twicePassed(kept)).toEqual({ category: "ui.click" });
+    },
+  );
+
+  it("un e-mail encodé deux fois (%2540) dans un chemin est masqué", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url: "/u/a%2540b.fr" },
+    });
+
+    expect(kept?.data).toEqual({ url: "/u/[email]" });
+  });
+
+  it("un chemin encodé plus de trois fois est retiré", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "fetch",
+      data: { url: "/u/a%25252540b.fr", method: "GET" },
+    });
+
+    expect(kept?.data).toEqual({ method: "GET" });
+  });
+
+  it.each([
+    ["/u/100%25", "/u/100%25"],
+    ["/a%3Fb%23c", "/a%3Fb%23c"],
+  ])("le chemin %s reste stable au second passage", (url, expected) => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({ category: "fetch", data: { url } });
+
+    expect(kept?.data).toEqual({ url: expected });
+    expect(twicePassed(kept)).toEqual(kept);
+  });
+
+  it.each(["UI.click", "ui", "Console", "UI.Input"])(
+    "un fil de catégorie %s ne garde ni message ni donnée",
+    (category) => {
+      const { beforeBreadcrumb } = activeOptions();
+
+      const kept = beforeBreadcrumb({
+        category,
+        message: "Supprimer la tâche RDV médecin",
+        data: { "ui.component_name": "TaskCard" },
+      });
+
+      expect(kept).toEqual({ category });
+    },
+  );
+
+  it.each([
+    ["password=secret1", "password=[Filtered]"],
+    ["passwd=secret1", "passwd=[Filtered]"],
+    ["PWD: secret1", "PWD: [Filtered]"],
+    ["secret=secret1", "secret=[Filtered]"],
+    ["token=secret1&x=1", "token=[Filtered]&x=1"],
+    ["user_password=secret1", "user_password=[Filtered]"],
+    ["access_token: secret1", "access_token: [Filtered]"],
+    ['{"password":"secret1","x":1}', '{"password":"[Filtered]","x":1}'],
+    ['{"api_secret": "secret1"}', '{"api_secret": "[Filtered]"}'],
+  ])("le mot de passe de « %s » est masqué", (message, expected) => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({ type: undefined, message });
+
+    expect(sent?.message).toBe(expected);
+  });
+
+  it.each(["mypassword=visible", "passwordless=visible", "tokens"])(
+    "« %s » n'est pas pris pour un mot de passe",
+    (message) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(message);
+    },
+  );
+
+  it("une valeur de data qui est une URL http(s) perd query et fragment", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "http",
+      data: {
+        "http.url": "https://ex.com/a?token=abc",
+        "url.full": "HTTP://ex.com/b#jeton",
+      },
+    });
+
+    expect(kept?.data).toEqual({
+      "http.url": "https://ex.com/a",
+      "url.full": "HTTP://ex.com/b",
+    });
+  });
+});

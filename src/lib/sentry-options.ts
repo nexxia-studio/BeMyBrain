@@ -66,10 +66,12 @@ const CONTENTLESS_BREADCRUMBS = new Set(["ui.input", "console"]);
 const URL_BREADCRUMB_KEYS = ["url", "from", "to"] as const;
 // Base fictive pour résoudre une URL relative ; une URL qui en sort (« //hôte/… ») vise un autre site.
 const RELATIVE_BASE = "https://relative.invalid";
-// Nom de balise HTML, lu sur l'élément cliqué (jamais dans le sélecteur sérialisé, qui porte les libellés).
-const SAFE_TAG = /^[a-z][a-z0-9-]*$/;
-// Balises admises dans un clic sans indice (addBreadcrumb manuel, second passage par scrubEvent) : liste fermée,
-// un mot quelconque (« dupont ») ne passe pas pour une balise.
+// Décodages successifs admis pour le chemin d'une URL de fil (« a%2540b » = deux).
+const MAX_PATH_DECODES = 3;
+// Valeur libre de `data` lue comme une URL : query et fragment retirés.
+const HTTP_URL = /^https?:\/\//i;
+// Seules balises envoyées pour un clic, lues sur l'élément ou, sans indice (addBreadcrumb manuel, second passage
+// par scrubEvent), dans le message : liste fermée, un mot quelconque (« dupont », « x-foo ») ne passe pas.
 const STANDARD_TAGS = new Set([
   "a",
   "abbr",
@@ -163,7 +165,12 @@ const QUERY_BREADCRUMB_KEYS = [
 const TEXT_MASKS: [RegExp, string][] = [
   [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
   [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
-  [/\b(password|pwd)=\S+/giu, "$1=[Filtered]"],
+  // Clé de secret, seule ou en suffixe après « _ » (user_password, access_token), suivie de « = » ou « : »,
+  // y compris en JSON (« "password":"x" ») : la valeur est masquée, la clé et la ponctuation gardées.
+  [
+    /\b((?:\w*?_)?(?:passwd|password|pwd|secret|token))("?\s*[:=]\s*"?)[^\s"',;&}]+/giu,
+    "$1$2[Filtered]",
+  ],
   [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
   [/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu, "[email]"],
   [/[\w-]+(?:\.[\w-]+)*\.neon\.tech/giu, "[neon]"],
@@ -289,7 +296,7 @@ function clickedTag(hint: BreadcrumbHint | undefined): string | undefined {
   const tagName: unknown = (target as { tagName?: unknown }).tagName;
   if (typeof tagName !== "string") return undefined;
   const tag = tagName.toLowerCase();
-  return SAFE_TAG.test(tag) ? tag : undefined;
+  return STANDARD_TAGS.has(tag) ? tag : undefined;
 }
 
 /**
@@ -320,16 +327,38 @@ function scrubBreadcrumbUrl(value: string): string | undefined {
 
 /** Chemin décodé (un e-mail encodé « a%40b.fr » devient visible au masque) puis masqué ; codage invalide → undefined. */
 function maskPath(path: string): string | undefined {
+  // Décodage répété (« a%2540b » → « a%40b » → « a@b ») : un e-mail encodé plusieurs fois reste visible au masque.
+  // Premier décodage en échec → codage invalide, retiré ; échec d'un décodage suivant → « % » littéral, on s'arrête.
+  // Encore décodable après MAX_PATH_DECODES passages → retiré.
+  let decoded: string;
   try {
-    return maskText(decodeURIComponent(path));
+    decoded = decodeURIComponent(path);
   } catch {
     return undefined;
   }
+  for (let pass = 1; ; pass++) {
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      break;
+    }
+    if (next === decoded) break;
+    if (pass >= MAX_PATH_DECODES) return undefined;
+    decoded = next;
+  }
+  // Réencodage de « % », « ? » et « # » : le second passage (scrubEvent) relit le même chemin.
+  return maskText(decoded).replace(
+    /[%?#]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }
 
 /** Valeur libre de `data` d'un fil : texte masqué, nombre, booléen ou vide gardé, objet remplacé. */
 function maskDataValue(value: unknown): unknown {
   if (value === undefined || value === null) return value;
+  if (typeof value === "string" && HTTP_URL.test(value))
+    return maskText(withoutQuery(value));
   return maskParam(value);
 }
 
@@ -337,13 +366,15 @@ function scrubBreadcrumb(
   breadcrumb: Breadcrumb,
   hint?: BreadcrumbHint,
 ): Breadcrumb {
-  if (breadcrumb.category && CONTENTLESS_BREADCRUMBS.has(breadcrumb.category)) {
+  // Catégorie comparée en minuscules : « UI.click » ou « Console » ne contournent pas le nettoyage.
+  const category = breadcrumb.category?.toLowerCase();
+  if (category !== undefined && CONTENTLESS_BREADCRUMBS.has(category)) {
     const { message, data, ...rest } = breadcrumb;
     void message;
     void data;
     return rest;
   }
-  if (breadcrumb.category?.startsWith("ui.")) {
+  if (category === "ui" || category?.startsWith("ui.")) {
     // `data` retiré : il porte le nom du composant (ui.component_name).
     const { message, data, ...rest } = breadcrumb;
     void message;
