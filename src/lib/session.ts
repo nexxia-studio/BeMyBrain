@@ -121,6 +121,15 @@ export async function requireSessionWithToken(): Promise<ResolvedSession> {
  * Ne redirige jamais. Tout échec (jeton refusé, auth indisponible, base en panne) → false : le formulaire
  * reste affiché, la connexion ne dépend pas de ce confort. Erreurs de contrôle de Next relancées.
  */
+// Forme d'un nom de classe : tout autre `name` (modifiable par n'importe quel code) n'est pas journalisé.
+const CLASS_NAME = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
+
+function errorName(error: unknown): string {
+  return error instanceof Error && CLASS_NAME.test(error.name)
+    ? error.name
+    : "unknown";
+}
+
 export async function hasActiveSession(): Promise<boolean> {
   try {
     const token = await getSessionToken();
@@ -130,7 +139,10 @@ export async function hasActiveSession(): Promise<boolean> {
   } catch (error) {
     unstable_rethrow(error);
     if (!isRejectedToken(error)) {
-      console.warn("[session] session non vérifiée sur /login");
+      // Nom de classe seul (panne ou configuration), jamais le message ni la cause.
+      console.warn("[session] session non vérifiée sur /login", {
+        error: errorName(error),
+      });
     }
     return false;
   }

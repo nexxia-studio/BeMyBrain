@@ -10,7 +10,12 @@ const resolveMembership = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
 const requestHeaders = vi.hoisted(() => ({ current: new Headers() }));
 
-vi.mock("@/lib/auth/server", () => ({ getSessionToken, getSession }));
+// AuthUnavailableError réelle ; seules les lectures de session sont simulées.
+vi.mock("@/lib/auth/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/server")>()),
+  getSessionToken,
+  getSession,
+}));
 // Prédicat isRejectedToken réel, sur les vraies erreurs de withUserDb (tests/factories/token-errors.ts) :
 // une panne du JWKS ne doit jamais passer pour un jeton refusé (audit QA-1). Seule la lecture est simulée.
 vi.mock("@/db/client", async () => {
@@ -57,9 +62,12 @@ vi.mock("react", () => {
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
 
+import { AuthUnavailableError } from "@/lib/auth/server";
+
 import {
   InvalidTokenError as RejectedToken,
   JWKS_OUTAGES,
+  TokenVerificationUnavailableError,
   unknownKeyError,
   verificationError,
 } from "../../tests/factories/token-errors";
@@ -455,23 +463,62 @@ describe("hasActiveSession (/login ouvert en étant connecté, QA-2)", () => {
   );
 
   it("faux quand l'auth est indisponible : le formulaire reste affiché", async () => {
-    getSessionToken.mockRejectedValue(
-      new Error("Service d'authentification indisponible"),
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    getSessionToken.mockRejectedValue(new AuthUnavailableError(503));
+
+    const active = await hasActiveSession();
+
+    expect(active).toBe(false);
+    warn.mockRestore();
+  });
+
+  it.each([
+    [new AuthUnavailableError(503), "AuthUnavailableError"],
+    [
+      new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT"),
+      "TokenVerificationUnavailableError",
+    ],
+  ])(
+    "journalise le nom de l'erreur (%s), pour distinguer panne et configuration",
+    async (failure, name) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      resolveMembership.mockRejectedValue(failure);
+
+      await hasActiveSession();
+
+      expect(warn.mock.calls).toEqual([
+        ["[session] session non vérifiée sur /login", { error: name }],
+      ]);
+      warn.mockRestore();
+    },
+  );
+
+  it("faux quand la base est en panne : seul le nom de l'erreur est journalisé, ni message ni cause", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resolveMembership.mockRejectedValue(
+      new Error(`panne ${JWT_USER}`, { cause: new Error("a@b.c") }),
     );
 
     const active = await hasActiveSession();
 
     expect(active).toBe(false);
+    expect(warn.mock.calls).toEqual([
+      ["[session] session non vérifiée sur /login", { error: "Error" }],
+    ]);
+    warn.mockRestore();
   });
 
-  it("faux quand la base est en panne, sans journaliser de donnée", async () => {
+  it("un nom d'erreur hors forme de nom de classe n'est pas journalisé", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    resolveMembership.mockRejectedValue(new Error(`panne ${JWT_USER}`));
+    resolveMembership.mockRejectedValue(
+      Object.assign(new Error("x"), { name: `panne ${JWT_USER}` }),
+    );
 
-    const active = await hasActiveSession();
+    await hasActiveSession();
 
-    expect(active).toBe(false);
-    expect(JSON.stringify(warn.mock.calls)).not.toContain(JWT_USER);
+    expect(warn.mock.calls).toEqual([
+      ["[session] session non vérifiée sur /login", { error: "unknown" }],
+    ]);
     warn.mockRestore();
   });
 
