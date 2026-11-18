@@ -24,6 +24,12 @@ describe("chemin de retour après connexion", () => {
     expect(path).toBe("/settings");
   });
 
+  it("ignore les barres encodées des paramètres d'URL, jetés de toute façon", () => {
+    const path = returnPath(`${APP}/settings?retour=%2Fdashboard`, APP);
+
+    expect(path).toBe("/settings");
+  });
+
   it.each([
     ["//evil.test", "URL sans schéma"],
     ["//evil.test/settings", "URL sans schéma avec chemin"],
@@ -43,6 +49,12 @@ describe("chemin de retour après connexion", () => {
     ["/login/", "la page de connexion avec barre finale"],
     [`${APP}/login?next=/settings`, "la page de connexion en URL complète"],
     ["", "valeur vide"],
+    ["/%2Fevil.test", "barre oblique encodée (%2F)"],
+    ["/%2fevil.test", "barre oblique encodée en minuscules (%2f)"],
+    ["/settings%2F..%2Flogin", "barre oblique encodée dans le chemin"],
+    ["/%5Cevil.test", "barre oblique inverse encodée (%5C)"],
+    ["/%5cevil.test", "barre oblique inverse encodée en minuscules (%5c)"],
+    [`${APP}/%2F%2Fevil.test`, "barres encodées dans une URL complète"],
   ])("refuse %j (%s)", (value) => {
     const path = returnPath(value, APP);
 

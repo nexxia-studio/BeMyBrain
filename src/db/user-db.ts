@@ -30,6 +30,35 @@ export class InvalidTokenError extends Error {
 }
 
 /**
+ * Le jeton n'a pas pu être vérifié : JWKS de Neon Auth injoignable (délai, réseau), en erreur HTTP, illisible
+ * ou invalide. Ni accepté ni refusé : panne, qui mène à la page d'erreur, jamais à /login (une panne ne
+ * déconnecte pas, même esprit qu'AuthUnavailableError). Message fixe, sans cause chaînée : code jose seul.
+ */
+export class TokenVerificationUnavailableError extends Error {
+  readonly code: string | undefined;
+  constructor(code?: string) {
+    super("Vérification du jeton indisponible");
+    this.name = "TokenVerificationUnavailableError";
+    this.code = code;
+  }
+}
+
+// Codes jose d'un refus du jeton lui-même : expiré, claims (iss, aud, exp requis), signature, forme, algorithme.
+// ERR_JWKS_NO_MATCHING_KEY (kid absent) aussi : createRemoteJWKSet ne le lève qu'avec un JWKS lu avec succès
+// (rechargé, ou lu il y a moins de 30 s) ; un rechargement en échec lève sa propre erreur, classée en panne.
+// Tout le reste (ERR_JWKS_TIMEOUT, ERR_JOSE_GENERIC, ERR_JWKS_INVALID, TypeError réseau sans code…) = panne.
+const TOKEN_REFUSAL_CODES = new Set([
+  "ERR_JWT_EXPIRED",
+  "ERR_JWT_CLAIM_VALIDATION_FAILED",
+  "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
+  "ERR_JWS_INVALID",
+  "ERR_JWT_INVALID",
+  "ERR_JOSE_ALG_NOT_ALLOWED",
+  "ERR_JOSE_NOT_SUPPORTED",
+  "ERR_JWKS_NO_MATCHING_KEY",
+]);
+
+/**
  * Échec d'une requête dans withUserDb. Message fixe, sans cause chaînée ni `query` / `params`
  * (Drizzle y met les valeurs liées, dont les claims) : on ne garde que le SQLSTATE.
  */
@@ -84,7 +113,10 @@ export function createTokenVerifier(
         requiredClaims: ["exp"],
       }));
     } catch (error) {
-      throw new InvalidTokenError(codeOf(error, /^ERR_[A-Z_]+$/));
+      const code = codeOf(error, /^ERR_[A-Z_]+$/);
+      if (code && TOKEN_REFUSAL_CODES.has(code))
+        throw new InvalidTokenError(code);
+      throw new TokenVerificationUnavailableError(code);
     }
     // sub = neon_auth.user.id (uuid), lu par auth.uid() dans les policies.
     if (!z.uuid().safeParse(payload.sub).success) {

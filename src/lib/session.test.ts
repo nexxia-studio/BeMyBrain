@@ -9,13 +9,18 @@ const getSession = vi.hoisted(() => vi.fn());
 const resolveMembership = vi.hoisted(() => vi.fn());
 const syncLocaleCookie = vi.hoisted(() => vi.fn());
 const requestHeaders = vi.hoisted(() => ({ current: new Headers() }));
-// Jeton refusé par withUserDb : classe factice reconnue par le prédicat du module (testé dans src/modules).
-const RejectedToken = vi.hoisted(() => class RejectedToken extends Error {});
 
 vi.mock("@/lib/auth/server", () => ({ getSessionToken, getSession }));
-vi.mock("@/modules/core/membership", () => ({
+// Prédicat isRejectedToken réel, sur les vraies erreurs de withUserDb (tests/factories/token-errors.ts) :
+// une panne du JWKS ne doit jamais passer pour un jeton refusé (audit QA-1). Seule la lecture est simulée.
+vi.mock("@/db/client", async () => {
+  const { InvalidTokenError } =
+    await import("../../tests/factories/token-errors");
+  return { InvalidTokenError, withUserDb: vi.fn() };
+});
+vi.mock("@/modules/core/membership", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/core/membership")>()),
   resolveMembership,
-  isRejectedToken: (error: unknown) => error instanceof RejectedToken,
 }));
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => requestHeaders.current),
@@ -51,6 +56,13 @@ vi.mock("react", () => {
   const dir = dirname(require.resolve("react/package.json"));
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
+
+import {
+  InvalidTokenError as RejectedToken,
+  JWKS_OUTAGES,
+  unknownKeyError,
+  verificationError,
+} from "../../tests/factories/token-errors";
 
 import {
   hasActiveSession,
@@ -309,6 +321,40 @@ describe("session expirée : renvoi vers /login (QA-1)", () => {
     await expect(run).resolves.toBeUndefined();
   });
 
+  it("un jeton signé par une clé inconnue du JWKS (kid absent) renvoie vers /login", async () => {
+    actionCall("https://bemybrain.test/dashboard");
+    resolveMembership.mockRejectedValue(await unknownKeyError());
+
+    const run = requireSessionWithToken();
+
+    await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
+  });
+
+  it.each(JWKS_OUTAGES)(
+    "garde : %s → l'erreur remonte (page d'erreur), jamais /login",
+    async (_label, outage) => {
+      actionCall("https://bemybrain.test/dashboard");
+      const failure = await verificationError(outage());
+      resolveMembership.mockRejectedValue(failure);
+
+      const run = requireSessionWithToken();
+
+      await expect(run).rejects.toBe(failure);
+    },
+  );
+
+  it.each(JWKS_OUTAGES)(
+    "après la garde (runAction, setLocale) : %s → pas de renvoi vers /login",
+    async (_label, outage) => {
+      actionCall("https://bemybrain.test/settings");
+      const failure = await verificationError(outage());
+
+      const run = redirectIfRejectedToken(failure);
+
+      await expect(run).resolves.toBeUndefined();
+    },
+  );
+
   it("toute autre erreur de la base remonte telle quelle (page d'erreur, jamais /login)", async () => {
     const failure = new Error("Erreur de base de données");
     resolveMembership.mockRejectedValue(failure);
@@ -394,6 +440,19 @@ describe("hasActiveSession (/login ouvert en étant connecté, QA-2)", () => {
 
     expect(active).toBe(false);
   });
+
+  it.each(JWKS_OUTAGES)(
+    "faux quand le JWKS est en panne (%s) : le formulaire reste affiché, sans erreur",
+    async (_label, outage) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      resolveMembership.mockRejectedValue(await verificationError(outage()));
+
+      const active = await hasActiveSession();
+
+      expect(active).toBe(false);
+      warn.mockRestore();
+    },
+  );
 
   it("faux quand l'auth est indisponible : le formulaire reste affiché", async () => {
     getSessionToken.mockRejectedValue(

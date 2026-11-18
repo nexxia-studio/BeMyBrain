@@ -25,6 +25,8 @@ vi.mock("next/cache", () => ({ refresh }));
 
 import { localeSchema } from "@/modules/core/schemas";
 
+import { TokenVerificationUnavailableError } from "../../../../tests/factories/token-errors";
+
 import { setLocale } from "./actions";
 
 const SESSION = {
@@ -93,6 +95,16 @@ describe("changer de langue (Server Action)", () => {
     const run = setLocale("en");
 
     await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fsettings");
+    expect(syncLocaleCookie).not.toHaveBeenCalled();
+  });
+
+  it("une panne du JWKS après la garde remonte telle quelle (message d'échec), jamais /login", async () => {
+    const outage = new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT");
+    saveMemberLocale.mockRejectedValue(outage);
+
+    const run = setLocale("en");
+
+    await expect(run).rejects.toBe(outage);
     expect(syncLocaleCookie).not.toHaveBeenCalled();
   });
 

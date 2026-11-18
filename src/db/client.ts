@@ -17,6 +17,7 @@ import {
 export {
   IdentityNotAppliedError,
   InvalidTokenError,
+  TokenVerificationUnavailableError,
   type UserIdentity,
   type UserTx,
 } from "./user-db";

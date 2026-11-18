@@ -27,6 +27,8 @@ vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import { ActionError } from "@/modules/actions/errors";
 
+import { TokenVerificationUnavailableError } from "../../../tests/factories/token-errors";
+
 import { runAction } from "./actions";
 
 const SESSION = {
@@ -126,6 +128,17 @@ describe("runAction (Server Action unique de la palette)", () => {
     await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Fdashboard");
     expect(captureException).not.toHaveBeenCalled();
     expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it("une panne du JWKS après la garde est une panne (Sentry, échec générique), jamais un renvoi vers /login", async () => {
+    runActionWithToken.mockRejectedValue(
+      new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT"),
+    );
+
+    const outcome = await runAction("core.setLocale", { locale: "en" });
+
+    expect(outcome).toEqual({ ok: false });
+    expect(captureException).toHaveBeenCalledTimes(1);
   });
 
   it("un refus attendu n'est journalisé que par son code, jamais comme une panne", async () => {

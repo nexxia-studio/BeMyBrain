@@ -6,6 +6,9 @@ import { LOGIN_PATH } from "./routes";
 // Caractères de contrôle et blancs : l'analyseur d'URL retire tabulations et sauts de ligne
 // (« /\t/evil » deviendrait « //evil »), on refuse la valeur entière plutôt que de la nettoyer.
 const UNSAFE_CHARACTERS = /[\s\\\p{Cc}]/u;
+// Barres encodées (`%2F`, `%5C`, toutes casses) : un décodage plus loin (navigateur, proxy) en referait
+// `//` ou `\` ; aucune page de l'app n'en a besoin.
+const ENCODED_SLASH = /%(2f|5c)/i;
 
 function isLoginPath(pathname: string) {
   return pathname === LOGIN_PATH || pathname.startsWith(`${LOGIN_PATH}/`);
@@ -15,7 +18,7 @@ function isLoginPath(pathname: string) {
  * Chemin interne à reprendre après connexion, ou null (→ /dashboard).
  * `value` : un chemin (`/settings`, paramètre `next`) ou une URL complète (en-tête `Referer`).
  * Retenu seulement si son origine est exactement `origin` (schéma, hôte et port) ; seul le chemin est gardé,
- * sans paramètres d'URL ni fragment. Refusés : `//…`, tout `\`, blancs et caractères de contrôle, chemin non
+ * sans paramètres d'URL ni fragment. Refusés : `//…`, tout `\`, `%2F` et `%5C`, blancs et caractères de contrôle, chemin non
  * relatif à la racine, autre origine, /login lui-même.
  */
 export function returnPath(
@@ -36,6 +39,8 @@ export function returnPath(
   const { pathname } = url;
   // Garde finale sur le chemin normalisé (`/./`, `/../`) : toujours relatif à la racine, jamais `//`.
   if (!pathname.startsWith("/") || pathname.startsWith("//")) return null;
+  // Sur le chemin gardé seulement : des paramètres d'URL encodés (jetés) n'empêchent pas le retour.
+  if (ENCODED_SLASH.test(pathname)) return null;
   if (isLoginPath(pathname)) return null;
   return pathname;
 }

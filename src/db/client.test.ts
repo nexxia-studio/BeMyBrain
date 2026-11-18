@@ -15,11 +15,18 @@ import { notFound, redirect } from "next/navigation";
 import { DomainError } from "@/lib/errors";
 
 import {
+  JWKS_OUTAGES,
+  unknownKeyError,
+  verificationError,
+} from "../../tests/factories/token-errors";
+
+import {
   createTokenVerifier,
   createWithUserDb,
   DatabaseError,
   IdentityNotAppliedError,
   InvalidTokenError,
+  TokenVerificationUnavailableError,
   type UserDb,
   type UserTx,
   type VerifiedClaims,
@@ -376,5 +383,56 @@ describe("withUserDb", () => {
     expect(error).toBeInstanceOf(ProbeError);
     expect(error.code).toBe("invalid_error_code");
     expect(`${error.message} ${error.stack}`).not.toContain("a@b.c");
+  });
+});
+
+describe("vérification du jeton : panne du JWKS distincte d'un jeton refusé (audit QA-1)", () => {
+  it.each(JWKS_OUTAGES)(
+    "%s : panne de vérification, jamais un jeton refusé",
+    async (_label, outage) => {
+      const error = await verificationError(outage());
+
+      expect(error).toBeInstanceOf(TokenVerificationUnavailableError);
+      expect(error).not.toBeInstanceOf(InvalidTokenError);
+    },
+  );
+
+  it("la panne garde un message fixe, sans cause chaînée", async () => {
+    const error = (await verificationError(
+      new TypeError("fetch failed https://auth.example.test/jwks"),
+    )) as Error;
+
+    expect(error.message).toBe("Vérification du jeton indisponible");
+    expect(error.cause).toBeUndefined();
+  });
+
+  it("garde le code jose de la panne, pas son message", async () => {
+    const [, timeout] = JWKS_OUTAGES[0];
+
+    const error = (await verificationError(timeout())) as { code?: string };
+
+    expect(error.code).toBe("ERR_JWKS_TIMEOUT");
+  });
+
+  it("une clé inconnue d'un JWKS lu avec succès (kid absent) est un jeton refusé", async () => {
+    const error = await unknownKeyError();
+
+    expect(error).toBeInstanceOf(InvalidTokenError);
+  });
+
+  it("withUserDb laisse passer la panne telle quelle, sans ouvrir de transaction", async () => {
+    const { db, transaction } = fakeDb();
+    const outage = new TokenVerificationUnavailableError("ERR_JWKS_TIMEOUT");
+    const withUserDb = createWithUserDb({
+      verify: async () => {
+        throw outage;
+      },
+      db,
+    });
+
+    const run = withUserDb("eyJ.jwt.signe", async () => "lu");
+
+    await expect(run).rejects.toBe(outage);
+    expect(transaction).not.toHaveBeenCalled();
   });
 });
