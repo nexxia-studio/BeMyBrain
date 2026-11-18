@@ -1168,3 +1168,79 @@ describe("relecture de 52c2798", () => {
     expect(sent?.message?.length).toBeLessThanOrEqual(2000);
   });
 });
+
+describe("audit de 9e34af1", () => {
+  it.each([
+    ["password=abc…def", "password=[Filtered]"],
+    ["password=…hunter2", "password=[Filtered]"],
+    ["user_secret=hun…ter2 suite", "user_secret=[Filtered] suite"],
+  ])(
+    "une valeur nue contenant « … » (%s) est masquée en entier",
+    (message, expected) => {
+      const { beforeSend } = activeOptions();
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(expected);
+    },
+  );
+
+  it.each(['S"Z', 'S\\"Z', 'x"y z', 'x\\"y z', "a\\", "a\\'b c"])(
+    "en JSON échappé deux fois, le mot de passe %s est masqué sans toucher à la suite",
+    (password) => {
+      const { beforeSend } = activeOptions();
+      const message = JSON.stringify(JSON.stringify({ password, user: "bob" }));
+
+      const sent = beforeSend({ type: undefined, message });
+
+      expect(sent?.message).toBe(
+        JSON.stringify(JSON.stringify({ password: "[Filtered]", user: "bob" })),
+      );
+    },
+  );
+
+  it("propriété : aucun mot de passe aléatoire ne fuit, en forme nue, JSON ou JSON échappé deux fois", () => {
+    // Générateur déterministe (mulberry32, graine fixe) : mêmes cas à chaque exécution.
+    let seed = 0x5eed;
+    function random(): number {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = seed;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    function randomText(alphabet: string, min: number, max: number): string {
+      const chars = Array.from(alphabet);
+      const length = min + Math.floor(random() * (max - min + 1));
+      return Array.from(
+        { length },
+        () => chars[Math.floor(random() * chars.length)],
+      ).join("");
+    }
+    // Marqueur unique : s'il apparaît dans la sortie, une partie du mot de passe a fui.
+    const MARKER = "Zq9";
+    const ALPHABET = `abcXYZ "'\\,&…}`;
+    // Forme nue : une valeur sans espace ni « & » (sinon ce n'est plus une seule valeur de query).
+    const BARE_ALPHABET = `abcXYZ"'\\,…}`;
+    const leaks: string[] = [];
+
+    const start = performance.now();
+    for (let i = 0; i < 5000; i++) {
+      const form = i % 3;
+      const alphabet = form === 0 ? BARE_ALPHABET : ALPHABET;
+      const password = `${MARKER}${randomText(alphabet, 2, 8)}${MARKER}${randomText(alphabet, 2, 8)}${MARKER}`;
+      const message =
+        form === 0
+          ? `password=${password}`
+          : form === 1
+            ? JSON.stringify({ password, user: "bob" })
+            : JSON.stringify(JSON.stringify({ password, user: "bob" }));
+      const sent = scrubEvent({ type: undefined, message });
+      if (sent.message?.includes(MARKER)) leaks.push(message);
+    }
+    const elapsed = performance.now() - start;
+
+    expect(leaks).toEqual([]);
+    expect(elapsed).toBeLessThan(2000);
+  });
+});

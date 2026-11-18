@@ -186,20 +186,21 @@ const SECRET_KEY = /\b((?:\w*?_)?(?:passwd|password|pwd|token|secret(?:_\w+)?))/
   .source;
 // Séparateur : « = » ou « : », précédé du guillemet fermant de la clé en JSON (« " » ou « \" » si échappé deux fois).
 const SECRET_SEPARATOR = /(\\?"?\s*[:=]\s*)/.source;
-// Valeur « \"…\" » (JSON échappé deux fois) : un échappement « \\x » est consommé d'abord, puis tout jusqu'au
-// « \" » fermant (ou la fin).
-const SECRET_VALUE_ESCAPED_DOUBLE = /\\"(?:\\\\[\s\S]|(?!\\")[\s\S])*(?:\\")?/
-  .source;
+// Valeur « \"…\" » (JSON échappé deux fois) : une barre d'origine y devient quatre barres, un guillemet d'origine
+// trois barres et un guillemet ; ces deux formes sont consommées d'abord, puis tout jusqu'au « \" » fermant
+// (ou la fin).
+const SECRET_VALUE_ESCAPED_DOUBLE =
+  /\\"(?:\\\\\\\\|\\\\\\"|(?!\\")[\s\S])*(?:\\")?/.source;
 // Valeur « \'…\' » : même règle avec l'apostrophe.
-const SECRET_VALUE_ESCAPED_SINGLE = /\\'(?:\\\\[\s\S]|(?!\\')[\s\S])*(?:\\')?/
-  .source;
+const SECRET_VALUE_ESCAPED_SINGLE =
+  /\\'(?:\\\\\\\\|\\\\\\'|(?!\\')[\s\S])*(?:\\')?/.source;
 // Valeur « "…" » : jusqu'au guillemet fermant non échappé (ou la fin), échappements compris (retour à la ligne).
 const SECRET_VALUE_DOUBLE = /"(?:[^"\\]|\\[\s\S])*"?/.source;
 // Valeur « '…' » : même règle avec l'apostrophe.
 const SECRET_VALUE_SINGLE = /'(?:[^'\\]|\\[\s\S])*'?/.source;
-// Valeur nue : jusqu'à un espace ou « & » (paramètre suivant d'une query) ; « … » exclu, sinon la marque de
-// troncature après « password: » serait masquée au second passage et le résultat changerait.
-const SECRET_VALUE_BARE = /[^\s&…]+/.source;
+// Valeur nue : jusqu'à un espace ou « & » (paramètre suivant d'une query). « … » en fin de texte exclu (marque de
+// troncature après « password: », qui changerait au second passage) ; ailleurs, il fait partie de la valeur.
+const SECRET_VALUE_BARE = /(?:[^\s&…]|…(?!$))+/.source;
 const SECRET_PATTERN = new RegExp(
   `${SECRET_KEY}${SECRET_SEPARATOR}(${[
     SECRET_VALUE_ESCAPED_DOUBLE,
