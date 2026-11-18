@@ -5,10 +5,18 @@ import { formats, timeZone } from "./config";
 import { type AppLocale, LOCALE_COOKIE, resolveLocale } from "./locales";
 
 // Chemins littéraux : eslint refuse les import() à source calculée (ADR-002).
+// La section `errors` vit dans son propre fichier : global-error (hors NextIntlClientProvider) l'importe
+// seule, Turbopack n'élaguant pas un JSON. Elle est refusionnée ici, sous la même clé.
 const messageLoaders = {
-  fr: () => import("../../messages/fr.json"),
-  en: () => import("../../messages/en.json"),
-} satisfies Record<AppLocale, () => Promise<{ default: unknown }>>;
+  fr: async () => ({
+    ...(await import("../../messages/fr.json")).default,
+    errors: (await import("../../messages/errors/fr.json")).default,
+  }),
+  en: async () => ({
+    ...(await import("../../messages/en.json")).default,
+    errors: (await import("../../messages/errors/en.json")).default,
+  }),
+} satisfies Record<AppLocale, () => Promise<object>>;
 
 export default getRequestConfig(async () => {
   const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
@@ -21,6 +29,6 @@ export default getRequestConfig(async () => {
     locale,
     timeZone,
     formats,
-    messages: (await messageLoaders[locale]()).default,
+    messages: await messageLoaders[locale](),
   };
 });

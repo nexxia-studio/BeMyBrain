@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import en from "../../messages/en.json";
-import fr from "../../messages/fr.json";
+import en from "../../messages/errors/en.json";
+import fr from "../../messages/errors/fr.json";
 
 const captureException = vi.hoisted(() => vi.fn());
 vi.mock("@sentry/nextjs", () => ({ captureException }));
@@ -34,7 +34,7 @@ describe("page d'erreur globale", () => {
     renderGlobalError(error);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: fr.errors.title }),
+      screen.getByRole("heading", { level: 1, name: fr.title }),
     ).toBeDefined();
     expect(document.body.textContent).not.toContain("panne dc42fa70");
     expect(document.body.textContent).not.toContain("4242");
@@ -46,7 +46,7 @@ describe("page d'erreur globale", () => {
     renderGlobalError(new Error("x"));
 
     expect(
-      screen.getByRole("heading", { level: 1, name: en.errors.title }),
+      screen.getByRole("heading", { level: 1, name: en.title }),
     ).toBeDefined();
     expect(document.documentElement.lang).toBe("en");
   });
@@ -54,7 +54,7 @@ describe("page d'erreur globale", () => {
   it("le bouton réessayer relance le rendu (retry)", () => {
     const retry = renderGlobalError(new Error("x"));
 
-    fireEvent.click(screen.getByRole("button", { name: fr.errors.retry }));
+    fireEvent.click(screen.getByRole("button", { name: fr.retry }));
 
     expect(retry).toHaveBeenCalledTimes(1);
   });

@@ -40,10 +40,11 @@ function captureActionFailure(error: unknown, name: unknown): void {
  * de la session, l'utilisateur celui du jeton vérifié ; `name` et `params` viennent du client et ne servent
  * qu'à choisir et paramétrer l'action, jamais journalisés. Nom inconnu, paramètres invalides ou contexte
  * incomplet (ActionError, refus attendu) → `{ ok: false }`, rien d'exécuté, seul le code est journalisé.
- * Toute autre erreur (base, identité non appliquée…) est une panne : envoyée à Sentry, puis `{ ok: false }`.
- * Une fois l'action réussie, l'écriture est faite : un échec des effets web (cookie, rendu) est envoyé à Sentry
+ * Toute autre erreur (base, identité non appliquée…) est une panne : journalisée côté serveur (`console.error`,
+ * l'erreur seule) et envoyée à Sentry, puis `{ ok: false }`.
+ * Une fois l'action réussie, l'écriture est faite : un échec des effets web (cookie, rendu) est journalisé et envoyé à Sentry
  * mais n'annonce pas un échec trompeur (la langue enregistrée sera recopiée à la prochaine connexion).
- * Sentry ne reçoit que l'erreur et le nom de l'action en tag : ni paramètres, ni session, ni jeton.
+ * Sentry ne reçoit que l'erreur et le nom de l'action en tag, le journal que l'erreur : ni paramètres, ni session, ni jeton.
  */
 export async function runAction(
   name: unknown,
@@ -65,6 +66,9 @@ export async function runAction(
       console.warn("[actions] action refusée", { code: error.code });
       return { ok: false };
     }
+    // Journal serveur gardé avec Sentry : inactif en local et en CI, quota ou panne possibles en production.
+    // L'erreur seule : ni paramètres, ni jeton, ni identifiants de session.
+    console.error("[actions] action en échec", error);
     captureActionFailure(error, name);
     return { ok: false };
   }
@@ -72,6 +76,7 @@ export async function runAction(
     await applyWebEffects(outcome.name, outcome.result);
   } catch (error) {
     unstable_rethrow(error);
+    console.error("[actions] effets web en échec après l'action", error);
     captureActionFailure(error, outcome.name);
   }
   return { ok: true, result: outcome.result };

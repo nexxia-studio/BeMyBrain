@@ -99,11 +99,6 @@
     "title": "Aucun espace de travail",
     "body": "Ce compte n'est rattaché à aucun espace de travail. Connecte-toi avec un autre compte."
   },
-  "errors": {
-    "title": "Une erreur est survenue",
-    "body": "Le service est momentanément indisponible. Réessaie dans un instant.",
-    "retry": "Réessayer"
-  },
   "shell": {
     "navigation": "Navigation principale",
     "home": "Accueil",

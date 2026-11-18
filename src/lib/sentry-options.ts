@@ -11,22 +11,15 @@ export type SentryEnv = {
 
 const ACTIVE_ENVIRONMENTS = new Set(["production", "preview"]);
 
-// En-têtes qui portent une identité (session, jeton) ou l'adresse IP de l'utilisateur.
-const DROPPED_HEADERS = new Set([
-  "cookie",
-  "authorization",
-  "set-cookie",
-  "proxy-authorization",
-  "x-forwarded-for",
-  "x-real-ip",
-  "x-vercel-forwarded-for",
-  "x-vercel-proxied-for",
-  "forwarded",
-  "true-client-ip",
-  "cf-connecting-ip",
+// Liste blanche : seuls ces en-têtes restent dans un événement, tout autre est retiré (referer et origin,
+// qui portent une URL avec sa query string, cookie, authorization, IP, géolocalisation Vercel, en-têtes à venir).
+// Assez pour lire une panne : navigateur, langue, type de corps, hôte (production ou preview).
+const KEPT_HEADERS = new Set([
+  "user-agent",
+  "accept-language",
+  "content-type",
+  "host",
 ]);
-// Géolocalisation de l'IP posée par Vercel (ville, coordonnées…).
-const DROPPED_HEADER_PREFIX = "x-vercel-ip-";
 
 // Fils d'Ariane dont le message ou les données peuvent porter une saisie ou un objet journalisé.
 const CONTENTLESS_BREADCRUMBS = new Set(["ui.input", "console"]);
@@ -39,12 +32,9 @@ function withoutQuery(url: string): string {
 
 function scrubHeaders(headers: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(headers).filter(([name]) => {
-      const lower = name.toLowerCase();
-      return (
-        !DROPPED_HEADERS.has(lower) && !lower.startsWith(DROPPED_HEADER_PREFIX)
-      );
-    }),
+    Object.entries(headers).filter(([name]) =>
+      KEPT_HEADERS.has(name.toLowerCase()),
+    ),
   );
 }
 

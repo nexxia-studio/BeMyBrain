@@ -12,8 +12,8 @@ import {
   resolveClientLocale,
 } from "@/i18n/locales";
 
-import en from "../../messages/en.json";
-import fr from "../../messages/fr.json";
+import enErrors from "../../messages/errors/en.json";
+import frErrors from "../../messages/errors/fr.json";
 
 import "./globals.css";
 
@@ -22,12 +22,13 @@ type GlobalErrorProps = {
   retry: () => void;
 };
 
-// Hors du layout racine, donc hors de NextIntlClientProvider (ADR-007) : on traduit avec les clés `errors`
-// des fichiers de messages, seule partie gardée ici. Rien d'autre des messages n'entre dans ce morceau.
+// Hors du layout racine, donc hors de NextIntlClientProvider (ADR-007) : on traduit avec la section `errors`,
+// qui a ses propres fichiers (messages/errors/*.json). Turbopack n'élague pas un JSON, import nommé compris :
+// importer messages/fr.json ferait entrer tous les textes dans ce morceau (vérifié, tests/build).
 const errorMessages = {
-  fr: { errors: fr.errors },
-  en: { errors: en.errors },
-} satisfies Record<AppLocale, { errors: typeof fr.errors }>;
+  fr: { errors: frErrors },
+  en: { errors: enErrors },
+} satisfies Record<AppLocale, { errors: typeof frErrors }>;
 
 function subscribe(): () => void {
   return () => {};

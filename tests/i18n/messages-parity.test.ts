@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import en from "../../messages/en.json";
-import fr from "../../messages/fr.json";
+import enMain from "../../messages/en.json";
+import enErrors from "../../messages/errors/en.json";
+import frErrors from "../../messages/errors/fr.json";
+import frMain from "../../messages/fr.json";
+
+// Messages complets, tels que src/i18n/request.ts les fournit (section errors dans son propre fichier).
+const fr = { ...frMain, errors: frErrors };
+const en = { ...enMain, errors: enErrors };
 
 function flatten(messages: object, prefix = ""): Record<string, unknown> {
   return Object.entries(messages).reduce<Record<string, unknown>>(

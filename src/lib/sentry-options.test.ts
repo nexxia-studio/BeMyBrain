@@ -112,6 +112,33 @@ describe("options communes de Sentry", () => {
     expect(sent?.request).not.toHaveProperty("cookies");
   });
 
+  it("ne garde que les en-têtes de la liste blanche : referer, origin et inconnus retirés", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: "panne",
+      request: {
+        headers: {
+          Referer: "https://app.example.test/x?email=a@b.test",
+          Origin: "https://app.example.test",
+          "x-nouveau": "secret",
+          "User-Agent": "Safari",
+          "Accept-Language": "fr-BE",
+          "Content-Type": "text/plain",
+          Host: "app.example.test",
+        },
+      },
+    });
+
+    expect(sent?.request?.headers).toEqual({
+      "User-Agent": "Safari",
+      "Accept-Language": "fr-BE",
+      "Content-Type": "text/plain",
+      Host: "app.example.test",
+    });
+  });
+
   it("un événement sans requête ni utilisateur passe sans erreur", () => {
     const { beforeSend } = activeOptions();
 

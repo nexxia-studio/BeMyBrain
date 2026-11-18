@@ -1,10 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import messages from "../../messages/fr.json";
+import errors from "../../messages/errors/fr.json";
+import fr from "../../messages/fr.json";
+
+const captureException = vi.hoisted(() => vi.fn());
+vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import ErrorPage from "./error";
+
+// Messages tels que src/i18n/request.ts les fournit : section errors refusionnée.
+const messages = { ...fr, errors };
 
 function renderError(error: Error & { digest?: string }, retry = vi.fn()) {
   render(
@@ -14,6 +21,10 @@ function renderError(error: Error & { digest?: string }, retry = vi.fn()) {
   );
   return retry;
 }
+
+beforeEach(() => {
+  captureException.mockClear();
+});
 
 describe("page d'erreur", () => {
   it("affiche un texte fixe traduit, jamais le message de l'erreur", () => {
@@ -33,8 +44,18 @@ describe("page d'erreur", () => {
   it("le bouton réessayer relance le segment (retry)", () => {
     const retry = renderError(new Error("x"));
 
-    fireEvent.click(screen.getByRole("button", { name: messages.errors.retry }));
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.errors.retry }),
+    );
 
     expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("envoie l'erreur à Sentry", () => {
+    const error = new Error("x");
+
+    renderError(error);
+
+    expect(captureException).toHaveBeenCalledWith(error);
   });
 });
