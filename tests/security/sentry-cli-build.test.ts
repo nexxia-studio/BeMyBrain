@@ -188,6 +188,9 @@ beforeEach(() => {
   vi.stubEnv("SENTRY_AUTH_TOKEN", "sntrys_jeton_factice");
   vi.stubEnv("SENTRY_ORG", "organisation-factice");
   vi.stubEnv("SENTRY_PROJECT", "projet-factice");
+  // Autres variables lues par le plugin ou le garde-fou : jamais celles de l'hôte (poste, CI).
+  vi.stubEnv("SENTRY_RELEASE", undefined);
+  vi.stubEnv("SENTRY_URL", undefined);
   process.argv = [...originalArgv, "build"];
 });
 
@@ -198,11 +201,61 @@ afterEach(() => {
   rmSync(projectDir, { recursive: true, force: true });
 });
 
+// Variables de commit lues, dans cet ordre, pour nommer la release (COMMIT_ENV_VARS de @sentry/core 11.13.0,
+// src/utils/commitEnv.ts ; non exportée). La première définie gagne : en GitHub Actions, GITHUB_SHA passe devant
+// VERCEL_GIT_COMMIT_SHA et tous les témoins partageaient un nom (deploy sauté au second). SENTRY_RELEASE passe
+// avant toutes (options-mapping.js du plugin).
+const RELEASE_NAME_ENV_VARS = [
+  "SENTRY_RELEASE",
+  "GITHUB_SHA",
+  "CI_MERGE_REQUEST_SOURCE_BRANCH_SHA",
+  "CI_BUILD_REF",
+  "CI_COMMIT_SHA",
+  "BITBUCKET_COMMIT",
+  "APPVEYOR_PULL_REQUEST_HEAD_COMMIT",
+  "APPVEYOR_REPO_COMMIT",
+  "CODEBUILD_RESOLVED_SOURCE_VERSION",
+  "AWS_COMMIT_ID",
+  "BUILD_SOURCEVERSION",
+  "GIT_CLONE_COMMIT_HASH",
+  "BUDDY_EXECUTION_REVISION",
+  "BUILDKITE_COMMIT",
+  "CIRCLE_SHA1",
+  "CIRRUS_CHANGE_IN_REPO",
+  "CF_REVISION",
+  "CM_COMMIT",
+  "CF_PAGES_COMMIT_SHA",
+  "DRONE_COMMIT_SHA",
+  "FC_GIT_COMMIT_SHA",
+  "HEROKU_TEST_RUN_COMMIT_VERSION",
+  "HEROKU_BUILD_COMMIT",
+  "HEROKU_SLUG_COMMIT",
+  "RAILWAY_GIT_COMMIT_SHA",
+  "RENDER_GIT_COMMIT",
+  "SEMAPHORE_GIT_SHA",
+  "TRAVIS_PULL_REQUEST_SHA",
+  "VERCEL_GIT_COMMIT_SHA",
+  "VERCEL_GITHUB_COMMIT_SHA",
+  "VERCEL_GITLAB_COMMIT_SHA",
+  "VERCEL_BITBUCKET_COMMIT_SHA",
+  "ZEIT_GITHUB_COMMIT_SHA",
+  "ZEIT_GITLAB_COMMIT_SHA",
+  "ZEIT_BITBUCKET_COMMIT_SHA",
+  "CI_COMMIT_ID",
+  "SOURCE_COMMIT",
+  "SOURCE_VERSION",
+  "GIT_COMMIT",
+  "COMMIT_REF",
+  "BUILD_VCS_NUMBER",
+];
+
 /**
  * SHA propre à chaque témoin : le plugin ne pose qu'un deploy par nom de release et par processus
- * (`_deployedReleases`), un nom partagé rendrait le résultat dépendant de l'ordre des tests.
+ * (`_deployedReleases`), un nom partagé rendrait le résultat dépendant de l'ordre des tests. Toute autre source du
+ * nom (CI de l'hôte) est retirée d'abord : seul VERCEL_GIT_COMMIT_SHA nomme la release, comme sur Vercel.
  */
 function stubCommitSha(digit: string): void {
+  for (const name of RELEASE_NAME_ENV_VARS) vi.stubEnv(name, undefined);
   vi.stubEnv("VERCEL_GIT_COMMIT_SHA", digit.repeat(40));
 }
 
