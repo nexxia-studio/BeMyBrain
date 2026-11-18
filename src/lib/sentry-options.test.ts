@@ -45,17 +45,53 @@ function eventWithPersonalData(): ErrorEvent {
 }
 
 describe("options communes de Sentry", () => {
-  it("sendDefaultPii est faux et l'environnement vient de VERCEL_ENV", () => {
+  it("l'environnement vient de VERCEL_ENV et le DSN n'est posé qu'actif", () => {
     const options = sentryOptions({
       SENTRY_DSN: DSN,
       VERCEL_ENV: "production",
     });
 
-    expect(options.sendDefaultPii).toBe(false);
     expect(options.environment).toBe("production");
     expect(options.enabled).toBe(true);
     expect(options.dsn).toBe(DSN);
-    expect(options.tracesSampleRate).toBe(0);
+  });
+
+  it("aucune option retirée du SDK v11 : pas de sendDefaultPii", () => {
+    const options = activeOptions();
+
+    expect(options).not.toHaveProperty("sendDefaultPii");
+  });
+
+  it("dataCollection coupe toute collecte de données personnelles", () => {
+    const { dataCollection } = activeOptions();
+
+    expect(dataCollection).toEqual({
+      userInfo: false,
+      cookies: false,
+      httpHeaders: {
+        request: {
+          allow: ["user-agent", "accept-language", "content-type", "host"],
+        },
+        response: false,
+      },
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      mcp: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    });
+  });
+
+  it("aucun traçage : ni tracesSampleRate, ni propagation sentry-trace / baggage", () => {
+    const options = activeOptions();
+
+    expect(options).not.toHaveProperty("tracesSampleRate");
+    expect(options).not.toHaveProperty("tracesSampler");
+    expect(options).not.toHaveProperty("beforeSendTransaction");
+    expect(options.tracePropagationTargets).toEqual([]);
   });
 
   it.each([
@@ -100,18 +136,6 @@ describe("options communes de Sentry", () => {
     expect(sent?.contexts?.nextjs).toEqual({ request_path: "/reset-password" });
   });
 
-  it("beforeSendTransaction applique le même nettoyage", () => {
-    const { beforeSendTransaction } = activeOptions();
-
-    const sent = beforeSendTransaction({
-      ...eventWithPersonalData(),
-      type: "transaction",
-    });
-
-    expect(JSON.stringify(sent)).not.toContain("antoine@example.test");
-    expect(sent?.request).not.toHaveProperty("cookies");
-  });
-
   it("ne garde que les en-têtes de la liste blanche : referer, origin et inconnus retirés", () => {
     const { beforeSend } = activeOptions();
 
@@ -136,6 +160,95 @@ describe("options communes de Sentry", () => {
       "Accept-Language": "fr-BE",
       "Content-Type": "text/plain",
       Host: "app.example.test",
+    });
+  });
+
+  it("beforeSend masque un e-mail et un JWT dans le message d'erreur", () => {
+    const { beforeSend } = activeOptions();
+    const jwt = "eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJhbnRvaW5lIn0.c2lnbmF0dXJl";
+
+    const sent = beforeSend({
+      type: undefined,
+      message: `échec pour antoine@example.test avec ${jwt}`,
+      logentry: {
+        message:
+          "connexion à postgresql://neondb_owner:mdp@ep-x.neon.tech/neondb",
+        params: ["Bearer abc.def-123", 42],
+      },
+      exception: {
+        values: [
+          {
+            type: "Error",
+            value: `Authorization: Bearer ${jwt} pour Antoine.Monie+test@example.test`,
+          },
+          { type: "Error", value: "postgres://u:p@h/db refusé" },
+        ],
+      },
+    });
+
+    const serialized = JSON.stringify(sent);
+    for (const leak of [
+      "antoine@example.test",
+      "Antoine.Monie+test@example.test",
+      jwt,
+      "eyJ",
+      "mdp",
+      "neondb_owner",
+      "u:p@h",
+      "abc.def-123",
+    ]) {
+      expect(serialized).not.toContain(leak);
+    }
+    expect(sent?.message).toBe("échec pour [email] avec [jwt]");
+    expect(sent?.logentry?.params).toEqual(["Bearer [Filtered]", 42]);
+  });
+
+  it("extra est retiré", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: "panne",
+      extra: { body: { email: "antoine@example.test" } },
+    });
+
+    expect(sent).not.toHaveProperty("extra");
+  });
+
+  it("seuls les contextes de la liste blanche restent, et trace perd ses données", () => {
+    const { beforeSend } = activeOptions();
+
+    const sent = beforeSend({
+      type: undefined,
+      message: "panne",
+      contexts: {
+        nextjs: { request_path: "/x" },
+        runtime: { name: "node" },
+        os: { name: "macOS" },
+        browser: { name: "Safari" },
+        device: { family: "Mac" },
+        culture: { locale: "fr-BE" },
+        trace: {
+          trace_id: "t",
+          span_id: "s",
+          data: { "http.query": "email=antoine@example.test" },
+        },
+        state: {
+          state: { type: "redux", value: { email: "antoine@example.test" } },
+        },
+        response: { status_code: 500 },
+        inconnu: { secret: "x" },
+      },
+    });
+
+    expect(sent?.contexts).toEqual({
+      nextjs: { request_path: "/x" },
+      runtime: { name: "node" },
+      os: { name: "macOS" },
+      browser: { name: "Safari" },
+      device: { family: "Mac" },
+      culture: { locale: "fr-BE" },
+      trace: { trace_id: "t", span_id: "s" },
     });
   });
 
@@ -203,6 +316,27 @@ describe("fil d'Ariane envoyé à Sentry", () => {
     },
   );
 
+  it("un fil HTTP serveur perd query et fragment de ses données", () => {
+    const { beforeBreadcrumb } = activeOptions();
+
+    const kept = beforeBreadcrumb({
+      category: "http",
+      data: {
+        url: "https://api.example.test/x",
+        "url.query": "?email=antoine%40example.test",
+        "url.fragment": "#jeton",
+        "http.query": "email=antoine%40example.test",
+        "http.fragment": "jeton",
+        "http.method": "GET",
+      },
+    });
+
+    expect(kept?.data).toEqual({
+      url: "https://api.example.test/x",
+      "http.method": "GET",
+    });
+  });
+
   it("un clic garde son sélecteur", () => {
     const { beforeBreadcrumb } = activeOptions();
 
@@ -216,17 +350,27 @@ describe("fil d'Ariane envoyé à Sentry", () => {
 });
 
 describe("origine du DSN pour la CSP", () => {
-  it("renvoie l'origine https du DSN, sans la clé", () => {
-    expect(sentryDsnOrigin(DSN)).toBe("https://o1.ingest.example.test");
+  it("renvoie l'origine https d'un DSN sentry.io, sans la clé", () => {
+    expect(
+      sentryDsnOrigin("https://clepublique@o1.ingest.de.sentry.io/42"),
+    ).toBe("https://o1.ingest.de.sentry.io");
   });
 
   it.each([
     undefined,
     "",
     "pas une url",
-    "http://cle@o1.ingest.example.test/42",
+    "http://cle@o1.ingest.sentry.io/42",
     "javascript:alert(1)",
-  ])("rien pour une valeur absente, invalide ou non https (%s)", (dsn) => {
-    expect(sentryDsnOrigin(dsn)).toBeUndefined();
-  });
+    "https://cle@o1.ingest.example.test/42",
+    "https://cle@sentry.io.example.test/42",
+    "https://cle@evilsentry.io/42",
+    "https://cle@evil.example;x.sentry.io/42",
+    "https://cle@*.sentry.io/42",
+  ])(
+    "rien pour une valeur absente, invalide, non https ou hors sentry.io (%s)",
+    (dsn) => {
+      expect(sentryDsnOrigin(dsn)).toBeUndefined();
+    },
+  );
 });

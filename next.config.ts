@@ -54,7 +54,7 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   useRunAfterProductionCompileHook: false,
   // Pas de tracing dans le socle : pas de hook de navigation à brancher.
   suppressOnRouterTransitionStartWarning: true,
-  // Bundle allégé : ni débogage, ni tracing (tracesSampleRate 0 ; retirer excludeTracing le jour où on trace),
+  // Bundle allégé : ni débogage, ni tracing (aucun tracesSampleRate ; retirer excludeTracing le jour où on trace),
   // ni morceaux de replay (aucun replay, cf. src/lib/sentry-options.ts). Mesuré : -20 Ko gzip sur /dashboard.
   bundleSizeOptimizations: {
     excludeDebugStatements: true,

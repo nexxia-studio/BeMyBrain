@@ -173,7 +173,7 @@ describe("politique de sécurité du contenu posée par le proxy", () => {
   it("connect-src contient l'origine du DSN et rien d'autre de nouveau ; sans DSN, inchangée", async () => {
     vi.stubEnv("SENTRY_DSN", "");
     const without = await proxy(request("/login"));
-    vi.stubEnv("SENTRY_DSN", "https://cle-publique@o1.ingest.example.test/42");
+    vi.stubEnv("SENTRY_DSN", "https://clepublique@o1.ingest.de.sentry.io/42");
 
     const withDsn = await proxy(request("/login"));
 
@@ -181,15 +181,19 @@ describe("politique de sécurité du contenu posée par le proxy", () => {
       "connect-src 'self'",
     );
     expect(connectSrc(withDsn.headers.get("content-security-policy"))).toBe(
-      "connect-src 'self' https://o1.ingest.example.test",
+      "connect-src 'self' https://o1.ingest.de.sentry.io",
     );
     expect(
       withDsn.headers.get("x-middleware-request-content-security-policy"),
-    ).toContain("https://o1.ingest.example.test");
+    ).toContain("https://o1.ingest.de.sentry.io");
   });
 
-  it.each(["http://cle@o1.ingest.example.test/42", "pas une url"])(
-    "n'élargit pas connect-src pour un DSN non https ou invalide (%s)",
+  it.each([
+    "http://cle@o1.ingest.sentry.io/42",
+    "pas une url",
+    "https://cle@o1.ingest.example.test/42",
+  ])(
+    "n'élargit pas connect-src pour un DSN non https, invalide ou hors sentry.io (%s)",
     async (dsn) => {
       vi.stubEnv("SENTRY_DSN", dsn);
 

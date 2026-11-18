@@ -1,7 +1,15 @@
 // Options communes de Sentry (serveur, edge, navigateur ; plan socle, tâche 19). Module pur : aucun import
 // d'exécution de @sentry/nextjs, testable sans SDK. Aucune donnée personnelle ne part chez Sentry :
-// sendDefaultPii faux, pas de replay, pas de tracing, et un nettoyage explicite de chaque événement.
-import type { Breadcrumb, ErrorEvent, Event } from "@sentry/nextjs";
+// dataCollection tout coupé (SDK v11 : `sendDefaultPii` n'existe plus, ses défauts collectent tout),
+// pas de replay, pas de tracing, et un nettoyage explicite de chaque événement.
+import type {
+  Breadcrumb,
+  BrowserOptions,
+  EdgeOptions,
+  ErrorEvent,
+  Event,
+  NodeOptions,
+} from "@sentry/nextjs";
 
 /** Variables lues, passées membre par membre : côté client, Next ne remplace que `process.env.X` littéral. */
 export type SentryEnv = {
@@ -9,38 +17,130 @@ export type SentryEnv = {
   VERCEL_ENV?: string | undefined;
 };
 
+/** Options valables sur les trois runtimes : une clé inconnue de l'un d'eux casse la compilation. */
+type SentryInitOptions = BrowserOptions & NodeOptions & EdgeOptions;
+
 const ACTIVE_ENVIRONMENTS = new Set(["production", "preview"]);
 
 // Liste blanche : seuls ces en-têtes restent dans un événement, tout autre est retiré (referer et origin,
 // qui portent une URL avec sa query string, cookie, authorization, IP, géolocalisation Vercel, en-têtes à venir).
 // Assez pour lire une panne : navigateur, langue, type de corps, hôte (production ou preview).
-const KEPT_HEADERS = new Set([
-  "user-agent",
-  "accept-language",
-  "content-type",
-  "host",
+const KEPT_HEADERS = ["user-agent", "accept-language", "content-type", "host"];
+const KEPT_HEADER_SET = new Set(KEPT_HEADERS);
+
+// Collecte du SDK (types : @sentry/core, types/datacollection.d.ts). Tout ce qui vaut `true` par défaut est
+// coupé. `userInfo: false` pose aussi `infer_ip: "never"` sur les événements et retire l'IP « {{auto}} » des
+// sessions navigateur (BrowserClient, 11.13.0) : le suivi de session reste, sans IP.
+// `frameContextLines` garde son défaut : lignes de notre code source autour d'une frame, pas une donnée.
+// L'`allow` des en-têtes est une correspondance par sous-chaîne (« host » garde x-forwarded-host) :
+// beforeSend refait le tri par nom exact.
+const DATA_COLLECTION = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: { request: { allow: KEPT_HEADERS }, response: false },
+  httpBodies: [],
+  urlQueryParams: false,
+  graphQL: { document: false, variables: false },
+  genAI: { inputs: false, outputs: false },
+  mcp: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  queues: false,
+  stackFrameVariables: false,
+} satisfies SentryInitOptions["dataCollection"];
+
+// Contextes gardés : de quoi situer une panne (route, runtime, système, navigateur, appareil, langue, trace).
+// Tout autre est retiré (state Redux, response, contextes ajoutés par une intégration à venir).
+const KEPT_CONTEXTS = new Set([
+  "nextjs",
+  "runtime",
+  "os",
+  "browser",
+  "device",
+  "culture",
+  "trace",
 ]);
 
 // Fils d'Ariane dont le message ou les données peuvent porter une saisie ou un objet journalisé.
 const CONTENTLESS_BREADCRUMBS = new Set(["ui.input", "console"]);
 const URL_BREADCRUMB_KEYS = ["url", "from", "to"] as const;
+// Données des fils HTTP serveur (conventions OpenTelemetry) qui portent la query string ou le fragment.
+const QUERY_BREADCRUMB_KEYS = [
+  "url.query",
+  "url.fragment",
+  "http.query",
+  "http.fragment",
+];
+
+// Secrets ou données personnelles reconnaissables dans un texte libre (message d'erreur, log).
+// Ordre : l'URL Postgres d'abord (son « user:mdp@hôte » ressemble à un e-mail).
+const TEXT_MASKS: [RegExp, string][] = [
+  [/postgres(?:ql)?:\/\/\S+/giu, "[postgres-url]"],
+  [/Bearer\s+[^\s"',;]+/giu, "Bearer [Filtered]"],
+  [/eyJ[\w-]*\.[\w-]+\.[\w-]*/gu, "[jwt]"],
+  [/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu, "[email]"],
+];
+
+// Point d'ingestion admis dans la CSP : https, hôte sans caractère spécial, sous-domaine de sentry.io.
+const SENTRY_ORIGIN = /^https:\/\/[a-z0-9.-]+(:\d+)?$/;
+const SENTRY_HOST_SUFFIX = ".sentry.io";
 
 /** Retire la query string et le fragment d'une URL absolue ou relative. */
 function withoutQuery(url: string): string {
   return url.split(/[?#]/, 1)[0];
 }
 
+/** Masque e-mails, JWT, URL Postgres et jetons Bearer d'un texte libre. */
+function maskText(text: string): string {
+  return TEXT_MASKS.reduce(
+    (masked, [pattern, replacement]) => masked.replace(pattern, replacement),
+    text,
+  );
+}
+
+/** Une chaîne est masquée, un nombre ou un booléen gardé, tout autre valeur remplacée. */
+function maskParam(param: unknown): unknown {
+  if (typeof param === "string") return maskText(param);
+  if (typeof param === "number" || typeof param === "boolean") return param;
+  return "[Filtered]";
+}
+
 function scrubHeaders(headers: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(headers).filter(([name]) =>
-      KEPT_HEADERS.has(name.toLowerCase()),
+      KEPT_HEADER_SET.has(name.toLowerCase()),
     ),
   );
 }
 
-/** Nettoie un événement (erreur ou transaction) avant envoi. Exporté pour les tests. */
+type Contexts = NonNullable<Event["contexts"]>;
+
+function scrubContexts(contexts: Contexts): Contexts {
+  const kept: Contexts = {};
+  for (const [name, context] of Object.entries(contexts)) {
+    if (KEPT_CONTEXTS.has(name) && context) kept[name] = context;
+  }
+  if (kept.trace) {
+    // Les données de trace reprennent les attributs de la requête (URL, query).
+    const { data, ...trace } = kept.trace;
+    void data;
+    kept.trace = trace;
+  }
+  const nextjs = kept.nextjs;
+  if (nextjs && typeof nextjs.request_path === "string") {
+    kept.nextjs = {
+      ...nextjs,
+      request_path: withoutQuery(nextjs.request_path),
+    };
+  }
+  return kept;
+}
+
+/** Nettoie un événement avant envoi. Exporté pour les tests. */
 export function scrubEvent<T extends Event>(event: T): T {
-  const scrubbed: T = { ...event };
+  // `extra` retiré entier : objets arbitraires joints par le code ou une intégration.
+  const { extra, ...rest } = event;
+  void extra;
+  const scrubbed = rest as T;
   if (event.request) {
     // Corps, cookies et query string retirés ; l'URL perd aussi sa query string.
     const { data, cookies, query_string, headers, url, ...request } =
@@ -58,11 +158,23 @@ export function scrubEvent<T extends Event>(event: T): T {
     // Seul l'identifiant (uuid Neon Auth) est gardé : ni e-mail, ni IP, ni nom.
     scrubbed.user = event.user.id === undefined ? {} : { id: event.user.id };
   }
-  const nextjs = event.contexts?.nextjs;
-  if (nextjs && typeof nextjs.request_path === "string") {
-    scrubbed.contexts = {
-      ...event.contexts,
-      nextjs: { ...nextjs, request_path: withoutQuery(nextjs.request_path) },
+  if (event.contexts) scrubbed.contexts = scrubContexts(event.contexts);
+  if (event.message !== undefined) scrubbed.message = maskText(event.message);
+  if (event.logentry) {
+    const { message, params } = event.logentry;
+    scrubbed.logentry = {
+      ...(message === undefined ? {} : { message: maskText(message) }),
+      ...(params === undefined ? {} : { params: params.map(maskParam) }),
+    };
+  }
+  if (event.exception?.values) {
+    scrubbed.exception = {
+      ...event.exception,
+      values: event.exception.values.map((exception) =>
+        exception.value === undefined
+          ? exception
+          : { ...exception, value: maskText(exception.value) },
+      ),
     };
   }
   return scrubbed;
@@ -80,15 +192,19 @@ function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
   for (const key of URL_BREADCRUMB_KEYS) {
     if (typeof data[key] === "string") data[key] = withoutQuery(data[key]);
   }
+  for (const key of QUERY_BREADCRUMB_KEYS) delete data[key];
   return { ...breadcrumb, data };
 }
 
-/** Origine https du DSN (point d'ingestion, sans la clé), pour connect-src ; rien sinon. */
+/** Origine https d'un DSN sentry.io (point d'ingestion, sans la clé), pour connect-src ; rien sinon. */
 export function sentryDsnOrigin(dsn: string | undefined): string | undefined {
   if (!dsn) return undefined;
   try {
     const url = new URL(dsn);
-    return url.protocol === "https:" ? url.origin : undefined;
+    return SENTRY_ORIGIN.test(url.origin) &&
+      url.hostname.endsWith(SENTRY_HOST_SUFFIX)
+      ? url.origin
+      : undefined;
   } catch {
     return undefined;
   }
@@ -98,6 +214,8 @@ export function sentryDsnOrigin(dsn: string | undefined): string | undefined {
  * Options de `Sentry.init`, identiques sur les trois runtimes. Actif seulement avec un DSN ET sur une
  * production ou une preview Vercel : jamais en local, en CI, sous Vitest ni sous Playwright.
  * Aucune clé `integrations` ni `replays*` : pas de session replay.
+ * Aucun `tracesSampleRate` : pas de tracing ; `tracePropagationTargets` vide : aucun en-tête
+ * `sentry-trace` / `baggage` ajouté aux requêtes sortantes (sans liste, le SDK serveur les pose partout).
  */
 export function sentryOptions(env: SentryEnv) {
   const environment = env.VERCEL_ENV;
@@ -110,12 +228,10 @@ export function sentryOptions(env: SentryEnv) {
     enabled,
     dsn: enabled ? env.SENTRY_DSN : undefined,
     environment,
-    sendDefaultPii: false,
-    // Pas de tracing dans le socle.
-    tracesSampleRate: 0,
+    dataCollection: DATA_COLLECTION,
+    tracePropagationTargets: [],
     beforeSend: (event: ErrorEvent): ErrorEvent | null => scrubEvent(event),
-    beforeSendTransaction: <T extends Event>(event: T): T => scrubEvent(event),
     beforeBreadcrumb: (breadcrumb: Breadcrumb): Breadcrumb =>
       scrubBreadcrumb(breadcrumb),
-  };
+  } satisfies SentryInitOptions;
 }
