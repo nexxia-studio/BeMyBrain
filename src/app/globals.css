@@ -259,7 +259,9 @@
      2 × 0,25rem = 3,25rem) + padding `lg:py-3` (2 × 0,75rem) + bord du verre (2 × 1px). À suivre si l'en-tête change.
      Le panneau du détail démarre dessous, à l'écart de la grille (ne recouvre ni ⌘K ni « + »). */
   --header-height: calc(3.25rem + 1.5rem + 2px);
-  --detail-top: calc(var(--page-top) + var(--header-height) + var(--space-grid));
+  --detail-top: calc(
+    var(--page-top) + var(--header-height) + var(--space-grid)
+  );
   /* Bord droit du panneau aligné sur celui de la coque (contenu centré à `--container-content`, marge de page) :
      le % se rapporte à la largeur du calque fixe, barre de défilement exclue. */
   --detail-right: calc(

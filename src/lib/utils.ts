@@ -1,4 +1,4 @@
-import { createCn } from "cn/config"
+import { createCn } from "cn/config";
 
 /** Tailles de texte de la charte (`@theme` de `src/app/globals.css`, DESIGN.md § 3). */
 const CHARTER_TEXT_SIZES = [
@@ -16,7 +16,7 @@ const CHARTER_TEXT_SIZES = [
   "eyebrow",
   "chip",
   "tab",
-]
+];
 
 /**
  * `cn` du projet : sans cette déclaration, le moteur prend `text-small`,
@@ -25,4 +25,4 @@ const CHARTER_TEXT_SIZES = [
  */
 export const cn = createCn({
   extend: { classGroups: { "font-size": [{ text: CHARTER_TEXT_SIZES }] } },
-})
+});
