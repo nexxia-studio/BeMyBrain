@@ -1,16 +1,15 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-18 — session : `/handoff` de clôture du socle (Claude Code)
+**Dernière mise à jour** : 2026-11-19 — session : `/feature todo-unifiee` (spec et plan)
 
 ## Où on en est
-- Socle clos le 2026-11-18. PR #7 fusionnée : `main` à `20c1fce`, production en ligne sur ce commit, sans nouvelle migration. Plan : `docs/features/socle/plan.md` (tâches 1 à 21, QA-1, QA-2 dans « Terminé »).
-- QA-1 (session expirée pendant une action → `/login?next=`, retour sur la page) et QA-2 (`/login` ouvert connecté → tableau de bord) : reviewer OK, security-auditor OK (QA-1).
-- `/qa socle` du 2026-11-18 : 5 PASS, 0 FAIL, scénario 5 non joué (`docs/features/socle/qa-report.md`).
-- Tests : 1218 verts (`pnpm test`). e2e session-expiree, connecte-sur-login, acces-refuse, premiere-connexion verts (`--workers=1`). Tests rouges : aucun.
-- `feat/socle` reste poussée. Les docs de clôture ne rejoignent `main` qu'avec une PR, sur accord d'Antoine.
+- Feature en cours : `todo-unifiee`, branche `feat/todo-unifiee` (partie de `feat/socle`, embarque le secret `SEED_OWNER_USER_ID`). Poussée.
+- Spec validée le 2026-11-19 : `docs/features/todo-unifiee/spec.md`. Plan : `docs/features/todo-unifiee/plan.md`, 18 tâches, aucune cochée.
+- DESIGN.md § 5 : tuile « Aujourd'hui » avec 3 lignes de tâches (validé). Roadmap : « Privé », calendrier en module à part, BRAIN-33 après la to-do.
+- Tests rouges : aucun (rien codé).
 
 ## Prochaine étape
-Antoine choisit le premier module après le socle, puis `/clear` et `/feature <nom>`. Candidats phase 1 (`docs/roadmap.md`) : to-do unifiée (`tasks`, migration depuis `todo-perso-pro`), bucket lists et liste de courses (`lists`). Choix non tranché ici.
+Antoine valide le découpage du plan, puis exécution à partir de la tâche 1 (fuseau en une seule fonction). Tâches 2 à 8 et 10 marquées `[security]` : `security-auditor` après le reviewer.
 
 ## Suite
 - Essai Android (scénario 5) avant le multi-comptes (BRAIN-26) ; rôle owner/member et choix du workspace au même ticket.
@@ -27,4 +26,4 @@ Antoine choisit le premier module après le socle, puis `/clear` et `/feature <n
 - MCP Vercel sans accès au pare-feu (404) ; reconnecter l'intégration pour agir depuis Claude.
 
 Commande de reprise :
-`Lis docs/handoff.md, demande à Antoine le premier module après le socle, puis après /clear lance /feature <nom>.`
+`Exécute docs/features/todo-unifiee/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer pour chaque review.`

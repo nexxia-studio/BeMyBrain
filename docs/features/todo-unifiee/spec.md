@@ -1,6 +1,6 @@
 # Spec — To-do unifiée (tranche 1)
 
-**Créée le** : 2026-11-19 · **Statut** : brouillon (bloc 1 validé le 2026-11-19 ; blocs 2 et 3 en relecture) · **Plan** : `plan.md`
+**Créée le** : 2026-11-19 · **Statut** : validée (Antoine, 2026-11-19) · **Plan** : `plan.md`
 
 ## Objectif
 Antoine note une tâche en une seconde depuis n'importe quel écran, sans syntaxe (`#projet`, `@tag`), puis la retrouve dans une seule liste filtrée par côté (Privé / Pro) et par espace, avec ce qui tombe aujourd'hui visible sur le tableau de bord.
@@ -36,7 +36,7 @@ Chaque FK vers une autre ligne métier est **composite avec `workspace_id`** : l
 | `workspace_id` | uuid NOT NULL | FK `workspaces` |
 | `side` | text NOT NULL | CHECK `('private','pro')`. Toujours renseigné, même sans espace. |
 | `context_id` | uuid NULL | FK composite `(workspace_id, context_id, side)` → `contexts(workspace_id, id, kind)`, `ON UPDATE CASCADE`, `ON DELETE SET NULL (context_id)` |
-| `parent_id` | uuid NULL | FK composite `(workspace_id, parent_id)` → `tasks(workspace_id, id)` |
+| `parent_id` | uuid NULL | FK composite `(workspace_id, parent_id, side)` → `tasks(workspace_id, id, side)` : une sous-tâche a toujours le côté de sa parente (voir « Sous-tâches ») |
 | `title` | text NOT NULL | CHECK longueur 1 à 500 après trim |
 | `notes` | text NULL | CHECK longueur ≤ 10 000 |
 | `status_category` | text NOT NULL default `'unstarted'` | CHECK `('backlog','unstarted','started','completed','canceled')`. Voir « Statuts » ci-dessous. |
@@ -50,7 +50,7 @@ Chaque FK vers une autre ligne métier est **composite avec `workspace_id`** : l
 | `created_at`, `updated_at` | timestamptz | |
 
 Index (partiels `WHERE deleted_at IS NULL` sauf mention) : `(workspace_id, side, status_category)`, `(workspace_id, due_date)`, `(workspace_id, context_id)`, `(workspace_id, parent_id)` ; et `(workspace_id, deleted_at) WHERE deleted_at IS NOT NULL` pour la corbeille.
-Unique `(workspace_id, id)` : cible des FK composites.
+Unique `(workspace_id, id)` et `(workspace_id, id, side)` : cibles des FK composites.
 Côté `contexts` (additif) : unique `(workspace_id, id, kind)`, cible de la FK de `tasks`.
 
 **Statuts.** La colonne porte une catégorie au sens de Linear, pas un statut. Les cinq catégories sont figées : tout le code (tuiles, filtres, `completed_at`, kanban) raisonne sur elles. Des statuts personnalisés viendront plus tard par migration additive : table `task_statuses (id, workspace_id, name, category, position)` et colonne `tasks.status_id` nullable, FK composite `(workspace_id, status_id, status_category)` → `task_statuses(workspace_id, id, category)`. La catégorie de la tâche reste ainsi toujours celle de son statut, et une tâche sans statut personnalisé garde le statut par défaut de sa catégorie. Libellés par défaut de l'interface : Backlog, À faire, En cours, Fait, Annulé.
@@ -60,6 +60,12 @@ Côté `contexts` (additif) : unique `(workspace_id, id, kind)`, cible de la FK 
 - RLS : elle ne filtre que l'appartenance au workspace, pas la corbeille. Filtrer `deleted_at` dans la policy SELECT ferait échouer la mise à la corbeille elle-même (Postgres exige que la ligne modifiée reste visible) et rendrait la corbeille illisible. La RLS isole les workspaces ; la corbeille est une règle de lecture.
 - Lectures : `src/modules/tasks/queries.ts` est le seul accès (ADR-002). Toutes ses fonctions partent d'un seul prédicat `isActive` (`deleted_at IS NULL`) ; seule `listTrashedTasks` lit `deleted_at IS NOT NULL`. Les écritures (`mutations.ts`) ne touchent qu'une tâche active, sauf `restoreTask` ; une tâche à la corbeille est `not_found` pour elles. Les tags d'une tâche à la corbeille ne comptent nulle part.
 - Verrou par test : chaque test de lecture place une tâche à la corbeille dans sa fixture et vérifie qu'elle n'apparaît pas.
+
+**Sous-tâches.** Une sous-tâche hérite du côté et de l'espace de sa parente à la création et les suit quand la parente en change.
+- Côté : garanti **en base** par la FK `(workspace_id, parent_id, side)`. Le changement de côté d'une parente et de ses sous-tâches se fait en une seule instruction `UPDATE … WHERE id = $1 OR parent_id = $1` : la FK (NO ACTION) est vérifiée en fin d'instruction, donc sur l'état cohérent.
+- Espace : garanti **dans `mutations.ts`**, dans la même instruction. La base ne peut pas l'imposer par FK : `context_id` est nullable, et une FK composite ne vérifie rien dès qu'une colonne est NULL (MATCH SIMPLE) ; MATCH FULL refuserait une parente sans espace. Un trigger le pourrait, au prix d'une fonction SECURITY DEFINER de plus ; non retenu. Verrou : test de mutation + test d'isolation qui tente l'écart en SQL direct et documente qu'il passe (limite assumée).
+- `tasks.update` sur une sous-tâche refuse `side` et `context` (`subtask_follows_parent`). `ON DELETE SET NULL` d'un espace vide `context_id` de la parente et des sous-tâches ensemble.
+- Cocher une parente ne touche pas ses sous-tâches : pas de fermeture en cascade. Le compteur reste visible.
 
 ### `tags` — tranche 1
 | Colonne | Type | Règle |
@@ -94,7 +100,7 @@ Tout `tasks`, `tags`, `task_tags`. `task_relations` et `task_links` ne sont pas 
 
 ### Décisions que la tranche 2 pourrait remettre en cause
 1. Catégories figées : le kanban affiche une colonne par catégorie. Des colonnes personnalisées passent par les statuts personnalisés ci-dessus, sans toucher `status_category`.
-2. Échéance en date + heure locales, sans fuseau (validé). « Aujourd'hui » se calcule dans le fuseau de l'utilisateur, donné par une seule fonction `getUserTimeZone` (`src/modules/core/`), qui renvoie `Europe/Brussels` en tranche 1 et lira une préférence plus tard. Aucun autre fichier n'écrit un fuseau (verrou par test : recherche de `Europe/` et de `timeZone:` dans `src/`).
+2. Échéance en date + heure locales, sans fuseau (validé). « Aujourd'hui » se calcule dans le fuseau de l'utilisateur, donné par une seule fonction `getUserTimeZone` (`src/modules/core/time-zone.ts`), qui renvoie `Europe/Brussels` en tranche 1 et lira une préférence plus tard. Le socle a déjà une constante `timeZone = "Europe/Brussels"` dans `src/i18n/config.ts` (formatage next-intl) : elle disparaît, `src/i18n/request.ts` appelle `getUserTimeZone`. Aucun autre fichier n'écrit un fuseau (verrou par test : recherche de `Europe/` dans `src/`).
 3. Un seul niveau de sous-tâches, contrôlé dans `mutations.ts` : le lever ne demande aucune migration.
 4. Côté porté par la tâche et recopié de l'espace par la FK composite (validé).
 
@@ -104,13 +110,13 @@ Toute écriture de tâche passe par une action du registre (ADR-009), y compris 
 Actions de la tranche 1 (canaux `web` et `assistant`) :
 | Action | Accès | Rôle |
 | --- | --- | --- |
-| `tasks.list` | read | Tâches actives filtrées par côté, espace, catégories, tag, échéance au plus tard le ; terminées et annulées exclues par défaut |
+| `tasks.list` | read | Tâches actives (sous-tâches comprises, avec `parentId` et `parentTitle`) filtrées par côté, espace, catégories, tag, échéance au plus tard le, texte du titre (`query`, insensible à la casse, 1 à 100 caractères, jokers SQL échappés ; accents : voir plan) ; `limit` 50 par défaut, plafond 200 ; renvoie `truncated: true` quand il y en a plus. Terminées et annulées exclues par défaut |
 | `tasks.get` | read | Une tâche avec ses tags et ses sous-tâches actives |
 | `tasks.listDueToday` | read | Tâches non terminées en retard ou dues aujourd'hui, des deux côtés |
 | `tasks.listTrash` | read | Corbeille |
 | `tasks.listTags` | read | Tags du workspace |
-| `tasks.create` | write | Crée une tâche ou une sous-tâche ; tags passés par nom, créés s'ils n'existent pas |
-| `tasks.update` | write | Modifie titre, notes, côté, espace, catégorie, priorité, échéance, tags |
+| `tasks.create` | write | Crée une tâche ou une sous-tâche (`parentId`) ; `tags` : noms, créés s'ils n'existent pas |
+| `tasks.update` | write | Modifie titre, notes, côté, espace, catégorie, priorité, échéance. Tags : `addTags` et `removeTags` (noms), jamais de remplacement de l'ensemble ; retirer un tag absent n'est pas une erreur ; un même nom dans les deux → `invalid_params` |
 | `tasks.complete` | write | Raccourci : catégorie `completed` |
 | `tasks.moveToTrash` | write | Met une tâche (et ses sous-tâches) à la corbeille |
 | `tasks.restore` | write | Restaure une tâche (et ses sous-tâches mises avec elle) |
@@ -132,6 +138,10 @@ Données et sécurité
 - [ ] `app_backend` ne peut fixer ni `created_by`, ni `origin` en UPDATE, ni `updated_at`.
 - [ ] Supprimer un espace garde ses tâches, du même côté, sans espace. Changer un espace de côté change le côté de ses tâches.
 - [ ] Une sous-tâche de sous-tâche est refusée (`subtask_depth`).
+- [ ] Une sous-tâche créée sans côté ni espace prend ceux de sa parente ; changer le côté ou l'espace de la parente change ceux de ses sous-tâches (actives et à la corbeille).
+- [ ] Une sous-tâche de côté différent de sa parente est refusée par la base (violation de FK, SQL direct).
+- [ ] `tasks.update` d'une sous-tâche avec `side` ou `context` renvoie `subtask_follows_parent`.
+- [ ] Cocher une parente avec des sous-tâches ouvertes la passe à `completed` ; ses sous-tâches gardent leur catégorie ; le compteur « n/m » reste affiché.
 
 Corbeille
 - [ ] Une tâche à la corbeille n'apparaît dans aucune lecture sauf `tasks.listTrash`, ni dans les tuiles.
@@ -146,6 +156,7 @@ Saisie et liste
 - [ ] Une tâche créée depuis l'écran a `origin = app`, depuis la palette `origin = palette`.
 - [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier) puis priorité ; terminées et annulées masquées, visibles par un interrupteur.
 - [ ] Cocher une tâche la passe à `completed` ; le bouton est désactivé pendant l'appel, pas de mise à jour optimiste. Une erreur s'affiche dans la ligne.
+- [ ] Une sous-tâche sans échéance n'est pas une ligne de la liste ; avec une échéance, elle apparaît dans la section de cette échéance et dans la tuile « Aujourd'hui », titre de la parente en légende ; la parente montre « n/m ».
 - [ ] Le détail d'une tâche permet de modifier tous les champs de la tranche 1, d'ajouter des sous-tâches et de la mettre à la corbeille.
 - [ ] États vide, chargement et erreur présents sur la liste, le détail, la corbeille et les tuiles.
 - [ ] Tous les textes existent en FR et en EN ; le contenu saisi n'est jamais traduit.
@@ -159,6 +170,9 @@ Tableau de bord
 Registre
 - [ ] `toToolDefinitions("assistant")` renvoie les dix actions `tasks.*` avec description en clair et JSON Schema valide, sans `workspaceId`, `userId` ni `origin`.
 - [ ] Chaque code d'erreur de `tasks` a un message anglais non vide et une traduction FR/EN d'interface.
+- [ ] `tasks.list` avec `query: "devis"` trouve « Relancer le Devis » et pas « Payer la crèche » ; `query: "100%"` ne se comporte pas comme un joker.
+- [ ] `tasks.list` avec `limit: 500` est refusé (`invalid_params`) ; avec 3 tâches et `limit: 2`, renvoie 2 tâches et `truncated: true`.
+- [ ] `tasks.update` avec `addTags: ["a"]` garde les tags existants et ajoute « a » ; `removeTags: ["b"]` ne retire que « b » ; le schéma n'a pas de champ `tags`.
 - [ ] Test d'isolation du registre : une action `tasks.*` appelée avec la session du workspace A ne lit ni n'écrit rien de B.
 
 ## Scénarios utilisateur (joués par /qa)
@@ -198,7 +212,8 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 ### Liste (`/tasks`)
 - Entrée « To-do » dans la navigation (`nav-items.ts`), avant Réglages ; onglet mobile à gauche du « + ».
 - En-tête de page : titre « To-do », filtre d'espace (existant), interrupteur « Terminées ». La bascule Privé / Pro de la coque filtre le côté.
-- Sections par échéance : En retard, Aujourd'hui, Demain, Plus tard, Sans échéance ; dans chaque section, priorité puis date de création. Terminées (si affichées) en dernière section, par `completed_at` décroissant.
+- Sections par échéance : En retard, Aujourd'hui, Demain, Plus tard, Sans échéance ; dans chaque section, priorité puis date de création.
+- Sous-tâches : pas de ligne de premier niveau, seulement le compteur « n/m » sur la parente. Exception : une sous-tâche qui a sa propre échéance apparaît aussi dans la section de son échéance (jamais dans « Sans échéance ») et dans la tuile « Aujourd'hui », avec le titre de la parente en légende. Règle portée par une fonction pure de `src/modules/tasks/` (testée), pas par le composant. Terminées (si affichées) en dernière section, par `completed_at` décroissant.
 - Ligne (`row rounded-lg min-h-11 px-3.5`) : case à cocher (zone 44 px, `label` sur la case seule), titre (`text-body`, deux lignes max), puis en `text-caption` : pastille d'espace, échéance (`text-destructive` si en retard), heure, tags, icône de priorité (aucune icône pour 0), compteur de sous-tâches « 1/3 ». Tap sur le reste de la ligne → détail.
 - Cocher : case désactivée pendant l'appel, ligne qui sort en `opacity` + `y` 8 (Motion) après succès ; pas de mise à jour optimiste ; erreur dans la ligne.
 - Vide : phrase + bouton « Ajouter une tâche » qui ouvre l'ajout rapide. Vide filtré : « Rien dans cet espace » + lien « Voir tous les espaces ». Chargement : squelettes de lignes. Erreur : `error.tsx` avec `retry()`.
@@ -225,5 +240,6 @@ Anti-slop (`nexxia-design`) puis `/impeccable critique` sur la liste, l'ajout ra
 ## Questions ouvertes
 - [x] Bouton central mobile → ajout rapide, palette dans l'en-tête sur mobile (Antoine, 2026-11-19).
 - [x] Fuseau : `Europe/Brussels` en tranche 1 via la seule fonction `getUserTimeZone` (Antoine, 2026-11-19).
-- [ ] Tuile « Aujourd'hui » : elle porte aujourd'hui salutation et pastilles de chiffres (DESIGN.md § 5). Y ajouter les 3 premières tâches en lignes `on-primary-surface` étend la charte : à valider.
-- [ ] Effets de verre animés (BRAIN-33), prévus « avec le premier module à vraies données » : dans cette feature ou à part ? Avis : à part, pour ne pas mêler un moment signature à la mise en place du module.
+- [x] Tuile « Aujourd'hui » avec les 3 premières tâches : validé, DESIGN.md § 5 mis à jour (Antoine, 2026-11-19).
+- [x] Effets de verre animés (BRAIN-33) : à part, après cette feature (Antoine, 2026-11-19).
+- [x] Sous-tâches dans la liste : compteur sur la parente, ligne propre seulement quand elles ont une échéance (Antoine, 2026-11-19).
