@@ -102,7 +102,7 @@
 
 - [ ] **17. Tuiles du tableau de bord**
   - Fichiers : `src/components/bento/TodayTile.tsx`, `src/components/tasks/SideTodoTile.tsx`, `src/modules/dashboard/tiles.ts`, `src/app/(app)/dashboard/page.tsx`, `messages/*.json`
-  - Test à écrire d'abord : `TodayTile.test.tsx` — « compteurs en retard / aujourd'hui, 3 lignes, côté en légende, lien Tout voir » ; `SideTodoTile.test.tsx` — « 5 prochaines du côté, lien vers /tasks sur ce côté » ; états vide et erreur
+  - Test à écrire d'abord : `TodayTile.test.tsx` — « compteurs en retard / aujourd'hui, 3 lignes, côté en légende, lien Tout voir » ; `SideTodoTile.test.tsx` — « 5 prochaines du côté, lien vers /tasks sur ce côté » ; « 5 lignes même avec des sous-tâches sans échéance » (lire plus de 5 tâches ou exclure ces sous-tâches dans la requête, `sideTileItems` les écarte) ; états vide et erreur
   - Fini quand : tests verts, DESIGN.md § 5 respecté (contraste de la tuile pleine)
 
 - [ ] **18. Parcours e2e et passe design**
