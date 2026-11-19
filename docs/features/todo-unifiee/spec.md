@@ -83,7 +83,7 @@ Tags communs aux deux côtés. Pas de couleur (colonne additive plus tard). Pas 
 | `tag_id` | uuid NOT NULL | FK composite → `tags(workspace_id, id)` |
 | `created_at` | timestamptz | |
 
-PK `(task_id, tag_id)` ; index `(workspace_id, tag_id)`. DELETE autorisé (retirer un tag d'une tâche).
+PK `(workspace_id, task_id, tag_id)` ; index `(workspace_id, tag_id)`. `workspace_id` est dans la clé pour qu'un membre de B ne puisse pas savoir si un lien existe chez A : sans lui, insérer `(B, tâche de A, tag de A)` renvoyait un doublon si le lien existait, une erreur de FK sinon (décision du 2026-11-19). DELETE autorisé (retirer un tag d'une tâche) ; pas d'UPDATE : un lien ne se modifie pas, il s'ajoute ou se retire.
 
 ### `task_relations` — tranche 2 (non créée ici)
 `id`, `workspace_id`, `from_task_id`, `to_task_id` (FK composites), `kind` CHECK `('blocks','related')`. « Bloquée par » = lecture inverse de `blocks`. CHECK `from_task_id <> to_task_id` ; unique `(from_task_id, to_task_id, kind)` ; `related` stocké une fois (plus petit id en `from`). Une relation vers une tâche à la corbeille est masquée à la lecture, pas supprimée.
@@ -132,6 +132,7 @@ Exigences pour un usage par un modèle :
 ## Critères d'acceptation
 Données et sécurité
 - [ ] Une lecture ou une écriture sur `tasks`, `tags` ou `task_tags` d'un autre workspace est refusée par la base (42501 ou zéro ligne), avec la connexion `app_backend`.
+- [ ] Un membre de B ne peut pas savoir si un lien tâche–tag existe chez A : la même insertion donne le même refus, lien existant ou non (test « B ne peut plus sonder un lien de A », `tests/db/isolation-tasks.test.ts`).
 - [ ] Une tâche qui référence un espace, une parente ou un tag d'un autre workspace est refusée par la base (violation de FK), même en contournant `mutations.ts`.
 - [ ] Une tâche dont `side` diffère du `kind` de son espace est refusée par la base.
 - [ ] `DELETE FROM tasks` par `app_backend` est refusé (42501).
@@ -186,7 +187,7 @@ Registre
 
 ## Données et sécurité
 - Nouvelles tables : `tasks`, `tags`, `task_tags`. Table modifiée : `contexts` (contrainte unique additive). Migration unique, additive.
-- RLS : SELECT, INSERT, UPDATE sur les trois tables, DELETE sur `task_tags` seulement, filtre `app.is_workspace_member(workspace_id)`. FK composites contre tout lien entre workspaces. Corbeille filtrée dans `queries.ts`, pas en RLS (voir « Corbeille »).
+- RLS : SELECT, INSERT, UPDATE sur `tasks` et `tags` ; SELECT, INSERT, DELETE sur `task_tags`, filtre `app.is_workspace_member(workspace_id)`. FK composites contre tout lien entre workspaces. Corbeille filtrée dans `queries.ts`, pas en RLS (voir « Corbeille »).
 - Accès : uniquement via `src/modules/tasks/queries.ts` et `mutations.ts`, `workspaceId` de la session.
 - Registre modifié (`origin` dans le contexte, `toToolDefinitions`) : `[security]`.
 - Argent : non. Module sensible au sens de BRAIN-34 : non.
