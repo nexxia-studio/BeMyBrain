@@ -220,6 +220,47 @@ describe("liste des tâches : cocher", () => {
   });
 });
 
+describe("liste des tâches : tâche annulée", () => {
+  function renderCanceled() {
+    const task = buildTask({
+      title: "Réserver le resto",
+      statusCategory: "canceled",
+      completedAt: new Date("2026-11-18T10:00:00Z"),
+    });
+    renderList([task]);
+    return task;
+  }
+
+  it("se lit comme fermée : case cochée, libellé adapté, repère Annulée visible", () => {
+    renderCanceled();
+
+    const box = screen.getByRole("checkbox", {
+      name: "Rouvrir « Réserver le resto », annulée",
+    }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    const link = screen.getByRole("link", { name: /Réserver le resto/ });
+    expect(within(link).getByText("Annulée")).toBeTruthy();
+  });
+
+  it("un tap la rouvre vers À faire, jamais tasks.complete", async () => {
+    runAppAction.mockResolvedValue({ ok: true, result: {} });
+    const task = renderCanceled();
+
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    await waitFor(() =>
+      expect(runAppAction).toHaveBeenCalledWith("tasks.update", {
+        taskId: task.id,
+        statusCategory: "unstarted",
+      }),
+    );
+    expect(runAppAction).not.toHaveBeenCalledWith(
+      "tasks.complete",
+      expect.anything(),
+    );
+  });
+});
+
 describe("liste des tâches : états vides", () => {
   it("vide : une phrase et un bouton qui ouvre l'ajout rapide", () => {
     const { openQuickAdd } = renderList([]);

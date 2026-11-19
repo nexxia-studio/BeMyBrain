@@ -253,6 +253,8 @@
       },
       "complete": "Complete \"{title}\"",
       "reopen": "Reopen \"{title}\"",
+      "reopenCanceled": "Reopen \"{title}\", canceled",
+      "canceled": "Canceled",
       "updateFailed": "Task not updated. Try again.",
       "priority": {
         "1": "Urgent priority",

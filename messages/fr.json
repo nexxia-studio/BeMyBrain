@@ -253,6 +253,8 @@
       },
       "complete": "Terminer « {title} »",
       "reopen": "Rouvrir « {title} »",
+      "reopenCanceled": "Rouvrir « {title} », annulée",
+      "canceled": "Annulée",
       "updateFailed": "Tâche non mise à jour. Réessaie.",
       "priority": {
         "1": "Priorité urgente",
