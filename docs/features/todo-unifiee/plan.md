@@ -65,7 +65,7 @@
   - Test à écrire d'abord : `src/modules/tasks/view.test.ts` — « sous-tâche sans échéance absente, avec échéance dans sa section avec titre de parente » ; « en retard / aujourd'hui / demain / plus tard / sans échéance » ; « tuile Aujourd'hui : 3 premières, des deux côtés, compteurs » ; « ce week-end un samedi = aujourd'hui »
   - Fini quand : tests verts, aucun import de React ni de Next
 
-- [ ] **10. Server Actions de l'écran tâches** [security]
+- [x] **10. Server Actions de l'écran tâches** [security]
   - Fichiers : `src/app/(app)/tasks/actions.ts` (`"use server"`, `await requireSession()` en premier, appel du registre avec origine `app`, `settleAction` côté client)
   - Test à écrire d'abord : `src/app/(app)/tasks/actions.test.ts` — « origine `app` posée » ; « session absente → redirect » ; lint `tests/lint/unguarded-actions.ts` vert
   - Fini quand : tests verts
