@@ -1,4 +1,4 @@
-import { DomainError } from "@/lib/errors";
+import { DomainError, INVALID_PARAMS_MESSAGE } from "@/lib/errors";
 
 export type ActionErrorCode =
   /** Aucune action de ce nom au registre : rien n'est exécuté. */
@@ -17,8 +17,7 @@ export type ActionErrorCode =
 export const ACTION_ERROR_MESSAGES = {
   unknown_action:
     "No action has this name on this channel. Use one of the listed tool names exactly.",
-  invalid_params:
-    "The parameters are invalid. Check the expected fields, formats and limits in the tool schema, then try again without extra fields.",
+  invalid_params: INVALID_PARAMS_MESSAGE,
   missing_context:
     "The request has no valid session context. Nothing was done; the user needs to sign in again.",
   duplicate_action:

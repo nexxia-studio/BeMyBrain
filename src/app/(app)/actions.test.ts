@@ -26,6 +26,8 @@ vi.mock("next/cache", () => ({ refresh }));
 vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import { ActionError } from "@/modules/actions/errors";
+import { CoreError } from "@/modules/core/errors";
+import { TaskError } from "@/modules/tasks/errors";
 
 import { TokenVerificationUnavailableError } from "../../../tests/factories/token-errors";
 
@@ -165,6 +167,25 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(console.warn).toHaveBeenCalledWith("[actions] action refusée", {
       code: "invalid_params",
     });
+    expect(console.error).not.toHaveBeenCalled();
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("un refus métier d'un module (DomainError hors registre) est un refus attendu, journalisé par son code seul", async () => {
+    for (const error of [
+      new TaskError("not_found"),
+      new CoreError("member_not_found"),
+    ]) {
+      runActionWithToken.mockRejectedValueOnce(error);
+
+      const outcome = await runAction("tasks.complete", {});
+
+      expect(outcome).toEqual({ ok: false });
+      expect(console.warn).toHaveBeenLastCalledWith(
+        "[actions] action refusée",
+        { code: error.code },
+      );
+    }
     expect(console.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
   });

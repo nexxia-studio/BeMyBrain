@@ -9,7 +9,7 @@ import {
   redirectIfRejectedToken,
   requireSessionWithToken,
 } from "@/lib/session";
-import { ActionError } from "@/modules/actions/errors";
+import { DomainError } from "@/lib/errors";
 import { runActionWithToken } from "@/modules/actions/run";
 import { localeSchema } from "@/modules/core/schemas";
 
@@ -41,8 +41,9 @@ function captureActionFailure(error: unknown, name: unknown): void {
 /**
  * Server Action unique de la palette (ADR-009) : session d'abord, puis registre. Le `workspaceId` est celui
  * de la session, l'utilisateur celui du jeton vérifié, l'origine toujours `palette` ; `name` et `params` viennent du client et ne servent
- * qu'à choisir et paramétrer l'action, jamais journalisés. Nom inconnu, paramètres invalides ou contexte
- * incomplet (ActionError, refus attendu) → `{ ok: false }`, rien d'exécuté, seul le code est journalisé.
+ * qu'à choisir et paramétrer l'action, jamais journalisés. Refus attendu (DomainError : nom inconnu,
+ * paramètres invalides, contexte incomplet, ou refus métier d'un module comme `not_found`) → `{ ok: false }`,
+ * seul le code est journalisé.
  * Toute autre erreur (base, identité non appliquée…) est une panne : journalisée côté serveur (`console.error`,
  * l'erreur seule) et envoyée à Sentry, puis `{ ok: false }`.
  * Une fois l'action réussie, l'écriture est faite : un échec des effets web (cookie, rendu) est journalisé et envoyé à Sentry
@@ -68,7 +69,8 @@ export async function runAction(
     unstable_rethrow(error);
     // Jeton expiré entre la garde et la base : renvoi vers /login, pas une panne (QA-1).
     await redirectIfRejectedToken(error);
-    if (error instanceof ActionError) {
+    // Refus métier (registre ou module : ActionError, TaskError, CoreError…) : attendu, pas une panne.
+    if (error instanceof DomainError) {
       console.warn("[actions] action refusée", { code: error.code });
       return { ok: false };
     }

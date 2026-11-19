@@ -40,6 +40,8 @@ export type Task = {
   id: string;
   side: Side;
   contextId: string | null;
+  /** Nom de l'espace, pour un appelant qui désigne les espaces par leur nom (modèle) ; null sans espace. */
+  contextName: string | null;
   parentId: string | null;
   /** Titre de la parente active ; null pour une tâche de premier niveau. */
   parentTitle: string | null;
@@ -82,6 +84,12 @@ const parentTitle = sql<string | null>`(
   where p.workspace_id = tasks.workspace_id and p.id = tasks.parent_id and p.deleted_at is null
 )`;
 
+// Nom de l'espace de la tâche, borné au workspace de la ligne (même forme que parentTitle).
+const contextName = sql<string | null>`(
+  select c.name from ${contexts} as c
+  where c.workspace_id = tasks.workspace_id and c.id = tasks.context_id
+)`;
+
 // Noms des tags de la tâche (liens et tags du même workspace, par FK composite et par filtre).
 const tagNames = sql<string[]>`coalesce((
   select array_agg(tg.name order by lower(tg.name), tg.id)
@@ -108,6 +116,7 @@ const taskColumns = {
   id: tasks.id,
   side: tasks.side,
   contextId: tasks.contextId,
+  contextName,
   parentId: tasks.parentId,
   parentTitle,
   title: tasks.title,

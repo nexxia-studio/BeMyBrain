@@ -397,6 +397,22 @@ describe("listTasks : filtres", () => {
     });
   });
 
+  it("une tâche porte le nom de son espace (contextName), null sans espace", async () => {
+    const r = await db.asUser(f.userA, async (tx) => ({
+      inContext: await getTask(f.workspaceA, t.taskA, tx),
+      noContext: await listTasks(f.workspaceA, { query: "100% payé" }, tx),
+    }));
+
+    expect(r.inContext).toMatchObject({
+      contextId: f.contextA,
+      contextName: `ctx-A-${f.run}`,
+    });
+    expect(r.noContext.tasks[0]).toMatchObject({
+      contextId: null,
+      contextName: null,
+    });
+  });
+
   it("tri : échéance (sans échéance en dernier), puis priorité (aucune en dernier), puis création", async () => {
     const r = await db.asUser(f.userA, (tx) =>
       listTasks(f.workspaceA, { side: "pro" }, tx),

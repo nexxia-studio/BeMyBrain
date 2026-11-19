@@ -1,3 +1,10 @@
+/**
+ * Message anglais du code `invalid_params`, lisible par un modèle : un seul texte pour le registre et tous les
+ * modules (ACTION_ERROR_MESSAGES, CORE_ERROR_MESSAGES, TASK_ERROR_MESSAGES).
+ */
+export const INVALID_PARAMS_MESSAGE =
+  "The parameters are invalid. Check the expected fields, formats and limits in the tool schema, then try again without extra fields.";
+
 const CODE_FORMAT = /^[a-z][a-z0-9_]{0,63}$/;
 
 /**

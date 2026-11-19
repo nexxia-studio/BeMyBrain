@@ -8,6 +8,9 @@ import type { UserTx } from "@/db/client";
 import fr from "../../../messages/fr.json";
 import en from "../../../messages/en.json";
 import { defineAction } from "./define";
+import { CORE_ERROR_MESSAGES } from "@/modules/core/errors";
+import { TASK_ERROR_MESSAGES } from "@/modules/tasks/errors";
+
 import { ACTION_ERROR_MESSAGES, ActionError } from "./errors";
 import {
   createRegistry,
@@ -497,6 +500,13 @@ describe("registre d'actions : messages d'erreur pour un modèle", () => {
       expect(message.trim().length, code).toBeGreaterThan(0);
       expect(message, code).not.toMatch(/[{}]/);
     }
+  });
+
+  it("invalid_params a un seul texte anglais, celui du registre, dans tous les modules", () => {
+    const registryText = ACTION_ERROR_MESSAGES.invalid_params;
+
+    expect(CORE_ERROR_MESSAGES.invalid_params).toBe(registryText);
+    expect(TASK_ERROR_MESSAGES.invalid_params).toBe(registryText);
   });
 
   it("le message d'un refus ne recopie ni le nom ni les paramètres reçus", () => {

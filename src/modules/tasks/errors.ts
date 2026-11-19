@@ -1,4 +1,4 @@
-import { DomainError } from "@/lib/errors";
+import { DomainError, INVALID_PARAMS_MESSAGE } from "@/lib/errors";
 
 export type TaskErrorCode =
   /** Paramètre refusé par zod : aucune requête n'est envoyée. */
@@ -20,8 +20,7 @@ export type TaskErrorCode =
  * ni une donnée d'un autre workspace.
  */
 export const TASK_ERROR_MESSAGES = {
-  invalid_params:
-    "The parameters are invalid. Check the expected formats and limits, then try again.",
+  invalid_params: INVALID_PARAMS_MESSAGE,
   not_found:
     "The task does not exist or is in the trash. List the tasks to get a valid task id.",
   context_not_found:
