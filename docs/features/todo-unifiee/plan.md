@@ -97,10 +97,17 @@
   - Test à écrire d'abord : `src/components/tasks/TaskDetail.test.tsx` — « chaque champ appelle `tasks.update`, désactivé pendant l'appel, erreur sous le champ » ; « détail d'une sous-tâche : pas d'ajout de sous-tâche, lien vers la parente, côté et espace non modifiables » ; « corbeille puis Annuler restaure »
   - Fini quand : tests verts
 
-- [ ] **16. Corbeille `/tasks/trash`**
-  - Fichiers : `src/app/(app)/tasks/trash/page.tsx`, `src/components/tasks/TrashList.tsx`, `messages/*.json`
-  - Test à écrire d'abord : `src/components/tasks/TrashList.test.tsx` — « parente avec + n sous-tâches » ; « Restaurer » ; « vide »
-  - Fini quand : tests verts
+- [ ] **16a. Couleur des espaces** [security]
+  - Décision d'Antoine (2026-11-19) : colonne `contexts.color text NOT NULL DEFAULT 'neutral' CHECK (color IN ('neutral','warm','indigo'))`, migration `drizzle/0007_context_color.sql` additive ; valeurs posées pour les espaces existants : Privé `neutral`, Trustup `warm`, Nexxia `indigo` (UPDATE par nom dans la migration, et `scripts/seed.ts`). Pas d'écran pour la changer (BRAIN-30). Droits : lecture par `app_backend` (GRANT SELECT de la colonne si les GRANT de `contexts` sont par colonne), aucun UPDATE de la colonne.
+  - Fichiers : `drizzle/0007_context_color.sql` + meta, `src/db/schema/*` (contexts), `scripts/seed.ts`, `src/modules/core/queries.ts` ou `src/modules/tasks/queries.ts` (lecture de la couleur avec le nom de l'espace), `src/components/tasks/ContextChip.tsx`, `TaskRow.tsx`, `SideTodoTile.tsx`, `src/components/bento/TodayTaskRow.tsx`, menu Espace de l'ajout rapide et du détail ; retirer les `// raccourci:` de pastille neutre
+  - Test à écrire d'abord : test DB — « couleur hors des trois valeurs refusée (23514) », « défaut neutral », « app_backend lit la couleur, ne peut pas la modifier » ; `ContextChip.test.tsx` — « classe chip-warm pour un espace warm » ; seed — « Privé neutral, Trustup warm, Nexxia indigo »
+  - Fini quand : tests verts, migration jouée sur `test`, aucune couleur saisie ni hors DESIGN.md
+
+- [ ] **16. Corbeille `/trash`**
+  - Décision d'Antoine (2026-11-19) : corbeille de toute l'app, à `/trash`, les tâches en sont le premier type ; extensible sur le modèle de l'ajout rapide (un type déclaré par module : lecture, ligne, restauration). Le lien en bas de la liste et la commande de palette « Corbeille » pointent sur `/trash`. Le détail redevient une route interceptée `@detail/(.)[id]` au-dessus de la liste (plus de squelette à l'ouverture ni à la fermeture) ; retirer le `// raccourci:` de `src/app/(app)/tasks/[id]/page.tsx`.
+  - Fichiers : `src/app/(app)/trash/page.tsx`, `loading.tsx`, `error.tsx`, `src/components/trash/*` (registre des types, `TrashList`), `src/components/tasks/TaskTrashRow.tsx`, `src/components/shell/nav-items.ts` (`TRASH_PATH`), `commands.ts`, `src/app/(app)/tasks/@detail/(.)[id]/…`, `messages/*.json`
+  - Test à écrire d'abord : `TrashList.test.tsx` — « parente avec + n sous-tâches » ; « Restaurer » ; « vide » ; registre — « type tâches déclaré, ordre par date de mise à la corbeille » ; `commands.test.ts` — « Corbeille → /trash » ; liste — « lien Corbeille → /trash »
+  - Fini quand : tests verts, ouvrir puis fermer le détail depuis la liste sans squelette (vérifié dans le navigateur)
 
 - [x] **17. Tuiles du tableau de bord**
   - Fichiers : `src/components/bento/TodayTile.tsx`, `src/components/tasks/SideTodoTile.tsx`, `src/modules/dashboard/tiles.ts`, `src/app/(app)/dashboard/page.tsx`, `messages/*.json`

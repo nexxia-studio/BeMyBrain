@@ -53,6 +53,8 @@ Index (partiels `WHERE deleted_at IS NULL` sauf mention) : `(workspace_id, side,
 Unique `(workspace_id, id)` et `(workspace_id, id, side)` : cibles des FK composites.
 Côté `contexts` (additif) : unique `(workspace_id, id, kind)`, cible de la FK de `tasks`.
 
+Couleur des espaces (migration 0007, additive, décision d'Antoine du 2026-11-19) : `contexts.color text NOT NULL DEFAULT 'neutral' CHECK (color IN ('neutral','warm','indigo'))`, les trois pastilles de DESIGN.md (`chip-neutral`, `chip-warm`, `chip-indigo`). Valeurs posées pour les espaces existants : Privé `neutral`, Trustup `warm`, Nexxia `indigo` (seed et migration). Aucun écran pour la changer : BRAIN-30.
+
 **Statuts.** La colonne porte une catégorie au sens de Linear, pas un statut. Les cinq catégories sont figées : tout le code (tuiles, filtres, `completed_at`, kanban) raisonne sur elles. Des statuts personnalisés viendront plus tard par migration additive : table `task_statuses (id, workspace_id, name, category, position)` et colonne `tasks.status_id` nullable, FK composite `(workspace_id, status_id, status_category)` → `task_statuses(workspace_id, id, category)`. La catégorie de la tâche reste ainsi toujours celle de son statut, et une tâche sans statut personnalisé garde le statut par défaut de sa catégorie. Libellés par défaut de l'interface : Backlog, À faire, En cours, Fait, Annulé.
 
 **Corbeille.** Aucune suppression définitive : `app_backend` n'a pas le droit DELETE sur `tasks` (pas de GRANT, pas de policy DELETE). Mettre une tâche à la corbeille = `deleted_at = now()`, la restaurer = `deleted_at = NULL`.
@@ -186,7 +188,7 @@ Registre
 7. **Langue** : en anglais, l'ajout rapide, la liste, le détail, la corbeille et les tuiles sont entièrement en anglais ; les titres saisis restent tels quels.
 
 ## Données et sécurité
-- Nouvelles tables : `tasks`, `tags`, `task_tags`. Table modifiée : `contexts` (contrainte unique additive). Migration unique, additive.
+- Nouvelles tables : `tasks`, `tags`, `task_tags`. Table modifiée : `contexts` (contrainte unique additive en 0006, colonne `color` en 0007). Migrations additives.
 - RLS : SELECT, INSERT, UPDATE sur `tasks` et `tags` ; SELECT, INSERT, DELETE sur `task_tags`, filtre `app.is_workspace_member(workspace_id)`. FK composites contre tout lien entre workspaces. Corbeille filtrée dans `queries.ts`, pas en RLS (voir « Corbeille »).
 - Accès : uniquement via `src/modules/tasks/queries.ts` et `mutations.ts`, `workspaceId` de la session.
 - Registre modifié (`origin` dans le contexte, `toToolDefinitions`) : `[security]`.
@@ -225,8 +227,9 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 - Sous-tâches : liste de lignes cochables + champ « Ajouter une sous-tâche » (Entrée). Pas de sous-tâche dans une sous-tâche : le champ n'existe pas sur le détail d'une sous-tâche, qui affiche sa parente en lien.
 - Pied : « Mettre à la corbeille » (bouton secondaire, pas de confirmation, message « Mise à la corbeille » + « Annuler » qui restaure).
 
-### Corbeille (`/tasks/trash`)
-- Accès : lien en bas de la liste et commande de palette. Lignes non cochables, date de mise à la corbeille, bouton « Restaurer » par ligne. Une parente montre « + n sous-tâches ». Vide : « La corbeille est vide ».
+### Corbeille (`/trash`)
+- Corbeille de toute l'app (décision d'Antoine, 2026-11-19) : les tâches en sont le premier type. Chaque module y déclare son type (lecture des éléments à la corbeille, ligne, restauration), comme l'ajout rapide déclare ses formulaires ; aucun autre type en tranche 1. Hors de `/tasks/…`, pour que le détail `/tasks/[id]` s'ouvre par-dessus la liste sans squelette.
+- Accès : lien en bas de la liste et commande de palette, tous deux vers `/trash`. Lignes non cochables, date de mise à la corbeille, bouton « Restaurer » par ligne. Une parente montre « + n sous-tâches ». Vide : « La corbeille est vide ».
 
 ### Tableau de bord
 - Tuile « Aujourd'hui » (pleine, DESIGN.md § 5) : pastilles de chiffres « En retard » et « Aujourd'hui », puis les 3 premières tâches (voir Questions ouvertes), lien « Tout voir ».
