@@ -11,11 +11,11 @@
 import { CornerDownRight, Flag, ListChecks, Tag } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 import type { Task } from "@/modules/tasks/queries";
-import { dueDateInstant, subtaskCounter } from "@/modules/tasks/view";
+import { dueDateInstant, subtaskCounter, tagList } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
 import { contextChipClass } from "./context-chip-class";
@@ -54,6 +54,7 @@ export function TaskRow({
 }: TaskRowProps) {
   const t = useTranslations("tasks");
   const format = useFormatter();
+  const locale = useLocale();
   const { closed, canceled, pending, failure, toggle } = useTaskToggle(task);
   const counter = subtaskCounter(task);
 
@@ -142,11 +143,8 @@ export function TaskRow({
                   strokeWidth={2}
                 />
                 <span className="sr-only">{t("list.tags")}</span>
-                {task.tags.map((tag) => (
-                  <span key={tag} className="truncate">
-                    {tag}
-                  </span>
-                ))}
+                {/* Contenu saisi : jamais traduit, seul le séparateur suit la langue. */}
+                <span className="truncate">{tagList(task.tags, locale)}</span>
               </span>
             )}
             {isPriority(task.priority) && (

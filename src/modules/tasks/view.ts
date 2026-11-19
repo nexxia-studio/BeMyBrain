@@ -223,6 +223,16 @@ export function findTagName(
   return names.find((existing) => tagKey(existing) === wanted);
 }
 
+/**
+ * Tags d'une ligne de liste, séparés selon la langue (`Intl.ListFormat` court, type « unité » : en français
+ * « client, maison et fête », en anglais « client, home, party », sans « & »).
+ */
+export function tagList(tags: readonly string[], locale: string): string {
+  return new Intl.ListFormat(locale, { type: "unit", style: "short" }).format(
+    tags,
+  );
+}
+
 export type TagChanges = { addTags?: string[]; removeTags?: string[] };
 
 /**

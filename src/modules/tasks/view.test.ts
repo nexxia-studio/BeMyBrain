@@ -16,6 +16,7 @@ import {
   sideTileItems,
   subtaskCounter,
   tagChanges,
+  tagList,
   todayTileItems,
   trashEntries,
 } from "./view";
@@ -502,5 +503,24 @@ describe("trashEntries", () => {
     const alone = trashed({ parentId: PARENT }, together);
 
     expect(trashEntries([alone])).toEqual([{ task: alone, subtaskCount: 0 }]);
+  });
+});
+
+describe("tagList", () => {
+  it("sépare les tags à la française : virgules, puis « et » avant le dernier", () => {
+    expect(tagList(["client", "maison", "fête"], "fr")).toBe(
+      "client, maison et fête",
+    );
+  });
+
+  it("sépare les tags à l'anglaise : virgules seules", () => {
+    expect(tagList(["client", "home", "party"], "en")).toBe(
+      "client, home, party",
+    );
+  });
+
+  it("un seul tag tel quel, aucun tag : chaîne vide", () => {
+    expect(tagList(["client"], "fr")).toBe("client");
+    expect(tagList([], "fr")).toBe("");
   });
 });

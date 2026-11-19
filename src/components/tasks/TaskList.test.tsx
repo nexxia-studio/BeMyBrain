@@ -169,6 +169,18 @@ describe("liste des tâches : sections", () => {
   });
 });
 
+describe("liste des tâches : tags", () => {
+  it("tags séparés selon la langue (« client, maison et fête »)", () => {
+    renderList([
+      buildTask({ title: "Préparer", tags: ["client", "maison", "fête"] }),
+    ]);
+
+    const link = screen.getByRole("link", { name: /Préparer/ });
+
+    expect(within(link).getByText("client, maison et fête")).toBeTruthy();
+  });
+});
+
 describe("liste des tâches : priorité", () => {
   it("un drapeau de 16 px à l'encre du détail pour chaque priorité, libellé lu inchangé", () => {
     renderList(
