@@ -8,16 +8,7 @@
 // Cocher : `tasks.complete` par le registre (`runAppAction`, origine `app`) ; rouvrir une tâche fermée (terminée
 // ou annulée, case cochée ; l'annulée porte le repère « Annulée ») : `tasks.update` vers « À faire ». Pas d'optimiste : la case garde l'état reçu du serveur et reste désactivée
 // pendant l'appel ; la ligne sort (TaskList) quand le rendu serveur ne la contient plus. Erreur dans la ligne.
-import {
-  ChevronDown,
-  ChevronsUp,
-  ChevronUp,
-  CornerDownRight,
-  ListChecks,
-  type LucideIcon,
-  Minus,
-  Tag,
-} from "lucide-react";
+import { CornerDownRight, Flag, ListChecks, Tag } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
@@ -32,16 +23,9 @@ import { useTaskToggle } from "./use-task-toggle";
 
 const MotionLink = motion.create(Link);
 
-// Priorité (ordre Linear : 1 urgente … 4 basse) ; rien pour 0. Formes distinctes à 16 px (chevrons), jamais en
-// braise : la braise est réservée à l'échéance en retard. Urgente et haute en encre des liens, les autres en
-// encre secondaire. Le libellé lu par les lecteurs d'écran porte l'information, l'icône la double.
-const PRIORITY_ICONS: Record<1 | 2 | 3 | 4, LucideIcon> = {
-  1: ChevronsUp,
-  2: ChevronUp,
-  3: Minus,
-  4: ChevronDown,
-};
-
+// Priorité (ordre Linear : 1 urgente … 4 basse) ; rien pour 0. Même drapeau de 16 px et même encre que la
+// pastille Priorité du détail, jamais en braise (réservée à l'échéance en retard). Le libellé lu par les
+// lecteurs d'écran porte le niveau, le drapeau signale qu'il y en a un.
 function isPriority(value: number): value is 1 | 2 | 3 | 4 {
   return value >= 1 && value <= 4;
 }
@@ -72,9 +56,6 @@ export function TaskRow({
   const format = useFormatter();
   const { closed, canceled, pending, failure, toggle } = useTaskToggle(task);
   const counter = subtaskCounter(task);
-  const PriorityIcon = isPriority(task.priority)
-    ? PRIORITY_ICONS[task.priority]
-    : null;
 
   return (
     // Survol du lien de la ligne : fond `accent` sur toute la ligne (DESIGN.md § 2, états dérivés).
@@ -168,11 +149,11 @@ export function TaskRow({
                 ))}
               </span>
             )}
-            {PriorityIcon !== null && isPriority(task.priority) && (
+            {isPriority(task.priority) && (
               <span className="flex items-center">
-                <PriorityIcon
+                <Flag
                   aria-hidden="true"
-                  className={cn("size-4", task.priority <= 2 && "text-link")}
+                  className="size-4 text-foreground"
                   strokeWidth={2}
                 />
                 <span className="sr-only">

@@ -148,6 +148,37 @@ describe("liste des tâches : sections", () => {
   });
 });
 
+describe("liste des tâches : priorité", () => {
+  it("un drapeau de 16 px à l'encre du détail pour chaque priorité, libellé lu inchangé", () => {
+    renderList(
+      [1, 2, 3, 4].map((priority) =>
+        buildTask({ title: `Tâche ${priority}`, priority }),
+      ),
+    );
+
+    for (const [priority, label] of [
+      [1, "Priorité urgente"],
+      [4, "Priorité basse"],
+    ] as const) {
+      const link = screen.getByRole("link", {
+        name: new RegExp(`Tâche ${priority}`),
+      });
+      const icon = link.querySelector("svg.lucide-flag");
+      expect(icon?.getAttribute("class")).toContain("size-4");
+      expect(icon?.getAttribute("class")).toContain("text-foreground");
+      expect(within(link).getByText(label)).toBeTruthy();
+    }
+    expect(document.querySelector("svg[class*='lucide-chevron']")).toBeNull();
+  });
+
+  it("aucun drapeau sans priorité", () => {
+    renderList([buildTask({ title: "Sans priorité", priority: 0 })]);
+
+    const link = screen.getByRole("link", { name: /Sans priorité/ });
+    expect(link.querySelector("svg.lucide-flag")).toBeNull();
+  });
+});
+
 describe("liste des tâches : pastille d'espace", () => {
   it("absente quand il n'y a rien à distinguer (côté à un seul espace, ou espace filtré)", () => {
     renderList(
