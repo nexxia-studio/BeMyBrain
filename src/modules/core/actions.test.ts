@@ -10,6 +10,7 @@ vi.mock("./queries", () => ({ listContexts }));
 vi.mock("./mutations", () => ({ setMemberLocale }));
 
 import { invokeAction, prepareAction, registry } from "../actions/registry";
+import { CORE_ERROR_MESSAGES } from "./errors";
 
 const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const USER = "dc42fa70-09a7-4038-a3bb-f61dda854910";
@@ -106,5 +107,18 @@ describe("action core.setLocale", () => {
       expect.objectContaining({ code: "invalid_params" }),
     );
     expect(setMemberLocale).not.toHaveBeenCalled();
+  });
+});
+
+describe("erreurs du module core pour un modèle", () => {
+  it("chaque code a un message anglais fixe, sans gabarit", () => {
+    expect(Object.keys(CORE_ERROR_MESSAGES).sort()).toEqual([
+      "invalid_params",
+      "member_not_found",
+    ]);
+    for (const [code, message] of Object.entries(CORE_ERROR_MESSAGES)) {
+      expect(message.trim().length, code).toBeGreaterThan(0);
+      expect(message, code).not.toMatch(/[{}]/);
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { coreActions } from "@/modules/core/actions";
+import { tasksActions } from "@/modules/tasks/actions";
 
 import en from "../../../messages/en.json";
 
@@ -30,7 +31,10 @@ export function createRegistry(
   return byName;
 }
 
-export const registry: ActionRegistry = createRegistry([...coreActions]);
+export const registry: ActionRegistry = createRegistry([
+  ...coreActions,
+  ...tasksActions,
+]);
 
 /** Action trouvée et paramètres validés, prête à recevoir le contexte de la session. */
 export type PreparedAction = {

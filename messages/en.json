@@ -137,8 +137,20 @@
   },
   "actions": {
     "core": {
-      "listContexts": "List the spaces of one side, Private or Pro",
-      "setLocale": "Change the interface language"
+      "listContexts": "List the spaces (clients, projects, areas of life) of one side: private (personal life) or pro (work). Use it to get the exact space names before filtering or filing tasks by space. Returns each space with its id, name, side and position.",
+      "setLocale": "Switch the app interface language to French or English. Use it only when the user asks to change the language of the app. Returns the language now applied."
+    },
+    "tasks": {
+      "list": "List active tasks, subtasks included, filtered by side, space name, status categories, tag, latest due date or text in the title. Completed and canceled tasks are excluded unless requested. Use it to find tasks and their ids. Returns the tasks sorted by due date then priority, and truncated: true when more tasks match than the limit.",
+      "get": "Get one active task by its id, with its notes, tags and active subtasks. Use it to see the current state of a task before changing it. Returns the task, or the error not_found when it does not exist or is in the trash.",
+      "listDueToday": "List the open tasks that are overdue or due today in the user time zone, on both sides, subtasks included. Use it to answer what needs to be done today. Returns the tasks sorted by due date, due time and priority.",
+      "listTrash": "List the tasks in the trash, subtasks included, most recently trashed first. Use it to find a task to restore. Returns each task with the time it was moved to the trash.",
+      "listTags": "List all tag names of the workspace. Use it to reuse an existing tag instead of creating a near duplicate. Returns each tag with its id and name.",
+      "create": "Create a task, or a subtask of a top-level task with parentId. Use it when the user wants to note something to do. A top-level task needs a side or a space name; a subtask takes the side and space of its parent. Unknown tag names are created. Returns the created task with its tags.",
+      "update": "Change the title, notes, side, space, status category, priority, due date or due time of an active task. Use it to edit an existing task; add or remove tags by name with addTags and removeTags, other tags are kept. The side and space of a subtask follow its parent and cannot be changed. Returns the updated task.",
+      "complete": "Mark an active task as completed. Use it when the user says a task is done. Its subtasks keep their status. Returns the updated task.",
+      "moveToTrash": "Move an active task to the trash, together with its active subtasks. Use it when the user wants to remove a task; nothing is deleted and tasks.restore brings it back. Returns the task id and the number of subtasks moved with it.",
+      "restore": "Restore a task from the trash, with the subtasks moved to the trash at the same time. Use it to bring back a task removed by mistake. A subtask whose parent is in the trash cannot be restored alone. Returns the restored task."
     }
   },
   "palette": {
@@ -162,5 +174,15 @@
     "pending": "Running…",
     "error": "Action not run. Try again.",
     "hint": "<kbd>↑↓</kbd> to choose, <kbd>Enter</kbd> to run, <kbd>Esc</kbd> to close"
+  },
+  "tasks": {
+    "errors": {
+      "invalid_params": "Invalid data. Check what you entered.",
+      "not_found": "Task not found or in the trash.",
+      "context_not_found": "Space not found.",
+      "subtask_depth": "A subtask cannot have subtasks.",
+      "subtask_follows_parent": "A subtask always has the side and space of its parent task.",
+      "parent_in_trash": "The parent task is in the trash. Restore it first."
+    }
   }
 }

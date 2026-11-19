@@ -12,11 +12,13 @@ import {
 } from "drizzle-orm";
 
 import type { UserTx } from "@/db/client";
+import { contexts } from "@/db/schema/core";
 import { tags, tasks, taskTags } from "@/db/schema/tasks";
 import { sideSchema, uuidSchema } from "@/modules/core/schemas";
 import type { Side } from "@/modules/core/sides";
 
 import {
+  contextNameSchema,
   dueDateSchema,
   listTasksFilterSchema,
   openStatusCategories,
@@ -285,4 +287,34 @@ export async function listTags(
     .from(tags)
     .where(eq(tags.workspaceId, workspace))
     .orderBy(sql`lower(${tags.name})`, asc(tags.id));
+}
+
+/**
+ * Espace du workspace désigné par son nom exact (unique dans le workspace, contexts_workspace_name_unique),
+ * du côté `side` s'il est donné ; null s'il n'existe pas. Sert à un appelant qui nomme un espace (modèle,
+ * `context` des actions) : l'id n'est jamais demandé.
+ */
+export async function findContextByName(
+  workspaceId: string,
+  name: string,
+  side: Side | undefined,
+  tx: UserTx,
+): Promise<{ id: string; side: Side } | null> {
+  const workspace = workspaceOf(workspaceId);
+  const contextName = parseTaskInput(contextNameSchema, name);
+  const contextSide =
+    side === undefined ? undefined : parseTaskInput(sideSchema, side);
+  const rows = await tx
+    .select({ id: contexts.id, kind: contexts.kind })
+    .from(contexts)
+    .where(
+      and(
+        eq(contexts.workspaceId, workspace),
+        eq(contexts.name, contextName),
+        contextSide === undefined ? undefined : eq(contexts.kind, contextSide),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+  return row ? { id: row.id, side: sideSchema.parse(row.kind) } : null;
 }

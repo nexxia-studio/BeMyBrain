@@ -2,14 +2,18 @@ import { and, eq, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import type { UserTx } from "@/db/client";
-import { contexts } from "@/db/schema/core";
 import { tags, tasks, taskTags } from "@/db/schema/tasks";
 import { actionOrigins, type ActionOrigin } from "@/modules/actions/types";
 import { sideSchema, uuidSchema } from "@/modules/core/schemas";
 import type { Side } from "@/modules/core/sides";
 
 import { TaskError } from "./errors";
-import { getTask, isActive, type TaskDetail } from "./queries";
+import {
+  findContextByName,
+  getTask,
+  isActive,
+  type TaskDetail,
+} from "./queries";
 import {
   createTaskInputSchema,
   parseTaskInput,
@@ -64,29 +68,16 @@ async function lockTask(
   return row ? { ...row, side: sideSchema.parse(row.side) } : null;
 }
 
-/**
- * Espace du workspace désigné par son nom exact, du côté `side` s'il est donné. Le nom est unique dans le
- * workspace (contexts_workspace_name_unique). Absent → context_not_found.
- */
+/** Espace désigné par son nom (findContextByName) ; absent → context_not_found. */
 async function resolveContext(
   workspace: string,
   name: string,
   side: Side | undefined,
   tx: UserTx,
 ): Promise<{ id: string; side: Side }> {
-  const rows = await tx
-    .select({ id: contexts.id, kind: contexts.kind })
-    .from(contexts)
-    .where(
-      and(
-        eq(contexts.workspaceId, workspace),
-        eq(contexts.name, name),
-        side === undefined ? undefined : eq(contexts.kind, side),
-      ),
-    );
-  const row = rows[0];
-  if (!row) throw new TaskError("context_not_found");
-  return { id: row.id, side: sideSchema.parse(row.kind) };
+  const context = await findContextByName(workspace, name, side, tx);
+  if (!context) throw new TaskError("context_not_found");
+  return context;
 }
 
 /** Prédicat SQL « lower(tags.name) parmi ces noms », comparés par lower() côté base. */

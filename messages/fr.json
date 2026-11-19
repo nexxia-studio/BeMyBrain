@@ -139,6 +139,18 @@
     "core": {
       "listContexts": "Lister les espaces d'un côté, Privé ou Pro",
       "setLocale": "Changer la langue de l'interface"
+    },
+    "tasks": {
+      "list": "Lister les tâches actives, sous-tâches comprises, filtrées par côté, espace, statut, tag, échéance ou texte du titre",
+      "get": "Afficher une tâche avec ses notes, ses tags et ses sous-tâches",
+      "listDueToday": "Lister les tâches en retard ou dues aujourd'hui, des deux côtés",
+      "listTrash": "Lister les tâches de la corbeille",
+      "listTags": "Lister les tags",
+      "create": "Créer une tâche ou une sous-tâche",
+      "update": "Modifier une tâche : titre, notes, côté, espace, statut, priorité, échéance, tags",
+      "complete": "Marquer une tâche comme faite",
+      "moveToTrash": "Mettre une tâche et ses sous-tâches à la corbeille",
+      "restore": "Restaurer une tâche de la corbeille avec ses sous-tâches"
     }
   },
   "palette": {
@@ -162,5 +174,15 @@
     "pending": "En cours…",
     "error": "Action non lancée. Réessaie.",
     "hint": "<kbd>↑↓</kbd> pour choisir, <kbd>Entrée</kbd> pour lancer, <kbd>Échap</kbd> pour fermer"
+  },
+  "tasks": {
+    "errors": {
+      "invalid_params": "Données refusées. Vérifie la saisie.",
+      "not_found": "Tâche introuvable ou à la corbeille.",
+      "context_not_found": "Espace introuvable.",
+      "subtask_depth": "Une sous-tâche ne peut pas avoir de sous-tâches.",
+      "subtask_follows_parent": "Le côté et l'espace d'une sous-tâche suivent ceux de sa tâche parente.",
+      "parent_in_trash": "La tâche parente est à la corbeille. Restaure-la d'abord."
+    }
   }
 }

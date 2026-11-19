@@ -8,7 +8,7 @@ import type { UserTx } from "@/db/client";
 import fr from "../../../messages/fr.json";
 import en from "../../../messages/en.json";
 import { defineAction } from "./define";
-import { ActionError } from "./errors";
+import { ACTION_ERROR_MESSAGES, ActionError } from "./errors";
 import {
   createRegistry,
   invokeAction,
@@ -36,10 +36,60 @@ const translateInEnglish = (key: string) => t(key as Parameters<typeof t>[0]);
  * Un jeu de paramètres valides par action du registre, pour vérifier la rigueur des JSON Schema.
  * Une action ajoutée au registre sans entrée ici fait échouer le test (tâche 8 : actions tasks.*).
  */
+const TASK = "3a1f5c2e-8b7d-4e6f-9a0b-1c2d3e4f5a6b";
 const VALID_PARAMS: Record<string, Record<string, unknown>> = {
   "core.listContexts": { side: "pro" },
   "core.setLocale": { locale: "en" },
+  "tasks.list": {
+    side: "pro",
+    context: "Trustup",
+    statusCategories: ["unstarted", "started"],
+    tag: "client",
+    dueOnOrBefore: "2026-11-20",
+    query: "devis",
+    limit: 20,
+  },
+  "tasks.get": { taskId: TASK },
+  "tasks.listDueToday": {},
+  "tasks.listTrash": {},
+  "tasks.listTags": {},
+  "tasks.create": {
+    title: "Relancer le devis",
+    side: "pro",
+    context: "Trustup",
+    statusCategory: "unstarted",
+    priority: 2,
+    dueDate: "2026-11-20",
+    dueTime: "14:00",
+    tags: ["client"],
+  },
+  "tasks.update": {
+    taskId: TASK,
+    title: "Relancer le devis",
+    notes: null,
+    priority: 1,
+    dueDate: "2026-11-21",
+    addTags: ["urgent"],
+    removeTags: ["client"],
+  },
+  "tasks.complete": { taskId: TASK },
+  "tasks.moveToTrash": { taskId: TASK },
+  "tasks.restore": { taskId: TASK },
 };
+
+/**
+ * Liste blanche des écritures qu'un modèle peut appeler (canal assistant, ADR-009). Une action write qui
+ * déclare ce canal sans être ajoutée ici fait échouer le test : l'exposition d'une écriture à l'assistant
+ * est une décision explicite, relue en review.
+ */
+const ASSISTANT_WRITE_ACTIONS = [
+  "core.setLocale",
+  "tasks.complete",
+  "tasks.create",
+  "tasks.moveToTrash",
+  "tasks.restore",
+  "tasks.update",
+];
 
 function fakeAction(
   name: string,
@@ -122,6 +172,15 @@ describe("registre d'actions : déclaration", () => {
       "core.listContexts": "read",
       "core.setLocale": "write",
     });
+  });
+
+  it("les écritures exposées au canal assistant sont exactement celles de la liste blanche", () => {
+    const writes = [...registry.values()]
+      .filter((a) => a.access === "write" && a.channels.includes("assistant"))
+      .map((a) => a.name)
+      .sort();
+
+    expect(writes).toEqual(ASSISTANT_WRITE_ACTIONS);
   });
 
   it("deux actions ne partagent pas un name", () => {
@@ -401,6 +460,13 @@ describe("registre d'actions : définitions d'outils pour un modèle", () => {
     }
   });
 
+  it("chaque description anglaise dit, pour un modèle, quand utiliser l'action et ce qu'elle renvoie", () => {
+    for (const tool of toToolDefinitions("assistant")) {
+      expect(tool.description, tool.name).toMatch(/\bUse it\b/);
+      expect(tool.description, tool.name).toMatch(/\bReturns\b/);
+    }
+  });
+
   it("une action qui ne déclare pas le canal n'apparaît pas dans ses définitions", () => {
     const web = fakeAction("test.webOnly", "read", undefined, ["web"]);
     const both = fakeAction("test.both", "read", undefined, [
@@ -415,5 +481,43 @@ describe("registre d'actions : définitions d'outils pour un modèle", () => {
     }).map((tool) => tool.name);
 
     expect(names).toEqual(["test.both"]);
+  });
+});
+
+describe("registre d'actions : messages d'erreur pour un modèle", () => {
+  it("chaque code du registre a un message anglais fixe, sans gabarit", () => {
+    for (const code of [
+      "unknown_action",
+      "invalid_params",
+      "missing_context",
+      "duplicate_action",
+    ] as const) {
+      const message = ACTION_ERROR_MESSAGES[code];
+
+      expect(message.trim().length, code).toBeGreaterThan(0);
+      expect(message, code).not.toMatch(/[{}]/);
+    }
+  });
+
+  it("le message d'un refus ne recopie ni le nom ni les paramètres reçus", () => {
+    const { action } = fakeAction("test.known");
+    const reg = createRegistry([action]);
+    const attempts: [unknown, unknown][] = [
+      ["test.secret-name-4242", { value: "a" }],
+      ["test.known", { value: "valeur-secrete-4242" }],
+    ];
+
+    for (const [name, params] of attempts) {
+      let caught: unknown;
+      try {
+        prepareAction(reg, name, params, "web");
+      } catch (error) {
+        caught = error;
+      }
+
+      const { code, message } = caught as ActionError;
+      expect(message).toBe(code);
+      expect(ACTION_ERROR_MESSAGES[code]).not.toContain("4242");
+    }
   });
 });

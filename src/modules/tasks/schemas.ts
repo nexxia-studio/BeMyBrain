@@ -120,7 +120,7 @@ export const listTasksFilterSchema = z.strictObject({
 
 export type ListTasksFilter = z.input<typeof listTasksFilterSchema>;
 
-const contextNameSchema = z
+export const contextNameSchema = z
   .string()
   .trim()
   .min(1)

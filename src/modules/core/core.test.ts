@@ -125,7 +125,7 @@ describe("listContexts", () => {
 
     await expect(run).rejects.toMatchObject({
       name: "CoreError",
-      code: "invalid_input",
+      code: "invalid_params",
     });
   });
 
@@ -134,7 +134,7 @@ describe("listContexts", () => {
       listContexts(f.workspaceA, { side: "perso" as unknown as "pro" }, tx),
     );
 
-    await expect(run).rejects.toMatchObject({ code: "invalid_input" });
+    await expect(run).rejects.toMatchObject({ code: "invalid_params" });
   });
 
   it("refuse un workspaceId qui n'est pas un uuid", async () => {
@@ -279,7 +279,7 @@ describe("setMemberLocale", () => {
 
     await expect(run).rejects.toMatchObject({
       name: "CoreError",
-      code: "invalid_input",
+      code: "invalid_params",
     });
   });
 
