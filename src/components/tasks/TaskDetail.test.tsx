@@ -285,6 +285,11 @@ describe("détail : chaque champ appelle tasks.update", () => {
         context: "Nexxia",
       }),
     );
+    // La pastille reste désactivée jusqu'à la fin du premier appel (transition) : sous charge, un clic
+    // envoyé avant serait ignoré et le menu ne s'ouvrirait pas. On attend, comme l'utilisateur.
+    await waitFor(() =>
+      expect((chip(/^Espace :/) as HTMLButtonElement).disabled).toBe(false),
+    );
     fireEvent.click(chip(/^Espace :/));
     fireEvent.click(
       await screen.findByRole("menuitemradio", { name: "Aucun" }),
@@ -427,7 +432,13 @@ describe("détail : corbeille", () => {
       expect(paramsOf("tasks.moveToTrash")).toEqual({ taskId: task.id }),
     );
     await screen.findByText("Tâche mise à la corbeille");
-    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    // Message posé après l'await de la transition : il peut s'afficher un rendu avant la fin de l'appel,
+    // « Annuler » encore désactivé (clic ignoré). On attend, comme l'utilisateur.
+    const undo = screen.getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+    fireEvent.click(undo);
 
     await waitFor(() =>
       expect(paramsOf("tasks.restore")).toEqual({ taskId: task.id }),

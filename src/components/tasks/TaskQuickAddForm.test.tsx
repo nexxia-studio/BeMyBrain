@@ -290,6 +290,11 @@ describe("ajout rapide : formulaire tâche", () => {
     fireEvent.keyDown(search, { key: "Escape" });
     fireEvent.click(submit());
     await screen.findByRole("link", { name: "Ouvrir" });
+    // Le message de succès peut s'afficher un rendu avant la fin de la transition : pastilles encore
+    // désactivées, un clic serait ignoré (vu sous la charge de la suite complète). On attend, comme l'utilisateur.
+    await waitFor(() =>
+      expect((tagsChip() as HTMLButtonElement).disabled).toBe(false),
+    );
 
     search = await openTags();
     fireEvent.change(search, { target: { value: "devis" } });
