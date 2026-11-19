@@ -19,7 +19,7 @@
 - Aucune.
 
 ## Tâches
-- [ ] **1. Fuseau de l'utilisateur en une seule fonction**
+- [x] **1. Fuseau de l'utilisateur en une seule fonction**
   - Fichiers : `src/modules/core/time-zone.ts` (`getUserTimeZone()`, `todayIn(timeZone, now)` → `YYYY-MM-DD`), `src/i18n/config.ts` (constante retirée), `src/i18n/request.ts`, tests qui importaient `timeZone` (`src/i18n/format.test.ts`, `src/app/(app)/dashboard/page.test.tsx`)
   - Test à écrire d'abord : `src/modules/core/time-zone.test.ts` — « 23:30 et 00:30 heure de Bruxelles, en hiver et en été, donnent le bon jour » ; `tests/i18n/time-zone-single-source.test.ts` — « aucun `Europe/` dans `src/` hors time-zone.ts »
   - Fini quand : tests verts, formatage next-intl inchangé, `pnpm typecheck` vert
