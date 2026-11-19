@@ -205,6 +205,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
   - **Date** : Aujourd'hui, Demain, Ce week-end, Semaine prochaine, Choisir… (calendrier), puis « Ajouter une heure » facultatif. Ce week-end = aujourd'hui le samedi et le dimanche, sinon le samedi qui suit ; Semaine prochaine = le lundi qui suit.
   - **Tags** : liste filtrée en tapant ; « Créer « … » » si le nom n'existe pas. Plusieurs tags.
   - Priorité et notes ne sont pas dans l'ajout rapide : dans le détail.
+  - Menus Espace, Date et Tags : même menu flottant sur mobile et sur ordinateur, ancré à sa pastille, au-dessus du tiroir. Pas de panneau qui monte du bas (essai iPhone d'Antoine, 2026-11-19 : lisibles clavier ouvert).
 - **Valider** : Entrée ou bouton « Ajouter » (désactivé tant que le titre est vide et pendant l'appel). Succès : titre vidé, date et tags vidés, espace gardé, focus rendu au titre, message court « Tâche ajoutée » avec lien « Ouvrir » (`role="status"`, `data-testid="quick-add-status"`). Échec : message dans le tiroir, saisie conservée.
 - Origine : la Server Action de l'ajout rapide pose `app`.
 
