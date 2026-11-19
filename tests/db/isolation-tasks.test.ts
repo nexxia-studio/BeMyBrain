@@ -237,11 +237,18 @@ describe("isolation de tasks, tags, task_tags : modification et suppression", ()
       "delete from task_tags where task_id = $1",
       t.taskA,
     ],
-  ])("l'utilisateur de B ne peut pas %s de A", async (_label, sql, id) => {
-    const affected = await asUser(f.userB, (db) => rowCount(db, sql, [id]));
+  ])(
+    "l'utilisateur de B ne peut pas %s de A (la même instruction touche une ligne pour un membre de A)",
+    async (_label, sql, id) => {
+      // Témoin positif : le 0 de B ne peut pas venir d'un id ou d'un where faux.
+      const affected = {
+        userB: await asUser(f.userB, (db) => rowCount(db, sql, [id])),
+        memberOfA: await asUser(f.userA2, (db) => rowCount(db, sql, [id])),
+      };
 
-    expect(affected).toBe(0);
-  });
+      expect(affected).toEqual({ userB: 0, memberOfA: 1 });
+    },
+  );
 
   it.each([
     [
@@ -298,24 +305,6 @@ describe("isolation de tasks, tags, task_tags : modification et suppression", ()
       });
     },
   );
-
-  it("les lignes de A sont intactes après les tentatives de B", async () => {
-    const rows = await owner.query(
-      `select
-         (select title from tasks where id = $1) as title,
-         (select deleted_at is null from tasks where id = $1) as alive,
-         (select deleted_at is not null from tasks where id = $2) as trashed,
-         (select count(*)::int from task_tags where task_id = $1) as links`,
-      [t.taskA, t.trashedTaskA],
-    );
-
-    expect(rows.rows[0]).toEqual({
-      title: "Payer la crèche",
-      alive: true,
-      trashed: true,
-      links: 1,
-    });
-  });
 });
 
 describe("limite documentée : espace de la sous-tâche non lié à celui de la parente", () => {
