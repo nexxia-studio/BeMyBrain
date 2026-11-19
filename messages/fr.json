@@ -157,12 +157,19 @@
     "title": "Palette de commandes",
     "search": "Chercher une commande",
     "placeholder": "Chercher une page ou une action…",
-    "empty": "Rien pour « {query} ». Essaie « langue » ou « réglages ».",
     "groups": {
+      "tasks": "Tâches",
       "navigation": "Aller à",
       "actions": "Actions"
     },
     "commands": {
+      "addTask": "Ajouter la tâche « {title} »",
+      "newTask": "Nouvelle tâche",
+      "newTaskKeywords": "ajouter créer tâche to-do todo",
+      "openTodo": "Ouvrir la to-do",
+      "openTodoKeywords": "tâches liste to-do todo",
+      "openTrash": "Corbeille",
+      "openTrashKeywords": "tâches supprimées restaurer",
       "switchLocale": {
         "fr": "Passer en français",
         "en": "Passer en anglais"

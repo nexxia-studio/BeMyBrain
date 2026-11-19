@@ -4,7 +4,14 @@ import { describe, expect, it } from "vitest";
 import { NAV_ITEMS } from "@/components/shell/nav-items";
 import { prepareAction, registry } from "@/modules/actions/registry";
 
-import { isPaletteShortcut, matchesCommand, paletteCommands } from "./commands";
+import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
+
+import {
+  isPaletteShortcut,
+  matchesCommand,
+  type PaletteScope,
+  paletteGroups,
+} from "./commands";
 
 const key = (
   value: string,
@@ -39,29 +46,114 @@ describe("raccourci de la palette", () => {
   });
 });
 
+const SCOPE = {
+  side: "pro" as const,
+  contexts: [
+    { id: "c1", name: "Nexxia" },
+    { id: "c2", name: "Viniz" },
+  ],
+  contextId: null,
+};
+
+function commandsFor(query = "", scope: PaletteScope = SCOPE) {
+  return paletteGroups("fr", { query, scope });
+}
+
+function group(groups: ReturnType<typeof paletteGroups>, value: string) {
+  return groups.find((g) => g.value === value)?.commands ?? [];
+}
+
 describe("commandes de la palette", () => {
   it("propose chaque section de la navigation en raccourci, hors registre", () => {
-    const { navigation } = paletteCommands("fr");
+    const navigation = group(commandsFor(), "navigation");
 
-    expect(navigation.map((c) => c.href)).toEqual(NAV_ITEMS.map((i) => i.href));
+    expect(navigation.map((c) => c.kind === "navigate" && c.href)).toEqual(
+      NAV_ITEMS.map((i) => i.href),
+    );
   });
 
   it("propose de passer dans l'autre langue, jamais dans la langue courante", () => {
-    expect(paletteCommands("fr").actions.map((c) => c.params)).toEqual([
-      { locale: "en" },
-    ]);
-    expect(paletteCommands("en").actions.map((c) => c.params)).toEqual([
-      { locale: "fr" },
+    const params = (locale: "fr" | "en") =>
+      group(paletteGroups(locale, { query: "", scope: SCOPE }), "actions").map(
+        (c) => c.kind === "action" && c.params,
+      );
+
+    expect(params("fr")).toEqual([{ locale: "en" }]);
+    expect(params("en")).toEqual([{ locale: "fr" }]);
+  });
+
+  it("propose les commandes Nouvelle tâche, Ouvrir la to-do et Corbeille, en premier groupe", () => {
+    const groups = commandsFor();
+
+    expect(groups[0].value).toBe("tasks");
+    expect(
+      groups[0].commands.map((c) => [
+        c.kind,
+        c.labelKey,
+        "href" in c && c.href,
+      ]),
+    ).toEqual([
+      ["quickAdd", "newTask", false],
+      ["navigate", "openTodo", "/tasks"],
+      ["navigate", "openTrash", "/tasks/trash"],
     ]);
   });
 
-  it("chaque commande d'action désigne une action du registre, avec des paramètres valides", () => {
-    const commands = [
-      ...paletteCommands("fr").actions,
-      ...paletteCommands("en").actions,
-    ];
+  it("saisie libre : le premier élément est Ajouter la tâche « … », avec le texte saisi", () => {
+    const [first] = commandsFor("  Payer la crèche ").flatMap(
+      (g) => g.commands,
+    );
 
-    for (const command of commands) {
+    expect(first).toMatchObject({
+      kind: "action",
+      action: "tasks.create",
+      labelKey: "addTask",
+      title: "Payer la crèche",
+      params: { title: "Payer la crèche", side: "pro" },
+    });
+  });
+
+  it("sans saisie, aucune proposition d'ajout", () => {
+    const actions = commandsFor("   ")
+      .flatMap((g) => g.commands)
+      .filter((c) => c.kind === "action" && c.action === "tasks.create");
+
+    expect(actions).toEqual([]);
+  });
+
+  it("l'ajout prend le côté et l'espace courants (espace filtré), sinon aucun espace", () => {
+    const filtered = commandsFor("Devis", { ...SCOPE, contextId: "c2" })[0]
+      .commands[0];
+    const unfiltered = commandsFor("Devis")[0].commands[0];
+
+    expect(filtered.kind === "action" && filtered.params).toEqual({
+      title: "Devis",
+      side: "pro",
+      context: "Viniz",
+    });
+    expect(unfiltered.kind === "action" && unfiltered.params).toEqual({
+      title: "Devis",
+      side: "pro",
+    });
+  });
+
+  it("un titre plus long que la limite n'est pas proposé à l'ajout", () => {
+    const first = commandsFor("a".repeat(TASK_TITLE_MAX + 1))[0].commands[0];
+
+    expect(first.kind).not.toBe("action");
+  });
+
+  it("chaque commande d'action désigne une action du registre, avec des paramètres valides", () => {
+    const commands = (["fr", "en"] as const).flatMap((locale) =>
+      paletteGroups(locale, {
+        query: "Payer la crèche",
+        scope: { ...SCOPE, contextId: "c1" },
+      }).flatMap((g) => g.commands),
+    );
+    const actions = commands.filter((c) => c.kind === "action");
+
+    expect(actions.map((c) => c.action)).toContain("tasks.create");
+    for (const command of actions) {
       expect(() =>
         prepareAction(registry, command.action, command.params, "web"),
       ).not.toThrow();
@@ -69,8 +161,9 @@ describe("commandes de la palette", () => {
   });
 
   it("donne à chaque commande un identifiant unique", () => {
-    const { navigation, actions } = paletteCommands("fr");
-    const ids = [...navigation, ...actions].map((c) => c.id);
+    const ids = commandsFor("Payer")
+      .flatMap((g) => g.commands)
+      .map((c) => c.id);
 
     expect(new Set(ids).size).toBe(ids.length);
   });

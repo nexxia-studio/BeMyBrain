@@ -157,12 +157,19 @@
     "title": "Command palette",
     "search": "Search commands",
     "placeholder": "Search for a page or an action…",
-    "empty": "Nothing for \"{query}\". Try \"language\" or \"settings\".",
     "groups": {
+      "tasks": "Tasks",
       "navigation": "Go to",
       "actions": "Actions"
     },
     "commands": {
+      "addTask": "Add task \"{title}\"",
+      "newTask": "New task",
+      "newTaskKeywords": "add create task to-do todo",
+      "openTodo": "Open to-do",
+      "openTodoKeywords": "tasks list to-do todo",
+      "openTrash": "Trash",
+      "openTrashKeywords": "tasks deleted restore",
       "switchLocale": {
         "fr": "Switch to French",
         "en": "Switch to English"

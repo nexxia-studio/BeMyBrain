@@ -22,7 +22,7 @@ export default async function AppLayout({
   // les Server Actions) : chaque page et chaque action non publique appelle aussi requireSession.
   await requireSession();
   // Filtre d'espace du côté actif (Privé ou Pro) : mémoïsé, l'en-tête de page (PageHeader) le relit
-  // sans seconde requête. L'ajout rapide en tire le côté et l'espace courants (même lecture).
+  // sans seconde requête. L'ajout rapide et la palette en tirent le côté et l'espace courants (même lecture).
   const [side, filter, scope] = await Promise.all([
     readSide(),
     loadContextFilter(),
@@ -31,8 +31,8 @@ export default async function AppLayout({
 
   return (
     <MotionRoot>
-      <CommandPaletteProvider>
-        <QuickAddProvider scope={scope}>
+      <QuickAddProvider scope={scope}>
+        <CommandPaletteProvider scope={scope}>
           <div className="flex min-h-dvh flex-col pr-safe-right pl-safe-left">
             <div className="mx-auto flex w-full max-w-content flex-1 flex-col gap-grid px-page pt-page-top pb-tabbar-reserve lg:pb-page">
               <ShellHeader side={side} />
@@ -64,8 +64,8 @@ export default async function AppLayout({
             </div>
             <TabBar className="lg:hidden" />
           </div>
-        </QuickAddProvider>
-      </CommandPaletteProvider>
+        </CommandPaletteProvider>
+      </QuickAddProvider>
     </MotionRoot>
   );
 }

@@ -19,6 +19,7 @@ import {
 const push = vi.hoisted(() => vi.fn());
 const runAction = vi.hoisted(() => vi.fn());
 const pathname = vi.hoisted(() => ({ current: "/dashboard" }));
+const openQuickAdd = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", async (importOriginal) => ({
   // redirect et unstable_rethrow réels : le renvoi vers /login d'une session expirée (QA-1).
@@ -28,8 +29,34 @@ vi.mock("next/navigation", async (importOriginal) => ({
 }));
 vi.mock("@/app/(app)/actions", () => ({ runAction }));
 
+import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
+import type { CurrentScope } from "@/lib/context-filter";
+
 import { CommandPaletteProvider } from "./CommandPaletteProvider";
 import { PaletteTrigger } from "./PaletteTrigger";
+
+const SCOPE: CurrentScope = {
+  side: "pro",
+  contexts: [
+    { id: "c1", name: "Nexxia" },
+    { id: "c2", name: "Viniz" },
+  ],
+  contextId: "c2",
+};
+
+// Coque de l'app : l'ajout rapide enveloppe la palette (« Nouvelle tâche » l'ouvre).
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <OpenQuickAddContext value={openQuickAdd}>
+      <CommandPaletteProvider scope={SCOPE}>
+        <PaletteTrigger label="déclencheur" className="">
+          +
+        </PaletteTrigger>
+        {children}
+      </CommandPaletteProvider>
+    </OpenQuickAddContext>
+  );
+}
 
 function renderPalette(locale: "fr" | "en" = "fr") {
   return render(
@@ -37,11 +64,7 @@ function renderPalette(locale: "fr" | "en" = "fr") {
       locale={locale}
       messages={locale === "fr" ? fr : en}
     >
-      <CommandPaletteProvider>
-        <PaletteTrigger label="déclencheur" className="">
-          +
-        </PaletteTrigger>
-      </CommandPaletteProvider>
+      <Shell>{null}</Shell>
     </NextIntlClientProvider>,
   );
 }
@@ -63,8 +86,8 @@ beforeEach(() => {
   pathname.current = "/dashboard";
 });
 
-function fill(template: string, query: string) {
-  return template.replace("{query}", query);
+function addTaskLabel(title: string, template = fr.palette.commands.addTask) {
+  return template.replace("{title}", title);
 }
 
 describe("palette de commandes", () => {
@@ -142,28 +165,30 @@ describe("palette de commandes", () => {
     expect(command(fr.palette.commands.switchLocale.en)).toBeTruthy();
   });
 
-  it("une recherche sans résultat le dit", async () => {
+  it("une saisie sans commande correspondante ne propose que l'ajout de la tâche", async () => {
     renderPalette();
     pressShortcut();
     const search = await screen.findByRole("combobox");
 
     fireEvent.change(search, { target: { value: "zzzz" } });
 
-    expect(
-      await screen.findByText(fill(fr.palette.empty, "zzzz")),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+        addTaskLabel("zzzz"),
+      ]),
+    );
   });
 
   it.each([
     ["fr", "langue", fr.palette.commands.switchLocale.en],
     ["fr", "réglages", fr.shell.settings],
+    ["fr", "corbeille", fr.palette.commands.openTrash],
     ["en", "language", en.palette.commands.switchLocale.fr],
     ["en", "settings", en.shell.settings],
+    ["en", "trash", en.palette.commands.openTrash],
   ] as const)(
-    "(%s) le mot suggéré par l'état vide « %s » trouve une commande",
+    "(%s) chercher « %s » trouve la commande",
     async (locale, word, expected) => {
-      const messages = locale === "fr" ? fr : en;
-      expect(messages.palette.empty).toContain(word);
       renderPalette(locale);
       pressShortcut();
       const search = await screen.findByRole("combobox");
@@ -175,6 +200,103 @@ describe("palette de commandes", () => {
       ).toBeTruthy();
     },
   );
+
+  it("saisie libre : le premier élément est Ajouter la tâche « … », en surbrillance", async () => {
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+
+    fireEvent.change(search, { target: { value: "Payer la crèche" } });
+
+    await waitFor(() => {
+      const [first] = screen.getAllByRole("option");
+      expect(first.textContent).toBe(addTaskLabel("Payer la crèche"));
+      expect(first.hasAttribute("data-highlighted")).toBe(true);
+    });
+  });
+
+  it("Entrée sur la saisie libre crée la tâche avec le côté et l'espace courants, puis se ferme", async () => {
+    runAction.mockResolvedValue({ ok: true, result: { id: "t1" } });
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+    fireEvent.change(search, { target: { value: "  Payer la crèche " } });
+    await screen.findByRole("option", {
+      name: addTaskLabel("Payer la crèche"),
+    });
+
+    fireEvent.keyDown(search, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(runAction).toHaveBeenCalledWith("tasks.create", {
+        title: "Payer la crèche",
+        side: "pro",
+        context: "Viniz",
+      }),
+    );
+    await waitFor(() => expect(palette()).toBeNull());
+  });
+
+  it("en anglais, l'ajout de la tâche est libellé en anglais", async () => {
+    renderPalette("en");
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+
+    fireEvent.change(search, { target: { value: "Pay" } });
+
+    expect(
+      await screen.findByRole("option", {
+        name: addTaskLabel("Pay", en.palette.commands.addTask),
+      }),
+    ).toBeTruthy();
+  });
+
+  it("l'échec de l'ajout garde la palette ouverte et le dit", async () => {
+    runAction.mockResolvedValue({ ok: false });
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+    fireEvent.change(search, { target: { value: "Payer" } });
+
+    fireEvent.click(
+      await screen.findByRole("option", { name: addTaskLabel("Payer") }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("palette-status").textContent).toBe(
+        fr.palette.error,
+      ),
+    );
+    expect(palette()).not.toBeNull();
+  });
+
+  it("Nouvelle tâche ferme la palette et ouvre l'ajout rapide, sans passer par le registre", async () => {
+    renderPalette();
+    pressShortcut();
+
+    fireEvent.click(
+      await screen.findByRole("option", {
+        name: fr.palette.commands.newTask,
+      }),
+    );
+
+    expect(openQuickAdd).toHaveBeenCalledTimes(1);
+    expect(runAction).not.toHaveBeenCalled();
+    await waitFor(() => expect(palette()).toBeNull());
+  });
+
+  it.each([
+    [fr.palette.commands.openTodo, "/tasks"],
+    [fr.palette.commands.openTrash, "/tasks/trash"],
+  ])("« %s » ouvre %s", async (name, href) => {
+    renderPalette();
+    pressShortcut();
+
+    fireEvent.click(await screen.findByRole("option", { name }));
+
+    expect(push).toHaveBeenCalledWith(href);
+    await waitFor(() => expect(palette()).toBeNull());
+  });
 
   it("l'aide clavier présente ↑↓, Entrée et Échap en touches <kbd>", async () => {
     renderPalette();
@@ -210,13 +332,14 @@ describe("palette de commandes", () => {
     expect(runAction).toHaveBeenCalledWith("core.setLocale", { locale: "en" });
   });
 
-  it("Entrée lance la commande en surbrillance", async () => {
+  it("Entrée lance la commande en surbrillance (après l'ajout de la tâche, premier)", async () => {
     runAction.mockResolvedValue({ ok: true, result: "en" });
     renderPalette();
     pressShortcut();
     const search = await screen.findByRole("combobox");
     fireEvent.change(search, { target: { value: "anglais" } });
-    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+    fireEvent.keyDown(search, { key: "ArrowDown" });
 
     fireEvent.keyDown(search, { key: "Enter" });
 
@@ -294,11 +417,7 @@ describe("palette de commandes", () => {
     render(
       <CaughtBoundary onError={onError}>
         <NextIntlClientProvider locale="fr" messages={fr}>
-          <CommandPaletteProvider>
-            <PaletteTrigger label="déclencheur" className="">
-              +
-            </PaletteTrigger>
-          </CommandPaletteProvider>
+          <Shell>{null}</Shell>
         </NextIntlClientProvider>
       </CaughtBoundary>,
     );

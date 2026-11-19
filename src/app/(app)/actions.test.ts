@@ -92,6 +92,27 @@ describe("runAction (Server Action unique de la palette)", () => {
     );
   });
 
+  it("ajouter une tâche depuis la palette : tasks.create avec l'origine palette, puis rendu rafraîchi", async () => {
+    const params = { title: "Payer la crèche", side: "private" };
+    runActionWithToken.mockResolvedValueOnce({
+      name: "tasks.create",
+      access: "write",
+      result: { id: "t1" },
+    });
+
+    const outcome = await runAction("tasks.create", params);
+
+    expect(runActionWithToken).toHaveBeenCalledWith(
+      "eyJ.jwt.signe",
+      SESSION.workspaceId,
+      "palette",
+      "tasks.create",
+      params,
+    );
+    expect(outcome).toEqual({ ok: true, result: { id: "t1" } });
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
   it("après core.setLocale, recopie la langue enregistrée dans NEXT_LOCALE puis rafraîchit", async () => {
     const outcome = await runAction("core.setLocale", { locale: "en" });
 

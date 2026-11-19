@@ -2,18 +2,22 @@
 
 // Palette de commandes de la coque (ADR-009) : état d'ouverture, raccourci ⌘K / Ctrl+K (bascule), et
 // fonction d'ouverture partagée avec les déclencheurs (recherche et ajout de l'en-tête, ajout mobile).
+// Placée sous QuickAddProvider : la commande « Nouvelle tâche » ouvre l'ajout rapide.
 import { useCallback, useEffect, useState } from "react";
 
 import { CommandPalette } from "./CommandPalette";
-import { isPaletteShortcut } from "./commands";
+import { isPaletteShortcut, type PaletteScope } from "./commands";
 import { OpenPaletteContext } from "./palette-context";
 
 type CommandPaletteProviderProps = {
   children: React.ReactNode;
+  /** Côté et espace courants (lus par le layout) : la tâche ajoutée depuis la palette les prend. */
+  scope: PaletteScope;
 };
 
 export function CommandPaletteProvider({
   children,
+  scope,
 }: CommandPaletteProviderProps) {
   const [open, setOpen] = useState(false);
   const openPalette = useCallback(() => setOpen(true), []);
@@ -31,7 +35,7 @@ export function CommandPaletteProvider({
   return (
     <OpenPaletteContext value={openPalette}>
       {children}
-      <CommandPalette open={open} onOpenChange={setOpen} />
+      <CommandPalette open={open} onOpenChange={setOpen} scope={scope} />
     </OpenPaletteContext>
   );
 }
