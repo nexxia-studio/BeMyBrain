@@ -117,7 +117,9 @@ describe("charte dans globals.css", () => {
 
     const implemented = documented.map(([name]) => [
       name,
-      css.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})`))?.[1]?.toLowerCase(),
+      css
+        .match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})`))?.[1]
+        ?.toLowerCase(),
     ]);
 
     expect(documented).toHaveLength(11);
@@ -160,5 +162,25 @@ describe("charte dans globals.css", () => {
 
     expect(colors.length).toBeGreaterThan(0);
     expect(outside).toEqual([]);
+  });
+});
+
+// Inter (calt) dessine « 3x0 » en « 3×0 » et « -> » en flèche : le texte saisi doit s'afficher tel quel.
+// Coupé une fois sur <html>, hérité partout (preflight : `font: inherit` sur les champs) ; rien ne le rallume.
+describe("contenu saisi affiché tel quel", () => {
+  it("html coupe les alternatives contextuelles", () => {
+    const html = css.match(/\n {2}html \{([^}]*)\}/)?.[1] ?? "";
+    expect(html).toMatch(/font-variant-ligatures:\s*no-contextual;/);
+  });
+
+  it("aucune autre règle ne réactive calt ni ne réinitialise les ligatures", () => {
+    const rules =
+      css.match(/font-feature-settings|font-variant-ligatures|[^-]font:/g) ??
+      [];
+    expect(rules).toHaveLength(1);
+  });
+
+  it("DESIGN.md documente le réglage", () => {
+    expect(design).toMatch(/no-contextual/);
   });
 });

@@ -66,3 +66,27 @@ test("une tâche créée avec un titre seul est côté actif, À faire, sans éc
   ).toBeVisible();
   expect(violations).toEqual([]);
 });
+
+// Constat QA du 2026-11-20 : « mwo3x0 » affiché « mwo3×0 » (alternatives contextuelles d'Inter). Le texte saisi
+// s'affiche tel quel : calt coupé dans la liste, le champ d'ajout rapide et le champ titre du détail.
+test("un titre contenant « 3x0 » n'est pas transformé par la police", async ({
+  page,
+}) => {
+  const title = uniqueTitle("Lot 3x0");
+  await signIn(page);
+
+  created.push(await quickAddTask(page, title));
+
+  await page.goto("/tasks");
+  const link = taskLink(listSection(page, "none"), title);
+  await expect(link).toBeVisible();
+  const ligatures = (locator: typeof link) =>
+    locator.evaluate((el) => getComputedStyle(el).fontVariantLigatures);
+  expect(await ligatures(link)).toBe("no-contextual");
+
+  await link.click();
+  const detail = detailDialog(page);
+  const field = detail.getByLabel(fr.tasks.detail.title, { exact: true });
+  await expect(field).toHaveValue(title);
+  expect(await ligatures(field)).toBe("no-contextual");
+});

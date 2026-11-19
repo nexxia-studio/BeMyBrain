@@ -374,8 +374,11 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
   * {
     @apply border-border outline-ring;
   }
+  /* Texte saisi affiché tel quel : les alternatives contextuelles (calt) d'Inter changent « 3x0 » en « 3×0 »
+     et « -> » en flèche. Coupées ici, héritées partout (y compris les champs, que le preflight fait hériter). */
   html {
     @apply font-sans;
+    font-variant-ligatures: no-contextual;
   }
   body {
     @apply bg-background text-foreground;
