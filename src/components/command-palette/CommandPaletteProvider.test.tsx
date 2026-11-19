@@ -7,7 +7,8 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Plus } from "lucide-react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
@@ -30,6 +31,8 @@ vi.mock("next/navigation", async (importOriginal) => ({
 vi.mock("@/app/(app)/actions", () => ({ runAction }));
 
 import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
+import type { QuickAddFormProps } from "@/components/quick-add/quick-add-types";
+import { QuickAddProvider } from "@/components/quick-add/QuickAddProvider";
 import type { CurrentScope } from "@/lib/context-filter";
 import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
@@ -584,5 +587,64 @@ describe("palette de commandes", () => {
         name: en.palette.commands.switchLocale.fr,
       }),
     ).toBeTruthy();
+  });
+});
+
+// Champ relais (essai iPhone, 2026-11-19) : « Nouvelle tâche » ouvre l'ajout rapide dans le geste, sans attendre
+// la fermeture de la palette, sinon iOS n'ouvre pas le clavier.
+function TitleForm({ initialFocusRef }: QuickAddFormProps) {
+  return <input ref={initialFocusRef} aria-label="titre" />;
+}
+
+describe("palette et clavier de l'ajout rapide", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("au toucher, Nouvelle tâche passe le focus au relais dans le geste, puis au titre ; la palette ne le reprend pas", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(pointer: coarse)",
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+    }));
+    render(
+      <NextIntlClientProvider locale="fr" messages={fr}>
+        <QuickAddProvider
+          types={[
+            {
+              key: "task",
+              icon: Plus,
+              Form: TitleForm,
+              action: "tasks.create",
+            },
+          ]}
+          scope={SCOPE}
+        >
+          <CommandPaletteProvider scope={SCOPE}>{null}</CommandPaletteProvider>
+        </QuickAddProvider>
+      </NextIntlClientProvider>,
+    );
+    pressShortcut();
+    const option = await screen.findByRole("option", {
+      name: fr.palette.commands.newTask,
+    });
+
+    fireEvent.click(option);
+
+    expect(document.activeElement?.hasAttribute("data-quick-add-relay")).toBe(
+      true,
+    );
+    const title = screen.getByLabelText("titre");
+    await waitFor(() => expect(document.activeElement).toBe(title));
+    // Sortie de la palette finie (démontée) : son retour de focus ne reprend pas le titre.
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[aria-label="${fr.palette.title}"]`),
+      ).toBeNull(),
+    );
+    expect(document.activeElement).toBe(title);
   });
 });

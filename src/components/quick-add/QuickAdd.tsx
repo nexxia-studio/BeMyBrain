@@ -9,7 +9,9 @@
 // réduit : fondus de 0,15 s seulement. Voile `scrim` : fondu d'opacité seul. Sélecteur de types (pilule comme
 // la bascule Privé / Pro) seulement à partir de deux types.
 // Clavier : focus d'office dans le champ désigné par le formulaire, même ouvert au toucher (Base UI ne
-// focalise que la fenêtre au toucher, pour ne pas ouvrir le clavier : ici, on le veut). Sur iOS, le clavier
+// focalise que la fenêtre au toucher, pour ne pas ouvrir le clavier : ici, on le veut). iOS n'ouvre le clavier
+// que pour un focus pris dans le geste : le fournisseur focalise d'abord un champ relais, le titre prend la
+// suite (QuickAddProvider.tsx). Sur iOS, le clavier
 // recouvre la page sans la redimensionner : le tiroir remonte de la hauteur masquée (`useKeyboardInset`,
 // marge basse du conteneur, pas d'animation de position) ; Android redimensionne la page (viewport).
 import { Dialog } from "@base-ui/react/dialog";
@@ -48,6 +50,8 @@ type QuickAddProps = {
   onTypeChange: (key: string) => void;
   /** Côté et espace courants, passés au formulaire. */
   scope: QuickAddScope;
+  /** Focus à la fermeture (Base UI) ; le fournisseur le désigne quand le champ relais a servi. */
+  finalFocus?: Dialog.Popup.Props["finalFocus"];
 };
 
 export function QuickAdd({
@@ -57,6 +61,7 @@ export function QuickAdd({
   typeKey,
   onTypeChange,
   scope,
+  finalFocus = true,
 }: QuickAddProps) {
   const t = useTranslations("quickAdd");
   const reduced = useReducedMotion() ?? false;
@@ -141,6 +146,7 @@ export function QuickAdd({
                 aria-label={t(`types.${current.key}.title`)}
                 // Au toucher aussi (Base UI focaliserait la fenêtre) : le clavier s'ouvre d'office.
                 initialFocus={() => initialFocusRef.current ?? true}
+                finalFocus={finalFocus}
                 render={
                   <motion.div
                     {...panel}
