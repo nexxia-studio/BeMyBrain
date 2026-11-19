@@ -37,10 +37,17 @@ describe("pastille Tags", () => {
     expect(chip.getAttribute("aria-label")).toBe("Tags: None");
   });
 
-  it("avec des tags : leurs noms en encre principale", () => {
+  it("avec des tags : leurs noms séparés selon la langue, en encre principale", () => {
     const chip = renderChip("fr", ["client", "maison"]);
 
-    expect(chip.textContent).toBe("client, maison");
+    expect(chip.textContent).toBe("client et maison");
+    expect(chip.getAttribute("aria-label")).toBe("Tags : client et maison");
     expect(chip.className.split(/\s+/)).toContain("text-foreground");
+  });
+
+  it("avec des tags, en anglais : virgules seules", () => {
+    const chip = renderChip("en", ["client", "home"]);
+
+    expect(chip.textContent).toBe("client, home");
   });
 });

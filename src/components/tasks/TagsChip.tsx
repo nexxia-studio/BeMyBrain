@@ -9,14 +9,14 @@
 import { Popover } from "@base-ui/react/popover";
 import { Check, Plus, Tag } from "lucide-react";
 import { motion } from "motion/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
 import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
 import { TAG_NAME_MAX, TASK_TAGS_PER_WRITE_MAX } from "@/modules/tasks/sides";
-import { findTagName, matchTagNames } from "@/modules/tasks/view";
+import { findTagName, matchTagNames, tagList } from "@/modules/tasks/view";
 
 import {
   chipItemClass,
@@ -63,6 +63,7 @@ export function TagsChip({
   describedBy,
 }: TagsChipProps) {
   const t = useTranslations("tasks.quickAdd.tags");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [known, setKnown] = useState<Known>({ state: "idle" });
@@ -78,7 +79,7 @@ export function TagsChip({
   const typed = query.trim();
   const full = value.length >= TASK_TAGS_PER_WRITE_MAX;
   const canCreate = typed !== "" && findTagName(all, typed) === undefined;
-  const current = value.length > 0 ? value.join(", ") : null;
+  const current = value.length > 0 ? tagList(value, locale) : null;
 
   async function load() {
     setKnown({ state: "loading" });
