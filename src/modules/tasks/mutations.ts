@@ -13,6 +13,7 @@ import { getTask, isActive, type TaskDetail } from "./queries";
 import {
   createTaskInputSchema,
   parseTaskInput,
+  taskIdSchema,
   updateTaskInputSchema,
   type CreateTaskInput,
   type UpdateTaskInput,
@@ -20,7 +21,7 @@ import {
 
 // Écritures du module tasks (ADR-002). Même contrat que queries.ts : workspaceId en premier, transaction de
 // withUserDb (RLS active) en dernier, filtre explicite sur workspaceId en plus de la RLS.
-// Une écriture ne touche qu'une tâche active : une tâche à la corbeille est not_found.
+// Une écriture ne touche qu'une tâche active (sauf restoreTask) : une tâche à la corbeille est not_found.
 // Sous-tâches : côté et espace suivent toujours la parente. Changer ceux de la parente se fait en UNE
 // instruction sur la parente et toutes ses sous-tâches (corbeille comprise) : la FK parente
 // (workspace_id, parent_id, side), NO ACTION, est vérifiée en fin d'instruction, sur l'état cohérent ; et un
@@ -295,4 +296,74 @@ export function completeTask(
   tx: UserTx,
 ): Promise<TaskDetail> {
   return updateTask(workspaceId, { taskId, statusCategory: "completed" }, tx);
+}
+
+export type TrashResult = {
+  id: string;
+  /** Sous-tâches actives mises à la corbeille avec elle (même horodatage). */
+  subtaskCount: number;
+};
+
+/**
+ * Met une tâche active à la corbeille (deleted_at, aucun DELETE). Parente : ses sous-tâches encore actives
+ * reçoivent le même horodatage, en une instruction (now() = début de la transaction, identique pour toutes
+ * les lignes) ; une sous-tâche déjà à la corbeille garde le sien. Absente, d'un autre workspace ou déjà à
+ * la corbeille → not_found.
+ */
+export async function moveTaskToTrash(
+  workspaceId: string,
+  taskId: string,
+  tx: UserTx,
+): Promise<TrashResult> {
+  const workspace = parseTaskInput(uuidSchema, workspaceId);
+  const id = parseTaskInput(taskIdSchema, taskId);
+
+  // Verrou sur la tâche : même ordre que createTask (parente d'abord), aucune sous-tâche créée entre-temps.
+  const task = await lockTask(workspace, id, tx);
+  if (!task || task.deleted) throw new TaskError("not_found");
+
+  const result = await tx.execute<{ id: string }>(sql`
+    update ${tasks} set deleted_at = now()
+    where workspace_id = ${workspace} and deleted_at is null and (id = ${id} or parent_id = ${id})
+    returning id`);
+  return { id, subtaskCount: result.rows.length - 1 };
+}
+
+/**
+ * Restaure une tâche de la corbeille et renvoie son détail. Parente : seulement les sous-tâches qui portent
+ * son horodatage (mises à la corbeille avec elle). Sous-tâche dont la parente est à la corbeille →
+ * parent_in_trash. Tâche active : rien à faire, détail renvoyé. Absente ou d'un autre workspace → not_found.
+ */
+export async function restoreTask(
+  workspaceId: string,
+  taskId: string,
+  tx: UserTx,
+): Promise<TaskDetail> {
+  const workspace = parseTaskInput(uuidSchema, workspaceId);
+  const id = parseTaskInput(taskIdSchema, taskId);
+
+  // parent_id n'est jamais modifié (aucun droit UPDATE) : lu sans verrou, pour verrouiller la parente avant
+  // la sous-tâche, dans l'ordre de moveTaskToTrash (pas d'interblocage avec une mise à la corbeille).
+  const [found] = await tx
+    .select({ parentId: tasks.parentId })
+    .from(tasks)
+    .where(and(eq(tasks.workspaceId, workspace), eq(tasks.id, id)));
+  if (!found) throw new TaskError("not_found");
+  if (found.parentId !== null) {
+    const parent = await lockTask(workspace, found.parentId, tx);
+    if (!parent || parent.deleted) throw new TaskError("parent_in_trash");
+  }
+  const task = await lockTask(workspace, id, tx);
+  if (!task) throw new TaskError("not_found");
+
+  if (task.deleted) {
+    // Horodatage comparé en base (microsecondes), pas via un Date JS (millisecondes). La sous-requête voit
+    // l'état d'avant l'instruction.
+    await tx.execute(sql`
+      update ${tasks} set deleted_at = null
+      where workspace_id = ${workspace} and (id = ${id} or (parent_id = ${id} and deleted_at = (
+        select deleted_at from ${tasks} where workspace_id = ${workspace} and id = ${id}
+      )))`);
+  }
+  return reload(workspace, id, tx);
 }
