@@ -146,6 +146,7 @@
   --spacing-tabbar-offset: var(--tabbar-offset);
   --spacing-tabbar-reserve: var(--tabbar-reserve);
   --spacing-detail-top: var(--detail-top);
+  --spacing-detail-right: var(--detail-right);
   --color-pill-active: var(--pill-active);
 }
 
@@ -258,6 +259,11 @@
      Le panneau du détail démarre dessous, à l'écart de la grille (ne recouvre ni ⌘K ni « + »). */
   --header-height: 78px;
   --detail-top: calc(var(--page-top) + var(--header-height) + var(--space-grid));
+  /* Bord droit du panneau aligné sur celui de la coque (contenu centré à `--container-content`, marge de page) :
+     le % se rapporte à la largeur du calque fixe, barre de défilement exclue. */
+  --detail-right: calc(
+    max(0px, (100% - var(--container-content)) / 2) + var(--space-page)
+  );
 
   /* Calques. */
   --z-halo: -1;

@@ -303,7 +303,7 @@ export function TaskDetail({
               }
               className="fixed inset-0 z-(--z-overlay) bg-scrim"
             />
-            <Dialog.Viewport className="fixed inset-0 z-(--z-dialog) flex items-end justify-center pt-page-top lg:items-stretch lg:justify-end lg:p-page lg:pt-detail-top">
+            <Dialog.Viewport className="fixed inset-0 z-(--z-dialog) flex items-end justify-center pt-page-top lg:items-stretch lg:justify-end lg:p-page lg:pt-detail-top lg:pr-detail-right">
               <Dialog.Popup
                 aria-label={t("detail.label")}
                 // Pas le titre : au toucher, le clavier s'ouvrirait sur un détail qu'on vient seulement de lire.

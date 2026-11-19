@@ -112,7 +112,7 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   expect(violations).toEqual([]);
 });
 
-test("@desktop le panneau du détail démarre sous l'en-tête et « Ajouter une sous-tâche » s'atteint par défilement", async ({
+test("@desktop le panneau du détail démarre sous l'en-tête, aligné sur son bord droit, et « Ajouter une sous-tâche » s'atteint par défilement", async ({
   page,
 }) => {
   const parent = uniqueTitle("Panneau sous l'en-tête");
@@ -129,5 +129,8 @@ test("@desktop le panneau du détail démarre sous l'en-tête et « Ajouter une 
   await field.scrollIntoViewIfNeeded();
 
   expect(panel.y).toBeGreaterThanOrEqual(header.y + header.height);
+  expect(
+    Math.abs(panel.x + panel.width - (header.x + header.width)),
+  ).toBeLessThanOrEqual(1);
   await expect(field).toBeInViewport({ ratio: 1 });
 });

@@ -557,12 +557,14 @@ describe("détail : mise en page", () => {
     expect(within(row).queryByText("Titre", { selector: "label" })).toBeNull();
   });
 
-  it("sur ordinateur, le panneau démarre sous l'en-tête de la coque", () => {
+  it("sur ordinateur, le panneau démarre sous l'en-tête de la coque et s'aligne sur son bord droit", () => {
     renderDetail();
 
     const viewport = screen.getByRole("dialog").parentElement!;
 
-    expect(viewport.className.split(/\s+/)).toContain("lg:pt-detail-top");
+    expect(viewport.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["lg:pt-detail-top", "lg:pr-detail-right"]),
+    );
   });
 });
 
