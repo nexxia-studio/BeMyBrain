@@ -1,7 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PaletteTrigger } from "@/components/command-palette/PaletteTrigger";
 import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import type { ShellScope } from "@/lib/current-scope";
 import { getUserTimeZone } from "@/modules/core/time-zone";
@@ -11,8 +18,15 @@ import messages from "../../../messages/fr.json";
 const setSide = vi.hoisted(() => vi.fn());
 const setContextSelection = vi.hoisted(() => vi.fn());
 const runAppAction = vi.hoisted(() => vi.fn());
+const runAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/preferences-actions", () => ({ setSide, setContextSelection }));
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
+vi.mock("@/app/(app)/actions", () => ({ runAction }));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => "/tasks",
+}));
 // Moment signature de la bascule : hors sujet ici.
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 
@@ -76,13 +90,33 @@ function addTaskNow(title: string) {
   fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
 }
 
+// Enregistrements suspendus d'un test, terminés après lui : React relie entre elles les transitions
+// asynchrones en cours ; une promesse jamais résolue garderait les optimistes des tests suivants.
+let finishSaves: () => void = () => {};
+
 beforeEach(() => {
   vi.clearAllMocks();
-  // Enregistrement des préférences jamais terminé : le rendu serveur n'a pas encore suivi.
-  setSide.mockReturnValue(new Promise(() => {}));
-  setContextSelection.mockReturnValue(new Promise(() => {}));
+  // Enregistrement des préférences en cours : le rendu serveur n'a pas encore suivi.
+  let finish!: () => void;
+  const saving = new Promise<void>((resolve) => (finish = resolve));
+  finishSaves = finish;
+  setSide.mockReturnValue(saving);
+  setContextSelection.mockReturnValue(saving);
   runAppAction.mockResolvedValue({ ok: true, result: { id: "x" } });
+  runAction.mockResolvedValue({ ok: true, result: { id: "x" } });
 });
+
+afterEach(async () => {
+  await act(async () => finishSaves());
+});
+
+/** Paramètres du dernier `tasks.create` envoyé par l'ajout rapide. */
+function createdParams(): Record<string, unknown> {
+  const call = runAppAction.mock.calls.find(
+    ([action]) => action === "tasks.create",
+  );
+  return call?.[1] as Record<string, unknown>;
+}
 
 describe("portée de la coque (ajout rapide et palette)", () => {
   it("bascule Privé → Pro puis ajout immédiat : la tâche part du côté affiché, avec l'espace filtré de ce côté", async () => {
@@ -151,5 +185,83 @@ describe("portée de la coque (ajout rapide et palette)", () => {
       "tasks.create",
       expect.objectContaining({ side: "pro", context: "Nexxia" }),
     );
+  });
+
+  it.each([
+    [
+      "l'action se termine sans enregistrer",
+      () => setSide.mockResolvedValue(undefined),
+    ],
+    [
+      "l'action est rejetée",
+      () => setSide.mockRejectedValue(new Error("refus")),
+    ],
+  ])(
+    "bascule non suivie par le serveur (%s) : la pilule revient, la tâche part avec l'ancien côté et l'ancien espace",
+    async (_cas, arrange) => {
+      arrange();
+      renderShell(
+        shell("private", [TRUSTUP.id]),
+        <SideSwitch side="private" />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Pro" }));
+      // Fin de l'enregistrement, dans act : la transition se referme et l'optimiste retombe.
+      await act(async () => {
+        await Promise.resolve(setSide.mock.results[0]?.value).catch(() => {});
+      });
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole("button", { name: "Privé" })
+            .getAttribute("aria-pressed"),
+        ).toBe("true"),
+      );
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole("group", { name: "Côté affiché" })
+            .getAttribute("aria-busy"),
+        ).toBe("false"),
+      );
+
+      addTaskNow("Acheter des ampoules");
+
+      await waitFor(() => expect(runAppAction).toHaveBeenCalled());
+      expect(createdParams().side).toBe("private");
+      expect(createdParams()).not.toHaveProperty("context");
+    },
+  );
+
+  it("filtre Nexxia côté Pro puis palette immédiate : la tâche part côté Pro, espace Nexxia", async () => {
+    renderShell(
+      shell("pro"),
+      <>
+        <ContextFilter
+          side="pro"
+          contexts={[TRUSTUP, NEXXIA]}
+          selected={[TRUSTUP.id, NEXXIA.id]}
+        />
+        <PaletteTrigger label="palette" className="">
+          ⌘K
+        </PaletteTrigger>
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Nexxia" }));
+    fireEvent.click(screen.getByRole("button", { name: "palette" }));
+    const search = await screen.findByRole("combobox");
+    fireEvent.change(search, { target: { value: "Maquette" } });
+
+    fireEvent.click(
+      await screen.findByRole("option", {
+        name: "Ajouter la tâche « Maquette »",
+      }),
+    );
+
+    await waitFor(() => expect(runAction).toHaveBeenCalled());
+    expect(runAction).toHaveBeenCalledWith("tasks.create", {
+      title: "Maquette",
+      side: "pro",
+      context: "Nexxia",
+    });
   });
 });

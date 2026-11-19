@@ -293,30 +293,39 @@ describe("ajout rapide : popups des pastilles dans le tiroir", () => {
     ).toBe("Relancer le devis");
   });
 
-  it("rouvert pendant son animation de sortie : formulaire remonté à neuf (il relit le côté et l'espace courants)", () => {
+  it("rouvert pendant son animation de sortie : formulaire neuf, espace du nouveau filtre, focus dans le titre", async () => {
+    const trustup = SCOPE.contexts[0];
     function Harness() {
       const [open, setOpen] = useState(true);
+      const [scope, setScope] = useState<QuickAddScope>(SCOPE);
       return (
         <NextIntlClientProvider locale="fr" messages={messages}>
           <button type="button" onClick={() => setOpen(false)}>
             fermer
           </button>
-          <button type="button" onClick={() => setOpen(true)}>
+          <button
+            type="button"
+            onClick={() => {
+              // Filtre changé pendant la fermeture : un seul espace retenu.
+              setScope({ ...SCOPE, contextId: trustup.id });
+              setOpen(true);
+            }}
+          >
             rouvrir
           </button>
           <QuickAdd
             open={open}
             onOpenChange={setOpen}
-            types={[TASK]}
+            types={[REAL_TASK]}
             typeKey="task"
             onTypeChange={vi.fn()}
-            scope={SCOPE}
+            scope={scope}
           />
         </NextIntlClientProvider>
       );
     }
     render(<Harness />);
-    fireEvent.change(screen.getByRole("textbox", { name: "titre" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Tâche" }), {
       target: { value: "brouillon" },
     });
 
@@ -327,12 +336,13 @@ describe("ajout rapide : popups des pastilles dans le tiroir", () => {
       screen.getByRole("button", { name: "rouvrir", hidden: true }),
     );
 
+    const title = screen.getByRole("textbox", { name: "Tâche" });
+    expect((title as HTMLInputElement).value).toBe("");
     expect(
-      (
-        screen.getByRole("textbox", {
-          name: "titre",
-        }) as HTMLInputElement
-      ).value,
-    ).toBe("");
+      screen
+        .getByRole("button", { name: /^Espace :/ })
+        .getAttribute("aria-label"),
+    ).toBe(`Espace : ${trustup.name}`);
+    await waitFor(() => expect(document.activeElement).toBe(title));
   });
 });

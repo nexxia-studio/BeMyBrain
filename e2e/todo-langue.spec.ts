@@ -128,7 +128,7 @@ test("en anglais, ajout rapide, liste, détail, corbeille et tuiles sont en angl
       .getByTestId("tile-today")
       .getByRole("list", { name: en.dashboard.today.list })
       .getByRole("link", { name: title }),
-  ).toBeVisible();
+  ).toContainText(en.shell.side.private);
   expect(await frenchLeftovers(page, [title])).toEqual([]);
 
   // Liste, puis détail.
