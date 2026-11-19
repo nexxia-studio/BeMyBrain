@@ -177,6 +177,7 @@
   },
   "quickAdd": {
     "open": "Quick add",
+    "close": "Close",
     "typesLabel": "What to add",
     "types": {
       "task": {

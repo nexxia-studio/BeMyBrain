@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Plus, Receipt } from "lucide-react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it } from "vitest";
@@ -58,12 +58,21 @@ describe("fournisseur de l'ajout rapide", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
+  it("Fermer ferme le tiroir", async () => {
+    renderProvider();
+    fireEvent.click(screen.getByRole("button", { name: "ouvrir" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("retient le dernier type utilisé d'une ouverture à l'autre", async () => {
     renderProvider();
     fireEvent.click(screen.getByRole("button", { name: "ouvrir" }));
     fireEvent.click(screen.getByRole("button", { name: "Dépense" }));
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    await screen.findByRole("button", { name: "ouvrir" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
     fireEvent.click(screen.getByRole("button", { name: "ouvrir" }));
 

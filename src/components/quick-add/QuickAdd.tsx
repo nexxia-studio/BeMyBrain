@@ -125,10 +125,10 @@ export function QuickAdd({
                     onDragEnd={onDragEnd}
                   />
                 }
-                className="flex max-h-dvh w-full flex-col overflow-y-auto overscroll-contain rounded-t-tile bg-popover pb-safe-bottom text-popover-foreground shadow-glass lg:max-w-xl lg:origin-top lg:rounded-tile lg:pb-0"
+                className="flex max-h-dvh w-full flex-col overflow-y-auto overscroll-contain rounded-t-tile bg-popover pr-safe-right pb-safe-bottom pl-safe-left text-popover-foreground shadow-glass lg:max-w-xl lg:origin-top lg:rounded-tile lg:p-0"
               >
                 {/* Poignée (mobile) : glisser vers le bas ferme ; décorative pour les lecteurs d'écran,
-                    qui ferment par Échap. Zone de 44 px de haut pour le pouce. */}
+                    qui ferment par le bouton Fermer ci-dessous. Zone de 44 px de haut pour le pouce. */}
                 <div
                   aria-hidden="true"
                   onPointerDown={(event) => dragControls.start(event)}
@@ -154,7 +154,7 @@ export function QuickAdd({
                             whileTap={{ scale: 0.97 }}
                             transition={{ duration: 0.1, ease: "easeOut" }}
                             className={cn(
-                              "flex min-h-11 items-center gap-2 rounded-full px-4.5 text-body font-semibold",
+                              "flex min-h-11 items-center gap-2 rounded-full px-4.5 text-body font-semibold lg:px-5.5",
                               active
                                 ? "bg-pill-active text-foreground shadow-raised"
                                 : "text-muted-foreground",
@@ -173,6 +173,9 @@ export function QuickAdd({
                   )}
                   <Form />
                 </div>
+                {/* Fermeture sans clavier ni geste (VoiceOver) : bouton réservé aux lecteurs d'écran, la
+                    charte n'a pas de bouton Fermer visible (voile, Échap et poignée suffisent à l'œil). */}
+                <Dialog.Close className="sr-only">{t("close")}</Dialog.Close>
               </Dialog.Popup>
             </Dialog.Viewport>
           </Dialog.Portal>

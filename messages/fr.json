@@ -177,6 +177,7 @@
   },
   "quickAdd": {
     "open": "Ajouter rapidement",
+    "close": "Fermer",
     "typesLabel": "Type d'ajout",
     "types": {
       "task": {
