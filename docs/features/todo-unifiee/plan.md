@@ -29,7 +29,7 @@
   - Test à écrire d'abord : `tests/db/schema-tasks.test.ts` (branche `test`, connexion `app_backend`) — CHECK (catégorie, priorité, titre vide, heure sans date), FK composites (espace, parente, tag d'un autre workspace refusés ; sous-tâche de côté différent refusée ; tâche de côté différent de son espace refusée), `DELETE FROM tasks` refusé (42501), `created_by` posé par la base, `origin` non modifiable, `updated_at` tenu par le trigger, suppression d'un espace → `context_id` NULL et côté gardé, changement de `kind` d'un espace → côté des tâches suivi
   - Fini quand : migration appliquée sur `test`, RLS + une policy par verbe (pas de DELETE sur `tasks` ni `tags`), tests verts
 
-- [ ] **3. Test d'isolation de la base pour `tasks`** [security]
+- [x] **3. Test d'isolation de la base pour `tasks`** [security]
   - Fichiers : `tests/factories/tasks.ts` (fixture : tâches, sous-tâches, tags, tâche à la corbeille, dans deux workspaces), `tests/factories/core.ts` (nettoyage : `task_tags`, `tasks`, `tags` avant les workspaces, en propriétaire)
   - Test à écrire d'abord : `tests/db/isolation-tasks.test.ts` — « l'utilisateur de B ne lit, n'insère, ne modifie rien de A sur les trois tables » ; « écart d'espace entre parente et sous-tâche en SQL direct : accepté par la base, limite documentée »
   - Fini quand : tests verts, `tests/db/isolation-core.test.ts` toujours vert
