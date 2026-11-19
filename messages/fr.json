@@ -156,7 +156,8 @@
   "palette": {
     "title": "Palette de commandes",
     "search": "Chercher une commande",
-    "placeholder": "Chercher une page ou une action…",
+    "placeholder": "Chercher ou ajouter une tâche…",
+    "titleTooLong": "Trop long pour un titre de tâche ({max} caractères au plus).",
     "groups": {
       "tasks": "Tâches",
       "navigation": "Aller à",

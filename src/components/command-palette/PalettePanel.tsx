@@ -2,18 +2,21 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, coque) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Contenu de la palette : recherche (Autocomplete de Base UI en ligne, motif « command palette » de sa
-// documentation ; aucune dépendance ajoutée), groupes « Tâches » (saisie libre → « Ajouter la tâche « … » »
-// en premier, `tasks.create` avec le côté et l'espace courants ; « Nouvelle tâche » ouvre l'ajout rapide ;
-// liste et corbeille), « Aller à » (raccourcis de navigation, hors registre) et « Actions » (actions du
-// registre, lancées par la Server Action unique runAction, origine `palette`). Pas d'optimiste : la palette
-// se ferme au succès. Entrée lance la commande en surbrillance (la première au départ). Une saisie trouve
-// toujours au moins l'ajout de la tâche : pas d'état « aucun résultat ». Focus visible (DESIGN.md § 11), un seul anneau à la fois : la rangée de recherche
-// porte le focus par sa bordure basse (`ring`), le champ n'a pas d'outline ; l'option en surbrillance porte un
-// anneau intérieur `ring` au clavier (la piste `pill-track` seule reste sous 3:1 sur `popover`), retiré au
-// doigt (`pointer-coarse`) où la piste suffit. La page courante reste listée, marquée `aria-current` et d'une
-// pastille « Ici » (masquée aux lecteurs d'écran, qui annoncent déjà `aria-current`). Pas de bouton Fermer : Échap et clic dehors ferment
-// (Dialog de Base UI). Pendant une action : commandes désactivées, état annoncé ; échec : message,
-// la palette reste ouverte.
+// documentation ; aucune dépendance ajoutée) et trois groupes :
+// - « Tâches » : saisie libre → « Ajouter la tâche « … » » en premier (`tasks.create`, côté et espace
+//   courants) ; « Nouvelle tâche » ouvre l'ajout rapide ; liste et corbeille ;
+// - « Aller à » : raccourcis de navigation, hors registre ;
+// - « Actions » : actions du registre, lancées par la Server Action unique runAction (origine `palette`).
+// Entrée lance la commande en surbrillance (la première au départ). Pas d'optimiste : la palette se ferme au
+// succès. Une saisie propose toujours l'ajout de la tâche, sauf au-delà de `TASK_TITLE_MAX` : sans autre
+// commande correspondante, la liste vide le dit (« titre trop long »).
+// Focus visible (DESIGN.md § 11), un seul anneau à la fois : la rangée de recherche porte le focus par sa
+// bordure basse (`ring`), le champ n'a pas d'outline ; l'option en surbrillance porte un anneau intérieur
+// `ring` au clavier (la piste `pill-track` seule reste sous 3:1 sur `popover`), retiré au doigt
+// (`pointer-coarse`) où la piste suffit. La page courante reste listée, marquée `aria-current` et d'une
+// pastille « Ici » (masquée aux lecteurs d'écran, qui annoncent déjà `aria-current`).
+// Pas de bouton Fermer : Échap et clic dehors ferment (Dialog de Base UI). Pendant une action : commandes
+// désactivées, état annoncé ; échec : message, la palette reste ouverte.
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -26,6 +29,7 @@ import { isActivePath } from "@/components/shell/nav-items";
 import { defaultLocale, isLocale } from "@/i18n/locales";
 import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
+import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 import {
   matchesCommand,
@@ -151,6 +155,12 @@ export function PalettePanel({ scope, onDone }: PalettePanelProps) {
         aria-busy={pending}
         className="max-h-80 overflow-y-auto overscroll-contain p-2"
       >
+        {/* Seul cas sans résultat : saisie trop longue pour un titre, sans autre commande correspondante. */}
+        <Autocomplete.Empty>
+          <p className="px-3 py-6 text-small text-muted-foreground">
+            {t("titleTooLong", { max: TASK_TITLE_MAX })}
+          </p>
+        </Autocomplete.Empty>
         <Autocomplete.List>
           {(group: PaletteGroup) => (
             <Autocomplete.Group

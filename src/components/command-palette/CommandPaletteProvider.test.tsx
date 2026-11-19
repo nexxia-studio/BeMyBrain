@@ -31,6 +31,7 @@ vi.mock("@/app/(app)/actions", () => ({ runAction }));
 
 import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
 import type { CurrentScope } from "@/lib/context-filter";
+import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 import { CommandPaletteProvider } from "./CommandPaletteProvider";
 import { PaletteTrigger } from "./PaletteTrigger";
@@ -177,6 +178,33 @@ describe("palette de commandes", () => {
         addTaskLabel("zzzz"),
       ]),
     );
+  });
+
+  it("une saisie trop longue pour un titre, sans commande correspondante, le dit", async () => {
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+
+    fireEvent.change(search, {
+      target: { value: "a".repeat(TASK_TITLE_MAX + 1) },
+    });
+
+    expect(
+      await screen.findByText(
+        fr.palette.titleTooLong.replace("{max}", String(TASK_TITLE_MAX)),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryAllByRole("option")).toEqual([]);
+  });
+
+  it("le champ invite à chercher ou à ajouter une tâche", async () => {
+    renderPalette();
+    pressShortcut();
+
+    const search = await screen.findByRole("combobox");
+
+    expect(search.getAttribute("placeholder")).toBe(fr.palette.placeholder);
+    expect(fr.palette.placeholder).toBe("Chercher ou ajouter une tâche…");
   });
 
   it.each([

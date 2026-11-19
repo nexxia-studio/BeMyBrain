@@ -156,7 +156,8 @@
   "palette": {
     "title": "Command palette",
     "search": "Search commands",
-    "placeholder": "Search for a page or an action…",
+    "placeholder": "Search or add a task…",
+    "titleTooLong": "Too long for a task title ({max} characters max).",
     "groups": {
       "tasks": "Tasks",
       "navigation": "Go to",
