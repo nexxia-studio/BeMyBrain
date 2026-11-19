@@ -12,7 +12,11 @@ import { localeSchema, sideSchema } from "./schemas";
 export const listContextsAction = defineAction({
   name: "core.listContexts",
   description: "actions.core.listContexts",
-  params: z.strictObject({ side: sideSchema }),
+  params: z.strictObject({
+    side: sideSchema.describe(
+      "Side of life to list the spaces of: private (personal life) or pro (work).",
+    ),
+  }),
   access: "read",
   channels: ["web", "assistant"],
   run: (ctx, { side }) => listContexts(ctx.workspaceId, { side }, ctx.tx),
@@ -21,7 +25,11 @@ export const listContextsAction = defineAction({
 export const setLocaleAction = defineAction({
   name: "core.setLocale",
   description: "actions.core.setLocale",
-  params: z.strictObject({ locale: localeSchema }),
+  params: z.strictObject({
+    locale: localeSchema.describe(
+      "Interface language to switch to: fr (French) or en (English).",
+    ),
+  }),
   access: "write",
   channels: ["web", "assistant"],
   run: (ctx, { locale }) =>

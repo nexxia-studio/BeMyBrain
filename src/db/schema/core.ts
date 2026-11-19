@@ -108,6 +108,9 @@ export const contexts = pgTable(
     index("contexts_workspace_id_kind_idx").on(t.workspaceId, t.kind),
     // Pas deux contextes de même nom dans un workspace (UI et upsert du seed, tâche 7).
     unique("contexts_workspace_name_unique").on(t.workspaceId, t.name),
+    // Cible de la FK composite de tasks (workspace_id, context_id, side) : espace du même workspace
+    // et du même côté (drizzle/0006).
+    unique("contexts_workspace_id_kind_unique").on(t.workspaceId, t.id, t.kind),
     check("contexts_kind_check", sql`${t.kind} in ('private', 'pro')`),
     pgPolicy("contexts_select", {
       for: "select",

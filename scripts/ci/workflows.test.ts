@@ -139,6 +139,14 @@ describe("workflow de production", () => {
     expect(source.match(/\n {4}environment:/g)).toHaveLength(1);
   });
 
+  it("le seed lit l'id du propriétaire dans un secret, masqué dans le journal", () => {
+    const seedEnv = migrate.slice(migrate.indexOf("name: Seed"));
+
+    expect(seedEnv).toContain(
+      "SEED_OWNER_USER_ID: ${{ secrets.SEED_OWNER_USER_ID }}",
+    );
+  });
+
   it("aucune permission large dans le workflow", () => {
     expect(source).not.toMatch(
       /actions: read|contents: write|id-token|pull-requests|deployments|write-all/,
@@ -157,6 +165,20 @@ describe("tous les workflows", () => {
     );
 
     expect(withStatuses).toEqual(["migrate-production.yml"]);
+  });
+
+  it("ne lit en vars.* que des noms Neon anodins : une variable n'est jamais masquée dans les journaux", () => {
+    const anodyne = [
+      "NEON_CI_PARENT_BRANCH",
+      "NEON_DATABASE",
+      "NEON_OWNER_ROLE",
+    ];
+
+    const used = names.flatMap((name) =>
+      [...workflow(name).matchAll(/\bvars\.(\w+)/g)].map((match) => match[1]),
+    );
+
+    expect(used.filter((name) => !anodyne.includes(name ?? ""))).toEqual([]);
   });
 
   it("toute action tierce est épinglée par SHA de commit complet", () => {

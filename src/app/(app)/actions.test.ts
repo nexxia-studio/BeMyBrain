@@ -26,6 +26,8 @@ vi.mock("next/cache", () => ({ refresh }));
 vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import { ActionError } from "@/modules/actions/errors";
+import { CoreError } from "@/modules/core/errors";
+import { TaskError } from "@/modules/tasks/errors";
 
 import { TokenVerificationUnavailableError } from "../../../tests/factories/token-errors";
 
@@ -47,9 +49,11 @@ beforeEach(() => {
     calls.push("requireSessionWithToken");
     return { session: SESSION, token: "eyJ.jwt.signe" };
   });
-  runActionWithToken.mockImplementation(async (_t, _w, name: string) => {
+  runActionWithToken.mockImplementation(async (_t, _w, _o, name: string) => {
     calls.push("runActionWithToken");
-    return { name, result: name === "core.setLocale" ? "en" : [] };
+    return name === "core.setLocale"
+      ? { name, access: "write", result: "en" }
+      : { name, access: "read", result: [] };
   });
   syncLocaleCookie.mockImplementation(async () => {
     calls.push("syncLocaleCookie");
@@ -60,7 +64,7 @@ beforeEach(() => {
 });
 
 describe("runAction (Server Action unique de la palette)", () => {
-  it("lance l'action avec le jeton et le workspace de la session, jamais un workspace reçu", async () => {
+  it("lance l'action avec le jeton et le workspace de la session, origine palette, jamais un workspace reçu", async () => {
     const outcome = await runAction("core.listContexts", {
       side: "pro",
       workspaceId: OTHER_WORKSPACE,
@@ -69,10 +73,23 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(runActionWithToken).toHaveBeenCalledWith(
       "eyJ.jwt.signe",
       SESSION.workspaceId,
+      "palette",
       "core.listContexts",
       { side: "pro", workspaceId: OTHER_WORKSPACE },
     );
     expect(outcome).toEqual({ ok: true, result: [] });
+  });
+
+  it("l'origine est toujours palette, même si les paramètres en annoncent une autre", async () => {
+    await runAction("core.listContexts", { side: "pro", origin: "assistant" });
+
+    expect(runActionWithToken).toHaveBeenCalledWith(
+      "eyJ.jwt.signe",
+      SESSION.workspaceId,
+      "palette",
+      "core.listContexts",
+      { side: "pro", origin: "assistant" },
+    );
   });
 
   it("après core.setLocale, recopie la langue enregistrée dans NEXT_LOCALE puis rafraîchit", async () => {
@@ -152,6 +169,25 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(console.warn).toHaveBeenCalledWith("[actions] action refusée", {
       code: "invalid_params",
     });
+    expect(console.error).not.toHaveBeenCalled();
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("un refus métier d'un module (DomainError hors registre) est un refus attendu, journalisé par son code seul", async () => {
+    for (const error of [
+      new TaskError("not_found"),
+      new CoreError("member_not_found"),
+    ]) {
+      runActionWithToken.mockRejectedValueOnce(error);
+
+      const outcome = await runAction("tasks.complete", {});
+
+      expect(outcome).toEqual({ ok: false });
+      expect(console.warn).toHaveBeenLastCalledWith(
+        "[actions] action refusée",
+        { code: error.code },
+      );
+    }
     expect(console.error).not.toHaveBeenCalled();
     expect(captureException).not.toHaveBeenCalled();
   });

@@ -15,7 +15,8 @@ Validée par Antoine le 2026-11-10. Un module = une `/feature`. L'encodage manue
 Hors périmètre pour l'instant : habitudes, routines, journal, bloc-notes, deep work.
 
 ## Notes par module (décisions déjà prises)
-- **To-do** : une to-do existe déjà (Perso / Trustup / Nexxia). Elle est migrée dans BeMyBrain, pas réécrite à l'aveugle. Repo source : `nexxia-studio/todo-perso-pro` (confirmé le 2026-11-11).
+- **To-do** (2026-11-19) : une seule liste filtrée par côté (Privé / Pro) et par espace ; on part de zéro, sans import de `todo-perso-pro`. Deux tranches : liste et ajout rapide, puis kanban et relations (`docs/features/todo-unifiee/spec.md`). Actions du registre utilisables telles quelles par un modèle (connecteur Claude BRAIN-38 d'abord, puis WhatsApp).
+- **Calendrier** (2026-11-19) : module à part, pas un export des tâches. Le calendrier iOS fait foi pour les rendez-vous ; lecture et écriture via le compte derrière le calendrier. Phase à fixer.
 - **Liste de courses** : modifiable par une personne externe via un lien, sans compte.
 - **Budget** : règle 50/20/20/10 (essentiels, non-essentiels, investissements, épargne), écart affiché en % et en €. Chaque ligne est saisie une seule fois ; le récap se calcule.
 - **Mobilier** : valeur résiduelle = prix d'achat × (1 − âge / durée de vie théorique), avec un plancher à 0 €. Jamais de valeur négative.
@@ -29,8 +30,8 @@ Hors périmètre pour l'instant : habitudes, routines, journal, bloc-notes, deep
 - **Super-admin** (BRAIN-29) : gestion des clients, paiements et tarifs, à l'ouverture des abonnements.
 - **Espaces personnalisables** (BRAIN-30, noté le 2026-11-13) : l'utilisateur crée, renomme et ordonne ses espaces des deux côtés, Privé et Pro. Le filtre d'espace existe donc aussi côté Privé : aucun code ne doit supposer qu'il n'existe que côté Pro.
 - **Onboarding et gestion du compte** (BRAIN-31, noté le 2026-11-13) : premier parcours d'un nouveau compte et réglages du compte.
-- **Espace partagé entre membres** (BRAIN-32, noté le 2026-11-13) : chaque membre garde son espace privé « Perso » et peut partager un espace privé « Famille » avec un autre membre, sans que l'un voie le « Perso » de l'autre. Piste retenue : un espace partagé est un workspace à part avec plusieurs membres, ce que le schéma et `is_workspace_member` permettent déjà. Conséquence : un utilisateur aura plusieurs workspaces (`.claude/rules/workspaces.md`).
-- **Effets de verre animés** (BRAIN-33, reporté le 2026-11-16) : moment signature des halos (DESIGN.md § 7), court terme, avec le premier module à vraies données.
+- **Espace partagé entre membres** (BRAIN-32, noté le 2026-11-13) : chaque membre garde son espace privé « Privé » et peut partager un espace privé « Famille » avec un autre membre, sans que l'un voie le « Privé » de l'autre. Piste retenue : un espace partagé est un workspace à part avec plusieurs membres, ce que le schéma et `is_workspace_member` permettent déjà. Conséquence : un utilisateur aura plusieurs workspaces (`.claude/rules/workspaces.md`).
+- **Effets de verre animés** (BRAIN-33, reporté le 2026-11-16) : moment signature des halos (DESIGN.md § 7), feature à part juste après la to-do unifiée (décidé le 2026-11-19).
 - **Previews sur staging** (BRAIN-34, décidé le 2026-11-17) : branche Neon `staging` sans donnée ni compte réel, avant le premier module sensible (finance, santé, contacts, clients Nexxia).
 
 ## Intégrations : ce qui est possible
