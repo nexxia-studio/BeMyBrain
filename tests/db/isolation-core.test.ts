@@ -7,6 +7,7 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../factories/core";
+import { createAsUser } from "../factories/backend-tx";
 
 // Isolation au niveau de la base (ADR-002) : assertions en app_backend, claims posés à la main,
 // AUCUN filtre applicatif. Les clauses `id = any(...)` ne font que restreindre aux lignes de ce run.
@@ -38,30 +39,7 @@ afterAll(async () => {
   }
 });
 
-/**
- * Transaction app_backend avec les claims de `sub` (aucun si null), toujours annulée :
- * les écritures réussies d'un test ne fuient pas dans les suivants.
- */
-async function asUser<T>(
-  sub: string | null,
-  run: (db: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await backend.connect();
-  try {
-    await client.query("begin");
-    // Comme withUserDb : charger pg_session_jwt avant set_config, sinon un backend neuf perd les claims.
-    await client.query("select app.current_user_id()");
-    if (sub) {
-      await client.query("select set_config('request.jwt.claims', $1, true)", [
-        JSON.stringify({ sub, role: "authenticated" }),
-      ]);
-    }
-    return await run(client);
-  } finally {
-    await client.query("rollback").catch(() => undefined);
-    client.release();
-  }
-}
+const asUser = createAsUser(backend);
 
 /** Transaction propriétaire toujours annulée (vérifications de contraintes et de catalogue). */
 async function asOwner<T>(run: (db: PoolClient) => Promise<T>): Promise<T> {

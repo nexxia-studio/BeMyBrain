@@ -7,6 +7,7 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../factories/core";
+import { createAsUser } from "../factories/backend-tx";
 import { insertTasksFixture, newTasksFixture } from "../factories/tasks";
 
 // Isolation de la to-do au niveau de la base (ADR-002) : tasks, tags, task_tags, en app_backend,
@@ -21,7 +22,11 @@ if (!ownerUrl || !backendUrl) {
   );
 }
 
-const INSUFFICIENT_PRIVILEGE = "42501"; // GRANT absent ou WITH CHECK de la RLS
+// 42501 couvre deux couches : WITH CHECK de la RLS (« row-level security ») et droit absent
+// (« permission denied »). Chaque refus vérifie aussi le message, pour l'attribuer à la bonne couche.
+const INSUFFICIENT_PRIVILEGE = "42501";
+const RLS_REFUSAL = /row-level security/;
+const GRANT_REFUSAL = /permission denied/;
 const FOREIGN_KEY_VIOLATION = "23503";
 
 const owner = new Pool({ connectionString: ownerUrl, max: 1 });
@@ -43,27 +48,7 @@ afterAll(async () => {
   }
 });
 
-/** Transaction app_backend avec les claims de `sub` (aucun si null), toujours annulée. */
-async function asUser<T>(
-  sub: string | null,
-  run: (db: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await backend.connect();
-  try {
-    await client.query("begin");
-    // Comme withUserDb : charger pg_session_jwt avant set_config, sinon un backend neuf perd les claims.
-    await client.query("select app.current_user_id()");
-    if (sub) {
-      await client.query("select set_config('request.jwt.claims', $1, true)", [
-        JSON.stringify({ sub, role: "authenticated" }),
-      ]);
-    }
-    return await run(client);
-  } finally {
-    await client.query("rollback").catch(() => undefined);
-    client.release();
-  }
-}
+const asUser = createAsUser(backend);
 
 type Table = "tasks" | "tags" | "task_tags";
 
@@ -146,12 +131,13 @@ describe("isolation de tasks, tags, task_tags : insertion", () => {
       () => [f.workspaceA, t.trashedTaskA, t.tagA],
     ],
   ])(
-    "l'utilisateur de B ne peut pas insérer %s dans A",
+    "l'utilisateur de B ne peut pas insérer %s dans A (RLS)",
     async (_label, sql, params) => {
       const insert = asUser(f.userB, (db) => db.query(sql, params()));
 
       await expect(insert).rejects.toMatchObject({
         code: INSUFFICIENT_PRIVILEGE,
+        message: expect.stringMatching(RLS_REFUSAL),
       });
     },
   );
@@ -198,14 +184,18 @@ describe("isolation de tasks, tags, task_tags : insertion", () => {
              on conflict (workspace_id, lower(name)) ${action}`,
             [f.workspaceA, name],
           ),
-        ).catch((error) => error.code);
+        ).catch((error) => ({
+          code: error.code,
+          rls: RLS_REFUSAL.test(error.message),
+        }));
 
       const codes = await Promise.all([
         attempt(`tag-A-${f.run}`),
         attempt(`absent-${f.run}`),
       ]);
 
-      expect(codes).toEqual([INSUFFICIENT_PRIVILEGE, INSUFFICIENT_PRIVILEGE]);
+      const refusal = { code: INSUFFICIENT_PRIVILEGE, rls: true };
+      expect(codes).toEqual([refusal, refusal]);
     },
   );
 });
@@ -298,12 +288,13 @@ describe("isolation de tasks, tags, task_tags : modification et suppression", ()
       () => [f.workspaceA, t.taskB],
     ],
   ])(
-    "l'utilisateur de B ne peut pas déplacer %s de B vers A",
+    "déplacer %s de B vers A est refusé par les droits de colonne : aucun UPDATE de workspace_id",
     async (_label, sql, params) => {
       const move = asUser(f.userB, (db) => db.query(sql, params()));
 
       await expect(move).rejects.toMatchObject({
         code: INSUFFICIENT_PRIVILEGE,
+        message: expect.stringMatching(GRANT_REFUSAL),
       });
     },
   );

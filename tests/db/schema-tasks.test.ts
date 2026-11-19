@@ -8,6 +8,7 @@ import {
   insertDualMember,
   newCoreFixture,
 } from "../factories/core";
+import { createAsUser } from "../factories/backend-tx";
 
 // Schéma de la to-do (drizzle/0006_tasks.sql) : contraintes, FK composites, droits et triggers,
 // vérifiés sur la branche test en app_backend, claims posés à la main, sans filtre applicatif.
@@ -43,25 +44,7 @@ afterAll(async () => {
   }
 });
 
-/** Transaction app_backend avec les claims de `sub`, toujours annulée. */
-async function asUser<T>(
-  sub: string,
-  run: (db: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await backend.connect();
-  try {
-    await client.query("begin");
-    // Comme withUserDb : charger pg_session_jwt avant set_config.
-    await client.query("select app.current_user_id()");
-    await client.query("select set_config('request.jwt.claims', $1, true)", [
-      JSON.stringify({ sub, role: "authenticated" }),
-    ]);
-    return await run(client);
-  } finally {
-    await client.query("rollback").catch(() => undefined);
-    client.release();
-  }
-}
+const asUser = createAsUser(backend);
 
 type TaskInput = {
   workspaceId?: string;
