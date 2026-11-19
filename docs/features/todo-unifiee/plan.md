@@ -10,7 +10,7 @@
 - **Vérification de l'ordre de la migration** : appliquée sur la branche Neon `test`, puis par la CI sur la preview, puis par « Migrer la production » au merge.
 - **Point d'entrée de l'origine** : `ActionContext.origin` est posé par l'appelant serveur. `runActionWithToken` prend l'origine en argument interne (jamais du client) ; la Server Action de la palette passe `palette`, celles de l'écran `app`. Le canal `assistant` n'a pas encore de route : `assistant` est seulement déclaré.
 - **Messages d'erreur pour un modèle** : `TaskError` porte un code ; une table `TASK_ERROR_MESSAGES` (anglais, en code, pas dans `messages/` : ce n'est pas de l'interface) donne le texte lisible ; l'interface traduit le code via `messages/*.json`.
-- **Description des actions pour un modèle** : traduction anglaise de la clé `description` (`messages/en.json`, section `actions`), lue par `toToolDefinitions` avec `createTranslator` (texte à langue fixe, cf. gotcha manifeste).
+- **Description des actions pour un modèle** : traduction anglaise de la clé `description` (`messages/en.json`, section `actions`), lue directement dans le JSON par `toToolDefinitions` (next-intl tire React, exclu du registre par ADR-009) ; égalité avec `createTranslator` vérifiée par test.
 - **Recherche par texte** : `ILIKE` avec échappement de `%`, `_` et `\`, sans `unaccent` ni `pg_trgm` (aucune extension ajoutée ; volume personnel). « Sans accents exigés » de la spec : la recherche est insensible à la casse ; l'insensibilité aux accents est reportée (question en bas).
 - **Raccourcis de date** de l'ajout rapide : Aujourd'hui, Demain, Ce week-end = prochain samedi (aujourd'hui si on est samedi), Semaine prochaine = lundi suivant. Calculés par une fonction pure de `src/modules/tasks/` à partir de `getUserTimeZone`.
 - **Primitives** : tiroir et menus avec Base UI (déjà installé, `Dialog`, `Menu`, `Popover`) ; calendrier de « Choisir… » : `<input type="date">` et `<input type="time">` natifs (iOS les rend en roues), aucune bibliothèque de calendrier.
@@ -34,7 +34,7 @@
   - Test à écrire d'abord : `tests/db/isolation-tasks.test.ts` — « l'utilisateur de B ne lit, n'insère, ne modifie rien de A sur les trois tables » ; « écart d'espace entre parente et sous-tâche en SQL direct : accepté par la base, limite documentée »
   - Fini quand : tests verts, `tests/db/isolation-core.test.ts` toujours vert
 
-- [ ] **4. Registre : origine, définitions d'outils, erreurs lisibles** [security]
+- [x] **4. Registre : origine, définitions d'outils, erreurs lisibles** [security]
   - Fichiers : `src/modules/actions/types.ts` (`ActionOrigin`, `origin` dans `ActionContext`), `registry.ts` (`invokeAction` exige `origin` ; `toToolDefinitions(channel, describe)`), `run.ts` (origine en argument serveur), `src/app/(app)/actions.ts` (palette → `palette`), `src/modules/core/actions.ts` (`.describe()` sur les champs)
   - Test à écrire d'abord : `src/modules/actions/registry.test.ts` — « contexte sans origine → `missing_context` » ; « `toToolDefinitions('assistant')` : nom, description en clair, JSON Schema valide sans `workspaceId`, `userId`, `origin` » ; `run.test.ts` — « l'origine ne vient jamais des paramètres »
   - Fini quand : tests verts, palette existante inchangée (`core.setLocale`)
@@ -57,7 +57,7 @@
 - [ ] **8. Actions `tasks.*` au registre** [security]
   - Fichiers : `src/modules/tasks/actions.ts` (10 actions, canaux `web` et `assistant`), `src/modules/actions/registry.ts` (ajout de `tasksActions`), `messages/fr.json`, `messages/en.json` (descriptions des actions, libellés des codes d'erreur)
   - Test à écrire d'abord : `src/modules/tasks/actions.test.ts` — « chaque action valide ses paramètres en `strictObject` » ; « `limit: 500` refusé » ; « schéma de `tasks.update` sans champ `tags` » ; « chaque code d'erreur a un message anglais et une traduction FR/EN » ; `src/modules/actions/isolation.test.ts` étendu — « une action `tasks.*` avec la session de A ne lit ni n'écrit rien de B »
-  - Aussi (spec « chaque refus » porte un message anglais, trou relevé à la review de la tâche 4) : message anglais pour un modèle des codes du registre (`unknown_action`, `invalid_params`, `missing_context`, sans recopier la valeur reçue) dans `src/modules/actions/errors.ts` ; descriptions anglaises de `core.*` réécrites pour un modèle ; jeu de paramètres valides des 10 actions dans `registry.test.ts`
+  - Aussi (spec « chaque refus » porte un message anglais, trou relevé à la review de la tâche 4) : message anglais pour un modèle des codes du registre (`unknown_action`, `invalid_params`, `missing_context`, sans recopier la valeur reçue) dans `src/modules/actions/errors.ts` ; descriptions anglaises de `core.*` réécrites pour un modèle ; jeu de paramètres valides des 10 actions dans `registry.test.ts` ; test qui fige la liste exacte des actions `write` exposées au canal `assistant` (liste blanche explicite, ADR-009)
   - Fini quand : tests verts, `toToolDefinitions('assistant')` renvoie les 10 actions
 
 - [ ] **9. Règles d'affichage : sections, sous-tâches, tuiles, raccourcis de date**
