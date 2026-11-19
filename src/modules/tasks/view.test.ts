@@ -7,7 +7,9 @@ import { buildTask } from "../../../tests/factories/build-task";
 
 import {
   dateShortcuts,
+  findTagName,
   groupBySection,
+  matchTagNames,
   sideTileItems,
   subtaskCounter,
   todayTileItems,
@@ -337,6 +339,42 @@ describe("dateShortcuts", () => {
     expect(dateShortcuts("2028-02-28").tomorrow).toBe("2028-02-29");
     expect(dateShortcuts("2026-10-24").tomorrow).toBe("2026-10-25");
     expect(dateShortcuts("2026-10-25").tomorrow).toBe("2026-10-26");
+  });
+});
+
+describe("matchTagNames", () => {
+  it("filtre les tags par morceau du nom, sans casse, dans l'ordre reçu", () => {
+    const names = ["Client", "maison", "Clinique"];
+
+    const matched = matchTagNames(names, "  CLI ");
+
+    expect(matched).toEqual(["Client", "Clinique"]);
+  });
+
+  it("recherche vide : tous les tags", () => {
+    const names = ["client", "maison"];
+
+    const matched = matchTagNames(names, "  ");
+
+    expect(matched).toEqual(["client", "maison"]);
+  });
+});
+
+describe("findTagName", () => {
+  it("retrouve un tag existant sans casse ni espaces autour, sous son nom enregistré", () => {
+    const names = ["Client", "maison"];
+
+    const found = findTagName(names, " client ");
+
+    expect(found).toBe("Client");
+  });
+
+  it("nom inconnu : undefined", () => {
+    const names = ["Client"];
+
+    const found = findTagName(names, "clients");
+
+    expect(found).toBeUndefined();
   });
 });
 

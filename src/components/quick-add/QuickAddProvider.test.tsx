@@ -41,7 +41,10 @@ function Opener() {
 function renderProvider() {
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
-      <QuickAddProvider types={TYPES}>
+      <QuickAddProvider
+        types={TYPES}
+        scope={{ side: "private", contexts: [], contextId: null }}
+      >
         <Opener />
       </QuickAddProvider>
     </NextIntlClientProvider>,

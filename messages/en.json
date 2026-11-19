@@ -194,6 +194,42 @@
       "subtask_depth": "A subtask cannot have subtasks.",
       "subtask_follows_parent": "A subtask always has the side and space of its parent task.",
       "parent_in_trash": "The parent task is in the trash. Restore it first."
+    },
+    "quickAdd": {
+      "title": "Task",
+      "submit": "Add",
+      "submitting": "Adding…",
+      "added": "Task added",
+      "open": "Open",
+      "failed": "Task not added. Try again.",
+      "context": {
+        "label": "Space",
+        "none": "None",
+        "menuLabel": "Space: {current}"
+      },
+      "date": {
+        "label": "Date",
+        "menuLabel": "Due: {current}",
+        "none": "No date",
+        "today": "Today",
+        "tomorrow": "Tomorrow",
+        "weekend": "This weekend",
+        "nextWeek": "Next week",
+        "pick": "Pick…",
+        "addTime": "Add a time",
+        "time": "Time",
+        "clear": "Remove the date"
+      },
+      "tags": {
+        "label": "Tags",
+        "menuLabel": "Tags: {current}",
+        "none": "none",
+        "search": "Search or create a tag",
+        "create": "Create “{name}”",
+        "loading": "Loading tags…",
+        "loadFailed": "Tags not loaded. You can create some.",
+        "limit": "{max} tags at most."
+      }
     }
   }
 }

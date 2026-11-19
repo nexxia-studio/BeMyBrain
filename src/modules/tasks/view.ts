@@ -176,3 +176,22 @@ export function dateShortcuts(today: string): DateShortcuts {
     nextWeek: addDays(today, (1 - day + 7) % 7 || 7),
   };
 }
+
+// Tags de l'ajout rapide : un nom se compare sans casse (unique `(workspace_id, lower(name))` en base) et sans
+// les espaces autour (le schéma les retire).
+const tagKey = (name: string) => name.trim().toLowerCase();
+
+/** Tags dont le nom contient `query` (sans casse), dans l'ordre reçu ; recherche vide → tous. */
+export function matchTagNames(names: readonly string[], query: string): string[] {
+  const wanted = tagKey(query);
+  return names.filter((name) => tagKey(name).includes(wanted));
+}
+
+/** Nom enregistré du tag désigné par `name` (sans casse), ou undefined s'il n'existe pas. */
+export function findTagName(
+  names: readonly string[],
+  name: string,
+): string | undefined {
+  const wanted = tagKey(name);
+  return names.find((existing) => tagKey(existing) === wanted);
+}

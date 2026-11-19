@@ -4,13 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requireSession = vi.hoisted(() => vi.fn());
 const readSide = vi.hoisted(() => vi.fn());
 const loadContextFilter = vi.hoisted(() => vi.fn());
+const loadCurrentScope = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({ requireSession }));
 vi.mock("@/lib/preferences", () => ({ readSide }));
-vi.mock("@/lib/context-filter", () => ({ loadContextFilter }));
+vi.mock("@/lib/context-filter", () => ({
+  loadContextFilter,
+  loadCurrentScope,
+}));
 const signOut = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/actions", () => ({ signOut }));
 
+import { QuickAddProvider } from "@/components/quick-add/QuickAddProvider";
 import { ContextFilter } from "@/components/shell/ContextFilter";
 import { Sidebar } from "@/components/shell/Sidebar";
 
@@ -53,6 +58,11 @@ beforeEach(() => {
   });
   readSide.mockResolvedValue("private");
   loadContextFilter.mockResolvedValue(null);
+  loadCurrentScope.mockResolvedValue({
+    side: "private",
+    contexts: [],
+    contextId: null,
+  });
 });
 
 describe("layout de l'app (second verrou)", () => {
@@ -106,6 +116,21 @@ describe("coque : côté et filtre d'espace", () => {
     const element = await AppLayout({ children: null });
 
     expect(sidebarFilter(element)?.props.side).toBe("private");
+  });
+});
+
+describe("coque : ajout rapide", () => {
+  it("donne à l'ajout rapide le côté et l'espace courants", async () => {
+    const scope = {
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      contextId: TRUSTUP.id,
+    };
+    loadCurrentScope.mockResolvedValue(scope);
+
+    const element = await AppLayout({ children: null });
+
+    expect(findElement(element, QuickAddProvider)?.props.scope).toEqual(scope);
   });
 });
 

@@ -11,7 +11,7 @@ import { ShellHeader } from "@/components/shell/ShellHeader";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { TabBar } from "@/components/shell/TabBar";
 import { signOut } from "@/lib/auth/actions";
-import { loadContextFilter } from "@/lib/context-filter";
+import { loadContextFilter, loadCurrentScope } from "@/lib/context-filter";
 import { readSide } from "@/lib/preferences";
 import { requireSession } from "@/lib/session";
 
@@ -22,13 +22,17 @@ export default async function AppLayout({
   // les Server Actions) : chaque page et chaque action non publique appelle aussi requireSession.
   await requireSession();
   // Filtre d'espace du côté actif (Privé ou Pro) : mémoïsé, l'en-tête de page (PageHeader) le relit
-  // sans seconde requête.
-  const [side, filter] = await Promise.all([readSide(), loadContextFilter()]);
+  // sans seconde requête. L'ajout rapide en tire le côté et l'espace courants (même lecture).
+  const [side, filter, scope] = await Promise.all([
+    readSide(),
+    loadContextFilter(),
+    loadCurrentScope(),
+  ]);
 
   return (
     <MotionRoot>
       <CommandPaletteProvider>
-        <QuickAddProvider>
+        <QuickAddProvider scope={scope}>
           <div className="flex min-h-dvh flex-col pr-safe-right pl-safe-left">
             <div className="mx-auto flex w-full max-w-content flex-1 flex-col gap-grid px-page pt-page-top pb-tabbar-reserve lg:pb-page">
               <ShellHeader side={side} />

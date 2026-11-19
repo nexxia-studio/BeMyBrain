@@ -8,6 +8,10 @@
 // 1024 px, dialogue centré en haut avec la même entrée que la palette (opacity + scale 0,98, 0,2 s). Mouvement
 // réduit : fondus de 0,15 s seulement. Voile `scrim` : fondu d'opacité seul. Sélecteur de types (pilule comme
 // la bascule Privé / Pro) seulement à partir de deux types.
+// Clavier : focus d'office dans le champ désigné par le formulaire, même ouvert au toucher (Base UI ne
+// focalise que la fenêtre au toucher, pour ne pas ouvrir le clavier : ici, on le veut). Sur iOS, le clavier
+// recouvre la page sans la redimensionner : le tiroir remonte de la hauteur masquée (`useKeyboardInset`,
+// marge basse du conteneur, pas d'animation de position) ; Android redimensionne la page (viewport).
 import { Dialog } from "@base-ui/react/dialog";
 import {
   AnimatePresence,
@@ -17,15 +21,17 @@ import {
   useReducedMotion,
 } from "motion/react";
 import { useTranslations } from "next-intl";
+import { useRef } from "react";
 
 import {
   EASE_OUT_EXPO,
   paletteDurations,
 } from "@/components/command-palette/palette-motion";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
 
-import type { QuickAddType } from "./quick-add-types";
+import type { QuickAddScope, QuickAddType } from "./quick-add-types";
 
 const DESKTOP = "(min-width: 1024px)";
 const DRAWER_SPRING = { type: "spring", bounce: 0.2, duration: 0.3 } as const;
@@ -40,6 +46,8 @@ type QuickAddProps = {
   /** Type retenu ; inconnu → premier type déclaré. */
   typeKey: string;
   onTypeChange: (key: string) => void;
+  /** Côté et espace courants, passés au formulaire. */
+  scope: QuickAddScope;
 };
 
 export function QuickAdd({
@@ -48,11 +56,14 @@ export function QuickAdd({
   types,
   typeKey,
   onTypeChange,
+  scope,
 }: QuickAddProps) {
   const t = useTranslations("quickAdd");
   const reduced = useReducedMotion() ?? false;
   const desktop = useMediaQuery(DESKTOP);
   const dragControls = useDragControls();
+  const initialFocusRef = useRef<HTMLInputElement | null>(null);
+  const keyboardInset = useKeyboardInset();
   const { enter, exit } = paletteDurations(reduced);
   const current = types.find((type) => type.key === typeKey) ?? types[0];
   const Form = current.Form;
@@ -111,9 +122,16 @@ export function QuickAdd({
               }
               className="fixed inset-0 z-(--z-overlay) bg-scrim"
             />
-            <Dialog.Viewport className="fixed inset-0 z-(--z-dialog) flex items-end justify-center lg:items-start lg:px-page lg:pt-28">
+            <Dialog.Viewport
+              data-testid="quick-add-viewport"
+              // Hauteur du clavier iOS (0 sinon) : le tiroir reste au-dessus, le bouton Ajouter visible.
+              style={{ paddingBottom: desktop ? undefined : keyboardInset }}
+              className="fixed inset-0 z-(--z-dialog) flex items-end justify-center lg:items-start lg:px-page lg:pt-28"
+            >
               <Dialog.Popup
                 aria-label={t(`types.${current.key}.title`)}
+                // Au toucher aussi (Base UI focaliserait la fenêtre) : le clavier s'ouvre d'office.
+                initialFocus={() => initialFocusRef.current ?? true}
                 render={
                   <motion.div
                     {...panel}
@@ -125,7 +143,7 @@ export function QuickAdd({
                     onDragEnd={onDragEnd}
                   />
                 }
-                className="flex max-h-dvh w-full flex-col overflow-y-auto overscroll-contain rounded-t-tile bg-popover pr-safe-right pb-safe-bottom pl-safe-left text-popover-foreground shadow-glass lg:max-w-xl lg:origin-top lg:rounded-tile lg:p-0"
+                className="flex max-h-full w-full flex-col overflow-y-auto overscroll-contain rounded-t-tile bg-popover pr-safe-right pb-safe-bottom pl-safe-left text-popover-foreground shadow-glass lg:max-w-xl lg:origin-top lg:rounded-tile lg:p-0"
               >
                 {/* Poignée (mobile) : glisser vers le bas ferme ; décorative pour les lecteurs d'écran,
                     qui ferment par le bouton Fermer ci-dessous. Zone de 44 px de haut pour le pouce. */}
@@ -171,7 +189,11 @@ export function QuickAdd({
                       })}
                     </div>
                   )}
-                  <Form />
+                  <Form
+                    scope={scope}
+                    initialFocusRef={initialFocusRef}
+                    onClose={() => onOpenChange(false)}
+                  />
                 </div>
                 {/* Fermeture sans clavier ni geste (VoiceOver) : bouton réservé aux lecteurs d'écran, la
                     charte n'a pas de bouton Fermer visible (voile, Échap et poignée suffisent à l'œil). */}

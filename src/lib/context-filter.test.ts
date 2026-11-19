@@ -31,7 +31,11 @@ vi.mock("react", () => {
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
 
-import { loadContextFilter, loadSideSpaces } from "./context-filter";
+import {
+  loadContextFilter,
+  loadCurrentScope,
+  loadSideSpaces,
+} from "./context-filter";
 
 const WORKSPACE_ID = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const PERSO = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Perso" };
@@ -184,6 +188,52 @@ describe("espaces du côté actif (tableau de bord)", () => {
     await inRequest(async () => {
       await loadContextFilter();
       await loadSideSpaces();
+    });
+
+    expect(loadContexts).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("côté et espace courants (ajout rapide)", () => {
+  it("un seul espace filtré : c'est l'espace courant", async () => {
+    cookieValues.set("bmb_side", "pro");
+    cookieValues.set("bmb_contexts_pro", TRUSTUP.id);
+
+    const scope = await inRequest(() => loadCurrentScope());
+
+    expect(scope).toEqual({
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      contextId: TRUSTUP.id,
+    });
+  });
+
+  it("tous les espaces affichés : aucun espace courant", async () => {
+    cookieValues.set("bmb_side", "pro");
+
+    const scope = await inRequest(() => loadCurrentScope());
+
+    expect(scope.contextId).toBeNull();
+  });
+
+  it("un seul espace sur le côté (pas de filtre) : aucun espace courant", async () => {
+    cookieValues.set("bmb_side", "private");
+
+    const scope = await inRequest(() => loadCurrentScope());
+
+    expect(scope).toEqual({
+      side: "private",
+      contexts: [PERSO],
+      contextId: null,
+    });
+  });
+
+  it("partage la lecture avec le filtre d'espace dans la même requête", async () => {
+    cookieValues.set("bmb_side", "pro");
+
+    await inRequest(async () => {
+      await loadContextFilter();
+      await loadCurrentScope();
     });
 
     expect(loadContexts).toHaveBeenCalledTimes(1);

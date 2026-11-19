@@ -45,3 +45,22 @@ export const loadContextFilter = cache(
     return spaces.contexts.length < 2 ? null : spaces;
   },
 );
+
+export type CurrentScope = {
+  /** Côté actif (bascule Privé / Pro). */
+  side: Side;
+  /** Espaces du côté actif. Saisis par l'utilisateur : affichés tels quels, jamais traduits. */
+  contexts: { id: string; name: string }[];
+  /** Espace filtré quand le filtre n'en retient qu'un parmi plusieurs ; sinon aucun (tous affichés). */
+  contextId: string | null;
+};
+
+/**
+ * Côté et espace courants (spec todo-unifiee : l'ajout rapide « prend le filtre courant »). Même lecture
+ * mémoïsée que le filtre d'espace.
+ */
+export const loadCurrentScope = cache(async (): Promise<CurrentScope> => {
+  const { side, contexts, selected } = await loadSideSpaces();
+  const filtered = contexts.length > 1 && selected.length === 1;
+  return { side, contexts, contextId: filtered ? selected[0] : null };
+});

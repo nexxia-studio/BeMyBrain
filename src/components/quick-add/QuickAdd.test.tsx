@@ -1,11 +1,22 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { Plus, Receipt } from "lucide-react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import fr from "../../../messages/fr.json";
 import { QuickAdd } from "./QuickAdd";
-import type { QuickAddType } from "./quick-add-types";
+import type {
+  QuickAddFormProps,
+  QuickAddScope,
+  QuickAddType,
+} from "./quick-add-types";
 
 // Deuxième type factice (dépense) : ses libellés n'existent pas encore dans messages/*.json.
 const messages = {
@@ -19,8 +30,23 @@ const messages = {
   },
 };
 
-function TaskForm() {
-  return <p data-testid="form-task" />;
+const SCOPE: QuickAddScope = {
+  side: "pro",
+  contexts: [{ id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" }],
+  contextId: null,
+};
+
+const receivedProps = vi.hoisted(() => vi.fn());
+
+function TaskForm({ scope, initialFocusRef, onClose }: QuickAddFormProps) {
+  receivedProps({ scope, onClose });
+  return (
+    <>
+      <button type="button">premier bouton</button>
+      <input ref={initialFocusRef} aria-label="titre" />
+      <p data-testid="form-task" />
+    </>
+  );
 }
 
 function ExpenseForm() {
@@ -53,6 +79,7 @@ function renderQuickAdd(
         types={types}
         typeKey={typeKey}
         onTypeChange={onTypeChange}
+        scope={SCOPE}
       />
     </NextIntlClientProvider>,
   );
@@ -98,5 +125,82 @@ describe("ajout rapide (coque)", () => {
     renderQuickAdd([TASK, EXPENSE], "disparu");
 
     expect(screen.getByTestId("form-task")).toBeTruthy();
+  });
+});
+
+describe("ajout rapide : formulaire et clavier", () => {
+  afterEach(() => {
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+
+  it("donne au formulaire le côté et l'espace courants", () => {
+    renderQuickAdd([TASK]);
+
+    expect(receivedProps).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: SCOPE }),
+    );
+  });
+
+  it("met le focus dans le champ désigné par le formulaire (clavier ouvert d'office)", async () => {
+    renderQuickAdd([TASK]);
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("textbox", { name: "titre" }),
+      ),
+    );
+  });
+
+  it("le formulaire peut fermer l'ajout rapide", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <QuickAdd
+          open
+          onOpenChange={onOpenChange}
+          types={[TASK]}
+          typeKey="task"
+          onTypeChange={vi.fn()}
+          scope={SCOPE}
+        />
+      </NextIntlClientProvider>,
+    );
+    const props = receivedProps.mock.lastCall?.[0] as Pick<
+      QuickAddFormProps,
+      "onClose"
+    >;
+
+    act(() => props.onClose());
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("remonte le tiroir de la hauteur du clavier (iOS)", () => {
+    const listeners = new Set<() => void>();
+    const viewport = {
+      height: window.innerHeight,
+      offsetTop: 0,
+      addEventListener: (_type: string, listener: () => void) =>
+        listeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) =>
+        listeners.delete(listener),
+    };
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: viewport,
+    });
+    renderQuickAdd([TASK]);
+
+    act(() => {
+      viewport.height = window.innerHeight - 320;
+      for (const listener of listeners) listener();
+    });
+
+    expect(
+      screen.getByTestId("quick-add-viewport").style.paddingBottom,
+    ).toBe("320px");
   });
 });

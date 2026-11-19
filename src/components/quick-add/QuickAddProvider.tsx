@@ -7,16 +7,23 @@ import { useCallback, useState } from "react";
 
 import { QuickAdd } from "./QuickAdd";
 import { OpenQuickAddContext } from "./quick-add-context";
-import { QUICK_ADD_TYPES, type QuickAddType } from "./quick-add-types";
+import {
+  QUICK_ADD_TYPES,
+  type QuickAddScope,
+  type QuickAddType,
+} from "./quick-add-types";
 
 type QuickAddProviderProps = {
   children: React.ReactNode;
+  /** Côté et espace courants (lus par le layout), passés au formulaire du type. */
+  scope: QuickAddScope;
   /** Types déclarés ; à remplacer seulement dans les tests. */
   types?: readonly QuickAddType[];
 };
 
 export function QuickAddProvider({
   children,
+  scope,
   types = QUICK_ADD_TYPES,
 }: QuickAddProviderProps) {
   const [open, setOpen] = useState(false);
@@ -32,6 +39,7 @@ export function QuickAddProvider({
         types={types}
         typeKey={typeKey}
         onTypeChange={setTypeKey}
+        scope={scope}
       />
     </OpenQuickAddContext>
   );

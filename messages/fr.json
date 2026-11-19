@@ -194,6 +194,42 @@
       "subtask_depth": "Une sous-tâche ne peut pas avoir de sous-tâches.",
       "subtask_follows_parent": "Le côté et l'espace d'une sous-tâche suivent ceux de sa tâche parente.",
       "parent_in_trash": "La tâche parente est à la corbeille. Restaure-la d'abord."
+    },
+    "quickAdd": {
+      "title": "Tâche",
+      "submit": "Ajouter",
+      "submitting": "Ajout…",
+      "added": "Tâche ajoutée",
+      "open": "Ouvrir",
+      "failed": "Tâche non ajoutée. Réessaie.",
+      "context": {
+        "label": "Espace",
+        "none": "Aucun",
+        "menuLabel": "Espace : {current}"
+      },
+      "date": {
+        "label": "Date",
+        "menuLabel": "Échéance : {current}",
+        "none": "Sans date",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain",
+        "weekend": "Ce week-end",
+        "nextWeek": "Semaine prochaine",
+        "pick": "Choisir…",
+        "addTime": "Ajouter une heure",
+        "time": "Heure",
+        "clear": "Retirer la date"
+      },
+      "tags": {
+        "label": "Tags",
+        "menuLabel": "Tags : {current}",
+        "none": "aucun",
+        "search": "Chercher ou créer un tag",
+        "create": "Créer « {name} »",
+        "loading": "Chargement des tags…",
+        "loadFailed": "Tags non chargés. Tu peux en créer.",
+        "limit": "{max} tags au plus."
+      }
     }
   }
 }
