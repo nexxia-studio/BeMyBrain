@@ -80,3 +80,78 @@ export async function insertTasksFixture(
     [core.workspaceA, t.taskA, t.tagA, core.workspaceB, t.taskB, t.tagB],
   );
 }
+
+export type TaskRow = {
+  id?: string;
+  side: "private" | "pro";
+  title: string;
+  contextId?: string | null;
+  parentId?: string | null;
+  statusCategory?: string;
+  priority?: number;
+  dueDate?: string | null;
+  dueTime?: string | null;
+  deletedAt?: string | null;
+  createdAt?: string;
+  /** noms de tags déjà présents dans le workspace */
+  tags?: string[];
+};
+
+/**
+ * Ajoute des tâches à un workspace de la fixture, une par une (ordre de création = ordre du tableau),
+ * avec leurs liens de tags (supprimées par deleteCoreFixture). Renvoie les ids dans l'ordre.
+ */
+export async function insertTasks(
+  owner: Pool,
+  workspaceId: string,
+  createdBy: string,
+  rows: TaskRow[],
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (const row of rows) {
+    const id = row.id ?? randomUUID();
+    await owner.query(
+      `insert into tasks (id, workspace_id, side, context_id, parent_id, title, status_category, priority,
+         due_date, due_time, deleted_at, created_at, origin, created_by)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, coalesce($12::timestamptz, now()), 'app', $13)`,
+      [
+        id,
+        workspaceId,
+        row.side,
+        row.contextId ?? null,
+        row.parentId ?? null,
+        row.title,
+        row.statusCategory ?? "unstarted",
+        row.priority ?? 0,
+        row.dueDate ?? null,
+        row.dueTime ?? null,
+        row.deletedAt ?? null,
+        row.createdAt ?? null,
+        createdBy,
+      ],
+    );
+    for (const name of row.tags ?? []) {
+      await owner.query(
+        `insert into task_tags (workspace_id, task_id, tag_id)
+         select $1, $2, id from tags where workspace_id = $1 and lower(name) = lower($3)`,
+        [workspaceId, id, name],
+      );
+    }
+    ids.push(id);
+  }
+  return ids;
+}
+
+/** Ajoute des tags à un workspace de la fixture (supprimés par deleteCoreFixture). */
+export async function insertTags(
+  owner: Pool,
+  workspaceId: string,
+  names: string[],
+): Promise<void> {
+  for (const name of names) {
+    await owner.query("insert into tags (workspace_id, name) values ($1, $2)", [
+      workspaceId,
+      name,
+    ]);
+  }
+}
