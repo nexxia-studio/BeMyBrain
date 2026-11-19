@@ -8,6 +8,8 @@ import { Menu } from "@base-ui/react/menu";
 import { Check, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 
+import { cn } from "@/lib/utils";
+
 import {
   chipItemClass,
   chipPopupClass,
@@ -52,7 +54,7 @@ export function ChoiceChip<V extends string>({
         disabled={disabled}
         aria-label={label}
         aria-describedby={describedBy}
-        className={`${chipTriggerClass} text-foreground`}
+        className={cn(chipTriggerClass, "text-foreground")}
       >
         <Icon aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />
         <span className="truncate">{current?.label}</span>
