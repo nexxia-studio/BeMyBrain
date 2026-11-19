@@ -232,7 +232,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 - Accès : lien en bas de la liste et commande de palette, tous deux vers `/trash`. Lignes non cochables, date de mise à la corbeille, bouton « Restaurer » par ligne. Une parente montre « + n sous-tâches ». Vide : « La corbeille est vide ».
 
 ### Tableau de bord
-- Tuile « Aujourd'hui » (pleine, DESIGN.md § 5) : pastilles de chiffres « En retard » et « Aujourd'hui », puis les 3 premières tâches (voir Questions ouvertes), lien « Tout voir ».
+- Tuile « Aujourd'hui » (pleine, DESIGN.md § 5) : pastilles de chiffres « En retard » et « Aujourd'hui », puis les 3 premières tâches (voir Questions ouvertes), lien « Voir la to-do ».
 - Tuiles « To-do privée » et « To-do pro » (verre, existantes, aujourd'hui vides) : 5 prochaines tâches actives du côté, case à cocher comprise, lien « Tout voir » vers `/tasks` sur ce côté.
 
 ### Mouvement
