@@ -46,6 +46,11 @@ export function QuickAddProvider({
 }: QuickAddProviderProps) {
   const [open, setOpen] = useState(false);
   const [typeKey, setTypeKey] = useState(types[0].key);
+  // Lu par `openQuickAdd` sans en dépendre : fonction stable, les déclencheurs ne se re-rendent pas.
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
   const relayRef = useRef<HTMLInputElement>(null);
   const releaseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Élément à refocaliser à la fermeture quand le relais a servi ; `undefined` : relais non utilisé.
@@ -53,7 +58,7 @@ export function QuickAddProvider({
 
   const openQuickAdd = useCallback(() => {
     // Déjà ouvert : le relais volerait le focus du titre.
-    if (open) return;
+    if (openRef.current) return;
     const relay = relayRef.current;
     const coarse =
       typeof window.matchMedia === "function" &&
@@ -72,8 +77,9 @@ export function QuickAddProvider({
     } else {
       setRelayTarget(undefined);
     }
+    openRef.current = true;
     setOpen(true);
-  }, [open]);
+  }, []);
 
   useEffect(() => () => clearTimeout(releaseTimer.current), []);
 
@@ -85,7 +91,10 @@ export function QuickAddProvider({
           if (relayTarget?.isConnected && relayTarget !== document.body) {
             return relayTarget;
           }
-          if (relayRef.current) releaseRelay(relayRef.current, null);
+          // Appelé pendant le commit de React, qui refocaliserait l'élément qu'on vient de quitter : blur
+          // après le commit, comme Base UI rend lui-même le focus (microtâche).
+          const relay = relayRef.current;
+          if (relay) queueMicrotask(() => releaseRelay(relay, null));
           return false;
         };
 

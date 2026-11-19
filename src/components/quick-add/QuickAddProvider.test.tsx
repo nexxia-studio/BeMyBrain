@@ -132,7 +132,10 @@ function GestureOpener() {
   );
 }
 
-function renderWithForm(Form: QuickAddType["Form"]) {
+function renderWithForm(
+  Form: QuickAddType["Form"],
+  { focusTrigger = true }: { focusTrigger?: boolean } = {},
+) {
   const utils = render(
     <NextIntlClientProvider locale="fr" messages={messages}>
       <QuickAddProvider
@@ -144,7 +147,8 @@ function renderWithForm(Form: QuickAddType["Form"]) {
     </NextIntlClientProvider>,
   );
   const trigger = screen.getByRole("button", { name: "ouvrir" });
-  trigger.focus();
+  // Safari iOS ne focalise pas un bouton touché : `focusTrigger: false` laisse le focus sur body.
+  if (focusTrigger) trigger.focus();
   return { ...utils, trigger };
 }
 
@@ -215,6 +219,30 @@ describe("champ relais de l'ajout rapide (clavier iOS)", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("bouton touché sans focus (Safari iOS), fermé avant le titre : le focus finit sur body, pas sur le relais", async () => {
+    stubPointer(true);
+    const { trigger } = renderWithForm(TitleForm, { focusTrigger: false });
+
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(relay());
+    fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(document.body));
+  });
+
+  it("bouton touché sans focus (Safari iOS), tiroir sans focus après le délai : le focus finit sur body", () => {
+    stubPointer(true);
+    vi.useFakeTimers({ toFake: ["setTimeout", "requestAnimationFrame"] });
+    const { trigger } = renderWithForm(TitleForm, { focusTrigger: false });
+
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(relay());
+    act(() => vi.advanceTimersByTime(RELAY_RELEASE_MS));
+
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("type sans champ initial : le relais ne garde pas le focus", async () => {
