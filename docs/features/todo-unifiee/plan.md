@@ -24,8 +24,8 @@
   - Test à écrire d'abord : `src/modules/core/time-zone.test.ts` — « 23:30 et 00:30 heure de Bruxelles, en hiver et en été, donnent le bon jour » ; `tests/i18n/time-zone-single-source.test.ts` — « aucun `Europe/` dans `src/` hors time-zone.ts »
   - Fini quand : tests verts, formatage next-intl inchangé, `pnpm typecheck` vert
 
-- [ ] **2. Schéma et migration `tasks`, `tags`, `task_tags`** [security]
-  - Fichiers : `src/db/schema/tasks.ts`, `src/db/schema/core.ts` (unique `(workspace_id, id, kind)`), `src/db/schema/index.ts`, `drizzle/0006_tasks.sql` + `drizzle/meta/`
+- [x] **2. Schéma et migration `tasks`, `tags`, `task_tags`** [security]
+  - Fichiers : `src/db/schema/tasks.ts`, `src/db/schema/core.ts` (unique `(workspace_id, id, kind)`), `drizzle/0006_tasks.sql` + `drizzle/meta/`
   - Test à écrire d'abord : `tests/db/schema-tasks.test.ts` (branche `test`, connexion `app_backend`) — CHECK (catégorie, priorité, titre vide, heure sans date), FK composites (espace, parente, tag d'un autre workspace refusés ; sous-tâche de côté différent refusée ; tâche de côté différent de son espace refusée), `DELETE FROM tasks` refusé (42501), `created_by` posé par la base, `origin` non modifiable, `updated_at` tenu par le trigger, suppression d'un espace → `context_id` NULL et côté gardé, changement de `kind` d'un espace → côté des tâches suivi
   - Fini quand : migration appliquée sur `test`, RLS + une policy par verbe (pas de DELETE sur `tasks` ni `tags`), tests verts
 
