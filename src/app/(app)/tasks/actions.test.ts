@@ -25,9 +25,10 @@ vi.mock("next/cache", () => ({ refresh }));
 vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import { ActionError } from "@/modules/actions/errors";
-import { TaskError } from "@/modules/tasks/errors";
+import { CoreError } from "@/modules/core/errors";
+import { TaskError, type TaskErrorCode } from "@/modules/tasks/errors";
 
-import { runTaskAction } from "./actions";
+import { runAppAction } from "./actions";
 
 const SESSION = {
   userId: "dc42fa70-09a7-4038-a3bb-f61dda854910",
@@ -48,13 +49,13 @@ beforeEach(() => {
   runActionWithToken.mockImplementation(async (_t, _w, _o, name: string) => ({
     name,
     access: name === "tasks.list" ? "read" : "write",
-    result: { id: TASK_ID },
+    result: { taskId: TASK_ID },
   }));
 });
 
-describe("runTaskAction (Server Action de l'écran tâches)", () => {
+describe("runAppAction (Server Action de l'écran tâches)", () => {
   it("lance l'action avec le jeton et le workspace de la session, origine app", async () => {
-    const outcome = await runTaskAction("tasks.create", {
+    const outcome = await runAppAction("tasks.create", {
       title: "Payer la crèche",
       side: "private",
     });
@@ -66,11 +67,11 @@ describe("runTaskAction (Server Action de l'écran tâches)", () => {
       "tasks.create",
       { title: "Payer la crèche", side: "private" },
     );
-    expect(outcome).toEqual({ ok: true, result: { id: TASK_ID } });
+    expect(outcome).toEqual({ ok: true, result: { taskId: TASK_ID } });
   });
 
   it("l'origine est toujours app, même si les paramètres annoncent une autre origine ou un autre workspace", async () => {
-    await runTaskAction("tasks.create", {
+    await runAppAction("tasks.create", {
       title: "x",
       origin: "assistant",
       workspaceId: OTHER_WORKSPACE,
@@ -86,13 +87,13 @@ describe("runTaskAction (Server Action de l'écran tâches)", () => {
   });
 
   it("une écriture réussie rafraîchit la route (liste et tuiles à jour)", async () => {
-    await runTaskAction("tasks.complete", { id: TASK_ID });
+    await runAppAction("tasks.complete", { taskId: TASK_ID });
 
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("une lecture ne rafraîchit pas la route", async () => {
-    await runTaskAction("tasks.list", {});
+    await runAppAction("tasks.list", {});
 
     expect(refresh).not.toHaveBeenCalled();
   });
@@ -100,7 +101,7 @@ describe("runTaskAction (Server Action de l'écran tâches)", () => {
   it("un refus métier renvoie son code, seul, pour que l'écran le traduise", async () => {
     runActionWithToken.mockRejectedValue(new TaskError("parent_in_trash"));
 
-    const outcome = await runTaskAction("tasks.restore", { id: TASK_ID });
+    const outcome = await runAppAction("tasks.restore", { taskId: TASK_ID });
 
     expect(outcome).toEqual({ ok: false, code: "parent_in_trash" });
     expect(console.warn).toHaveBeenCalledWith("[actions] action refusée", {
@@ -110,19 +111,34 @@ describe("runTaskAction (Server Action de l'écran tâches)", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("un refus du registre renvoie aussi son code", async () => {
+  it("un refus invalid_params du registre renvoie son code, traduit par l'écran", async () => {
     runActionWithToken.mockRejectedValue(new ActionError("invalid_params"));
 
-    const outcome = await runTaskAction("tasks.create", { title: "" });
+    const outcome = await runAppAction("tasks.create", { title: "" });
 
     expect(outcome).toEqual({ ok: false, code: "invalid_params" });
+  });
+
+  it("un refus dont le code n'est pas traduit par l'écran renvoie un échec sans code", async () => {
+    for (const error of [
+      new ActionError("unknown_action"),
+      new ActionError("missing_context"),
+      new CoreError("member_not_found"),
+      new TaskError("x-y" as TaskErrorCode),
+    ]) {
+      runActionWithToken.mockRejectedValueOnce(error);
+
+      const outcome = await runAppAction("tasks.create", { title: "x" });
+
+      expect(outcome).toEqual({ ok: false });
+    }
   });
 
   it("une panne renvoie un échec sans code ni texte de la base, et part à Sentry avec le nom de l'action seul", async () => {
     const failure = new Error('duplicate key value violates "tasks_pkey"');
     runActionWithToken.mockRejectedValue(failure);
 
-    const outcome = await runTaskAction("tasks.create", { title: "secret" });
+    const outcome = await runAppAction("tasks.create", { title: "secret" });
 
     expect(outcome).toEqual({ ok: false });
     expect(captureException).toHaveBeenCalledWith(failure, {
@@ -134,7 +150,7 @@ describe("runTaskAction (Server Action de l'écran tâches)", () => {
   it("un jeton expiré entre la garde et la base renvoie vers /login, sans panne", async () => {
     runActionWithToken.mockRejectedValue(new RejectedToken());
 
-    const run = runTaskAction("tasks.complete", { id: TASK_ID });
+    const run = runAppAction("tasks.complete", { taskId: TASK_ID });
 
     await expect(run).rejects.toThrow("REDIRECT:/login?next=%2Ftasks");
     expect(captureException).not.toHaveBeenCalled();
@@ -144,7 +160,7 @@ describe("runTaskAction (Server Action de l'écran tâches)", () => {
     requireSessionWithToken.mockRejectedValue(new Error("REDIRECT:/login"));
 
     await expect(
-      runTaskAction("tasks.complete", { id: TASK_ID }),
+      runAppAction("tasks.complete", { taskId: TASK_ID }),
     ).rejects.toThrow("REDIRECT:/login");
     expect(runActionWithToken).not.toHaveBeenCalled();
   });

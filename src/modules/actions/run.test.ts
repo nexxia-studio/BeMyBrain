@@ -134,7 +134,7 @@ describe("exécution d'une action pour la session", () => {
 
       expect(outcome).toEqual({
         name: "core.echoOrigin",
-        access: expect.any(String),
+        access: "read",
         result: origin,
       });
       expect(echoOriginRun).toHaveBeenLastCalledWith(

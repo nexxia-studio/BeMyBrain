@@ -21,12 +21,12 @@ vi.mock("next/headers", () => ({
     }),
 }));
 
-import { runTaskAction } from "./actions";
+import { runAppAction } from "./actions";
 
-describe("runTaskAction sans session", () => {
+describe("runAppAction sans session", () => {
   it("est refusée par une redirection vers /login, sans lancer d'action", async () => {
-    const error = await runTaskAction("tasks.complete", {
-      id: "3c6d1f0e-8a2b-4c5d-9e7f-0a1b2c3d4e5f",
+    const error = await runAppAction("tasks.complete", {
+      taskId: "3c6d1f0e-8a2b-4c5d-9e7f-0a1b2c3d4e5f",
     }).catch((reason: unknown) => reason);
 
     expect(isRedirectError(error)).toBe(true);

@@ -18,6 +18,9 @@ export type ActionChannel = "web" | "assistant";
  * `palette` = palette de commandes, `assistant` = assistant IA (déclaré, aucune route encore). Posée par le
  * point d'entrée serveur, jamais lue dans les paramètres. Sous-ensemble du CHECK `tasks_origin_check` ;
  * whatsapp et slack s'ajoutent le jour où le canal existe.
+ * Elle dit par quel point d'entrée l'appel est arrivé ; sur le web, ce point d'entrée est choisi par le
+ * client (il peut appeler la Server Action de la palette ou celle des écrans). Information de traçabilité
+ * seulement : ne jamais s'en servir pour une décision de sécurité (droit, filtrage, limite).
  */
 export const actionOrigins = ["app", "palette", "assistant"] as const;
 export type ActionOrigin = (typeof actionOrigins)[number];
