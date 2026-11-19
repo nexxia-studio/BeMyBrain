@@ -233,9 +233,9 @@ Contrastes WCAG calculés sur le cas le plus défavorable. Pour le verre : verre
 | `accent` / `secondary` | blanc 55 % / blanc 60 % | Survol d'un élément de liste ; bouton secondaire | encre ≥ 12 |
 | `sidebar` | `--glass-bg` (bord `glass-border`, actif blanc, anneau indigo) | Barre latérale : surface en verre de premier niveau, posée sur le fond | comme le verre |
 | `popover` | `--white` | Menus, palette : opaques (jamais de verre sur du verre) | encre 16,1 |
-| `chip-neutral` | encre 8 % + `--ink` | Pastille Privé | ≥ 11,16 |
-| `chip-warm` | braise claire 16 % + `--ember` | Pastille Trustup | ≥ 5,52 |
-| `chip-indigo` | indigo 13 % + `--indigo-deep` | Pastille Nexxia | ≥ 6,21 |
+| `chip-neutral` | encre 8 % + `--ink` | Pastille d'espace neutre (défaut ; Privé à la migration 0007) | ≥ 11,16 |
+| `chip-warm` | braise claire 16 % + `--ember` | Pastille d'espace chaude (Trustup à la migration 0007) | ≥ 5,52 |
+| `chip-indigo` | indigo 13 % + `--indigo-deep` | Pastille d'espace indigo (Nexxia à la migration 0007) | ≥ 6,21 |
 | `chart-1` à `chart-5` | indigo, indigo profond, braise claire, encre secondaire, encre | Provisoire, à fixer au premier graphique | — |
 
 États dérivés : survol d'un élément de liste ou de navigation = `accent` (le fond « ouvert » de la référence) ; élément actif = blanc + `shadow-raised` ; pression = `scale(0.97)` ; désactivé = opacité 60 % et `cursor: not-allowed` (exempté de contraste par WCAG, mais le libellé reste lisible). La couleur d'une pastille de contexte (neutre, chaude, indigo) est attribuée par contexte ; quand les contextes deviendront configurables, la couleur sera choisie parmi ces trois, jamais saisie.
@@ -294,7 +294,8 @@ Sourcing : primitives shadcn/ui (base-nova) réalignées sur ces tokens, sinon c
 - **Champs** : libellé visible au-dessus (`text-small font-medium`), jamais le placeholder comme libellé. `min-h-11 rounded-lg border border-input bg-row px-3 text-base`. Erreur sous le champ, `text-destructive`, reliée par `aria-describedby`.
 - **Cases à cocher** : 18 px, `accent-color: primary`, ligne entière cliquable (`label` `min-h-11`).
 - **Barres de progression** : piste `bg-track h-2.5 rounded-full`, remplissage `bg-primary` ; elles portent une donnée, jamais décoratives.
-- **Pastilles de contexte** : `rounded-full px-2.5 py-0.5 text-chip`, couleurs `chip-*`.
+- **Pastilles d'espace** : `rounded-full px-2.5 py-0.5 text-chip`, couleur `chip-*` choisie par `contexts.color` (`neutral`, `warm`, `indigo`).
+- **Pastille de côté (Privé / Pro)** : même forme, contour `border border-border`, texte `text-foreground`, aucun fond `chip-*` (jamais confondue avec un espace). Seulement dans la corbeille, qui mêle les deux côtés.
 - **Focus visible** : partout `outline 2px ring` décalé de 2 px (posé en base dans `globals.css`) ; sur la tuile pleine, `ring-on-primary`. Les primitives shadcn qui utilisent `ring-ring/50` passent à `ring-ring` plein (50 % tombe sous 3:1).
 
 ## 6. Grille bento et navigation
