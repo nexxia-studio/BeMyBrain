@@ -21,16 +21,13 @@ import {
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
 
-import { runAppAction } from "@/app/(app)/tasks/actions";
-import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
-import type { TaskErrorCode } from "@/modules/tasks/errors";
 import type { Task } from "@/modules/tasks/queries";
 import { dueDateInstant, subtaskCounter } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
+import { useTaskToggle } from "./use-task-toggle";
 
 const MotionLink = motion.create(Link);
 
@@ -47,8 +44,6 @@ const PRIORITY_ICONS: Record<1 | 2 | 3 | 4, LucideIcon> = {
 function isPriority(value: number): value is 1 | 2 | 3 | 4 {
   return value >= 1 && value <= 4;
 }
-
-type Failure = { code?: TaskErrorCode } | null;
 
 type TaskRowProps = {
   task: Task;
@@ -74,35 +69,11 @@ export function TaskRow({
 }: TaskRowProps) {
   const t = useTranslations("tasks");
   const format = useFormatter();
-  const [pending, startTransition] = useTransition();
-  const [failure, setFailure] = useState<Failure>(null);
-
-  const canceled = task.statusCategory === "canceled";
-  // Fermée (terminée ou annulée) : case cochée, un tap la rouvre.
-  const closed = task.statusCategory === "completed" || canceled;
+  const { closed, canceled, pending, failure, toggle } = useTaskToggle(task);
   const counter = subtaskCounter(task);
   const PriorityIcon = isPriority(task.priority)
     ? PRIORITY_ICONS[task.priority]
     : null;
-
-  function toggle() {
-    if (pending) return;
-    setFailure(null);
-    startTransition(async () => {
-      const outcome = await settleAction(() =>
-        closed
-          ? runAppAction("tasks.update", {
-              taskId: task.id,
-              statusCategory: "unstarted",
-            })
-          : runAppAction("tasks.complete", { taskId: task.id }),
-      );
-      if (outcome.ok && outcome.value.ok) return;
-      setFailure({
-        code: outcome.ok && !outcome.value.ok ? outcome.value.code : undefined,
-      });
-    });
-  }
 
   return (
     // Survol du lien de la ligne : fond `accent` sur toute la ligne (DESIGN.md § 2, états dérivés).

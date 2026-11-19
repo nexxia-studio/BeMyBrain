@@ -6,11 +6,22 @@ import { getUserTimeZone } from "@/modules/core/time-zone";
 
 import messages from "../../../../messages/fr.json";
 
-const requireSession = vi.hoisted(() => vi.fn());
+const requireSessionWithToken = vi.hoisted(() => vi.fn());
+const redirectIfRejectedToken = vi.hoisted(() => vi.fn());
 const loadSideSpaces = vi.hoisted(() => vi.fn());
+const loadCurrentScope = vi.hoisted(() => vi.fn());
+const loadDueToday = vi.hoisted(() => vi.fn());
+const loadUpcomingTasks = vi.hoisted(() => vi.fn());
+const captureException = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/session", () => ({ requireSession }));
-vi.mock("@/lib/context-filter", () => ({ loadSideSpaces }));
+vi.mock("@/lib/session", () => ({
+  requireSessionWithToken,
+  redirectIfRejectedToken,
+}));
+vi.mock("@/lib/context-filter", () => ({ loadSideSpaces, loadCurrentScope }));
+vi.mock("@/modules/tasks/load", () => ({ loadDueToday, loadUpcomingTasks }));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
 vi.mock("next-intl/server", () => ({
   getTranslations: async (namespace: "dashboard") =>
     createTranslator({ locale: "fr", messages, namespace }),
@@ -24,6 +35,9 @@ vi.mock("@/components/shell/PageHeader", () => ({
   PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
+import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
+
+import { buildTask } from "../../../../tests/factories/build-task";
 import DashboardPage from "./page";
 
 const SESSION = {
@@ -54,7 +68,7 @@ async function renderPage() {
       messages={messages}
       timeZone={getUserTimeZone()}
     >
-      {element}
+      <OpenQuickAddContext value={vi.fn()}>{element}</OpenQuickAddContext>
     </NextIntlClientProvider>,
   );
 }
@@ -77,18 +91,39 @@ beforeEach(() => {
   }));
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-12T09:00:00+01:00"));
-  requireSession.mockResolvedValue(SESSION);
-  loadSideSpaces.mockResolvedValue(PRIVATE_SIDE);
+  requireSessionWithToken.mockResolvedValue({
+    session: SESSION,
+    token: "jeton",
+  });
+  useSide(PRIVATE_SIDE);
+  loadDueToday.mockResolvedValue([]);
+  loadUpcomingTasks.mockResolvedValue([]);
 });
+
+/** Côté et filtre d'espace courants, comme les rend context-filter (lecture partagée). */
+function useSide(spaces: {
+  side: string;
+  contexts: { id: string; name: string }[];
+  selected: string[];
+}) {
+  loadSideSpaces.mockResolvedValue(spaces);
+  const filtered = spaces.contexts.length > 1 && spaces.selected.length === 1;
+  loadCurrentScope.mockResolvedValue({
+    side: spaces.side,
+    contexts: spaces.contexts,
+    contextId: filtered ? spaces.selected[0] : null,
+  });
+}
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("tableau de bord", () => {
   it("côté Pro, aucune tuile Privé n'est rendue", async () => {
-    loadSideSpaces.mockResolvedValue(PRO_SIDE);
+    useSide(PRO_SIDE);
 
     await renderPage();
 
@@ -108,18 +143,82 @@ describe("tableau de bord", () => {
     expect(sides).not.toContain("pro");
   });
 
-  it("la tuile « Aujourd'hui » nomme les espaces retenus par le filtre", async () => {
-    loadSideSpaces.mockResolvedValue({ ...PRO_SIDE, selected: [NEXXIA.id] });
+  it("la tuile « Aujourd'hui » lit les tâches des deux côtés, au jour de Bruxelles", async () => {
+    vi.setSystemTime(new Date("2026-11-19T23:30:00Z"));
+    loadDueToday.mockResolvedValue([
+      buildTask({
+        title: "Payer la crèche",
+        side: "private",
+        dueDate: "2026-11-20",
+      }),
+      buildTask({
+        title: "Relancer le devis",
+        side: "pro",
+        dueDate: "2026-11-19",
+      }),
+    ]);
 
     await renderPage();
 
+    expect(loadDueToday).toHaveBeenCalledWith(
+      "jeton",
+      SESSION.workspaceId,
+      "2026-11-20",
+    );
     const today = screen.getByTestId("tile-today");
-    expect(today.textContent).toContain("Nexxia");
-    expect(today.textContent).not.toContain("Trustup");
+    expect(within(today).getByTestId("today-overdue-count").textContent).toBe(
+      "1",
+    );
+    expect(within(today).getByTestId("today-due-count").textContent).toBe("1");
+    expect(today.textContent).toContain("Payer la crèche");
+    expect(today.textContent).toContain("Relancer le devis");
+  });
+
+  it("la tuile To-do lit les 5 prochaines tâches du côté actif et de l'espace filtré", async () => {
+    useSide({ ...PRO_SIDE, selected: [NEXXIA.id] });
+    loadUpcomingTasks.mockResolvedValue([
+      buildTask({ title: "Préparer la démo", side: "pro" }),
+    ]);
+
+    await renderPage();
+
+    expect(loadUpcomingTasks).toHaveBeenCalledWith(
+      "jeton",
+      SESSION.workspaceId,
+      {
+        side: "pro",
+        contextId: NEXXIA.id,
+        limit: 5,
+      },
+    );
+    expect(screen.getByTestId("tile-proTodo").textContent).toContain(
+      "Préparer la démo",
+    );
+  });
+
+  it("une tuile qui échoue n'empêche pas le reste du tableau de bord de s'afficher", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    loadDueToday.mockRejectedValue(new Error("panne"));
+    loadUpcomingTasks.mockResolvedValue([
+      buildTask({ title: "Payer la crèche" }),
+    ]);
+
+    await renderPage();
+
+    expect(
+      within(screen.getByTestId("tile-today")).getByRole("status").textContent,
+    ).toBe(messages.dashboard.today.error);
+    expect(screen.getByTestId("tile-privateTodo").textContent).toContain(
+      "Payer la crèche",
+    );
+    expect(screen.getByTestId("tile-health")).toBeTruthy();
+    expect(captureException).toHaveBeenCalledWith(expect.any(Error), {
+      tags: { tile: "today" },
+    });
   });
 
   it("étiquette chaque tuile avec les espaces qu'elle couvre quand le côté en a plusieurs", async () => {
-    loadSideSpaces.mockResolvedValue(PRO_SIDE);
+    useSide(PRO_SIDE);
 
     await renderPage();
 
@@ -148,14 +247,14 @@ describe("tableau de bord", () => {
     await renderPage();
 
     expect(
-      within(screen.getByTestId("tile-privateTodo")).getByText(
-        messages.dashboard.tiles.privateTodo.body,
+      within(screen.getByTestId("tile-health")).getByText(
+        messages.dashboard.tiles.health.body,
       ),
     ).toBeTruthy();
   });
 
   it("un côté sans espace n'affiche que la tuile « Aujourd'hui », qui le dit", async () => {
-    loadSideSpaces.mockResolvedValue({
+    useSide({
       side: "pro",
       contexts: [],
       selected: [],
@@ -188,7 +287,7 @@ describe("tableau de bord", () => {
   });
 
   it("appelle elle-même requireSession (sans compter sur le layout)", async () => {
-    requireSession.mockRejectedValue(new Error("REDIRECT:/login"));
+    requireSessionWithToken.mockRejectedValue(new Error("REDIRECT:/login"));
 
     const run = DashboardPage();
 

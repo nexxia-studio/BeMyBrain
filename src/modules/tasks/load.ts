@@ -5,8 +5,16 @@ import { withUserDb } from "@/db/client";
 
 import { uuidSchema } from "@/modules/core/schemas";
 
-import { getTask, listTasks, type TaskDetail, type TaskList } from "./queries";
-import type { ListTasksFilter } from "./schemas";
+import {
+  getTask,
+  listDueToday,
+  listTasks,
+  listUpcomingTasks,
+  type Task,
+  type TaskDetail,
+  type TaskList,
+} from "./queries";
+import type { ListTasksFilter, UpcomingTasksFilter } from "./schemas";
 
 /**
  * Tâches du workspace de la session, lues avec son jeton (RLS active) et filtrées sur `workspaceId`
@@ -31,4 +39,22 @@ export async function loadTask(
 ): Promise<TaskDetail | null> {
   if (!uuidSchema.safeParse(taskId).success) return null;
   return withUserDb(token, (tx) => getTask(workspaceId, taskId, tx));
+}
+
+/** Tuile « Aujourd'hui » : tâches ouvertes en retard ou dues `today`, des deux côtés, même double verrou. */
+export function loadDueToday(
+  token: string,
+  workspaceId: string,
+  today: string,
+): Promise<Task[]> {
+  return withUserDb(token, (tx) => listDueToday(workspaceId, today, tx));
+}
+
+/** Tuiles « To-do privée » / « To-do pro » : prochaines tâches du côté, même double verrou. */
+export function loadUpcomingTasks(
+  token: string,
+  workspaceId: string,
+  filter: UpcomingTasksFilter,
+): Promise<Task[]> {
+  return withUserDb(token, (tx) => listUpcomingTasks(workspaceId, filter, tx));
 }

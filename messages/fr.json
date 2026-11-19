@@ -40,11 +40,17 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
+    "loading": "Chargement du tableau de bord…",
     "workspace": "Espace de travail : <name></name>",
     "today": {
       "greeting": "Bonjour.",
-      "intro": "Rien de prévu aujourd'hui dans {spaces}. Ce qui compte s'affichera ici.",
-      "introNoSpace": "Aucun espace de ce côté pour l'instant. Les tuiles apparaîtront avec le premier espace."
+      "introNoSpace": "Aucun espace de ce côté pour l'instant. Les tuiles apparaîtront avec le premier espace.",
+      "introClear": "Rien en retard, rien de prévu aujourd'hui.",
+      "overdue": "En retard",
+      "dueToday": "Aujourd'hui",
+      "list": "Tâches du jour",
+      "seeAll": "Tout voir",
+      "error": "Tâches du jour indisponibles. Recharge la page dans un instant."
     },
     "tiles": {
       "spaces": "Espaces couverts",
@@ -92,7 +98,10 @@
         "eyebrow": "Réseaux",
         "title": "Contenu à publier",
         "body": "Le calendrier des publications s'affichera ici."
-      }
+      },
+      "seeAll": "Tout voir",
+      "upcoming": "Prochaines tâches",
+      "tasksError": "Tâches indisponibles. Recharge la page dans un instant."
     }
   },
   "noWorkspace": {

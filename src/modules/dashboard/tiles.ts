@@ -3,23 +3,39 @@ import type { Side } from "@/modules/core/schemas";
 // Tuiles du tableau de bord (BRAIN-7) : règle d'affichage pure, sans React, sans Next, sans base
 // (ADR-008). Les espaces viennent de la base (src/modules/core), la sélection du filtre d'espace.
 // Une tuile est typée par côté (elle n'existe que d'un côté) et par espace (elle couvre les espaces
-// retenus par le filtre de ce côté). Aucun module métier n'existe encore : toutes les tuiles sont vides.
+// retenus par le filtre de ce côté). Les tuiles To-do montrent les tâches du côté (module tasks) ; les autres
+// sont vides tant que leur module n'existe pas.
 // raccourci: catalogue fixe tiré de la feuille de route — chaque module remplacera sa tuile vide à sa
 // feature, et le catalogue deviendra configurable avec les espaces personnalisables (BRAIN-30).
 
 /** Base de largeur dans la grille bento (DESIGN.md § 6) : large, standard ou chiffre. */
 export type TileSize = "wide" | "standard" | "figure";
 
+/** Contenu d'une tuile : les tâches du côté (module tasks), ou vide tant que son module n'existe pas. */
+export type TileContent = "tasks" | "empty";
+
 // `mixesSpaces` : la tuile mêle les éléments de plusieurs espaces (la To-do, une pastille par ligne dans
 // la référence) ; elle les nomme quand le côté en a plusieurs. Les autres se lisent par le filtre seul.
 const CATALOG = [
-  { id: "privateTodo", side: "private", size: "wide", mixesSpaces: true },
+  {
+    id: "privateTodo",
+    side: "private",
+    size: "wide",
+    mixesSpaces: true,
+    content: "tasks",
+  },
   // La paire de tuiles chiffre, seule à partager une rangée sur mobile (DESIGN.md § 8, décision 9).
   { id: "shopping", side: "private", size: "figure", mixesSpaces: false },
   { id: "budget", side: "private", size: "figure", mixesSpaces: false },
   { id: "health", side: "private", size: "standard", mixesSpaces: false },
   { id: "home", side: "private", size: "standard", mixesSpaces: false },
-  { id: "proTodo", side: "pro", size: "wide", mixesSpaces: true },
+  {
+    id: "proTodo",
+    side: "pro",
+    size: "wide",
+    mixesSpaces: true,
+    content: "tasks",
+  },
   { id: "clients", side: "pro", size: "standard", mixesSpaces: false },
   { id: "proFinances", side: "pro", size: "standard", mixesSpaces: false },
   { id: "social", side: "pro", size: "standard", mixesSpaces: false },
@@ -28,6 +44,7 @@ const CATALOG = [
   side: Side;
   size: TileSize;
   mixesSpaces: boolean;
+  content?: TileContent;
 }[];
 
 export type TileId = (typeof CATALOG)[number]["id"];
@@ -36,6 +53,7 @@ export type DashboardTile = {
   id: TileId;
   side: Side;
   size: TileSize;
+  content: TileContent;
   /** Espaces couverts, retenus par le filtre, dans l'ordre du workspace (noms saisis, jamais traduits). */
   spaces: string[];
   /**
@@ -83,6 +101,7 @@ export function buildDashboard(input: {
       id: tile.id,
       side: tile.side,
       size: tile.size,
+      content: "content" in tile ? tile.content : "empty",
       spaces,
       spaceLabels: tile.mixesSpaces && distinguishable ? spaces : [],
     })),

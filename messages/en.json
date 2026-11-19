@@ -40,11 +40,17 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "loading": "Loading the dashboard…",
     "workspace": "Workspace: <name></name>",
     "today": {
       "greeting": "Hello.",
-      "intro": "Nothing planned today in {spaces}. What matters will show up here.",
-      "introNoSpace": "No space on this side yet. Tiles will appear with the first space."
+      "introNoSpace": "No space on this side yet. Tiles will appear with the first space.",
+      "introClear": "Nothing overdue, nothing due today.",
+      "overdue": "Overdue",
+      "dueToday": "Today",
+      "list": "Today's tasks",
+      "seeAll": "See all",
+      "error": "Today's tasks are unavailable. Reload the page in a moment."
     },
     "tiles": {
       "spaces": "Spaces covered",
@@ -92,7 +98,10 @@
         "eyebrow": "Social",
         "title": "Content to publish",
         "body": "The publishing calendar will show up here."
-      }
+      },
+      "seeAll": "See all",
+      "upcoming": "Upcoming tasks",
+      "tasksError": "Tasks are unavailable. Reload the page in a moment."
     }
   },
   "noWorkspace": {

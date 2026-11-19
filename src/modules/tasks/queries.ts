@@ -7,6 +7,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -24,8 +25,10 @@ import {
   openStatusCategories,
   parseTaskInput,
   statusCategorySchema,
+  upcomingTasksFilterSchema,
   type ListTasksFilter,
   type StatusCategory,
+  type UpcomingTasksFilter,
 } from "./schemas";
 
 // Lectures du module tasks (ADR-004) : nommées, typées, réutilisables par l'assistant.
@@ -208,6 +211,38 @@ export async function listTasks(
     tasks: rows.slice(0, f.limit).map(toTask),
     truncated: rows.length > f.limit,
   };
+}
+
+/**
+ * Prochaines tâches ouvertes et actives d'un côté (tuiles « To-do privée » / « To-do pro »), espace en option,
+ * dans l'ordre de la liste. Une sous-tâche sans échéance n'y est pas une ligne (même règle que la liste) : elle
+ * est écartée ici, pour que `limit` lignes sortent même quand ces sous-tâches passeraient devant.
+ */
+export async function listUpcomingTasks(
+  workspaceId: string,
+  filter: UpcomingTasksFilter,
+  tx: UserTx,
+): Promise<Task[]> {
+  const workspace = workspaceOf(workspaceId);
+  const f = parseTaskInput(upcomingTasksFilterSchema, filter);
+  const rows = await tx
+    .select(taskColumns)
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.workspaceId, workspace),
+        isActive,
+        inArray(tasks.statusCategory, [...openStatusCategories]),
+        eq(tasks.side, f.side),
+        f.contextId === undefined
+          ? undefined
+          : eq(tasks.contextId, f.contextId),
+        or(isNull(tasks.parentId), isNotNull(tasks.dueDate)),
+      ),
+    )
+    .orderBy(...listOrder)
+    .limit(f.limit);
+  return rows.map(toTask);
 }
 
 /** Une tâche active avec ses notes, ses tags et ses sous-tâches actives ; null si absente ou à la corbeille. */

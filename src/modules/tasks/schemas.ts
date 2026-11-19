@@ -120,6 +120,12 @@ export const listTasksFilterSchema = z.strictObject({
 
 export type ListTasksFilter = z.input<typeof listTasksFilterSchema>;
 
+/** Lecture des tuiles par côté (`listUpcomingTasks`) : côté obligatoire, espace et limite comme `listTasks`. */
+export const upcomingTasksFilterSchema = listTasksFilterSchema
+  .pick({ contextId: true, limit: true })
+  .extend({ side: sideSchema });
+export type UpcomingTasksFilter = z.input<typeof upcomingTasksFilterSchema>;
+
 export const contextNameSchema = z
   .string()
   .trim()
@@ -127,7 +133,10 @@ export const contextNameSchema = z
   .max(CONTEXT_NAME_MAX)
   .describe("Space name, exactly as listed for the side.");
 
-const tagNamesSchema = z.array(tagNameSchema).min(1).max(TASK_TAGS_PER_WRITE_MAX);
+const tagNamesSchema = z
+  .array(tagNameSchema)
+  .min(1)
+  .max(TASK_TAGS_PER_WRITE_MAX);
 
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -168,9 +177,12 @@ export const updateTaskInputSchema = z
   .strictObject({
     taskId: taskIdSchema,
     title: taskTitleSchema.optional(),
-    notes: taskNotesSchema.nullable().optional().describe(
-      `Free-text notes, up to ${TASK_NOTES_MAX} characters; null clears them.`,
-    ),
+    notes: taskNotesSchema
+      .nullable()
+      .optional()
+      .describe(
+        `Free-text notes, up to ${TASK_NOTES_MAX} characters; null clears them.`,
+      ),
     side: sideSchema
       .optional()
       .describe(

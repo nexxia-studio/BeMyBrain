@@ -128,6 +128,26 @@ describe("tuiles du tableau de bord", () => {
     expect(dashboard.spaces).toEqual(["Trustup", "Nexxia"]);
   });
 
+  it("les tuiles To-do montrent les tâches du côté, les autres restent vides", () => {
+    for (const side of ["private", "pro"] as const) {
+      const dashboard = buildDashboard({
+        side,
+        contexts: [TRUSTUP],
+        selected: [TRUSTUP.id],
+      });
+
+      const withTasks = dashboard.tiles
+        .filter((tile) => tile.content === "tasks")
+        .map((tile) => tile.id);
+      expect(withTasks).toEqual([side === "pro" ? "proTodo" : "privateTodo"]);
+      expect(
+        dashboard.tiles
+          .filter((tile) => tile.content !== "tasks")
+          .every((tile) => tile.content === "empty"),
+      ).toBe(true);
+    }
+  });
+
   it("place au plus une paire de tuiles chiffre (une colonne sur mobile, DESIGN.md § 8)", () => {
     for (const side of ["private", "pro"] as const) {
       const dashboard = buildDashboard({
