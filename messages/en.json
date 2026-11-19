@@ -241,7 +241,7 @@
       "tags": {
         "label": "Tags",
         "menuLabel": "Tags: {current}",
-        "none": "none",
+        "none": "None",
         "search": "Search or create a tag",
         "create": "Create “{name}”",
         "loading": "Loading tags…",

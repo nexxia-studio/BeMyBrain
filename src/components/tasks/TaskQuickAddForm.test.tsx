@@ -272,7 +272,7 @@ describe("ajout rapide : formulaire tâche", () => {
     ).toBe(`/tasks/${TASK_ID}`);
     expect((title() as HTMLInputElement).value).toBe("");
     expect(dateChip().getAttribute("aria-label")).toBe("Échéance : Sans date");
-    expect(tagsChip().getAttribute("aria-label")).toBe("Tags : aucun");
+    expect(tagsChip().getAttribute("aria-label")).toBe("Tags : Aucun");
     expect(contextChip().getAttribute("aria-label")).toBe("Espace : Trustup");
     expect(document.activeElement).toBe(title());
     expect(initialFocusRef.current).toBe(title());

@@ -131,7 +131,7 @@ export function TagsChip({
         )}
       >
         <Tag aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />
-        <span className="truncate">{current ?? t("label")}</span>
+        <span className="truncate">{current ?? t("none")}</span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner

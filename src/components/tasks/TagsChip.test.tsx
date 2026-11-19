@@ -1,0 +1,46 @@
+import { render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import { describe, expect, it, vi } from "vitest";
+
+import en from "../../../messages/en.json";
+import fr from "../../../messages/fr.json";
+
+vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
+
+import { TagsChip } from "./TagsChip";
+
+function renderChip(locale: "fr" | "en", value: string[]) {
+  render(
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "fr" ? fr : en}
+    >
+      <TagsChip value={value} onChange={vi.fn()} disabled={false} />
+    </NextIntlClientProvider>,
+  );
+  return screen.getByRole("button", { name: /^Tags/ });
+}
+
+describe("pastille Tags", () => {
+  it("vide : « Aucun » en encre secondaire, comme la pastille Espace", () => {
+    const chip = renderChip("fr", []);
+
+    expect(chip.textContent).toBe("Aucun");
+    expect(chip.getAttribute("aria-label")).toBe("Tags : Aucun");
+    expect(chip.className.split(/\s+/)).toContain("text-muted-foreground");
+  });
+
+  it("vide, en anglais : « None »", () => {
+    const chip = renderChip("en", []);
+
+    expect(chip.textContent).toBe("None");
+    expect(chip.getAttribute("aria-label")).toBe("Tags: None");
+  });
+
+  it("avec des tags : leurs noms en encre principale", () => {
+    const chip = renderChip("fr", ["client", "maison"]);
+
+    expect(chip.textContent).toBe("client, maison");
+    expect(chip.className.split(/\s+/)).toContain("text-foreground");
+  });
+});
