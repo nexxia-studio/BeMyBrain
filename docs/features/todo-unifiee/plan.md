@@ -81,7 +81,7 @@
   - Aussi (review tâche 11) : le tiroir suit le clavier (`visualViewport` `resize`/`scroll` pour remonter le tiroir ; `interactiveWidget: "resizes-content"` dans le `viewport` de `src/app/layout.tsx` pour Android), sans dépendance
   - Fini quand : tests verts ; vérifié sur un vrai iPhone (navigateur et app installée) que le bouton Ajouter reste visible clavier ouvert. Échec → décision d'Antoine (tiroir en haut ou plein écran)
 
-- [ ] **13. Palette : ajouter une tâche**
+- [x] **13. Palette : ajouter une tâche**
   - Fichiers : `src/components/command-palette/commands.ts` (type `action` élargi aux noms du registre), `CommandPalette.tsx`, `PalettePanel.tsx`, `messages/*.json`
   - Test à écrire d'abord : `commands.test.ts` — « saisie libre → premier élément Ajouter la tâche « … » » ; « commandes Nouvelle tâche, Ouvrir la to-do, Corbeille » ; test de la Server Action — « origine `palette` »
   - Fini quand : tests verts
