@@ -4,9 +4,14 @@ import "server-only";
 import { withUserDb } from "@/db/client";
 
 import { invokeAction, prepareAction, registry } from "./registry";
-import type { WebActionOrigin } from "./types";
+import type { ActionAccess, WebActionOrigin } from "./types";
 
-export type ActionOutcome = { name: string; result: unknown };
+/** `access` sert aux effets web de l'appelant (rafraîchir la route après une écriture). */
+export type ActionOutcome = {
+  name: string;
+  access: ActionAccess;
+  result: unknown;
+};
 
 /**
  * Point d'entrée serveur du registre (ADR-009) pour le canal "web", appelé par une Server Action après
@@ -26,5 +31,5 @@ export async function runActionWithToken(
   const result = await withUserDb(token, (tx, { userId }) =>
     invokeAction(prepared, { workspaceId, userId, origin, tx }),
   );
-  return { name: prepared.name, result };
+  return { name: prepared.name, access: prepared.access, result };
 }

@@ -74,7 +74,11 @@ describe("exécution d'une action pour la session", () => {
       expect.any(Function),
     );
     expect(setMemberLocale).toHaveBeenCalledWith(WORKSPACE, JWT_USER, "en", tx);
-    expect(outcome).toEqual({ name: "core.setLocale", result: "en" });
+    expect(outcome).toEqual({
+      name: "core.setLocale",
+      access: "write",
+      result: "en",
+    });
   });
 
   it("un nom inconnu n'ouvre aucune transaction", async () => {
@@ -128,7 +132,11 @@ describe("exécution d'une action pour la session", () => {
         {},
       );
 
-      expect(outcome).toEqual({ name: "core.echoOrigin", result: origin });
+      expect(outcome).toEqual({
+        name: "core.echoOrigin",
+        access: expect.any(String),
+        result: origin,
+      });
       expect(echoOriginRun).toHaveBeenLastCalledWith(
         { workspaceId: WORKSPACE, userId: JWT_USER, origin, tx },
         {},

@@ -51,7 +51,9 @@ beforeEach(() => {
   });
   runActionWithToken.mockImplementation(async (_t, _w, _o, name: string) => {
     calls.push("runActionWithToken");
-    return { name, result: name === "core.setLocale" ? "en" : [] };
+    return name === "core.setLocale"
+      ? { name, access: "write", result: "en" }
+      : { name, access: "read", result: [] };
   });
   syncLocaleCookie.mockImplementation(async () => {
     calls.push("syncLocaleCookie");
