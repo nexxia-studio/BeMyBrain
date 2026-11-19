@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { createTranslator, NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { timeZone } from "@/i18n/config";
+import { getUserTimeZone } from "@/modules/core/time-zone";
 
 import messages from "../../../../messages/fr.json";
 
@@ -49,7 +49,11 @@ const PRO_SIDE = {
 async function renderPage() {
   const element = await DashboardPage();
   return render(
-    <NextIntlClientProvider locale="fr" messages={messages} timeZone={timeZone}>
+    <NextIntlClientProvider
+      locale="fr"
+      messages={messages}
+      timeZone={getUserTimeZone()}
+    >
       {element}
     </NextIntlClientProvider>,
   );

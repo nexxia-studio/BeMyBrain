@@ -1,7 +1,9 @@
 import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 
-import { formats, timeZone } from "./config";
+import { getUserTimeZone } from "@/modules/core/time-zone";
+
+import { formats } from "./config";
 import { type AppLocale, LOCALE_COOKIE, resolveLocale } from "./locales";
 
 // Chemins littéraux : eslint refuse les import() à source calculée (ADR-002).
@@ -27,7 +29,7 @@ export default getRequestConfig(async () => {
 
   return {
     locale,
-    timeZone,
+    timeZone: getUserTimeZone(),
     formats,
     messages: await messageLoaders[locale](),
   };
