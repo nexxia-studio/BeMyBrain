@@ -292,4 +292,47 @@ describe("ajout rapide : popups des pastilles dans le tiroir", () => {
         .value,
     ).toBe("Relancer le devis");
   });
+
+  it("rouvert pendant son animation de sortie : formulaire remonté à neuf (il relit le côté et l'espace courants)", () => {
+    function Harness() {
+      const [open, setOpen] = useState(true);
+      return (
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          <button type="button" onClick={() => setOpen(false)}>
+            fermer
+          </button>
+          <button type="button" onClick={() => setOpen(true)}>
+            rouvrir
+          </button>
+          <QuickAdd
+            open={open}
+            onOpenChange={setOpen}
+            types={[TASK]}
+            typeKey="task"
+            onTypeChange={vi.fn()}
+            scope={SCOPE}
+          />
+        </NextIntlClientProvider>
+      );
+    }
+    render(<Harness />);
+    fireEvent.change(screen.getByRole("textbox", { name: "titre" }), {
+      target: { value: "brouillon" },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "fermer", hidden: true }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "rouvrir", hidden: true }),
+    );
+
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "titre",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("");
+  });
 });

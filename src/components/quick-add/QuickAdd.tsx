@@ -21,7 +21,7 @@ import {
   useReducedMotion,
 } from "motion/react";
 import { useTranslations } from "next-intl";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import {
   EASE_OUT_EXPO,
@@ -66,6 +66,14 @@ export function QuickAdd({
   // Écouteurs du clavier posés seulement tiroir ouvert (mobile).
   const keyboardInset = useKeyboardInset(open && !desktop);
   const { enter, exit } = paletteDurations(reduced);
+  // Une ouverture = un formulaire neuf : rouvert pendant sa sortie, AnimatePresence rendrait le même tiroir
+  // avec la saisie précédente et l'espace lu à l'ouverture d'avant (pas le filtre courant).
+  const [opening, setOpening] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOpening((n) => n + 1);
+  }
   const current = types.find((type) => type.key === typeKey) ?? types[0];
   const Form = current.Form;
 
@@ -191,6 +199,7 @@ export function QuickAdd({
                     </div>
                   )}
                   <Form
+                    key={opening}
                     scope={scope}
                     initialFocusRef={initialFocusRef}
                     onClose={() => onOpenChange(false)}
