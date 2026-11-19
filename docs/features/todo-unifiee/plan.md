@@ -57,6 +57,7 @@
 - [ ] **8. Actions `tasks.*` au registre** [security]
   - Fichiers : `src/modules/tasks/actions.ts` (10 actions, canaux `web` et `assistant`), `src/modules/actions/registry.ts` (ajout de `tasksActions`), `messages/fr.json`, `messages/en.json` (descriptions des actions, libellés des codes d'erreur)
   - Test à écrire d'abord : `src/modules/tasks/actions.test.ts` — « chaque action valide ses paramètres en `strictObject` » ; « `limit: 500` refusé » ; « schéma de `tasks.update` sans champ `tags` » ; « chaque code d'erreur a un message anglais et une traduction FR/EN » ; `src/modules/actions/isolation.test.ts` étendu — « une action `tasks.*` avec la session de A ne lit ni n'écrit rien de B »
+  - Aussi (spec « chaque refus » porte un message anglais, trou relevé à la review de la tâche 4) : message anglais pour un modèle des codes du registre (`unknown_action`, `invalid_params`, `missing_context`, sans recopier la valeur reçue) dans `src/modules/actions/errors.ts` ; descriptions anglaises de `core.*` réécrites pour un modèle ; jeu de paramètres valides des 10 actions dans `registry.test.ts`
   - Fini quand : tests verts, `toToolDefinitions('assistant')` renvoie les 10 actions
 
 - [ ] **9. Règles d'affichage : sections, sous-tâches, tuiles, raccourcis de date**
