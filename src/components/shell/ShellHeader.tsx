@@ -24,6 +24,8 @@ export async function ShellHeader({ side }: ShellHeaderProps) {
   ]);
 
   return (
+    // Hauteur sur ordinateur reprise par `--header-height` (globals.css) pour placer le panneau du détail
+    // dessous : changer le padding, le bord ou la hauteur de la pilule Privé / Pro, c'est changer ce jeton.
     <header className="flex items-center justify-between gap-3 lg:glass lg:gap-3.5 lg:rounded-tile lg:px-4 lg:py-3">
       <div className="flex min-w-0 items-center gap-3">
         <span className="hidden lg:flex">
