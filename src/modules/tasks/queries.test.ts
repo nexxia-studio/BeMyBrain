@@ -88,6 +88,7 @@ beforeAll(async () => {
     "Fait aujourd'hui",
     "Annulée aujourd'hui",
     "Compteur",
+    "Relance pro jetée",
   ];
   const inserted = await insertTasks(owner, f.workspaceA, f.userA, [
     {
@@ -156,6 +157,11 @@ beforeAll(async () => {
       dueDate: TODAY,
     },
     { side: "private", title: "Compteur" },
+    {
+      side: "pro",
+      title: "Relance pro jetée",
+      deletedAt: "2026-11-18T12:00:00Z",
+    },
   ]);
   ids = Object.fromEntries(titles.map((title, i) => [title, inserted[i]]));
   // Sous-tâches de « Compteur » : ouverte, terminée, annulée, à la corbeille.
@@ -185,6 +191,7 @@ beforeAll(async () => {
     ids["Devis corbeille"],
     ids["Sous-tâche jetée"],
     counterSubtasks[3],
+    ids["Relance pro jetée"],
   ];
   [dueTodayB] = await insertTasks(owner, f.workspaceB, f.userB, [
     { side: "pro", title: "Devis de B du jour", dueDate: TODAY },
@@ -243,6 +250,16 @@ describe("corbeille", () => {
       parentId: t.taskA,
       parentTitle: "Payer la crèche",
     });
+  });
+
+  it("la corbeille montre les tâches des deux côtés, Privé et Pro, sans filtre", async () => {
+    const trash = await db.asUser(f.userA, (tx) =>
+      listTrashedTasks(f.workspaceA, tx),
+    );
+
+    expect(new Set(trash.map((x) => x.side))).toEqual(
+      new Set(["private", "pro"]),
+    );
   });
 });
 

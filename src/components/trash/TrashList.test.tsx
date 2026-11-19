@@ -1,7 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { contextColorClass } from "@/components/tasks/context-chip-class";
 import { TaskTrashRow } from "@/components/tasks/TaskTrashRow";
 import { getUserTimeZone } from "@/modules/core/time-zone";
 
@@ -61,6 +68,34 @@ describe("TrashList", () => {
     expect(screen.getByText("+ 2 sous-tâches")).toBeTruthy();
     expect(screen.getByText("Mise à la corbeille le 18 nov.")).toBeTruthy();
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("les deux côtés ensemble : chaque ligne porte la pastille de côté et celle de son espace, en couleur", () => {
+    renderList([
+      taskItem({
+        title: "Déménager",
+        side: "private",
+        contextName: "Maison",
+        contextColor: "warm",
+      }),
+      taskItem({
+        title: "Relancer le devis",
+        side: "pro",
+        contextName: "Nexxia",
+        contextColor: "indigo",
+      }),
+    ]);
+
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText("Privé")).toBeTruthy();
+    expect(within(rows[1]).getByText("Pro")).toBeTruthy();
+    expect(within(rows[0]).getByText("Maison").className).toContain(
+      contextColorClass.warm,
+    );
+    expect(within(rows[1]).getByText("Nexxia").className).toContain(
+      contextColorClass.indigo,
+    );
   });
 
   it("mise à la corbeille une autre année : l'année est écrite", () => {

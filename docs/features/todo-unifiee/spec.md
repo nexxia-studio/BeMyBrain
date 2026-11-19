@@ -229,6 +229,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 
 ### Corbeille (`/trash`)
 - Corbeille de toute l'app (décision d'Antoine, 2026-11-19) : les tâches en sont le premier type. Chaque module y déclare son type (lecture des éléments à la corbeille, ligne, restauration), comme l'ajout rapide déclare ses formulaires ; aucun autre type en tranche 1. Hors de `/tasks/…`, pour que le détail `/tasks/[id]` s'ouvre par-dessus la liste sans squelette.
+- Les deux côtés ensemble (décision d'Antoine, 2026-11-19) : ni bascule Privé / Pro ni filtre d'espace ; toujours dans l'ordre de mise à la corbeille, la plus récente d'abord. Chaque ligne porte la pastille de côté (Privé / Pro) et la pastille de son espace, dans sa couleur.
 - Accès : lien en bas de la liste et commande de palette, tous deux vers `/trash`. Lignes non cochables, date de mise à la corbeille, bouton « Restaurer » par ligne. Une parente montre « + n sous-tâches ». Vide : « La corbeille est vide ».
 
 ### Tableau de bord

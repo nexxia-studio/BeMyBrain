@@ -8,6 +8,7 @@ import {
   idFromHref,
   listSection,
   quickAddTask,
+  switchSide,
   t,
   taskLink,
   trashTasks,
@@ -109,6 +110,39 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   detail = await openFromList(page, parent);
   await expect(taskLink(detail, kept)).toBeVisible();
   await expect(taskLink(detail, isolated)).toHaveCount(0);
+  expect(violations).toEqual([]);
+});
+
+test("la corbeille montre les deux côtés ensemble, chaque ligne avec sa pastille de côté", async ({
+  page,
+}) => {
+  const violations = await watchCspViolations(page);
+  const privateTitle = uniqueTitle("Rendre les clés");
+  const proTitle = uniqueTitle("Envoyer la facture");
+  await signIn(page);
+  await page.goto("/tasks");
+  await switchSide(page, "private");
+  const privateId = await quickAddTask(page, privateTitle);
+  created.push(privateId);
+  await switchSide(page, "pro");
+  const proId = await quickAddTask(page, proTitle);
+  created.push(proId);
+  await trashTasks(page, [privateId, proId]);
+
+  // Côté Pro affiché : la corbeille montre quand même la tâche Privé.
+  await page.goto("/trash");
+
+  const privateRow = trashRow(page, privateTitle);
+  const proRow = trashRow(page, proTitle);
+  await expect(privateRow).toHaveCount(1);
+  await expect(proRow).toHaveCount(1);
+  await expect(
+    privateRow.getByText(fr.shell.side.private, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    proRow.getByText(fr.shell.side.pro, { exact: true }),
+  ).toBeVisible();
+  await switchSide(page, "private");
   expect(violations).toEqual([]);
 });
 
