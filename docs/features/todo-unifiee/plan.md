@@ -49,7 +49,7 @@
   - Test à écrire d'abord : `src/modules/tasks/mutations.test.ts` — « sous-tâche sans côté ni espace hérite de la parente » ; « changer côté ou espace de la parente suit sur ses sous-tâches, corbeille comprise, en une instruction » ; « sous-tâche de sous-tâche → `subtask_depth` » ; « update d'une sous-tâche avec côté → `subtask_follows_parent` » ; « `addTags` garde l'existant, `removeTags` retire seulement le nom donné, nom dans les deux → refus » ; « `completed_at` posé à `completed`/`canceled`, vidé sinon » ; « cocher la parente ne touche pas les sous-tâches » ; « tâche à la corbeille → `not_found` » ; « espace inconnu → `context_not_found` »
   - Fini quand : tests verts
 
-- [ ] **7. Mutations : corbeille et restauration** [security]
+- [x] **7. Mutations : corbeille et restauration** [security]
   - Fichiers : `src/modules/tasks/mutations.ts` (`moveTaskToTrash`, `restoreTask`)
   - Test à écrire d'abord : `src/modules/tasks/trash.test.ts` — « la parente et ses sous-tâches actives reçoivent le même horodatage » ; « la restauration ne ramène que les sous-tâches de cet horodatage » ; « sous-tâche dont la parente est à la corbeille → `parent_in_trash` »
   - Fini quand : tests verts
