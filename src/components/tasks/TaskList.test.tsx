@@ -35,7 +35,7 @@ function deferred<T>(): Deferred<T> {
 
 function renderList(
   tasks: Task[],
-  { filtered = false, openQuickAdd = vi.fn() } = {},
+  { filtered = false, showContext = true, openQuickAdd = vi.fn() } = {},
 ) {
   render(
     <NextIntlClientProvider
@@ -44,7 +44,13 @@ function renderList(
       timeZone={getUserTimeZone()}
     >
       <OpenQuickAddContext value={openQuickAdd}>
-        <TaskList tasks={tasks} today={TODAY} side="pro" filtered={filtered} />
+        <TaskList
+          tasks={tasks}
+          today={TODAY}
+          side="pro"
+          filtered={filtered}
+          showContext={showContext}
+        />
       </OpenQuickAddContext>
     </NextIntlClientProvider>,
   );
@@ -133,6 +139,20 @@ describe("liste des tâches : sections", () => {
     expect(within(link).getByText("Priorité urgente")).toBeTruthy();
     const due = within(link).getByText("17 nov.");
     expect(due.className).toContain("text-destructive");
+  });
+});
+
+describe("liste des tâches : pastille d'espace", () => {
+  it("absente quand il n'y a rien à distinguer (côté à un seul espace, ou espace filtré)", () => {
+    renderList(
+      [buildTask({ title: "Payer la crèche", contextName: "Privé" })],
+      {
+        showContext: false,
+      },
+    );
+
+    const link = screen.getByRole("link", { name: /Payer la crèche/ });
+    expect(within(link).queryByText("Privé")).toBeNull();
   });
 });
 

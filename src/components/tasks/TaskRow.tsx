@@ -54,7 +54,7 @@ type TaskRowProps = {
   overdue: boolean;
   /** Faux dans « Aujourd'hui » et « Demain » : la section dit déjà le jour. */
   showDate: boolean;
-  /** Faux quand la liste est filtrée sur un espace : la pastille serait la même partout. */
+  /** Faux quand il n'y a rien à distinguer (côté à un seul espace, ou espace filtré). */
   showContext: boolean;
 };
 
@@ -113,7 +113,7 @@ export function TaskRow({
           href={`${TASKS_PATH}/${task.id}`}
           whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.1, ease: "easeOut" }}
-          className="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 text-foreground no-underline hover:text-foreground"
+          className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 py-2.5 text-foreground no-underline hover:text-foreground"
         >
           {/* Contenu saisi : jamais traduit. */}
           <span

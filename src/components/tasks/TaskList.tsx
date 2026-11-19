@@ -33,11 +33,19 @@ type TaskListProps = {
   today: string;
   /** Côté actif : « Voir tous les espaces » retire le filtre de ce côté. */
   side: Side;
-  /** Un espace est filtré : vide filtré, pas de pastille d'espace sur les lignes. */
+  /** Un espace est filtré : état vide filtré (« Rien dans cet espace »). */
   filtered: boolean;
+  /** Pastille d'espace sur les lignes : seulement s'il y a à distinguer (plusieurs espaces, aucun filtré). */
+  showContext: boolean;
 };
 
-export function TaskList({ tasks, today, side, filtered }: TaskListProps) {
+export function TaskList({
+  tasks,
+  today,
+  side,
+  filtered,
+  showContext,
+}: TaskListProps) {
   const t = useTranslations("tasks.list");
   const sections = groupBySection(tasks, today);
 
@@ -110,7 +118,7 @@ export function TaskList({ tasks, today, side, filtered }: TaskListProps) {
                         task={task}
                         overdue={section.key === "overdue"}
                         showDate={!SECTIONS_WITHOUT_DATE.includes(section.key)}
-                        showContext={!filtered}
+                        showContext={showContext}
                       />
                     </motion.li>
                   ))}

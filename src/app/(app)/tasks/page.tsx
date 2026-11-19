@@ -61,6 +61,8 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         today={today}
         side={scope.side}
         filtered={scope.contextId !== null}
+        // Même règle que les tuiles du tableau de bord : un seul espace, ou un espace filtré, rien à nommer.
+        showContext={scope.contextId === null && scope.contexts.length > 1}
       />
       {list.truncated && (
         <p className="text-caption text-foreground">

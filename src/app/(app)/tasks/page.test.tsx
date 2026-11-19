@@ -158,6 +158,36 @@ describe("page /tasks", () => {
     expect(screen.queryByText(/premières tâches/)).toBeNull();
   });
 
+  it("pastille d'espace seulement quand le côté a plusieurs espaces et qu'aucun n'est filtré", async () => {
+    const PERSO = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Perso" };
+    loadCurrentScope.mockResolvedValueOnce({
+      side: "private",
+      contexts: [PERSO],
+      contextId: null,
+    });
+    loadTaskList.mockResolvedValueOnce({
+      tasks: [buildTask({ title: "Payer la crèche", contextName: "Perso" })],
+      truncated: false,
+    });
+    await renderPage();
+    expect(screen.queryByText("Perso")).toBeNull();
+
+    loadCurrentScope.mockResolvedValueOnce({
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      contextId: null,
+    });
+    loadTaskList.mockResolvedValueOnce({
+      tasks: [
+        buildTask({ title: "Relancer le devis", contextName: "Trustup" }),
+      ],
+      truncated: false,
+    });
+    await renderPage();
+
+    expect(screen.getByText("Trustup")).toBeTruthy();
+  });
+
   it("liste tronquée : le dit sous la liste", async () => {
     loadCurrentScope.mockResolvedValue({
       side: "private",
