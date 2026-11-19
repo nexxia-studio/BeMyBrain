@@ -15,6 +15,7 @@ import type { Side } from "@/modules/core/schemas";
 
 import { PillButton } from "./PillButton";
 import { PreferenceStatus } from "./PreferenceStatus";
+import { useShowPreference } from "./shown-preference-context";
 import { useOptimisticPreference } from "./use-optimistic-preference";
 
 type ContextOption = {
@@ -33,11 +34,13 @@ type ContextFilterProps = {
 
 export function ContextFilter({ side, contexts, selected }: ContextFilterProps) {
   const t = useTranslations("shell.contexts");
+  const { showSelection } = useShowPreference();
   const allIds = contexts.map((context) => context.id);
   const { shown, pending, failed, update } = useOptimisticPreference(
     selected,
     (ids: string[]) =>
       setContextSelection(side, ids.length === allIds.length ? null : ids),
+    (ids: string[]) => showSelection(side, ids),
   );
   const all = shown.length === contexts.length;
 

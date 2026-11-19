@@ -4,19 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requireSession = vi.hoisted(() => vi.fn());
 const readSide = vi.hoisted(() => vi.fn());
 const loadContextFilter = vi.hoisted(() => vi.fn());
-const loadCurrentScope = vi.hoisted(() => vi.fn());
+const loadShellScope = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({ requireSession }));
 vi.mock("@/lib/preferences", () => ({ readSide }));
 vi.mock("@/lib/context-filter", () => ({
   loadContextFilter,
-  loadCurrentScope,
+  loadShellScope,
 }));
 const signOut = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/actions", () => ({ signOut }));
 
-import { QuickAddProvider } from "@/components/quick-add/QuickAddProvider";
 import { ContextFilter } from "@/components/shell/ContextFilter";
+import { ShellScopeProvider } from "@/components/shell/ShellScopeProvider";
 import { Sidebar } from "@/components/shell/Sidebar";
 
 import AppLayout from "./layout";
@@ -58,10 +58,12 @@ beforeEach(() => {
   });
   readSide.mockResolvedValue("private");
   loadContextFilter.mockResolvedValue(null);
-  loadCurrentScope.mockResolvedValue({
+  loadShellScope.mockResolvedValue({
     side: "private",
-    contexts: [],
-    contextId: null,
+    sides: {
+      private: { contexts: [], selected: [] },
+      pro: { contexts: [], selected: [] },
+    },
   });
 });
 
@@ -120,17 +122,21 @@ describe("coque : côté et filtre d'espace", () => {
 });
 
 describe("coque : ajout rapide", () => {
-  it("donne à l'ajout rapide le côté et l'espace courants", async () => {
-    const scope = {
+  it("donne à l'ajout rapide et à la palette le côté, et les espaces et le filtre des deux côtés", async () => {
+    const shell = {
       side: "pro",
-      contexts: [TRUSTUP, NEXXIA],
-      contextId: TRUSTUP.id,
+      sides: {
+        private: { contexts: [], selected: [] },
+        pro: { contexts: [TRUSTUP, NEXXIA], selected: [TRUSTUP.id] },
+      },
     };
-    loadCurrentScope.mockResolvedValue(scope);
+    loadShellScope.mockResolvedValue(shell);
 
     const element = await AppLayout({ children: null });
 
-    expect(findElement(element, QuickAddProvider)?.props.scope).toEqual(scope);
+    expect(findElement(element, ShellScopeProvider)?.props.shell).toEqual(
+      shell,
+    );
   });
 });
 
