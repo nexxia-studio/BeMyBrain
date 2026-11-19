@@ -6,7 +6,7 @@
 // `scrim`. Repli : sous 1024 px, tiroir bas (`rounded-tile` en haut, poignée qui ferme en glissant, ressort
 // `bounce: 0.2`, 0,3 s, comme l'ajout rapide) ; à partir de 1024 px, panneau latéral à droite, pleine hauteur
 // dans la marge de page (`opacity` + `x` 24, 0,2 s `ease-out-expo`). Mouvement réduit : fondus de 0,15 s.
-// Fermer : animation de sortie, puis retour à la liste (`closeHref`).
+// Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
 // Contenu, une colonne : parente en lien (sous-tâche), titre, notes, puis lignes de champs (Statut, Priorité,
 // Côté et espace, Échéance, Tags), sous-tâches (pas sur une sous-tâche), pied « Mettre à la corbeille ».
 // Chaque champ appelle `tasks.update` seul (registre, origine `app`) : désactivé pendant l'appel, pas
@@ -69,8 +69,8 @@ type TaskDetailProps = {
   contexts: { id: string; name: string }[];
   /** Jour local `YYYY-MM-DD` (`todayIn(getUserTimeZone(), now)`, calculé par la page). */
   today: string;
-  /** Où revenir en fermant (la liste). */
-  closeHref: string;
+  /** Requête de la liste sous le détail (`?completed=1` ou rien), gardée par la fermeture et les liens. */
+  listQuery: string;
 };
 
 /**
@@ -91,8 +91,9 @@ export function TaskDetail({
   task,
   contexts,
   today,
-  closeHref,
+  listQuery,
 }: TaskDetailProps) {
+  const closeHref = `${TASKS_PATH}${listQuery}`;
   const t = useTranslations("tasks");
   const tSide = useTranslations("shell.side");
   const router = useRouter();
@@ -314,7 +315,7 @@ export function TaskDetail({
                   <div className="flex items-start justify-between gap-3">
                     {subtask ? (
                       <Link
-                        href={`${TASKS_PATH}/${task.parentId}`}
+                        href={`${TASKS_PATH}/${task.parentId}${listQuery}`}
                         className="flex min-h-11 min-w-0 items-center gap-1.5 text-small font-semibold text-link no-underline hover:text-link-hover"
                       >
                         <CornerLeftUp
@@ -535,6 +536,7 @@ export function TaskDetail({
                         subtasks={task.subtasks}
                         counter={subtaskCounter(task)}
                         today={today}
+                        listQuery={listQuery}
                       />
                     </div>
                   )}

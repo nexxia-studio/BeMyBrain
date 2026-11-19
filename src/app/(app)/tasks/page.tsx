@@ -10,15 +10,13 @@ import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { TASKS_PATH, TASKS_TRASH_PATH } from "@/components/shell/nav-items";
 import { CompletedToggle } from "@/components/tasks/CompletedToggle";
+import { COMPLETED_PARAM, listQuery } from "@/components/tasks/list-query";
 import { TaskList } from "@/components/tasks/TaskList";
 import { loadCurrentScope } from "@/lib/context-filter";
 import { requireSessionWithToken } from "@/lib/session";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 import { loadTaskList } from "@/modules/tasks/load";
 import { statusCategories, TASK_LIST_MAX_LIMIT } from "@/modules/tasks/sides";
-
-/** Paramètre d'adresse de l'interrupteur « Terminées ». */
-const COMPLETED_PARAM = "completed";
 
 type TasksPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -63,6 +61,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         filtered={scope.contextId !== null}
         // Même règle que les tuiles du tableau de bord : un seul espace, ou un espace filtré, rien à nommer.
         showContext={scope.contextId === null && scope.contexts.length > 1}
+        listQuery={listQuery(search)}
       />
       {list.truncated && (
         <p className="text-caption text-foreground">

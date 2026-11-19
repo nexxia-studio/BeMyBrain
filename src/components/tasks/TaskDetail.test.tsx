@@ -1,5 +1,6 @@
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -54,7 +55,7 @@ function buildDetail(overrides: Partial<TaskDetailData> = {}): TaskDetailData {
   };
 }
 
-function tree(task: TaskDetailData | null) {
+function tree(task: TaskDetailData | null, listQuery = "") {
   return (
     <NextIntlClientProvider
       locale="fr"
@@ -67,7 +68,7 @@ function tree(task: TaskDetailData | null) {
             task={task}
             contexts={[TRUSTUP, NEXXIA]}
             today={TODAY}
-            closeHref="/tasks"
+            listQuery={listQuery}
           />
         )}
       </TaskTrashProvider>
@@ -75,8 +76,8 @@ function tree(task: TaskDetailData | null) {
   );
 }
 
-function renderDetail(task: TaskDetailData = buildDetail()) {
-  const { rerender } = render(tree(task));
+function renderDetail(task: TaskDetailData = buildDetail(), listQuery = "") {
+  const { rerender } = render(tree(task, listQuery));
   return Object.assign(task, {
     /** Navigation vers la liste (router.push simulé) : le détail quitte la page, le layout reste. */
     leave: () => rerender(tree(null)),
@@ -201,6 +202,25 @@ describe("détail : chaque champ appelle tasks.update", () => {
         taskId: task.id,
         statusCategory: "started",
       }),
+    );
+  });
+
+  it("statut : pastille désactivée pendant l'appel, réactivée après", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "En cours" }),
+    );
+
+    await waitFor(() =>
+      expect((chip(/^Statut :/) as HTMLButtonElement).disabled).toBe(true),
+    );
+    call.resolve({ ok: true, result: null });
+    await waitFor(() =>
+      expect((chip(/^Statut :/) as HTMLButtonElement).disabled).toBe(false),
     );
   });
 
@@ -419,7 +439,9 @@ describe("détail : corbeille", () => {
     pathname.current = "/tasks/en-cours";
     const task = renderDetail();
 
-    fireEvent.click(screen.getByRole("button", { name: "Mettre à la corbeille" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
     await waitFor(() =>
       expect(paramsOf("tasks.moveToTrash")).toEqual({ taskId: task.id }),
     );
@@ -454,5 +476,38 @@ describe("détail : corbeille", () => {
       await screen.findByText("Tâche non mise à la corbeille. Réessaie."),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Annuler" })).toBeNull();
+  });
+});
+
+describe("détail : terminées affichées (?completed=1) gardé", () => {
+  const COMPLETED = "?completed=1";
+
+  it("corbeille : retour à la liste avec les terminées", () => {
+    renderDetail(buildDetail(), COMPLETED);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(push).toHaveBeenCalledWith("/tasks?completed=1", { scroll: false });
+  });
+
+  it("lien vers une sous-tâche et vers la parente : requête gardée", () => {
+    const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+    const subtask = buildTask({ title: "Préparer le devis" });
+    renderDetail(buildDetail({ subtasks: [subtask] }), COMPLETED);
+
+    expect(
+      screen
+        .getByRole("link", { name: /Préparer le devis/ })
+        .getAttribute("href"),
+    ).toBe(`/tasks/${subtask.id}${COMPLETED}`);
+
+    cleanup();
+    renderDetail(buildDetail({ parentId, parentTitle: "Parente" }), COMPLETED);
+
+    expect(
+      screen.getByRole("link", { name: /Parente/ }).getAttribute("href"),
+    ).toBe(`/tasks/${parentId}${COMPLETED}`);
   });
 });

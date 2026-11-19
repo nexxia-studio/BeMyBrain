@@ -37,6 +37,8 @@ type TaskListProps = {
   filtered: boolean;
   /** Pastille d'espace sur les lignes : seulement s'il y a à distinguer (plusieurs espaces, aucun filtré). */
   showContext: boolean;
+  /** Requête de la liste gardée par le lien du détail (`?completed=1` ou rien). */
+  listQuery: string;
 };
 
 export function TaskList({
@@ -45,6 +47,7 @@ export function TaskList({
   side,
   filtered,
   showContext,
+  listQuery,
 }: TaskListProps) {
   const t = useTranslations("tasks.list");
   const sections = groupBySection(tasks, today);
@@ -119,6 +122,7 @@ export function TaskList({
                         overdue={section.key === "overdue"}
                         showDate={!SECTIONS_WITHOUT_DATE.includes(section.key)}
                         showContext={showContext}
+                        listQuery={listQuery}
                       />
                     </motion.li>
                   ))}

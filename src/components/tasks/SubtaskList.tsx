@@ -31,6 +31,8 @@ type SubtaskListProps = {
   counter: string | null;
   /** Jour local `YYYY-MM-DD` : échéance passée en braise. */
   today: string;
+  /** Requête de la liste gardée par les liens (`?completed=1` ou rien). */
+  listQuery: string;
 };
 
 export function SubtaskList({
@@ -38,6 +40,7 @@ export function SubtaskList({
   subtasks,
   counter,
   today,
+  listQuery,
 }: SubtaskListProps) {
   const t = useTranslations("tasks");
   const headingId = useId();
@@ -97,6 +100,7 @@ export function SubtaskList({
                   overdue={isOverdue(subtask, today)}
                   showDate
                   showContext={false}
+                  listQuery={listQuery}
                   className="border border-border bg-transparent has-[a:hover]:bg-pill-track"
                 />
               </motion.li>

@@ -58,6 +58,8 @@ type TaskRowProps = {
   showDate: boolean;
   /** Faux quand il n'y a rien à distinguer (côté à un seul espace, ou espace filtré). */
   showContext: boolean;
+  /** Requête de la liste à garder dans le lien du détail (`?completed=1` ou rien, `listQuery`). */
+  listQuery?: string;
   /** Surface propre à un emplacement (ex. ligne posée sur le `popover` opaque du détail). */
   className?: string;
 };
@@ -67,6 +69,7 @@ export function TaskRow({
   overdue,
   showDate,
   showContext,
+  listQuery = "",
   className,
 }: TaskRowProps) {
   const t = useTranslations("tasks");
@@ -130,7 +133,7 @@ export function TaskRow({
           </span>
         </label>
         <MotionLink
-          href={`${TASKS_PATH}/${task.id}`}
+          href={`${TASKS_PATH}/${task.id}${listQuery}`}
           whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.1, ease: "easeOut" }}
           className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 py-2.5 text-foreground no-underline hover:text-foreground"

@@ -36,13 +36,17 @@ const TOKEN = "jeton";
 const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
 
 function detail(overrides = {}) {
-  return { ...buildTask({ side: "pro", ...overrides }), notes: null, subtasks: [] };
+  return {
+    ...buildTask({ side: "pro", ...overrides }),
+    notes: null,
+    subtasks: [],
+  };
 }
 
-async function renderPage(id: string) {
+async function renderPage(id: string, search: Record<string, string> = {}) {
   const element = await TaskPage({
     params: Promise.resolve({ id }),
-    searchParams: Promise.resolve({}),
+    searchParams: Promise.resolve(search),
   });
   return render(
     <NextIntlClientProvider
@@ -75,15 +79,30 @@ describe("page /tasks/[id]", () => {
     await renderPage(task.id);
 
     expect(loadTask).toHaveBeenCalledWith(TOKEN, SESSION.workspaceId, task.id);
-    expect(loadContexts).toHaveBeenCalledWith(TOKEN, SESSION.workspaceId, "pro");
+    expect(loadContexts).toHaveBeenCalledWith(
+      TOKEN,
+      SESSION.workspaceId,
+      "pro",
+    );
     expect(TaskDetail).toHaveBeenCalledWith({
       task,
       contexts: [TRUSTUP],
       today: "2026-11-19",
-      closeHref: "/tasks",
+      listQuery: "",
     });
     expect(screen.getByText("liste")).toBeTruthy();
     expect(screen.getByText("détail")).toBeTruthy();
+  });
+
+  it("terminées affichées : la requête de la liste passe au détail", async () => {
+    const task = detail();
+    loadTask.mockResolvedValue(task);
+
+    await renderPage(task.id, { completed: "1" });
+
+    expect(TaskDetail).toHaveBeenCalledWith(
+      expect.objectContaining({ listQuery: "?completed=1" }),
+    );
   });
 
   it("sous-tâche : espaces non lus (côté et espace suivent la parente)", async () => {

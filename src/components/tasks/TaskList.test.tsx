@@ -35,7 +35,12 @@ function deferred<T>(): Deferred<T> {
 
 function renderList(
   tasks: Task[],
-  { filtered = false, showContext = true, openQuickAdd = vi.fn() } = {},
+  {
+    filtered = false,
+    showContext = true,
+    openQuickAdd = vi.fn(),
+    listQuery = "",
+  } = {},
 ) {
   render(
     <NextIntlClientProvider
@@ -50,6 +55,7 @@ function renderList(
           side="pro"
           filtered={filtered}
           showContext={showContext}
+          listQuery={listQuery}
         />
       </OpenQuickAddContext>
     </NextIntlClientProvider>,
@@ -291,5 +297,18 @@ describe("liste des tâches : états vides", () => {
     await waitFor(() =>
       expect(setContextSelection).toHaveBeenCalledWith("pro", null),
     );
+  });
+});
+
+describe("liste des tâches : lien vers le détail", () => {
+  it("terminées affichées : le lien de la ligne garde ?completed=1", () => {
+    const task = buildTask({ title: "Relancer le devis" });
+    renderList([task], { listQuery: "?completed=1" });
+
+    expect(
+      screen
+        .getByRole("link", { name: /Relancer le devis/ })
+        .getAttribute("href"),
+    ).toBe(`/tasks/${task.id}?completed=1`);
   });
 });
