@@ -3,7 +3,9 @@
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Pastille Espace de l'ajout rapide : menu « Aucun » puis les espaces du côté actif (Menu de Base UI :
 // clavier, Échap, focus rendu à la pastille). Même motif que le filtre d'espace mobile (ContextFilterMenu).
-// raccourci: pastille neutre pour tous les espaces — la couleur par espace (DESIGN.md § 2 : neutre, chaude, indigo) n'existe pas encore en base ; à brancher quand les espaces deviendront configurables.
+// Pas de couleur par espace : la base n'en stocke aucune (DESIGN.md § 2 prévoit neutre, chaude ou indigo par espace),
+// en attente d'une décision d'Antoine ; la pastille garde le style des autres.
+// raccourci: aucune couleur par espace — à brancher quand Antoine aura tranché où elle se stocke (colonne de `contexts`, choix parmi les trois `chip-*`).
 import { Menu } from "@base-ui/react/menu";
 import { Check, Shapes } from "lucide-react";
 import { motion } from "motion/react";

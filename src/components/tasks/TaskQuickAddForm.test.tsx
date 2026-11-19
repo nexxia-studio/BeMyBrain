@@ -270,6 +270,34 @@ describe("ajout rapide : formulaire tâche", () => {
     expect(initialFocusRef.current).toBe(title());
   });
 
+  it("après un succès, les tags sont relus : un tag créé à l'ajout précédent n'est plus proposé en Créer", async () => {
+    const known = [{ id: "t1", name: "client" }];
+    runAppAction.mockImplementation(
+      async (name: string, params: { tags?: string[] }) => {
+        if (name === "tasks.listTags") return { ok: true, result: [...known] };
+        for (const tag of params.tags ?? [])
+          known.push({ id: `t${known.length + 1}`, name: tag });
+        return { ok: true, result: { id: TASK_ID } };
+      },
+    );
+    renderForm();
+    typeTitle("Relancer le devis");
+    let search = await openTags();
+    fireEvent.change(search, { target: { value: "devis" } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Créer « devis »" }),
+    );
+    fireEvent.keyDown(search, { key: "Escape" });
+    fireEvent.click(submit());
+    await screen.findByRole("link", { name: "Ouvrir" });
+
+    search = await openTags();
+    fireEvent.change(search, { target: { value: "devis" } });
+
+    expect(await screen.findByRole("button", { name: "devis" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Créer/ })).toBeNull();
+  });
+
   it("lien Ouvrir : ferme l'ajout rapide", async () => {
     const { onClose } = renderForm();
     typeTitle("Relancer le devis");

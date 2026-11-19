@@ -63,7 +63,8 @@ export function QuickAdd({
   const desktop = useMediaQuery(DESKTOP);
   const dragControls = useDragControls();
   const initialFocusRef = useRef<HTMLInputElement | null>(null);
-  const keyboardInset = useKeyboardInset();
+  // Écouteurs du clavier posés seulement tiroir ouvert (mobile).
+  const keyboardInset = useKeyboardInset(open && !desktop);
   const { enter, exit } = paletteDurations(reduced);
   const current = types.find((type) => type.key === typeKey) ?? types[0];
   const Form = current.Form;
@@ -125,7 +126,7 @@ export function QuickAdd({
             <Dialog.Viewport
               data-testid="quick-add-viewport"
               // Hauteur du clavier iOS (0 sinon) : le tiroir reste au-dessus, le bouton Ajouter visible.
-              style={{ paddingBottom: desktop ? undefined : keyboardInset }}
+              style={{ paddingBottom: keyboardInset || undefined }}
               className="fixed inset-0 z-(--z-dialog) flex items-end justify-center lg:items-start lg:px-page lg:pt-28"
             >
               <Dialog.Popup

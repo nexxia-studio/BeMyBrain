@@ -58,7 +58,8 @@ export function TaskQuickAddForm({
   const [due, setDue] = useState<DueDate>(NO_DUE);
   const [tags, setTags] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
-  // Remonte la pastille Date après un succès (repart sans champ d'heure ouvert).
+  // Remonte les pastilles Date et Tags après un succès : sans champ d'heure ouvert, tags relus (ceux créés
+  // par l'ajout précédent existent désormais en base).
   const [round, setRound] = useState(0);
 
   const context = scope.contexts.find((option) => option.id === contextId);
@@ -128,13 +129,13 @@ export function TaskQuickAddForm({
             />
           )}
           <DueDateChip
-            key={round}
+            key={`date-${round}`}
             today={todayIn(getUserTimeZone(), new Date())}
             value={due}
             onChange={setDue}
             disabled={pending}
           />
-          <TagsChip value={tags} onChange={setTags} disabled={pending} />
+          <TagsChip key={`tags-${round}`} value={tags} onChange={setTags} disabled={pending} />
         </div>
         <motion.button
           type="submit"

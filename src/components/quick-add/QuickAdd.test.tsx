@@ -8,7 +8,10 @@ import {
 } from "@testing-library/react";
 import { Plus, Receipt } from "lucide-react";
 import { NextIntlClientProvider } from "next-intl";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { TaskQuickAddForm } from "@/components/tasks/TaskQuickAddForm";
 
 import fr from "../../../messages/fr.json";
 import { QuickAdd } from "./QuickAdd";
@@ -17,6 +20,9 @@ import type {
   QuickAddScope,
   QuickAddType,
 } from "./quick-add-types";
+
+const runAppAction = vi.hoisted(() => vi.fn());
+vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
 // Deuxième type factice (dépense) : ses libellés n'existent pas encore dans messages/*.json.
 const messages = {
@@ -202,5 +208,78 @@ describe("ajout rapide : formulaire et clavier", () => {
     expect(
       screen.getByTestId("quick-add-viewport").style.paddingBottom,
     ).toBe("320px");
+  });
+});
+
+describe("ajout rapide : popups des pastilles dans le tiroir", () => {
+  const REAL_TASK: QuickAddType = { ...TASK, Form: TaskQuickAddForm };
+
+  function OpenQuickAdd() {
+    const [open, setOpen] = useState(true);
+    return (
+      <QuickAdd
+        open={open}
+        onOpenChange={setOpen}
+        types={[REAL_TASK]}
+        typeKey="task"
+        onTypeChange={vi.fn()}
+        scope={SCOPE}
+      />
+    );
+  }
+
+  function renderOpen() {
+    runAppAction.mockResolvedValue({ ok: true, result: [] });
+    render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <OpenQuickAdd />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Tâche" }), {
+      target: { value: "Relancer le devis" },
+    });
+  }
+
+  it("Échap dans la recherche de tags ferme seulement la popup : tiroir ouvert, titre gardé", async () => {
+    renderOpen();
+    fireEvent.click(screen.getByRole("button", { name: /^Tags :/ }));
+    const search = await screen.findByRole("textbox", {
+      name: "Chercher ou créer un tag",
+    });
+    fireEvent.change(search, { target: { value: "dev" } });
+
+    fireEvent.keyDown(search, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("textbox", { name: "Chercher ou créer un tag" }),
+      ).toBeNull(),
+    );
+    expect(screen.getByRole("dialog", { name: "Ajouter une tâche" })).toBeTruthy();
+    expect(
+      (screen.getByRole("textbox", { name: "Tâche" }) as HTMLInputElement)
+        .value,
+    ).toBe("Relancer le devis");
+  });
+
+  it("un choix dans le menu Espace ferme seulement le menu : tiroir ouvert, titre gardé", async () => {
+    renderOpen();
+    fireEvent.click(screen.getByRole("button", { name: /^Espace :/ }));
+
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Trustup" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(screen.getByRole("dialog", { name: "Ajouter une tâche" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /^Espace :/ }).getAttribute(
+        "aria-label",
+      ),
+    ).toBe("Espace : Trustup");
+    expect(
+      (screen.getByRole("textbox", { name: "Tâche" }) as HTMLInputElement)
+        .value,
+    ).toBe("Relancer le devis");
   });
 });

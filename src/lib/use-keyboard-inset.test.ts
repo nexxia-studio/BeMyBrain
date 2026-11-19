@@ -40,14 +40,14 @@ afterEach(() => {
 
 describe("useKeyboardInset (tiroir au-dessus du clavier)", () => {
   it("sans visualViewport : aucun décalage", () => {
-    const { result } = renderHook(() => useKeyboardInset());
+    const { result } = renderHook(() => useKeyboardInset(true));
 
     expect(result.current).toBe(0);
   });
 
   it("clavier ouvert : hauteur masquée sous la zone visible", () => {
     const viewport = fakeVisualViewport(window.innerHeight);
-    const { result } = renderHook(() => useKeyboardInset());
+    const { result } = renderHook(() => useKeyboardInset(true));
 
     act(() => {
       viewport.height = window.innerHeight - 300;
@@ -59,7 +59,7 @@ describe("useKeyboardInset (tiroir au-dessus du clavier)", () => {
 
   it("zone visible défilée (iOS) : le décalage en tient compte", () => {
     const viewport = fakeVisualViewport(window.innerHeight);
-    const { result } = renderHook(() => useKeyboardInset());
+    const { result } = renderHook(() => useKeyboardInset(true));
 
     act(() => {
       viewport.height = window.innerHeight - 300;
@@ -73,14 +73,23 @@ describe("useKeyboardInset (tiroir au-dessus du clavier)", () => {
   it("jamais négatif (zone visible plus haute que la page)", () => {
     fakeVisualViewport(window.innerHeight + 40);
 
-    const { result } = renderHook(() => useKeyboardInset());
+    const { result } = renderHook(() => useKeyboardInset(true));
 
     expect(result.current).toBe(0);
   });
 
+  it("inactif (tiroir fermé) : n'écoute pas et ne décale rien", () => {
+    const viewport = fakeVisualViewport(window.innerHeight - 300);
+
+    const { result } = renderHook(() => useKeyboardInset(false));
+
+    expect(result.current).toBe(0);
+    expect(viewport.listenerCount()).toBe(0);
+  });
+
   it("se désabonne au démontage", () => {
     const viewport = fakeVisualViewport(window.innerHeight);
-    const { unmount } = renderHook(() => useKeyboardInset());
+    const { unmount } = renderHook(() => useKeyboardInset(true));
 
     unmount();
 

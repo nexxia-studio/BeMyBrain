@@ -27,7 +27,17 @@ function snapshot(): number {
   );
 }
 
-/** Hauteur (px) cachée sous la zone visible, clavier compris ; 0 au rendu serveur et sans `visualViewport`. */
-export function useKeyboardInset(): number {
-  return useSyncExternalStore(subscribe, snapshot, () => 0);
+const idle = () => () => {};
+const zero = () => 0;
+
+/**
+ * Hauteur (px) cachée sous la zone visible, clavier compris ; 0 au rendu serveur, sans `visualViewport` et
+ * quand `active` est faux (tiroir fermé : aucun écouteur posé).
+ */
+export function useKeyboardInset(active: boolean): number {
+  return useSyncExternalStore(
+    active ? subscribe : idle,
+    active ? snapshot : zero,
+    zero,
+  );
 }

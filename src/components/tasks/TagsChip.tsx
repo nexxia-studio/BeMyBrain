@@ -2,15 +2,15 @@
 
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Pastille Tags de l'ajout rapide (Popover de Base UI : clavier, Échap, focus rendu à la pastille).
-// Champ de recherche, tags du workspace filtrés en tapant (boutons `aria-pressed`, plusieurs à la fois),
+// Champ de recherche (libellé visible), tags du workspace filtrés en tapant (boutons `aria-pressed`, plusieurs à la fois),
 // « Créer « … » » quand le nom n'existe pas (sans casse : `findTagName`). Entrée choisit le tag tapé.
-// Tags lus à la première ouverture (`tasks.listTags`, une fois par ouverture de l'ajout rapide) : un ajout
-// sans tag ne coûte aucune lecture. Lecture en échec : message, la création reste possible.
+// Tags lus à la première ouverture de la pastille (`tasks.listTags`), relus après chaque ajout réussi (le
+// formulaire remonte la pastille) : un ajout sans tag ne coûte aucune lecture. Lecture en échec : message, la création reste possible.
 import { Popover } from "@base-ui/react/popover";
 import { Check, Plus, Tag } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
 import { settleAction } from "@/lib/settle-action";
@@ -55,6 +55,7 @@ export function TagsChip({ value, onChange, disabled }: TagsChipProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [known, setKnown] = useState<Known>({ state: "idle" });
+  const searchId = useId();
 
   const loaded = known.state === "loaded" ? known.names : [];
   // Tags du workspace, plus ceux créés dans cet ajout rapide (pas encore en base).
@@ -126,11 +127,13 @@ export function TagsChip({ value, onChange, disabled }: TagsChipProps) {
           className={chipPositionerClass}
         >
           <Popover.Popup className={cn(chipPopupClass, "w-72 max-w-dvw")}>
-            <div className="p-1">
+            <div className="flex flex-col gap-1.5 px-3 pt-2 pb-1">
+              <label htmlFor={searchId} className="text-small font-medium">
+                {t("search")}
+              </label>
               <input
+                id={searchId}
                 type="text"
-                aria-label={t("search")}
-                placeholder={t("search")}
                 value={query}
                 maxLength={TAG_NAME_MAX}
                 autoComplete="off"
@@ -141,7 +144,7 @@ export function TagsChip({ value, onChange, disabled }: TagsChipProps) {
                   event.preventDefault();
                   chooseTyped();
                 }}
-                className="min-h-11 w-full rounded-lg border border-input bg-row px-3 text-base text-foreground placeholder:text-muted-foreground"
+                className="min-h-11 w-full rounded-lg border border-input bg-row px-3 text-base text-foreground"
               />
             </div>
             {known.state === "loading" && (
