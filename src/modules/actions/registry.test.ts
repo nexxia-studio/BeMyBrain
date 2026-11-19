@@ -28,9 +28,18 @@ const CTX: ActionContext = {
   tx,
 };
 
-// Descriptions pour un modèle : traduction anglaise de la clé, texte à langue fixe (createTranslator).
+// Référence : traduction anglaise de la clé par next-intl, texte à langue fixe (createTranslator).
 const t = createTranslator({ locale: "en", messages: en });
-const describeInEnglish = (key: string) => t(key as Parameters<typeof t>[0]);
+const translateInEnglish = (key: string) => t(key as Parameters<typeof t>[0]);
+
+/**
+ * Un jeu de paramètres valides par action du registre, pour vérifier la rigueur des JSON Schema.
+ * Une action ajoutée au registre sans entrée ici fait échouer le test (tâche 8 : actions tasks.*).
+ */
+const VALID_PARAMS: Record<string, Record<string, unknown>> = {
+  "core.listContexts": { side: "pro" },
+  "core.setLocale": { locale: "en" },
+};
 
 function fakeAction(
   name: string,
@@ -285,8 +294,20 @@ function propertyKeys(schema: unknown): string[] {
 }
 
 describe("registre d'actions : définitions d'outils pour un modèle", () => {
+  it("par défaut, la description est la traduction anglaise réelle : ni la clé, ni le français", () => {
+    const tools = toToolDefinitions("assistant");
+
+    expect(tools.length).toBeGreaterThan(0);
+    for (const tool of tools) {
+      const key = registry.get(tool.name)!.description;
+      expect(tool.description, tool.name).toBe(translateInEnglish(key));
+      expect(tool.description, tool.name).not.toBe(key);
+      expect(tool.description, tool.name).not.toBe(messageAt(fr, key));
+    }
+  });
+
   it("toToolDefinitions('assistant') : nom, description anglaise en clair, JSON Schema des paramètres", () => {
-    const tools = toToolDefinitions("assistant", describeInEnglish);
+    const tools = toToolDefinitions("assistant");
 
     expect(tools.map((tool) => tool.name).sort()).toEqual(
       [...registry.values()]
@@ -318,25 +339,45 @@ describe("registre d'actions : définitions d'outils pour un modèle", () => {
     }
   });
 
-  it("chaque JSON Schema est valide : relu par zod, il accepte et refuse comme le schéma de l'action", () => {
-    for (const tool of toToolDefinitions("assistant", describeInEnglish)) {
-      const reread = z.fromJSONSchema(tool.inputSchema);
-      expect(reread, tool.name).toBeInstanceOf(z.ZodType);
-      expect(reread.safeParse({ unexpected: 1 }).success, tool.name).toBe(
-        false,
-      );
+  it("chaque action du registre a un jeu de paramètres valides, accepté par son schéma", () => {
+    for (const action of registry.values()) {
+      const valid = VALID_PARAMS[action.name];
+      expect(
+        valid,
+        `${action.name} : entrée manquante dans VALID_PARAMS`,
+      ).toBeDefined();
+      expect(action.params.safeParse(valid).success, action.name).toBe(true);
     }
-    const [setLocale] = toToolDefinitions(
-      "assistant",
-      describeInEnglish,
-    ).filter((tool) => tool.name === "core.setLocale");
+  });
+
+  it("chaque JSON Schema est valide et strict : relu par zod, il accepte les paramètres valides et refuse une clé en trop", () => {
+    for (const channel of ["web", "assistant"] as const) {
+      for (const tool of toToolDefinitions(channel)) {
+        const valid = VALID_PARAMS[tool.name];
+        expect(
+          valid,
+          `${tool.name} : entrée manquante dans VALID_PARAMS`,
+        ).toBeDefined();
+        const reread = z.fromJSONSchema(tool.inputSchema);
+
+        expect(reread.safeParse(valid).success, tool.name).toBe(true);
+        for (const extra of ["unexpected", "workspaceId", "userId", "origin"]) {
+          expect(
+            reread.safeParse({ ...valid, [extra]: "x" }).success,
+            `${tool.name} + ${extra}`,
+          ).toBe(false);
+        }
+      }
+    }
+    const setLocale = toToolDefinitions("assistant").find(
+      (tool) => tool.name === "core.setLocale",
+    );
     const reread = z.fromJSONSchema(setLocale!.inputSchema);
-    expect(reread.safeParse({ locale: "en" }).success).toBe(true);
     expect(reread.safeParse({ locale: "de" }).success).toBe(false);
   });
 
   it("chaque champ des paramètres porte une description pour le modèle", () => {
-    for (const tool of toToolDefinitions("assistant", describeInEnglish)) {
+    for (const tool of toToolDefinitions("assistant")) {
       const properties = (tool.inputSchema.properties ?? {}) as Record<
         string,
         { description?: unknown }
@@ -351,7 +392,7 @@ describe("registre d'actions : définitions d'outils pour un modèle", () => {
 
   it("aucun schéma n'expose workspaceId, userId ni origin, à aucune profondeur", () => {
     for (const channel of ["web", "assistant"] as const) {
-      for (const tool of toToolDefinitions(channel, describeInEnglish)) {
+      for (const tool of toToolDefinitions(channel)) {
         const keys = propertyKeys(tool.inputSchema);
         for (const reserved of ["workspaceId", "userId", "origin"]) {
           expect(keys, `${tool.name} : ${reserved}`).not.toContain(reserved);
@@ -368,9 +409,10 @@ describe("registre d'actions : définitions d'outils pour un modèle", () => {
     ]);
     const actions = createRegistry([web.action, both.action]);
 
-    const names = toToolDefinitions("assistant", (key) => key, actions).map(
-      (tool) => tool.name,
-    );
+    const names = toToolDefinitions("assistant", {
+      actions,
+      describe: (key) => key,
+    }).map((tool) => tool.name);
 
     expect(names).toEqual(["test.both"]);
   });

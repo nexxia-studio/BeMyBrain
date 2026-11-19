@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { coreActions } from "@/modules/core/actions";
 
+import en from "../../../messages/en.json";
+
 import { ActionError } from "./errors";
 import {
   actionOrigins,
@@ -82,16 +84,42 @@ export async function invokeAction(
 }
 
 /**
+ * Traduction anglaise d'une clé `description` (`messages/en.json`), texte à langue fixe pour un modèle.
+ * Lecture directe du JSON plutôt que `createTranslator` : l'entrée de next-intl importe React, que le
+ * registre ne doit pas charger (ADR-009). Même texte tant que la description n'utilise aucune syntaxe ICU
+ * (accolades, apostrophe d'échappement) : vérifié contre `createTranslator` par registry.test.ts.
+ * Clé absente → erreur de déclaration (la parité FR/EN est verrouillée par registry.test.ts).
+ */
+function describeInEnglish(key: string): string {
+  const value = key
+    .split(".")
+    .reduce<unknown>(
+      (node, part) =>
+        node && typeof node === "object" && Object.hasOwn(node, part)
+          ? (node as Record<string, unknown>)[part]
+          : undefined,
+      en,
+    );
+  if (typeof value !== "string")
+    throw new Error(`Description d'action sans traduction anglaise : ${key}`);
+  return value;
+}
+
+/**
  * Définitions d'outils des actions qui déclarent `channel`, pour un modèle (assistant IA, connecteur MCP) :
- * nom, description en clair et JSON Schema des paramètres d'entrée. `describe` traduit la clé `description`
- * (l'appelant passe la traduction anglaise, `createTranslator` de next-intl) : le registre reste sans
- * dépendance à l'i18n (ADR-009). Le schéma ne décrit que `params` : workspace, utilisateur et origine
- * viennent du contexte serveur, jamais du modèle. Un schéma non représentable en JSON Schema lève une erreur.
+ * nom, description anglaise en clair et JSON Schema des paramètres d'entrée. Le schéma ne décrit que
+ * `params` : workspace, utilisateur et origine viennent du contexte serveur, jamais du modèle. Un schéma
+ * non représentable en JSON Schema lève une erreur. `actions` et `describe` ne servent qu'aux tests.
  */
 export function toToolDefinitions(
   channel: ActionChannel,
-  describe: (key: string) => string,
-  actions: ActionRegistry = registry,
+  {
+    actions = registry,
+    describe = describeInEnglish,
+  }: {
+    actions?: ActionRegistry;
+    describe?: (key: string) => string;
+  } = {},
 ): ToolDefinition[] {
   return [...actions.values()]
     .filter((action) => action.channels.includes(channel))
