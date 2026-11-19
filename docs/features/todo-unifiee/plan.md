@@ -60,7 +60,7 @@
   - Aussi (spec « chaque refus » porte un message anglais, trou relevé à la review de la tâche 4) : message anglais pour un modèle des codes du registre (`unknown_action`, `invalid_params`, `missing_context`, sans recopier la valeur reçue) dans `src/modules/actions/errors.ts` ; descriptions anglaises de `core.*` réécrites pour un modèle ; jeu de paramètres valides des 10 actions dans `registry.test.ts` ; test qui fige la liste exacte des actions `write` exposées au canal `assistant` (liste blanche explicite, ADR-009) ; `tasks.list` filtre l'espace par son nom (`context`), résolu dans le workspace, refus `context_not_found`, aucun `contextId` exposé (spec « Identifiants ») ; un seul code de refus de paramètres : `invalid_input` du module `core` renommé `invalid_params`
   - Fini quand : tests verts, `toToolDefinitions('assistant')` renvoie les 10 actions
 
-- [ ] **9. Règles d'affichage : sections, sous-tâches, tuiles, raccourcis de date**
+- [x] **9. Règles d'affichage : sections, sous-tâches, tuiles, raccourcis de date**
   - Fichiers : `src/modules/tasks/view.ts` (fonctions pures : `groupBySection(tasks, today)`, `todayTileItems`, `sideTileItems`, `subtaskCounter`, `dateShortcuts(today)`)
   - Test à écrire d'abord : `src/modules/tasks/view.test.ts` — « sous-tâche sans échéance absente, avec échéance dans sa section avec titre de parente » ; « en retard / aujourd'hui / demain / plus tard / sans échéance » ; « tuile Aujourd'hui : 3 premières, des deux côtés, compteurs » ; « ce week-end un samedi = aujourd'hui »
   - Fini quand : tests verts, aucun import de React ni de Next
