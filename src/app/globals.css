@@ -145,6 +145,7 @@
   --spacing-page-top: var(--page-top);
   --spacing-tabbar-offset: var(--tabbar-offset);
   --spacing-tabbar-reserve: var(--tabbar-reserve);
+  --spacing-detail-top: var(--detail-top);
   --color-pill-active: var(--pill-active);
 }
 
@@ -253,6 +254,10 @@
   --tabbar-height: 74px;
   --tabbar-offset: max(26px, calc(var(--safe-bottom) + 8px));
   --tabbar-reserve: calc(var(--tabbar-height) + var(--tabbar-offset) + 16px);
+  /* En-tête de la coque sur ordinateur (verre) : bascule Privé / Pro 52 + padding 2 × 12 + bord 2 × 1 = 78 px.
+     Le panneau du détail démarre dessous, à l'écart de la grille (ne recouvre ni ⌘K ni « + »). */
+  --header-height: 78px;
+  --detail-top: calc(var(--page-top) + var(--header-height) + var(--space-grid));
 
   /* Calques. */
   --z-halo: -1;

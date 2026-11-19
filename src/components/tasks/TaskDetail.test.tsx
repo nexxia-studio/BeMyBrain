@@ -530,3 +530,38 @@ describe("détail : terminées affichées (?completed=1) gardé", () => {
     ).toBe(`/tasks/${parentId}${COMPLETED}`);
   });
 });
+
+describe("détail : mise en page", () => {
+  it("sans parente : la croix de fermeture est dans la rangée du libellé « Titre »", () => {
+    renderDetail();
+
+    const close = screen.getByRole("button", { name: "Fermer" });
+    const row = close.parentElement!;
+
+    expect(within(row).getByText("Titre", { selector: "label" })).toBeTruthy();
+  });
+
+  it("sous-tâche : la croix reste à côté du lien vers la parente", () => {
+    renderDetail(
+      buildDetail({
+        parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+        parentTitle: "Relancer le devis",
+      }),
+    );
+
+    const row = screen.getByRole("button", { name: "Fermer" }).parentElement!;
+
+    expect(
+      within(row).getByRole("link", { name: /Relancer le devis/ }),
+    ).toBeTruthy();
+    expect(within(row).queryByText("Titre", { selector: "label" })).toBeNull();
+  });
+
+  it("sur ordinateur, le panneau démarre sous l'en-tête de la coque", () => {
+    renderDetail();
+
+    const viewport = screen.getByRole("dialog").parentElement!;
+
+    expect(viewport.className.split(/\s+/)).toContain("lg:pt-detail-top");
+  });
+});

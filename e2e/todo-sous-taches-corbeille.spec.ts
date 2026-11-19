@@ -111,3 +111,23 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   await expect(taskLink(detail, isolated)).toHaveCount(0);
   expect(violations).toEqual([]);
 });
+
+test("@desktop le panneau du détail démarre sous l'en-tête et « Ajouter une sous-tâche » s'atteint par défilement", async ({
+  page,
+}) => {
+  const parent = uniqueTitle("Panneau sous l'en-tête");
+  await signIn(page);
+  created.push(await quickAddTask(page, parent));
+  const detail = await openFromList(page, parent);
+  for (const index of [1, 2, 3, 4, 5]) {
+    created.push(await addSubtask(detail, `${parent} ${index}`));
+  }
+
+  const header = (await page.locator("header").first().boundingBox())!;
+  const panel = (await detail.boundingBox())!;
+  const field = detail.getByLabel(fr.tasks.detail.subtasks.add);
+  await field.scrollIntoViewIfNeeded();
+
+  expect(panel.y).toBeGreaterThanOrEqual(header.y + header.height);
+  await expect(field).toBeInViewport({ ratio: 1 });
+});

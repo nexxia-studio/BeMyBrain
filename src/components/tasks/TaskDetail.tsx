@@ -262,6 +262,22 @@ export function TaskDetail({
   const describedBy = (update: TaskUpdate, id: string) =>
     update.failure !== null ? id : undefined;
 
+  const closeButton = (
+    <Dialog.Close
+      ref={closeRef}
+      render={
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          transition={{ duration: 0.1, ease: "easeOut" }}
+        />
+      }
+      className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-pill-track hover:text-foreground"
+    >
+      <X aria-hidden="true" className="size-5" strokeWidth={2} />
+      <span className="sr-only">{t("detail.close")}</span>
+    </Dialog.Close>
+  );
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <AnimatePresence
@@ -285,7 +301,7 @@ export function TaskDetail({
               }
               className="fixed inset-0 z-(--z-overlay) bg-scrim"
             />
-            <Dialog.Viewport className="fixed inset-0 z-(--z-dialog) flex items-end justify-center pt-page-top lg:items-stretch lg:justify-end lg:p-page">
+            <Dialog.Viewport className="fixed inset-0 z-(--z-dialog) flex items-end justify-center pt-page-top lg:items-stretch lg:justify-end lg:p-page lg:pt-detail-top">
               <Dialog.Popup
                 aria-label={t("detail.label")}
                 // Pas le titre : au toucher, le clavier s'ouvrirait sur un détail qu'on vient seulement de lire.
@@ -313,8 +329,8 @@ export function TaskDetail({
                   <span className="h-1 w-10 rounded-full bg-track" />
                 </div>
                 <div className="flex flex-col gap-5 px-4 pb-5 lg:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    {subtask ? (
+                  {subtask && (
+                    <div className="flex items-start justify-between gap-3">
                       <Link
                         href={`${TASKS_PATH}/${task.parentId}${listQuery}`}
                         className="flex min-h-11 min-w-0 items-center gap-1.5 text-small font-semibold text-link no-underline hover:text-link-hover"
@@ -328,32 +344,30 @@ export function TaskDetail({
                         {/* Contenu saisi : jamais traduit. */}
                         <span className="truncate">{task.parentTitle}</span>
                       </Link>
-                    ) : (
-                      <span />
-                    )}
-                    <Dialog.Close
-                      ref={closeRef}
-                      render={
-                        <motion.button
-                          whileTap={{ scale: 0.97 }}
-                          transition={{ duration: 0.1, ease: "easeOut" }}
-                        />
-                      }
-                      className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-pill-track hover:text-foreground"
-                    >
-                      <X
-                        aria-hidden="true"
-                        className="size-5"
-                        strokeWidth={2}
-                      />
-                      <span className="sr-only">{t("detail.close")}</span>
-                    </Dialog.Close>
-                  </div>
+                      {closeButton}
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor={titleId} className="text-small font-medium">
-                      {t("detail.title")}
-                    </label>
+                    {subtask ? (
+                      <label
+                        htmlFor={titleId}
+                        className="text-small font-medium"
+                      >
+                        {t("detail.title")}
+                      </label>
+                    ) : (
+                      // Pas de lien vers une parente : la croix rejoint la rangée du libellé (pas de rangée vide).
+                      <div className="flex items-center justify-between gap-3">
+                        <label
+                          htmlFor={titleId}
+                          className="text-small font-medium"
+                        >
+                          {t("detail.title")}
+                        </label>
+                        {closeButton}
+                      </div>
+                    )}
                     <textarea
                       id={titleId}
                       rows={1}
