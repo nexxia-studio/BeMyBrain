@@ -229,7 +229,7 @@ describe("palette de commandes", () => {
     },
   );
 
-  it("saisie libre : le premier élément est Ajouter la tâche « … », en surbrillance", async () => {
+  it("saisie libre sans commande correspondante : Ajouter la tâche « … » en premier, en surbrillance", async () => {
     renderPalette();
     pressShortcut();
     const search = await screen.findByRole("combobox");
@@ -241,6 +241,34 @@ describe("palette de commandes", () => {
       expect(first.textContent).toBe(addTaskLabel("Payer la crèche"));
       expect(first.hasAttribute("data-highlighted")).toBe(true);
     });
+  });
+
+  it("une commande correspond : elle passe en premier, l'ajout de la tâche en dernier", async () => {
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+
+    fireEvent.change(search, { target: { value: "corb" } });
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+        fr.palette.commands.openTrash,
+        addTaskLabel("corb"),
+      ]),
+    );
+  });
+
+  it("corb + Entrée ouvre la corbeille, sans créer de tâche", async () => {
+    renderPalette();
+    pressShortcut();
+    const search = await screen.findByRole("combobox");
+    fireEvent.change(search, { target: { value: "corb" } });
+    await screen.findByRole("option", { name: addTaskLabel("corb") });
+
+    fireEvent.keyDown(search, { key: "Enter" });
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/tasks/trash"));
+    expect(runAction).not.toHaveBeenCalled();
   });
 
   it("Entrée sur la saisie libre crée la tâche avec le côté et l'espace courants, puis se ferme", async () => {
@@ -360,14 +388,13 @@ describe("palette de commandes", () => {
     expect(runAction).toHaveBeenCalledWith("core.setLocale", { locale: "en" });
   });
 
-  it("Entrée lance la commande en surbrillance (après l'ajout de la tâche, premier)", async () => {
+  it("Entrée lance la commande en surbrillance", async () => {
     runAction.mockResolvedValue({ ok: true, result: "en" });
     renderPalette();
     pressShortcut();
     const search = await screen.findByRole("combobox");
     fireEvent.change(search, { target: { value: "anglais" } });
     await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
-    fireEvent.keyDown(search, { key: "ArrowDown" });
 
     fireEvent.keyDown(search, { key: "Enter" });
 

@@ -3,8 +3,9 @@
 // Curseurs nexxia-design (DESIGN.md § 1, coque) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Contenu de la palette : recherche (Autocomplete de Base UI en ligne, motif « command palette » de sa
 // documentation ; aucune dépendance ajoutée) et trois groupes :
-// - « Tâches » : saisie libre → « Ajouter la tâche « … » » en premier (`tasks.create`, côté et espace
-//   courants) ; « Nouvelle tâche » ouvre l'ajout rapide ; liste et corbeille ;
+// - « Tâches » : saisie libre → « Ajouter la tâche « … » » (`tasks.create`, côté et espace courants), en
+//   premier si aucune commande ne correspond, sinon après la dernière correspondante (`arrangeAddTask`) ;
+//   « Nouvelle tâche » ouvre l'ajout rapide ; liste et corbeille ;
 // - « Aller à » : raccourcis de navigation, hors registre ;
 // - « Actions » : actions du registre, lancées par la Server Action unique runAction (origine `palette`).
 // Entrée lance la commande en surbrillance (la première au départ). Pas d'optimiste : la palette se ferme au
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 import {
+  arrangeAddTask,
   matchesCommand,
   type PaletteCommand,
   type PaletteGroupKey,
@@ -46,6 +48,10 @@ type PaletteItem = PaletteCommand & {
   current: boolean;
 };
 type PaletteGroup = { value: PaletteGroupKey; items: PaletteItem[] };
+
+function isAddTask(item: PaletteItem): boolean {
+  return item.kind === "action" && item.action === "tasks.create";
+}
 
 type PalettePanelProps = {
   /** Côté et espace courants : la tâche ajoutée depuis la palette les prend. */
@@ -90,12 +96,14 @@ export function PalettePanel({ scope, onDone }: PalettePanelProps) {
     };
   }
 
-  const groups: PaletteGroup[] = paletteGroups(
-    isLocale(currentLocale) ? currentLocale : defaultLocale,
-    { query, scope },
-  )
-    .map(({ value, commands }) => ({ value, items: commands.map(toItem) }))
-    .filter((group) => group.items.length > 0);
+  const groups: PaletteGroup[] = arrangeAddTask(
+    paletteGroups(isLocale(currentLocale) ? currentLocale : defaultLocale, {
+      query,
+      scope,
+    }).map(({ value, commands }) => ({ value, items: commands.map(toItem) })),
+    query,
+    isAddTask,
+  ).filter((group) => group.items.length > 0);
 
   function launch(item: PaletteItem) {
     if (pending) return;
@@ -129,9 +137,7 @@ export function PalettePanel({ scope, onDone }: PalettePanelProps) {
       onValueChange={setQuery}
       // L'ajout de la tâche reprend la saisie : toujours retenu.
       filter={(item: PaletteItem, query) =>
-        item.kind === "action" && item.action === "tasks.create"
-          ? true
-          : matchesCommand(item, query)
+        isAddTask(item) || matchesCommand(item, query)
       }
       itemToStringValue={(item: PaletteItem) => item.label}
       autoHighlight="always"

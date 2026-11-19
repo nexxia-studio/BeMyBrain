@@ -207,7 +207,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 - Origine : la Server Action de l'ajout rapide pose `app`.
 
 ### Palette
-- Saisie libre → premier élément « Ajouter la tâche « … » » qui appelle `tasks.create` (origine `palette`), avec le côté et l'espace courants. Commandes : « Nouvelle tâche » (ouvre l'ajout rapide), « Ouvrir la to-do », « Corbeille ».
+- Saisie libre → élément « Ajouter la tâche « … » » : premier quand aucune commande ne correspond à la saisie, sinon après la dernière commande correspondante (Entrée lance la commande trouvée : « corb » → Corbeille). Il appelle `tasks.create` (origine `palette`), avec le côté et l'espace courants. Commandes : « Nouvelle tâche » (ouvre l'ajout rapide), « Ouvrir la to-do », « Corbeille ».
 - Le type `action` de `commands.ts` est aujourd'hui un littéral `"core.setLocale"` : il s'élargit aux noms d'actions du registre.
 
 ### Liste (`/tasks`)

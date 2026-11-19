@@ -7,8 +7,10 @@ import { prepareAction, registry } from "@/modules/actions/registry";
 import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 import {
+  arrangeAddTask,
   isPaletteShortcut,
   matchesCommand,
+  type PaletteGroupKey,
   type PaletteScope,
   paletteGroups,
 } from "./commands";
@@ -166,6 +168,51 @@ describe("commandes de la palette", () => {
       .map((c) => c.id);
 
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("place de l'ajout de la tâche", () => {
+  type Item = { id: string; label: string; keywords: string; add?: boolean };
+  const groups = (query: string) =>
+    arrangeAddTask(
+      [
+        {
+          value: "tasks",
+          items: [
+            {
+              id: "add",
+              label: `Ajouter la tâche « ${query} »`,
+              keywords: "",
+              add: true,
+            },
+            { id: "trash", label: "Corbeille", keywords: "" },
+          ],
+        },
+        {
+          value: "actions",
+          items: [{ id: "en", label: "Passer en anglais", keywords: "langue" }],
+        },
+      ] as { value: PaletteGroupKey; items: Item[] }[],
+      query,
+      (item) => item.add === true,
+    ).map((g) => [g.value, g.items.map((i) => i.id)]);
+
+  it("aucune commande ne correspond : l'ajout reste premier", () => {
+    expect(groups("Payer la crèche")).toEqual([
+      ["tasks", ["add", "trash"]],
+      ["actions", ["en"]],
+    ]);
+  });
+
+  it("une commande correspond : l'ajout passe après la dernière commande correspondante", () => {
+    expect(groups("langue")).toEqual([
+      ["tasks", ["trash"]],
+      ["actions", ["en", "add"]],
+    ]);
+    expect(groups("corb")).toEqual([
+      ["tasks", ["trash", "add"]],
+      ["actions", ["en"]],
+    ]);
   });
 });
 

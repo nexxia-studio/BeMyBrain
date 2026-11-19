@@ -179,6 +179,32 @@ export function paletteGroups(
   ];
 }
 
+/**
+ * Place de « Ajouter la tâche « … » » (spec todo-unifiee, « Palette ») : premier élément quand aucune autre
+ * commande ne correspond à la saisie, sinon juste après la dernière commande correspondante. L'Autocomplete
+ * de Base UI surligne toujours le premier élément : une commande trouvée passe donc avant l'ajout.
+ */
+export function arrangeAddTask<
+  Item extends { label: string; keywords: string },
+>(
+  groups: { value: PaletteGroupKey; items: Item[] }[],
+  query: string,
+  isAddTask: (item: Item) => boolean,
+): { value: PaletteGroupKey; items: Item[] }[] {
+  const addTask = groups.flatMap((g) => g.items).find(isAddTask);
+  const lastMatching = groups.findLastIndex((g) =>
+    g.items.some((item) => !isAddTask(item) && matchesCommand(item, query)),
+  );
+  if (!addTask || lastMatching === -1) return groups;
+  return groups.map((group, index) => {
+    const items = group.items.filter((item) => !isAddTask(item));
+    return {
+      ...group,
+      items: index === lastMatching ? [...items, addTask] : items,
+    };
+  });
+}
+
 type KeyLike = Pick<
   KeyboardEvent,
   "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey"
