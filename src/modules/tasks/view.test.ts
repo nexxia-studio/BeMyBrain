@@ -74,22 +74,82 @@ describe("groupBySection", () => {
     expect(tomorrow?.tasks[0]?.parentTitle).toBe("Déménagement");
   });
 
-  it("dans une section : priorité (aucune en dernier) puis date de création", () => {
-    const none = buildTask({ dueDate: "2026-12-01", priority: 0 });
-    const lowOld = buildTask({
+  it("dans une section : échéance, puis heure, puis priorité (aucune en dernier), puis création", () => {
+    const lateUrgent = buildTask({ dueDate: "2026-12-10", priority: 1 });
+    const earlyNone = buildTask({ dueDate: "2026-11-22", priority: 0 });
+    const sameDayNoTime = buildTask({ dueDate: "2026-11-25", priority: 1 });
+    const sameDay9h = buildTask({
       dueDate: "2026-11-25",
+      dueTime: "09:00",
+      priority: 4,
+    });
+    const sameDay14hLowNew = buildTask({
+      dueDate: "2026-11-25",
+      dueTime: "14:00",
+      priority: 4,
+      createdAt: new Date("2026-11-02T08:00:00Z"),
+    });
+    const sameDay14hLowOld = buildTask({
+      dueDate: "2026-11-25",
+      dueTime: "14:00",
       priority: 4,
       createdAt: new Date("2026-11-01T08:00:00Z"),
     });
-    const urgent = buildTask({ dueDate: "2026-12-10", priority: 1 });
+    const sameDay14hHigh = buildTask({
+      dueDate: "2026-11-25",
+      dueTime: "14:00",
+      priority: 2,
+    });
+
+    const sections = groupBySection(
+      [
+        lateUrgent,
+        sameDayNoTime,
+        sameDay14hLowNew,
+        earlyNone,
+        sameDay14hHigh,
+        sameDay9h,
+        sameDay14hLowOld,
+      ],
+      today,
+    );
+
+    expect(sections.map((s) => s.key)).toEqual(["later"]);
+    expect(ids(sections[0]?.tasks ?? [])).toEqual([
+      earlyNone.id,
+      sameDay9h.id,
+      sameDay14hHigh.id,
+      sameDay14hLowOld.id,
+      sameDay14hLowNew.id,
+      sameDayNoTime.id,
+      lateUrgent.id,
+    ]);
+  });
+
+  it("en retard : la plus ancienne échéance d'abord", () => {
+    const yesterday = buildTask({ dueDate: "2026-11-18", priority: 1 });
+    const lastWeek = buildTask({ dueDate: "2026-11-12", priority: 4 });
+
+    const sections = groupBySection([yesterday, lastWeek], today);
+
+    expect(ids(sections[0]?.tasks ?? [])).toEqual([lastWeek.id, yesterday.id]);
+  });
+
+  it("sans échéance : priorité (aucune en dernier) puis création", () => {
+    const none = buildTask({ priority: 0 });
     const lowNew = buildTask({
-      dueDate: "2026-11-22",
       priority: 4,
       createdAt: new Date("2026-11-02T08:00:00Z"),
+    });
+    const urgent = buildTask({ priority: 1 });
+    const lowOld = buildTask({
+      priority: 4,
+      createdAt: new Date("2026-11-01T08:00:00Z"),
     });
 
     const sections = groupBySection([none, lowNew, urgent, lowOld], today);
 
+    expect(sections.map((s) => s.key)).toEqual(["none"]);
     expect(ids(sections[0]?.tasks ?? [])).toEqual([
       urgent.id,
       lowOld.id,
@@ -251,15 +311,21 @@ describe("dateShortcuts", () => {
     });
   });
 
-  it("ce week-end un samedi = aujourd'hui", () => {
-    expect(dateShortcuts("2026-11-21").weekend).toBe("2026-11-21");
+  // Jeudi 2026-11-19 : week-end des 21 et 22 novembre.
+  it.each([
+    ["lundi", "2026-11-16", "2026-11-21"],
+    ["mardi", "2026-11-17", "2026-11-21"],
+    ["mercredi", "2026-11-18", "2026-11-21"],
+    ["jeudi", "2026-11-19", "2026-11-21"],
+    ["vendredi", "2026-11-20", "2026-11-21"],
+    ["samedi", "2026-11-21", "2026-11-21"],
+    ["dimanche", "2026-11-22", "2026-11-22"],
+  ])("ce week-end un %s (%s) = %s", (_day, day, weekend) => {
+    expect(dateShortcuts(day).weekend).toBe(weekend);
   });
 
-  it("un dimanche : ce week-end = samedi suivant, semaine prochaine = le lendemain", () => {
-    const shortcuts = dateShortcuts("2026-11-22");
-
-    expect(shortcuts.weekend).toBe("2026-11-28");
-    expect(shortcuts.nextWeek).toBe("2026-11-23");
+  it("un dimanche : semaine prochaine = le lendemain", () => {
+    expect(dateShortcuts("2026-11-22").nextWeek).toBe("2026-11-23");
   });
 
   it("un lundi : semaine prochaine = lundi d'après", () => {

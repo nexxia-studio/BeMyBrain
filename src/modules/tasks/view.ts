@@ -71,17 +71,17 @@ function compareNullable(a: string | null, b: string | null): number {
   return a < b ? -1 : 1;
 }
 
-/** Ordre d'une section : priorité puis date de création. */
-function compareInSection(a: Task, b: Task): number {
-  return priorityRank(a) - priorityRank(b) || compareCreation(a, b);
-}
-
-/** Ordre « prochaines » : échéance, heure, priorité, création (même ordre que listOrder de queries.ts). */
-function compareByDue(a: Task, b: Task): number {
+/**
+ * Ordre des tâches ouvertes (sections de la liste, tuiles) : échéance (sans échéance en dernier), heure (sans heure
+ * en dernier), priorité (aucune en dernier), création, id. Doit rester identique à listOrder de queries.ts
+ * (verrou : test « ordre » de queries.test.ts). Dans « Sans échéance », reste priorité puis création.
+ */
+export function compareTasks(a: Task, b: Task): number {
   return (
     compareNullable(a.dueDate, b.dueDate) ||
     compareNullable(a.dueTime, b.dueTime) ||
-    compareInSection(a, b)
+    priorityRank(a) - priorityRank(b) ||
+    compareCreation(a, b)
   );
 }
 
@@ -100,7 +100,7 @@ function openSectionOf(task: Task, today: string): SectionKey {
 }
 
 /**
- * Sections de la liste, dans l'ordre de `sectionKeys`, vides omises. Ouvertes par échéance (priorité puis création) ;
+ * Sections de la liste, dans l'ordre de `sectionKeys`, vides omises. Ouvertes triées par `compareTasks` ;
  * fermées (terminées et annulées, si la lecture les inclut) en dernière section, par fin décroissante.
  * Sous-tâche : seulement si elle a une échéance (jamais dans « Sans échéance »).
  */
@@ -114,7 +114,7 @@ export function groupBySection(tasks: Task[], today: string): TaskSection[] {
   return sectionKeys
     .map((key) => {
       const list = byKey.get(key) ?? [];
-      list.sort(key === "completed" ? compareCompleted : compareInSection);
+      list.sort(key === "completed" ? compareCompleted : compareTasks);
       return { key, tasks: list };
     })
     .filter((section) => section.tasks.length > 0);
@@ -142,7 +142,7 @@ export function todayTileItems(tasks: Task[], today: string): TodayTile {
   return {
     overdueCount: due.filter((t) => t.dueDate !== today).length,
     todayCount: due.filter((t) => t.dueDate === today).length,
-    items: [...due].sort(compareByDue).slice(0, TODAY_TILE_LIMIT),
+    items: [...due].sort(compareTasks).slice(0, TODAY_TILE_LIMIT),
   };
 }
 
@@ -153,14 +153,14 @@ export function todayTileItems(tasks: Task[], today: string): TodayTile {
 export function sideTileItems(tasks: Task[], side: Side): Task[] {
   return tasks
     .filter((t) => t.side === side && isOpen(t) && isListed(t))
-    .sort(compareByDue)
+    .sort(compareTasks)
     .slice(0, SIDE_TILE_LIMIT);
 }
 
 export type DateShortcuts = {
   today: string;
   tomorrow: string;
-  /** Prochain samedi, ou `today` si on est samedi. */
+  /** `today` le samedi et le dimanche ; du lundi au vendredi, le samedi qui suit. */
   weekend: string;
   /** Lundi suivant (lundi d'après si on est lundi). */
   nextWeek: string;
@@ -172,7 +172,7 @@ export function dateShortcuts(today: string): DateShortcuts {
   return {
     today,
     tomorrow: addDays(today, 1),
-    weekend: addDays(today, (6 - day + 7) % 7),
+    weekend: day === 0 ? today : addDays(today, 6 - day),
     nextWeek: addDays(today, (1 - day + 7) % 7 || 7),
   };
 }

@@ -155,7 +155,7 @@ Saisie et liste
 - [ ] L'ajout rapide crée une tâche avec un titre seul ; côté et espace prennent le filtre courant (côté actif, espace sélectionné ou aucun).
 - [ ] Espace, tags et date se choisissent chacun en un tap depuis l'ajout rapide, sans syntaxe ; un tag inconnu tapé est créé.
 - [ ] Une tâche créée depuis l'écran a `origin = app`, depuis la palette `origin = palette`.
-- [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier) puis priorité ; terminées et annulées masquées, visibles par un interrupteur.
+- [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier), puis heure, puis priorité, puis date de création ; terminées et annulées masquées, visibles par un interrupteur.
 - [ ] Cocher une tâche la passe à `completed` ; le bouton est désactivé pendant l'appel, pas de mise à jour optimiste. Une erreur s'affiche dans la ligne.
 - [ ] Une sous-tâche sans échéance n'est pas une ligne de la liste ; avec une échéance, elle apparaît dans la section de cette échéance et dans la tuile « Aujourd'hui », titre de la parente en légende ; la parente montre « n/m ».
 - [ ] Le détail d'une tâche permet de modifier tous les champs de la tranche 1, d'ajouter des sous-tâches et de la mettre à la corbeille.
@@ -213,7 +213,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 ### Liste (`/tasks`)
 - Entrée « To-do » dans la navigation (`nav-items.ts`), avant Réglages ; onglet mobile à gauche du « + ».
 - En-tête de page : titre « To-do », filtre d'espace (existant), interrupteur « Terminées ». La bascule Privé / Pro de la coque filtre le côté.
-- Sections par échéance : En retard, Aujourd'hui, Demain, Plus tard, Sans échéance ; dans chaque section, priorité puis date de création.
+- Sections par échéance : En retard, Aujourd'hui, Demain, Plus tard, Sans échéance ; dans chaque section, échéance, puis heure, puis priorité (aucune en dernier), puis date de création (« Sans échéance » : priorité puis date de création). Même ordre que la lecture en base.
 - Sous-tâches : pas de ligne de premier niveau, seulement le compteur « n/m » sur la parente. Exception : une sous-tâche qui a sa propre échéance apparaît aussi dans la section de son échéance (jamais dans « Sans échéance ») et dans la tuile « Aujourd'hui », avec le titre de la parente en légende. Règle portée par une fonction pure de `src/modules/tasks/` (testée), pas par le composant. Terminées (si affichées) en dernière section, par `completed_at` décroissant.
 - Ligne (`row rounded-lg min-h-11 px-3.5`) : case à cocher (zone 44 px, `label` sur la case seule), titre (`text-body`, deux lignes max), puis en `text-caption` : pastille d'espace, échéance (`text-destructive` si en retard), heure, tags, icône de priorité (aucune icône pour 0), compteur de sous-tâches « 1/3 ». Tap sur le reste de la ligne → détail.
 - Cocher : case désactivée pendant l'appel, ligne qui sort en `opacity` + `y` 8 (Motion) après succès ; pas de mise à jour optimiste ; erreur dans la ligne.

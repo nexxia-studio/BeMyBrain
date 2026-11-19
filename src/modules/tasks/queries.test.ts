@@ -23,6 +23,7 @@ import {
   listTasks,
   listTrashedTasks,
 } from "./queries";
+import { compareTasks } from "./view";
 
 // Lectures du module tasks contre la branche Neon test : withUserDb réel en rôle app_backend, fixture
 // préparée par le propriétaire. Chaque lecture est vérifiée avec des tâches à la corbeille dans la fixture.
@@ -549,6 +550,43 @@ describe("listTags", () => {
     ]);
     expect(tags.find((x) => x.name === "maison")?.id).toEqual(
       expect.any(String),
+    );
+  });
+});
+
+// En dernier : ces tâches ne doivent fausser aucune lecture des blocs précédents.
+describe("ordre : listOrder (base) = compareTasks (view.ts)", () => {
+  it("le même jeu de tâches sort dans le même ordre des deux côtés", async () => {
+    const tie = "2026-11-03T08:00:00Z";
+    const rows = [
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 4 },
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 0 },
+      { dueDate: "2026-11-25", dueTime: "09:00", priority: 0 },
+      { dueDate: "2026-11-25", priority: 1 },
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 2 },
+      { dueDate: "2026-11-12", priority: 3 },
+      { dueDate: "2026-11-12", priority: 3, createdAt: "2026-11-01T08:00:00Z" },
+      { priority: 0 },
+      { priority: 2, createdAt: tie },
+      { priority: 2, createdAt: tie },
+      { priority: 2, createdAt: tie },
+      { priority: 4 },
+      { dueDate: "2026-12-10", priority: 1 },
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 4, createdAt: tie },
+    ].map((row, i) => ({
+      ...row,
+      side: "private" as const,
+      title: `Ordre-${f.run}-${i}`,
+    }));
+    await insertTasks(owner, f.workspaceA, f.userA, rows);
+
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { query: `Ordre-${f.run}-` }, tx),
+    );
+
+    expect(r.tasks).toHaveLength(rows.length);
+    expect(titlesOf(r.tasks)).toEqual(
+      titlesOf([...r.tasks].sort(compareTasks)),
     );
   });
 });

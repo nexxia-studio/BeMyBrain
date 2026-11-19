@@ -12,7 +12,7 @@
 - **Messages d'erreur pour un modèle** : `TaskError` porte un code ; une table `TASK_ERROR_MESSAGES` (anglais, en code, pas dans `messages/` : ce n'est pas de l'interface) donne le texte lisible ; l'interface traduit le code via `messages/*.json`.
 - **Description des actions pour un modèle** : traduction anglaise de la clé `description` (`messages/en.json`, section `actions`), lue directement dans le JSON par `toToolDefinitions` (next-intl tire React, exclu du registre par ADR-009) ; égalité avec `createTranslator` vérifiée par test.
 - **Recherche par texte** : `ILIKE` avec échappement de `%`, `_` et `\`, sans `unaccent` ni `pg_trgm` (aucune extension ajoutée ; volume personnel). « Sans accents exigés » de la spec : la recherche est insensible à la casse ; l'insensibilité aux accents est reportée (question en bas).
-- **Raccourcis de date** de l'ajout rapide : Aujourd'hui, Demain, Ce week-end = prochain samedi (aujourd'hui si on est samedi), Semaine prochaine = lundi suivant. Calculés par une fonction pure de `src/modules/tasks/` à partir de `getUserTimeZone`.
+- **Raccourcis de date** de l'ajout rapide : Aujourd'hui, Demain, Ce week-end = aujourd'hui le samedi et le dimanche, sinon le samedi qui suit (décision d'Antoine, 2026-11-19), Semaine prochaine = lundi suivant. Calculés par une fonction pure de `src/modules/tasks/` à partir de `getUserTimeZone`.
 - **Primitives** : tiroir et menus avec Base UI (déjà installé, `Dialog`, `Menu`, `Popover`) ; calendrier de « Choisir… » : `<input type="date">` et `<input type="time">` natifs (iOS les rend en roues), aucune bibliothèque de calendrier.
 
 ## Dépendances nouvelles (justification, constitution 7)
@@ -62,7 +62,7 @@
 
 - [x] **9. Règles d'affichage : sections, sous-tâches, tuiles, raccourcis de date**
   - Fichiers : `src/modules/tasks/view.ts` (fonctions pures : `groupBySection(tasks, today)`, `todayTileItems`, `sideTileItems`, `subtaskCounter`, `dateShortcuts(today)`)
-  - Test à écrire d'abord : `src/modules/tasks/view.test.ts` — « sous-tâche sans échéance absente, avec échéance dans sa section avec titre de parente » ; « en retard / aujourd'hui / demain / plus tard / sans échéance » ; « tuile Aujourd'hui : 3 premières, des deux côtés, compteurs » ; « ce week-end un samedi = aujourd'hui »
+  - Test à écrire d'abord : `src/modules/tasks/view.test.ts` — « sous-tâche sans échéance absente, avec échéance dans sa section avec titre de parente » ; « en retard / aujourd'hui / demain / plus tard / sans échéance » ; « tuile Aujourd'hui : 3 premières, des deux côtés, compteurs » ; « ce week-end samedi et dimanche = aujourd'hui, lundi à vendredi = samedi suivant »
   - Fini quand : tests verts, aucun import de React ni de Next
 
 - [x] **10. Server Actions de l'écran tâches** [security]
