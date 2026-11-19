@@ -79,7 +79,8 @@ jobs:
         run: pnpm db:seed
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SEED_OWNER_USER_ID: ${{ vars.SEED_OWNER_USER_ID }}
+          # Secret, pas variable : un vars.* est affiché en clair dans le bloc env du journal (dépôt public).
+          SEED_OWNER_USER_ID: ${{ secrets.SEED_OWNER_USER_ID }}
           NODE_OPTIONS: ""
           BASH_ENV: ""
 

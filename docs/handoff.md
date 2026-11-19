@@ -19,7 +19,7 @@ Antoine choisit le premier module après le socle, puis `/clear` et `/feature <n
 - Limites QA-1 : lien profond avec session expirée → `/login` puis tableau de bord (retour seulement pour les actions) ; un `console.warn` par session expirée, volume à surveiller.
 
 ## Questions ouvertes
-- Journal GitHub Actions « Migration production » : `SEED_OWNER_USER_ID` affiché en clair (dépôt public), à passer en secret (cf. `docs/gotchas.md`, `vars.*`). Non traité.
+- `SEED_OWNER_USER_ID` passé en secret (2026-11-19, part avec la première PR de la to-do) ; Antoine supprime la variable GitHub après la fusion et un passage vert de « Migrer la production ».
 - Jose non joué sur le vrai JWKS distant : kid inconnu sous 30 s avec réseau coupé ; cache périmé avec réseau coupé.
 - E-mails Neon Auth : tutoient-ils ? Une preview hérite-t-elle des comptes de `production` ? (tâche 9)
 - Règle Seer de la PR 1135934 laissée (organisation) ; issue de test BEMYBRAIN-1 encore ouverte dans Sentry.
