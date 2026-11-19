@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createTestUserDb } from "../../../tests/factories/as-user";
 import {
@@ -19,6 +19,11 @@ import { invokeAction, prepareAction, registry } from "./registry";
 
 // Isolation du registre (constitution 5) contre la branche Neon test : withUserDb réel en rôle app_backend,
 // actions du registre lancées pour un utilisateur avec le workspace d'un autre. Rien n'est lu ni écrit.
+
+// Délai propre aux tests base de ce fichier : un `it` enchaîne jusqu'à une vingtaine d'allers-retours Neon
+// séquentiels (8 actions + deux relectures d'état). Mesuré le 2026-11-19 : 1,7 s en local, ~4x en CI
+// (branche éphémère), soit plus que les 5 s par défaut. 20 s laisse ~3x de marge sur le pire mesuré.
+vi.setConfig({ testTimeout: 20_000 });
 
 const ownerUrl = process.env.DATABASE_TEST_URL;
 const backendUrl = process.env.DATABASE_TEST_AUTHENTICATED_URL;
@@ -120,7 +125,6 @@ describe("registre d'actions : isolation entre deux workspaces", () => {
     expect(await localeOf(f.workspaceA, f.userA2)).toBe("en");
   });
 });
-
 
 /** Tâches, tags et liens d'un workspace, lus en propriétaire (hors RLS), triés : témoin « rien de changé ». */
 async function stateOf(workspaceId: string) {
