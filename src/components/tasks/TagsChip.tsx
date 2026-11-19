@@ -22,6 +22,7 @@ import {
   chipItemClass,
   chipPopupClass,
   chipPositionerClass,
+  chipPositionerProps,
   chipTriggerClass,
 } from "./chip-styles";
 
@@ -134,8 +135,7 @@ export function TagsChip({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner
-          sideOffset={8}
-          align="start"
+          {...chipPositionerProps}
           className={chipPositionerClass}
         >
           <Popover.Popup className={cn(chipPopupClass, "w-72 max-w-dvw")}>

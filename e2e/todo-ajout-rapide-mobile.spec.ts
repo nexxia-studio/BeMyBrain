@@ -99,3 +99,23 @@ test("@mobile ajoute « Relancer le devis » avec espace, tag et demain, puis la
   await expect(row).toContainText("client");
   expect(violations).toEqual([]);
 });
+
+test("@mobile les popups Espace, Date et Tags restent à 16 px des bords de l'écran", async ({
+  page,
+}) => {
+  await signIn(page);
+  const dialog = await openQuickAdd(page);
+  const width = page.viewportSize()!.width;
+
+  for (const name of [/^Espace : /, /^Échéance : /, /^Tags : /]) {
+    await dialog.getByRole("button", { name }).click();
+    const popup = page.locator("[data-side][data-open]").last();
+    await expect(popup).toBeVisible();
+    const box = (await popup.boundingBox())!;
+
+    expect(box.x).toBeGreaterThanOrEqual(16);
+    expect(box.x + box.width).toBeLessThanOrEqual(width - 16 + 0.5);
+    await page.keyboard.press("Escape");
+    await expect(popup).toBeHidden();
+  }
+});

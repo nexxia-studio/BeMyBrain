@@ -18,6 +18,7 @@ import {
   chipItemClass,
   chipPopupClass,
   chipPositionerClass,
+  chipPositionerProps,
   chipTriggerClass,
 } from "./chip-styles";
 import { contextChipClass, contextColorClass } from "./context-chip-class";
@@ -71,8 +72,7 @@ export function ContextChip({
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner
-          sideOffset={8}
-          align="start"
+          {...chipPositionerProps}
           className={chipPositionerClass}
         >
           <Menu.Popup className={chipPopupClass}>
