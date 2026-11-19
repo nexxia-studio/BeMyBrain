@@ -6,7 +6,8 @@ import { watchCspViolations } from "./csp";
 import { signIn } from "./session";
 
 // Scénario 6 de la spec socle (palette de commandes, ADR-009) : Antoine ouvre la palette (⌘K sur
-// ordinateur, bouton d'ajout de la barre basse sur mobile), cherche « langue », lance le passage en
+// ordinateur, bouton rond de l'en-tête sur mobile ; le « + » de la barre basse ouvre l'ajout rapide depuis la
+// to-do), cherche « langue », lance le passage en
 // anglais : l'interface passe en anglais, URL inchangée. Modifie la langue du compte e2e partagé : tourne
 // dans le projet Playwright « langue » (seul, en série, après les autres) et remet le compte en français.
 test.use({ locale: "fr-FR" });
@@ -80,12 +81,12 @@ test.describe("mobile (390 px)", () => {
     viewport: { width: 390, height: 844 },
   });
 
-  test("depuis la palette (bouton de la barre basse), passer en anglais change la langue de l'interface", async ({
+  test("depuis la palette (bouton rond de l'en-tête), passer en anglais change la langue de l'interface", async ({
     page,
   }) => {
     await switchToEnglishFromPalette(page, async (p) => {
       await p
-        .getByRole("navigation", { name: fr.shell.navigation })
+        .getByRole("banner")
         .getByRole("button", { name: fr.shell.openPalette })
         .click();
     });

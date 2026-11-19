@@ -52,8 +52,16 @@ async function expectPrivateDashboard(page: Page) {
   const today = tile(page, "today");
   await expect(today).toBeVisible();
   await expect(today).toContainText(fr.dashboard.today.greeting);
-  // Espace du côté Privé, nommé par la tuile « Aujourd'hui ».
-  await expect(today).toContainText("Privé");
+  // Workspace nommé, puis la to-do du jour (DESIGN.md § 5) : pastilles de chiffres quand des tâches sont dues,
+  // sinon « Rien en retard… » ; jamais la phrase d'absence d'espace (le côté Privé en a un). Le compte e2e est
+  // partagé : l'un ou l'autre selon ce qu'il porte.
+  await expect(today.getByTestId("workspace-name")).toHaveText("BeMyBrain");
+  await expect(
+    today
+      .getByTestId("today-due-count")
+      .or(today.getByText(fr.dashboard.today.introClear)),
+  ).toBeVisible();
+  await expect(today).not.toContainText(fr.dashboard.today.introNoSpace);
   for (const id of PRIVATE_TILES) {
     await expect(tile(page, id)).toBeVisible();
   }

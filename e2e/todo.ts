@@ -35,21 +35,20 @@ export function isDesktop(page: Page): boolean {
 }
 
 /**
- * Bascule Privé / Pro de la coque, attend la fin de l'enregistrement (`aria-busy` retombé : cookie posé et
- * rendu serveur reçu). La pilule change tout de suite (optimiste), mais l'ajout rapide et la palette lisent le
- * côté du rendu serveur : un ajout validé avant la fin de l'enregistrement part sur l'ancien côté.
+ * Bascule Privé / Pro de la coque. N'attend pas la fin de l'enregistrement : l'ajout rapide et la palette
+ * prennent le côté affiché (optimiste), même avant le rendu serveur.
  */
 export async function switchSide(page: Page, side: "private" | "pro") {
-  const group = page.getByRole("group", { name: fr.shell.side.label });
-  const button = group.getByRole("button", { name: fr.shell.side[side] });
+  const button = page
+    .getByRole("group", { name: fr.shell.side.label })
+    .getByRole("button", { name: fr.shell.side[side] });
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
-  await expect(group).toHaveAttribute("aria-busy", "false");
 }
 
 /**
  * Filtre d'espace du côté actif : liste de la barre latérale sur ordinateur, pastille de l'en-tête de page
- * sous 1024 px. Attend la fin de l'enregistrement, comme `switchSide`.
+ * sous 1024 px. N'attend pas la fin de l'enregistrement, comme `switchSide`.
  */
 export async function filterContext(page: Page, name: string) {
   if (isDesktop(page)) {
@@ -59,11 +58,6 @@ export async function filterContext(page: Page, name: string) {
       .getByRole("button", { name });
     await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "true");
-    await expect(
-      page
-        .getByRole("navigation", { name: fr.shell.navigation })
-        .getByRole("group", { name: fr.shell.contexts.label }),
-    ).toHaveAttribute("aria-busy", "false");
     return;
   }
   const trigger = page.getByRole("button", {
@@ -72,7 +66,6 @@ export async function filterContext(page: Page, name: string) {
   await trigger.click();
   await page.getByRole("menuitemradio", { name }).click();
   await expect(trigger).toContainText(name);
-  await expect(trigger).toHaveAttribute("aria-busy", "false");
 }
 
 /** Ouvre l'ajout rapide (« + » central sur mobile, bouton rond de l'en-tête sur ordinateur). */
