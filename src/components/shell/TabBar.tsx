@@ -7,7 +7,7 @@ import { Plus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-import { PaletteTrigger } from "@/components/command-palette/PaletteTrigger";
+import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { cn } from "@/lib/utils";
 
 import { NavLink } from "./NavLink";
@@ -22,6 +22,7 @@ type TabBarProps = {
 
 export function TabBar({ className }: TabBarProps) {
   const t = useTranslations("shell");
+  const tQuickAdd = useTranslations("quickAdd");
   const pathname = usePathname();
 
   const [before, after] = GROUPS.map((items, index) => (
@@ -60,14 +61,14 @@ export function TabBar({ className }: TabBarProps) {
         className="glass mx-4 flex items-center gap-0.5 rounded-bar px-2.5 py-2"
       >
         {before}
-        {/* Ouvre la palette (ADR-009), au pouce, au centre de la barre. Nommé d'après ce qu'il fait aujourd'hui ;
-            le libellé suivra quand la palette proposera des actions d'ajout. */}
-        <PaletteTrigger
-          label={t("openPalette")}
+        {/* Ouvre l'ajout rapide, au pouce, au centre de la barre (spec todo-unifiee) ; la palette est dans
+            l'en-tête. */}
+        <QuickAddTrigger
+          label={tQuickAdd("open")}
           className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-fab"
         >
           <Plus aria-hidden="true" className="size-6" strokeWidth={2.4} />
-        </PaletteTrigger>
+        </QuickAddTrigger>
         {after}
       </nav>
     </div>

@@ -175,6 +175,16 @@
     "error": "Action not run. Try again.",
     "hint": "<kbd>↑↓</kbd> to choose, <kbd>Enter</kbd> to run, <kbd>Esc</kbd> to close"
   },
+  "quickAdd": {
+    "open": "Quick add",
+    "typesLabel": "What to add",
+    "types": {
+      "task": {
+        "label": "Task",
+        "title": "Add a task"
+      }
+    }
+  },
   "tasks": {
     "errors": {
       "invalid_params": "Invalid data. Check what you entered.",

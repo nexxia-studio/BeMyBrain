@@ -175,6 +175,16 @@
     "error": "Action non lancée. Réessaie.",
     "hint": "<kbd>↑↓</kbd> pour choisir, <kbd>Entrée</kbd> pour lancer, <kbd>Échap</kbd> pour fermer"
   },
+  "quickAdd": {
+    "open": "Ajouter rapidement",
+    "typesLabel": "Type d'ajout",
+    "types": {
+      "task": {
+        "label": "Tâche",
+        "title": "Ajouter une tâche"
+      }
+    }
+  },
   "tasks": {
     "errors": {
       "invalid_params": "Données refusées. Vérifie la saisie.",
