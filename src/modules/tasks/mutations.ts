@@ -306,8 +306,10 @@ export type TrashResult = {
 
 /**
  * Met une tâche active à la corbeille (deleted_at, aucun DELETE). Parente : ses sous-tâches encore actives
- * reçoivent le même horodatage, en une instruction (now() = début de la transaction, identique pour toutes
- * les lignes) ; une sous-tâche déjà à la corbeille garde le sien. Absente, d'un autre workspace ou déjà à
+ * reçoivent le même horodatage, en une instruction (statement_timestamp() : même valeur pour toutes les
+ * lignes d'une instruction, distincte d'une instruction à l'autre, même dans une transaction, là où now()
+ * confondrait une sous-tâche jetée seule plus tôt avec ses sœurs) ; une sous-tâche déjà à la corbeille
+ * garde le sien. Absente, d'un autre workspace ou déjà à
  * la corbeille → not_found.
  */
 export async function moveTaskToTrash(
@@ -323,7 +325,7 @@ export async function moveTaskToTrash(
   if (!task || task.deleted) throw new TaskError("not_found");
 
   const result = await tx.execute<{ id: string }>(sql`
-    update ${tasks} set deleted_at = now()
+    update ${tasks} set deleted_at = statement_timestamp()
     where workspace_id = ${workspace} and deleted_at is null and (id = ${id} or parent_id = ${id})
     returning id`);
   return { id, subtaskCount: result.rows.length - 1 };
@@ -358,7 +360,7 @@ export async function restoreTask(
 
   if (task.deleted) {
     // Horodatage comparé en base (microsecondes), pas via un Date JS (millisecondes). La sous-requête voit
-    // l'état d'avant l'instruction.
+    // l'état d'avant l'instruction, et le verrou posé juste avant par lockTask rend la valeur stable.
     await tx.execute(sql`
       update ${tasks} set deleted_at = null
       where workspace_id = ${workspace} and (id = ${id} or (parent_id = ${id} and deleted_at = (

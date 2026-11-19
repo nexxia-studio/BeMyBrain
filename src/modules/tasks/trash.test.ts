@@ -201,26 +201,48 @@ describe("restoreTask", () => {
     expect(await deletedAtOf(trashedAlone)).toBe(sister);
   });
 
+  it("dans une même transaction, sous-tâche puis parente à la corbeille : restaurer la parente laisse la sous-tâche à la corbeille", async () => {
+    const { parent, active } = await familyInA();
+    await asA(async (tx) => {
+      await moveTaskToTrash(f.workspaceA, active, tx);
+      await moveTaskToTrash(f.workspaceA, parent, tx);
+    });
+
+    await asA((tx) => restoreTask(f.workspaceA, parent, tx));
+
+    expect(await deletedAtOf(parent)).toBeNull();
+    expect(await deletedAtOf(active)).not.toBeNull();
+  });
+
   it("tâche de B à la corbeille, avec le workspace de A ou celui de B → not_found, B inchangée", async () => {
-    await owner.query(
-      "update tasks set deleted_at = $2 where id = $1 or parent_id = $1",
-      [t.taskB, earlier],
-    );
-    const before = await deletedAtOf(t.taskB);
+    const [parentB] = await insertTasks(owner, f.workspaceB, f.userB, [
+      {
+        side: "pro",
+        title: "Parente B",
+        contextId: f.contextB,
+        deletedAt: earlier,
+      },
+    ]);
+    const [subB] = await insertTasks(owner, f.workspaceB, f.userB, [
+      {
+        side: "pro",
+        title: "Sous B",
+        parentId: parentB,
+        contextId: f.contextB,
+        deletedAt: earlier,
+      },
+    ]);
+    const before = await deletedAtOf(parentB);
 
     for (const workspace of [f.workspaceA, f.workspaceB]) {
       await expectCode(
-        asA((tx) => restoreTask(workspace, t.taskB, tx)),
+        asA((tx) => restoreTask(workspace, parentB, tx)),
         "not_found",
       );
     }
 
-    expect(await deletedAtOf(t.taskB)).toBe(before);
-    expect(await deletedAtOf(t.subtaskB)).toBe(before);
-    await owner.query(
-      "update tasks set deleted_at = null where id = $1 or parent_id = $1",
-      [t.taskB],
-    );
+    expect(await deletedAtOf(parentB)).toBe(before);
+    expect(await deletedAtOf(subB)).toBe(before);
   });
 
   it("identifiant invalide → invalid_params", async () => {
