@@ -90,6 +90,27 @@ describe("liste des tâches : sections", () => {
     expect(within(overdue).getByRole("link", { name: /Hier/ })).toBeTruthy();
   });
 
+  it("une seule tuile de verre bornée en largeur, titres de section en surtitre à côté de leur compteur", () => {
+    renderList([
+      buildTask({ title: "Hier", dueDate: "2026-11-18" }),
+      buildTask({ title: "Demain", dueDate: "2026-11-20" }),
+    ]);
+
+    const tiles = document.querySelectorAll(".glass");
+    const overdue = screen.getByRole("region", { name: "En retard" });
+    const heading = within(overdue).getByRole("heading", { level: 2 });
+
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].classList.contains("max-w-3xl")).toBe(true);
+    expect(overdue.classList.contains("glass")).toBe(false);
+    expect(heading.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["text-eyebrow", "text-muted-foreground"]),
+    );
+    expect(heading.parentElement?.classList.contains("justify-between")).toBe(
+      false,
+    );
+  });
+
   it("montre le compteur n/m sur la parente", () => {
     renderList([
       buildTask({

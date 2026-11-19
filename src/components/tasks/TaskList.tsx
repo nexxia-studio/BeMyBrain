@@ -1,10 +1,10 @@
 "use client";
 
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
-// Liste `/tasks` (spec todo-unifiee, « Liste ») : une tuile en verre par section d'échéance (En retard,
-// Aujourd'hui, Demain, Plus tard, Sans échéance, puis Terminées si l'interrupteur les montre), lignes `row`
-// dedans (jamais de verre sur du verre). Une colonne à toutes les largeurs : une liste se lit de haut en bas,
-// la place gagnée sur ordinateur va au titre et à la légende. Règles de sections et d'ordre : `groupBySection`
+// Liste `/tasks` (spec todo-unifiee, « Liste ») : une seule tuile en verre, sections d'échéance dedans (En
+// retard, Aujourd'hui, Demain, Plus tard, Sans échéance, puis Terminées si l'interrupteur les montre), titre de
+// section en surtitre suivi de son compteur, lignes `row` (jamais de verre sur du verre). Une colonne à toutes
+// les largeurs ; sur ordinateur, tuile bornée (`max-w-3xl`) pour que titre et légende restent dans le regard. Règles de sections et d'ordre : `groupBySection`
 // (src/modules/tasks/view.ts), pas ici.
 // Mouvement (DESIGN.md § 7) : une ligne qui quitte la liste (cochée, rendu serveur reçu) sort en `opacity`
 // + `y` 8, ressort sans rebond, 0,3 s ; une section vidée sort de même. Rien à l'affichage initial.
@@ -54,7 +54,7 @@ export function TaskList({
 
   if (sections.length === 0) {
     return (
-      <section className="glass flex flex-col items-start gap-3 rounded-tile p-tile">
+      <section className="glass flex w-full max-w-3xl flex-col items-start gap-3 rounded-tile p-tile">
         <span className="flex size-11 items-center justify-center rounded-lg bg-row text-link">
           <ListTodo aria-hidden="true" className="size-5.5" strokeWidth={2} />
         </span>
@@ -81,7 +81,7 @@ export function TaskList({
   }
 
   return (
-    <div className="flex flex-col gap-grid">
+    <div className="glass flex w-full max-w-3xl flex-col gap-6 rounded-tile p-tile">
       <AnimatePresence initial={false}>
         {sections.map((section) => {
           const headingId = `tasks-section-${section.key}`;
@@ -91,18 +91,18 @@ export function TaskList({
               aria-labelledby={headingId}
               exit={LEAVE}
               transition={SPRING}
-              className="glass flex flex-col gap-3 rounded-tile p-tile"
+              className="flex flex-col gap-3"
             >
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex items-baseline gap-2 px-1">
                 <h2
                   id={headingId}
-                  className="text-small font-semibold text-foreground"
+                  className="text-eyebrow text-muted-foreground uppercase"
                 >
                   {t(`sections.${section.key}`)}
                 </h2>
                 <span
                   aria-hidden="true"
-                  className="font-heading text-small text-muted-foreground"
+                  className="font-heading text-eyebrow text-muted-foreground"
                 >
                   {section.tasks.length}
                 </span>
