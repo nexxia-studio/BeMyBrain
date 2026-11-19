@@ -8,7 +8,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shell/PageHeader";
-import { TASKS_PATH, TASKS_TRASH_PATH } from "@/components/shell/nav-items";
+import { TASKS_PATH, TRASH_PATH } from "@/components/shell/nav-items";
 import { CompletedToggle } from "@/components/tasks/CompletedToggle";
 import { COMPLETED_PARAM, listQuery } from "@/components/tasks/list-query";
 import { TaskList } from "@/components/tasks/TaskList";
@@ -69,7 +69,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         </p>
       )}
       <Link
-        href={TASKS_TRASH_PATH}
+        href={TRASH_PATH}
         className="flex min-h-11 items-center gap-2 self-start text-small font-semibold text-link no-underline hover:text-link-hover"
       >
         <Trash2 aria-hidden="true" className="size-4" strokeWidth={2} />

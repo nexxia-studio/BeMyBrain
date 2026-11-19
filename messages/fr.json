@@ -330,6 +330,24 @@
       "restored": "Tâche restaurée",
       "trashFailed": "Tâche non mise à la corbeille. Réessaie.",
       "restoreFailed": "Tâche non restaurée. Réessaie."
+    },
+    "trash": {
+      "subtasks": "+ {count, plural, one {# sous-tâche} other {# sous-tâches}}"
+    }
+  },
+  "trash": {
+    "title": "Corbeille",
+    "empty": "La corbeille est vide",
+    "emptyBody": "Ce que tu mets à la corbeille attend ici ; rien n'est supprimé.",
+    "loading": "Chargement de la corbeille…",
+    "trashedOn": "Mise à la corbeille le {date}",
+    "restore": "Restaurer",
+    "restoring": "Restauration…",
+    "restoreFailed": "Non restauré. Réessaie.",
+    "error": {
+      "title": "Corbeille indisponible",
+      "body": "La corbeille n'a pas pu être chargée. Réessaie dans un instant.",
+      "retry": "Réessayer"
     }
   }
 }

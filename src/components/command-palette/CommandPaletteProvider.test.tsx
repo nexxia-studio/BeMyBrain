@@ -267,7 +267,7 @@ describe("palette de commandes", () => {
 
     fireEvent.keyDown(search, { key: "Enter" });
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/tasks/trash"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/trash"));
     expect(runAction).not.toHaveBeenCalled();
   });
 
@@ -343,7 +343,7 @@ describe("palette de commandes", () => {
 
   it.each([
     [fr.palette.commands.openTodo, "/tasks"],
-    [fr.palette.commands.openTrash, "/tasks/trash"],
+    [fr.palette.commands.openTrash, "/trash"],
   ])("« %s » ouvre %s", async (name, href) => {
     renderPalette();
     pressShortcut();

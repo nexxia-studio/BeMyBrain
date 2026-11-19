@@ -16,15 +16,15 @@ import {
   NAV_ITEMS,
   type NavItem,
   TASKS_PATH,
-  TASKS_TRASH_PATH,
+  TRASH_PATH,
 } from "@/components/shell/nav-items";
 import { type AppLocale, locales } from "@/i18n/locales";
 import type { CurrentScope } from "@/lib/context-filter";
 import type { Side } from "@/modules/core/sides";
 import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
-/** Liste et corbeille des tâches (pages des tâches 14 et 16 du plan todo-unifiee). */
-export { TASKS_PATH, TASKS_TRASH_PATH };
+/** Liste des tâches et corbeille de l'app (pages des tâches 14 et 16 du plan todo-unifiee). */
+export { TASKS_PATH, TRASH_PATH };
 
 /** Côté et espace courants de la coque : la tâche ajoutée depuis la palette les prend (comme l'ajout rapide). */
 export type PaletteScope = CurrentScope;
@@ -148,8 +148,8 @@ export function paletteGroups(
         },
         {
           kind: "navigate",
-          id: `navigate:${TASKS_TRASH_PATH}`,
-          href: TASKS_TRASH_PATH,
+          id: `navigate:${TRASH_PATH}`,
+          href: TRASH_PATH,
           labelKey: "openTrash",
           keywordsKey: "openTrashKeywords",
           icon: Trash2,

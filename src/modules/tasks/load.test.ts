@@ -5,14 +5,21 @@ vi.mock("@/db/client", () => ({ withUserDb }));
 const getTask = vi.hoisted(() => vi.fn());
 const listDueToday = vi.hoisted(() => vi.fn());
 const listUpcomingTasks = vi.hoisted(() => vi.fn());
+const listTrashedTasks = vi.hoisted(() => vi.fn());
 vi.mock("./queries", () => ({
   getTask,
   listTasks: vi.fn(),
   listDueToday,
   listUpcomingTasks,
+  listTrashedTasks,
 }));
 
-import { loadDueToday, loadTask, loadUpcomingTasks } from "./load";
+import {
+  loadDueToday,
+  loadTask,
+  loadTrashedTasks,
+  loadUpcomingTasks,
+} from "./load";
 
 const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const TASK = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
@@ -63,6 +70,20 @@ describe("lectures du tableau de bord", () => {
 
     expect(withUserDb).toHaveBeenCalledWith("jeton", expect.any(Function));
     expect(listUpcomingTasks).toHaveBeenCalledWith(WORKSPACE, filter, tx);
+    expect(tasks).toEqual([{ id: TASK }]);
+  });
+});
+
+describe("loadTrashedTasks", () => {
+  it("lit la corbeille dans le workspace de la session, avec son jeton", async () => {
+    const tx = {};
+    withUserDb.mockImplementation((_token, run) => run(tx));
+    listTrashedTasks.mockResolvedValue([{ id: TASK }]);
+
+    const tasks = await loadTrashedTasks("jeton", WORKSPACE);
+
+    expect(withUserDb).toHaveBeenCalledWith("jeton", expect.any(Function));
+    expect(listTrashedTasks).toHaveBeenCalledWith(WORKSPACE, tx);
     expect(tasks).toEqual([{ id: TASK }]);
   });
 });

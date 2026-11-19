@@ -17,6 +17,7 @@ import {
   subtaskCounter,
   tagChanges,
   todayTileItems,
+  trashEntries,
 } from "./view";
 
 // Jeudi 2026-11-19.
@@ -458,5 +459,48 @@ describe("view.ts côté client", () => {
       "type ./queries",
       "type @/modules/core/sides",
     ]);
+  });
+});
+
+describe("trashEntries", () => {
+  const PARENT = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+  const together = new Date("2026-11-19T09:00:00Z");
+  const before = new Date("2026-11-18T09:00:00Z");
+
+  function trashed(
+    overrides: Parameters<typeof buildTask>[0],
+    deletedAt: Date,
+  ) {
+    return { ...buildTask(overrides), deletedAt };
+  }
+
+  it("parente : les sous-tâches mises avec elle sont comptées sur sa ligne, pas listées", () => {
+    const parent = trashed({ id: PARENT, title: "Déménager" }, together);
+    const withParent = [
+      trashed({ parentId: PARENT, parentTitle: "Déménager" }, together),
+      trashed({ parentId: PARENT, parentTitle: "Déménager" }, together),
+    ];
+
+    const entries = trashEntries([parent, ...withParent]);
+
+    expect(entries).toEqual([{ task: parent, subtaskCount: 2 }]);
+  });
+
+  it("sous-tâche mise à la corbeille seule avant sa parente : sa propre ligne, après la parente", () => {
+    const parent = trashed({ id: PARENT }, together);
+    const alone = trashed({ parentId: PARENT }, before);
+
+    const entries = trashEntries([parent, alone]);
+
+    expect(entries).toEqual([
+      { task: parent, subtaskCount: 0 },
+      { task: alone, subtaskCount: 0 },
+    ]);
+  });
+
+  it("sous-tâche dont la parente est active : sa propre ligne", () => {
+    const alone = trashed({ parentId: PARENT }, together);
+
+    expect(trashEntries([alone])).toEqual([{ task: alone, subtaskCount: 0 }]);
   });
 });

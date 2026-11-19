@@ -4,7 +4,7 @@
 
 import type { Side } from "@/modules/core/sides";
 
-import type { Task } from "./queries";
+import type { Task, TrashedTask } from "./queries";
 import { openStatusCategories } from "./sides";
 
 export const sectionKeys = [
@@ -244,4 +244,34 @@ export function tagChanges(
     ...(addTags.length > 0 && { addTags }),
     ...(removeTags.length > 0 && { removeTags }),
   };
+}
+
+/** Ligne de la corbeille : une tâche, et pour une parente le nombre de sous-tâches mises à la corbeille avec elle. */
+export type TrashEntry = { task: TrashedTask; subtaskCount: number };
+
+/**
+ * Lignes de la corbeille (spec todo-unifiee, « Corbeille ») dans l'ordre reçu (`listTrashedTasks`, plus récente
+ * d'abord). Une sous-tâche mise à la corbeille avec sa parente (même horodatage, parente à la corbeille) n'a pas
+ * de ligne : elle est comptée sur celle de la parente (« + n sous-tâches ») et revient avec elle. Une sous-tâche
+ * mise à la corbeille seule garde sa ligne.
+ */
+export function trashEntries(tasks: TrashedTask[]): TrashEntry[] {
+  const trashedAt = new Map(
+    tasks.map((task) => [task.id, task.deletedAt.getTime()]),
+  );
+  const counts = new Map<string, number>();
+  const rows: TrashedTask[] = [];
+  for (const task of tasks) {
+    const parentAt =
+      task.parentId === null ? undefined : trashedAt.get(task.parentId);
+    if (task.parentId !== null && parentAt === task.deletedAt.getTime()) {
+      counts.set(task.parentId, (counts.get(task.parentId) ?? 0) + 1);
+    } else {
+      rows.push(task);
+    }
+  }
+  return rows.map((task) => ({
+    task,
+    subtaskCount: counts.get(task.id) ?? 0,
+  }));
 }

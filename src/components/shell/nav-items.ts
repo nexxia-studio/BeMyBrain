@@ -2,9 +2,14 @@ import { House, ListTodo, type LucideIcon, Settings } from "lucide-react";
 
 import { HOME_PATH, SETTINGS_PATH } from "@/lib/auth/routes";
 
-/** Liste des tâches (todo-unifiee) ; la corbeille est sa sous-page. */
+/** Liste des tâches (todo-unifiee). */
 export const TASKS_PATH = "/tasks";
-export const TASKS_TRASH_PATH = "/tasks/trash";
+/**
+ * Corbeille de toute l'app (todo-unifiee, décision d'Antoine du 2026-11-19) : hors de `/tasks/…`, pour que le
+ * détail `/tasks/[id]` s'ouvre en route interceptée par-dessus la liste. Pas d'entrée de navigation : lien en
+ * bas de la liste et commande de palette.
+ */
+export const TRASH_PATH = "/trash";
 
 // Sections de la navigation : seulement celles qui existent. Chaque module ajoute la sienne à sa
 // feature (la référence montre To-do, Listes, Finances… qui n'existent pas encore).

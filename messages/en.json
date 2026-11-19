@@ -330,6 +330,24 @@
       "restored": "Task restored",
       "trashFailed": "Task not moved to trash. Try again.",
       "restoreFailed": "Task not restored. Try again."
+    },
+    "trash": {
+      "subtasks": "+ {count, plural, one {# subtask} other {# subtasks}}"
+    }
+  },
+  "trash": {
+    "title": "Trash",
+    "empty": "The trash is empty",
+    "emptyBody": "What you move to the trash waits here; nothing is deleted.",
+    "loading": "Loading the trash…",
+    "trashedOn": "Moved to trash on {date}",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "restoreFailed": "Not restored. Try again.",
+    "error": {
+      "title": "Trash unavailable",
+      "body": "The trash could not be loaded. Try again in a moment.",
+      "retry": "Try again"
     }
   }
 }

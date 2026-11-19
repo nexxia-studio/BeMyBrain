@@ -9,10 +9,12 @@ import {
   getTask,
   listDueToday,
   listTasks,
+  listTrashedTasks,
   listUpcomingTasks,
   type Task,
   type TaskDetail,
   type TaskList,
+  type TrashedTask,
 } from "./queries";
 import type { ListTasksFilter, UpcomingTasksFilter } from "./schemas";
 
@@ -57,4 +59,12 @@ export function loadUpcomingTasks(
   filter: UpcomingTasksFilter,
 ): Promise<Task[]> {
   return withUserDb(token, (tx) => listUpcomingTasks(workspaceId, filter, tx));
+}
+
+/** Corbeille `/trash` : tâches à la corbeille, plus récente d'abord, même double verrou. */
+export function loadTrashedTasks(
+  token: string,
+  workspaceId: string,
+): Promise<TrashedTask[]> {
+  return withUserDb(token, (tx) => listTrashedTasks(workspaceId, tx));
 }

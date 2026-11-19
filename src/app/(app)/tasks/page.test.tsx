@@ -162,7 +162,7 @@ describe("page /tasks", () => {
     ).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Corbeille" }).getAttribute("href"),
-    ).toBe("/tasks/trash");
+    ).toBe("/trash");
     expect(screen.queryByText(/premières tâches/)).toBeNull();
   });
 

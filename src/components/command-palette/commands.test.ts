@@ -105,7 +105,7 @@ describe("commandes de la palette", () => {
     ).toEqual([
       ["quickAdd", "newTask", false],
       ["navigate", "openTodo", "/tasks"],
-      ["navigate", "openTrash", "/tasks/trash"],
+      ["navigate", "openTrash", "/trash"],
     ]);
   });
 
