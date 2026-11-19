@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createTestUserDb } from "../../../tests/factories/as-user";
 import {
@@ -18,6 +18,11 @@ import { moveTaskToTrash, restoreTask } from "./mutations";
 
 // Corbeille et restauration contre la branche Neon test : withUserDb réel en rôle app_backend (RLS et droits
 // de colonne actifs), fixture préparée et relue par le propriétaire (il voit aussi la corbeille).
+
+// Délai propre aux tests base de ce fichier : un `it` enchaîne plusieurs allers-retours Neon séquentiels.
+// Mesuré le 2026-11-19 : jusqu'à 2,93 s en CI (branche éphémère, ~4x le local), contre 5 s par défaut.
+// 20 s laisse de la marge (même convention que src/modules/actions/isolation.test.ts).
+vi.setConfig({ testTimeout: 20_000 });
 
 const ownerUrl = process.env.DATABASE_TEST_URL;
 const backendUrl = process.env.DATABASE_TEST_AUTHENTICATED_URL;
