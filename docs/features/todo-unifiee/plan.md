@@ -97,7 +97,7 @@
   - Test à écrire d'abord : `src/components/tasks/TaskDetail.test.tsx` — « chaque champ appelle `tasks.update`, désactivé pendant l'appel, erreur sous le champ » ; « détail d'une sous-tâche : pas d'ajout de sous-tâche, lien vers la parente, côté et espace non modifiables » ; « corbeille puis Annuler restaure »
   - Fini quand : tests verts
 
-- [ ] **16a. Couleur des espaces** [security]
+- [x] **16a. Couleur des espaces** [security]
   - Décision d'Antoine (2026-11-19) : colonne `contexts.color text NOT NULL DEFAULT 'neutral' CHECK (color IN ('neutral','warm','indigo'))`, migration `drizzle/0007_context_color.sql` additive ; valeurs posées pour les espaces existants : Privé `neutral`, Trustup `warm`, Nexxia `indigo` (UPDATE par nom dans la migration, et `scripts/seed.ts`). Pas d'écran pour la changer (BRAIN-30). Droits : lecture par `app_backend` (GRANT SELECT de la colonne si les GRANT de `contexts` sont par colonne), aucun UPDATE de la colonne.
   - Fichiers : `drizzle/0007_context_color.sql` + meta, `src/db/schema/*` (contexts), `scripts/seed.ts`, `src/modules/core/queries.ts` ou `src/modules/tasks/queries.ts` (lecture de la couleur avec le nom de l'espace), `src/components/tasks/ContextChip.tsx`, `TaskRow.tsx`, `SideTodoTile.tsx`, `src/components/bento/TodayTaskRow.tsx`, menu Espace de l'ajout rapide et du détail ; retirer les `// raccourci:` de pastille neutre
   - Test à écrire d'abord : test DB — « couleur hors des trois valeurs refusée (23514) », « défaut neutral », « app_backend lit la couleur, ne peut pas la modifier » ; `ContextChip.test.tsx` — « classe chip-warm pour un espace warm » ; seed — « Privé neutral, Trustup warm, Nexxia indigo »
