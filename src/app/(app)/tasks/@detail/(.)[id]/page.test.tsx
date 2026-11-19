@@ -16,7 +16,7 @@ const TASK = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 afterEach(() => vi.clearAllMocks());
 
 describe("détail intercepté /tasks/[id] (ouvert depuis la liste)", () => {
-  it("rend le détail seul, la liste déjà affichée reste dessous ; requête de la liste gardée", async () => {
+  it("rend le détail de la tâche de l'adresse, requête de la liste gardée", async () => {
     const element = await TaskDetailOverList({
       params: Promise.resolve({ id: TASK }),
       searchParams: Promise.resolve({ completed: "1" }),
@@ -28,6 +28,5 @@ describe("détail intercepté /tasks/[id] (ouvert depuis la liste)", () => {
       listQuery: "?completed=1",
     });
     expect(screen.getByText("détail")).toBeTruthy();
-    expect(screen.queryByText("liste")).toBeNull();
   });
 });

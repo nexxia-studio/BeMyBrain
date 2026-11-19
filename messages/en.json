@@ -338,7 +338,6 @@
   "trash": {
     "title": "Trash",
     "empty": "The trash is empty",
-    "emptyBody": "What you move to the trash waits here; nothing is deleted.",
     "loading": "Loading the trash…",
     "trashedOn": "Moved to trash on {date}",
     "restore": "Restore",

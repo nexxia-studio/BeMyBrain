@@ -15,3 +15,33 @@ export type TrashItem = {
   /** Contenu propre au type (titre, légende), sans contrôle. */
   row: ReactNode;
 };
+
+/** Ordre de la corbeille : la plus récente d'abord ; à date égale, l'ordre reçu est gardé (tri stable). */
+export function sortTrash(items: TrashItem[]): TrashItem[] {
+  return items.toSorted(
+    (a, b) => b.deletedAt.getTime() - a.deletedAt.getTime(),
+  );
+}
+
+/** Options de formatage de la date (compatibles avec next-intl et Intl). */
+export type TrashDateFormat = {
+  day: "numeric";
+  month: "short";
+  year?: "numeric";
+};
+
+/**
+ * Format de la date de mise à la corbeille : jour et mois, plus l'année quand elle n'est pas l'année en cours
+ * (dans le fuseau de l'utilisateur).
+ */
+export function trashDateFormat(
+  deletedAt: Date,
+  now: Date,
+  timeZone: string,
+): TrashDateFormat {
+  const year = (date: Date) =>
+    new Intl.DateTimeFormat("en", { timeZone, year: "numeric" }).format(date);
+  return year(deletedAt) === year(now)
+    ? { day: "numeric", month: "short" }
+    : { day: "numeric", month: "short", year: "numeric" };
+}

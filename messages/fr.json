@@ -338,7 +338,6 @@
   "trash": {
     "title": "Corbeille",
     "empty": "La corbeille est vide",
-    "emptyBody": "Ce que tu mets à la corbeille attend ici ; rien n'est supprimé.",
     "loading": "Chargement de la corbeille…",
     "trashedOn": "Mise à la corbeille le {date}",
     "restore": "Restaurer",

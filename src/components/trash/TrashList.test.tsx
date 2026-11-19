@@ -16,6 +16,7 @@ import { TrashList } from "./TrashList";
 
 const PARENT = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 const DELETED_AT = new Date("2026-11-18T09:00:00Z");
+const NOW = new Date("2026-11-19T10:00:00Z");
 
 type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
 function deferred<T>(): Deferred<T> {
@@ -43,6 +44,7 @@ function renderList(items: TrashItem[]) {
       locale="fr"
       messages={messages}
       timeZone={getUserTimeZone()}
+      now={NOW}
     >
       <TrashList items={items} />
     </NextIntlClientProvider>,
@@ -59,6 +61,17 @@ describe("TrashList", () => {
     expect(screen.getByText("+ 2 sous-tâches")).toBeTruthy();
     expect(screen.getByText("Mise à la corbeille le 18 nov.")).toBeTruthy();
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("mise à la corbeille une autre année : l'année est écrite", () => {
+    const deletedAt = new Date("2025-12-30T10:00:00Z");
+    const item = taskItem({ title: "Déménager" });
+
+    renderList([{ ...item, deletedAt }]);
+
+    expect(
+      screen.getByText("Mise à la corbeille le 30 déc. 2025"),
+    ).toBeTruthy();
   });
 
   it("sous-tâche seule : le titre de sa parente en légende", () => {

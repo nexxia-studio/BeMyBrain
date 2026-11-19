@@ -8,14 +8,15 @@
 // la contient plus. Échec dans la ligne : code traduit (`tasks.errors.*`, seuls codes que `runAppAction`
 // transmet), sinon message générique.
 import { motion } from "motion/react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useNow, useTimeZone, useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
 import { settleAction } from "@/lib/settle-action";
+import { getUserTimeZone } from "@/modules/core/time-zone";
 import type { TaskErrorCode } from "@/modules/tasks/errors";
 
-import type { TrashItem } from "./trash-item";
+import { type TrashItem, trashDateFormat } from "./trash-item";
 
 type TrashRowProps = { item: TrashItem };
 
@@ -25,6 +26,8 @@ export function TrashRow({ item }: TrashRowProps) {
   const t = useTranslations("trash");
   const tTasks = useTranslations("tasks");
   const format = useFormatter();
+  const now = useNow();
+  const timeZone = useTimeZone();
   const contentId = useId();
   const [pending, startTransition] = useTransition();
   const [failure, setFailure] = useState<RestoreFailure>(null);
@@ -56,10 +59,14 @@ export function TrashRow({ item }: TrashRowProps) {
             className="text-caption text-muted-foreground"
           >
             {t("trashedOn", {
-              date: format.dateTime(item.deletedAt, {
-                day: "numeric",
-                month: "short",
-              }),
+              date: format.dateTime(
+                item.deletedAt,
+                trashDateFormat(
+                  item.deletedAt,
+                  now,
+                  timeZone ?? getUserTimeZone(),
+                ),
+              ),
             })}
           </time>
         </div>

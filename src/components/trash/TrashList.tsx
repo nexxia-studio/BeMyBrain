@@ -27,10 +27,7 @@ export function TrashList({ items }: TrashListProps) {
         <span className="flex size-11 items-center justify-center rounded-lg bg-row text-link">
           <Trash2 aria-hidden="true" className="size-5.5" strokeWidth={2} />
         </span>
-        <p className="text-body font-semibold text-foreground">{t("empty")}</p>
-        <p className="max-w-prose text-small text-muted-foreground">
-          {t("emptyBody")}
-        </p>
+        <p className="text-body text-foreground">{t("empty")}</p>
       </section>
     );
   }

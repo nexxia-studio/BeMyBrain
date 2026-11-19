@@ -6,20 +6,16 @@ import { buildTask } from "../../../tests/factories/build-task";
 const loadTrashedTasks = vi.hoisted(() => vi.fn());
 vi.mock("@/modules/tasks/load", () => ({ loadTrashedTasks }));
 
-import { defineTrashType, loadTrash, TRASH_TYPES } from "./trash-types";
+import { loadTrash, TRASH_TYPES } from "./trash-types";
 
 const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const PARENT = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 
 afterEach(() => vi.clearAllMocks());
 
-function at(iso: string): Date {
-  return new Date(iso);
-}
-
 describe("registre de la corbeille", () => {
   it("déclare le type tâches : lecture de la corbeille du workspace, sous-tâches mises avec leur parente regroupées, restauration par tasks.restore", async () => {
-    const deletedAt = at("2026-11-19T09:00:00Z");
+    const deletedAt = new Date("2026-11-19T09:00:00Z");
     const parent = { ...buildTask({ id: PARENT }), deletedAt };
     const subtask = { ...buildTask({ parentId: PARENT }), deletedAt };
     loadTrashedTasks.mockResolvedValue([parent, subtask]);
@@ -40,31 +36,22 @@ describe("registre de la corbeille", () => {
     });
   });
 
-  it("mêle les types par date de mise à la corbeille, la plus récente d'abord", async () => {
-    const Row = () => null;
-    const restore = (id: string) => ({ action: "x.restore", params: { id } });
-    const first = defineTrashType({
-      key: "a",
-      load: async () => [
-        { id: "a1", at: at("2026-11-19T10:00:00Z") },
-        { id: "a2", at: at("2026-11-17T10:00:00Z") },
-      ],
-      id: (item) => item.id,
-      deletedAt: (item) => item.at,
-      Row,
-      restore: (item) => restore(item.id),
-    });
-    const second = defineTrashType({
-      key: "b",
-      load: async () => [{ id: "b1", at: at("2026-11-18T10:00:00Z") }],
-      id: (item) => item.id,
-      deletedAt: (item) => item.at,
-      Row,
-      restore: (item) => restore(item.id),
-    });
+  it("rend la corbeille la plus récente d'abord", async () => {
+    const older = {
+      ...buildTask(),
+      deletedAt: new Date("2026-11-17T10:00:00Z"),
+    };
+    const newer = {
+      ...buildTask(),
+      deletedAt: new Date("2026-11-19T10:00:00Z"),
+    };
+    loadTrashedTasks.mockResolvedValue([older, newer]);
 
-    const items = await loadTrash("jeton", WORKSPACE, [first, second]);
+    const items = await loadTrash("jeton", WORKSPACE);
 
-    expect(items.map((item) => item.key)).toEqual(["a:a1", "b:b1", "a:a2"]);
+    expect(items.map((item) => item.key)).toEqual([
+      `task:${newer.id}`,
+      `task:${older.id}`,
+    ]);
   });
 });
