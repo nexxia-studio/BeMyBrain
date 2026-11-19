@@ -70,7 +70,7 @@
   - Test à écrire d'abord : `src/app/(app)/tasks/actions.test.ts` — « origine `app` posée » ; « session absente → redirect » ; lint `tests/lint/unguarded-actions.ts` vert
   - Fini quand : tests verts
 
-- [ ] **11. Ajout rapide : coque extensible et bouton d'ajout**
+- [x] **11. Ajout rapide : coque extensible et bouton d'ajout**
   - Fichiers : `src/components/quick-add/quick-add-types.ts`, `QuickAdd.tsx` (tiroir mobile, dialogue ordinateur, sélecteur de types masqué sous deux types), `QuickAddProvider.tsx`, `src/components/shell/TabBar.tsx` (« + » → ajout rapide), `ShellHeader.tsx` (bouton d'ajout rond ordinateur ; accès palette sur mobile), `messages/*.json`
   - Test à écrire d'abord : `src/components/quick-add/QuickAdd.test.tsx` — « un seul type : pas de sélecteur » ; « deux types factices : sélecteur visible » ; `TabBar.test.tsx` — « le + ouvre l'ajout rapide » ; `ShellHeader.test.tsx` — « palette accessible sur mobile »
   - Fini quand : tests verts
