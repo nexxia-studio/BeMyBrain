@@ -92,7 +92,7 @@
   - Aussi (review tâche 13) : palette sans doublon — retirer `/tasks` du groupe « Aller à » (la commande « Ouvrir la to-do » du groupe Tâches reste), le test « identifiant unique » de `commands.test.ts` reste vert
   - Fini quand : tests verts, page rendue à 390 px
 
-- [ ] **15. Détail `/tasks/[id]`**
+- [x] **15. Détail `/tasks/[id]`**
   - Fichiers : `src/app/(app)/tasks/[id]/page.tsx`, `src/components/tasks/TaskDetail.tsx`, `SubtaskList.tsx`, `messages/*.json`
   - Test à écrire d'abord : `src/components/tasks/TaskDetail.test.tsx` — « chaque champ appelle `tasks.update`, désactivé pendant l'appel, erreur sous le champ » ; « détail d'une sous-tâche : pas d'ajout de sous-tâche, lien vers la parente, côté et espace non modifiables » ; « corbeille puis Annuler restaure »
   - Fini quand : tests verts
