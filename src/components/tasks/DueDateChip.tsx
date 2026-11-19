@@ -68,6 +68,7 @@ export function DueDateChip({
   const timeRef = useRef<HTMLInputElement | null>(null);
   const dateId = useId();
   const timeId = useId();
+  const pickedId = useId();
   const shortcuts = dateShortcuts(today);
 
   const formatDay = (day: string) =>
@@ -167,12 +168,31 @@ export function DueDateChip({
             </ul>
             <div className="mt-1 flex flex-col gap-3 border-t border-border px-3 pt-3 pb-2">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor={dateId} className="text-small font-medium">
-                  {t("pick")}
-                </label>
+                {/* Le champ natif écrit la date au format du navigateur, pas toujours celui de l'app : la date
+                    retenue est redite à côté, dans la langue de l'app, et lue avec le champ. */}
+                <div className="flex items-baseline justify-between gap-3">
+                  <label htmlFor={dateId} className="text-small font-medium">
+                    {t("pick")}
+                  </label>
+                  {value.date !== null && (
+                    <span
+                      id={pickedId}
+                      className="text-caption text-muted-foreground"
+                    >
+                      {format.dateTime(utcDay(value.date), {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      })}
+                    </span>
+                  )}
+                </div>
                 <input
                   id={dateId}
                   type="date"
+                  aria-describedby={value.date !== null ? pickedId : undefined}
                   value={value.date ?? ""}
                   onChange={(event) => changeDate(event.target.value)}
                   className="min-h-11 rounded-lg border border-input bg-row px-3 text-base text-foreground"
