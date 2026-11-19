@@ -75,7 +75,7 @@
   - Test à écrire d'abord : `src/components/quick-add/QuickAdd.test.tsx` — « un seul type : pas de sélecteur » ; « deux types factices : sélecteur visible » ; `TabBar.test.tsx` — « le + ouvre l'ajout rapide » ; `ShellHeader.test.tsx` — « palette accessible sur mobile »
   - Fini quand : tests verts
 
-- [ ] **12. Ajout rapide : formulaire tâche**
+- [x] **12. Ajout rapide : formulaire tâche**
   - Fichiers : `src/components/tasks/TaskQuickAddForm.tsx`, `ContextChip.tsx`, `DueDateChip.tsx`, `TagsChip.tsx`
   - Test à écrire d'abord : `src/components/tasks/TaskQuickAddForm.test.tsx` — « titre seul → création avec côté et espace courants » ; « espace, date, tags en un tap » ; « tag inconnu → Créer « … » » ; « succès : titre, date, tags vidés, espace gardé, focus au titre » ; « échec : saisie conservée, message » ; « bouton désactivé titre vide et pendant l'appel »
   - Aussi (review tâche 11) : le tiroir suit le clavier (`visualViewport` `resize`/`scroll` pour remonter le tiroir ; `interactiveWidget: "resizes-content"` dans le `viewport` de `src/app/layout.tsx` pour Android), sans dépendance
