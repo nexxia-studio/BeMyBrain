@@ -16,8 +16,16 @@ vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 import { SideTodoTile } from "./SideTodoTile";
 
 const TODAY = "2026-11-19";
-const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
-const NEXXIA = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
+const TRUSTUP = {
+  id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+  name: "Trustup",
+  color: "warm",
+} as const;
+const NEXXIA = {
+  id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+  name: "Nexxia",
+  color: "indigo",
+} as const;
 
 const proTodo = () => {
   const tile = buildDashboard({
@@ -122,6 +130,16 @@ describe("tuile « To-do pro »", () => {
       "text-destructive",
     );
     expect(within(link).getByText("Trustup")).toBeTruthy();
+  });
+
+  it("espaces nommés dans leur couleur : Trustup chip-warm, Nexxia chip-indigo", () => {
+    renderTile([]);
+
+    const spaces = within(tile()).getByRole("list", { name: "Espaces couverts" });
+    const classes = (name: string) =>
+      within(spaces).getByText(name).className.split(/\s+/);
+    expect(classes("Trustup")).toContain("bg-chip-warm");
+    expect(classes("Nexxia")).toContain("bg-chip-indigo");
   });
 
   it("vide : dit à quoi sert la tuile et propose d'ajouter une tâche", () => {

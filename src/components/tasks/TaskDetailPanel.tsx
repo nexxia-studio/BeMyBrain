@@ -35,6 +35,7 @@ export async function TaskDetailPanel({ id, listQuery }: TaskDetailPanelProps) {
       contexts={contexts.map((context) => ({
         id: context.id,
         name: context.name,
+        color: context.color,
       }))}
       today={todayIn(getUserTimeZone(), new Date())}
       listQuery={listQuery}

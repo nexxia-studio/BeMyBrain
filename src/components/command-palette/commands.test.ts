@@ -51,8 +51,8 @@ describe("raccourci de la palette", () => {
 const SCOPE = {
   side: "pro" as const,
   contexts: [
-    { id: "c1", name: "Nexxia" },
-    { id: "c2", name: "Viniz" },
+    { id: "c1", name: "Nexxia", color: "indigo" as const },
+    { id: "c2", name: "Viniz", color: "neutral" as const },
   ],
   contextId: null,
 };

@@ -20,8 +20,16 @@ vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
 import { TaskQuickAddForm } from "./TaskQuickAddForm";
 
-const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
-const NEXXIA = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
+const TRUSTUP = {
+  id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+  name: "Trustup",
+  color: "warm",
+} as const;
+const NEXXIA = {
+  id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+  name: "Nexxia",
+  color: "indigo",
+} as const;
 const TASK_ID = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 
 const PRO_TRUSTUP: QuickAddScope = {

@@ -2,13 +2,16 @@ import { z } from "zod";
 
 import { locales } from "@/i18n/locales";
 
+import { contextColors } from "./context-colors";
 import { CoreError } from "./errors";
 import { sides } from "./sides";
 
 export { sides, type Side } from "./sides";
+export { contextColors, type ContextColor } from "./context-colors";
 
 export const uuidSchema = z.uuid();
 export const sideSchema = z.enum(sides);
+export const contextColorSchema = z.enum(contextColors);
 export const localeSchema = z.enum(locales);
 export const contextFilterSchema = z.object({ side: sideSchema });
 

@@ -1,3 +1,4 @@
+import type { ContextColor } from "@/modules/core/context-colors";
 import type { Side } from "@/modules/core/schemas";
 
 // Tuiles du tableau de bord (BRAIN-7) : règle d'affichage pure, sans React, sans Next, sans base
@@ -102,8 +103,11 @@ export type DashboardTile = {
    * Espaces à nommer sur la tuile : ceux qu'elle couvre si elle les mêle et que le côté en a plusieurs ;
    * sinon vide (rien à distinguer).
    */
-  spaceLabels: string[];
+  spaceLabels: SpaceLabel[];
 };
+
+/** Espace nommé sur une tuile : son nom (saisi, jamais traduit) et la couleur de sa pastille. */
+export type SpaceLabel = { name: string; color: ContextColor };
 
 export type Dashboard = {
   side: Side;
@@ -112,7 +116,7 @@ export type Dashboard = {
   tiles: DashboardTile[];
 };
 
-type Space = { id: string; name: string };
+type Space = { id: string; name: string; color: ContextColor };
 
 /**
  * Tuiles du côté actif, restreintes aux espaces retenus par le filtre. Sélection qui ne désigne aucun
@@ -131,9 +135,9 @@ export function buildDashboard(input: {
 
   const wanted = new Set(selected);
   const retained = contexts.filter((context) => wanted.has(context.id));
-  const spaces = (retained.length > 0 ? retained : contexts).map(
-    (context) => context.name,
-  );
+  const covered = retained.length > 0 ? retained : contexts;
+  const spaces = covered.map((context) => context.name);
+  const labels = covered.map(({ name, color }) => ({ name, color }));
   const distinguishable = contexts.length >= 2;
 
   return {
@@ -145,7 +149,7 @@ export function buildDashboard(input: {
       size: tile.size,
       content: tile.content,
       spaces,
-      spaceLabels: tile.mixesSpaces && distinguishable ? spaces : [],
+      spaceLabels: tile.mixesSpaces && distinguishable ? labels : [],
     })),
   };
 }

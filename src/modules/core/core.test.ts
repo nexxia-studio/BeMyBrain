@@ -45,8 +45,8 @@ beforeAll(async () => {
   await insertDualMember(owner, f);
   // A : ctx-A (private, 0) de la fixture + Trustup et Nexxia (pro). B : ctx-B (pro, 0) + deux pro à égalité.
   await insertContexts(owner, f.workspaceA, [
-    { name: "Nexxia", kind: "pro", position: 2 },
-    { name: "Trustup", kind: "pro", position: 1 },
+    { name: "Nexxia", kind: "pro", position: 2, color: "indigo" },
+    { name: "Trustup", kind: "pro", position: 1, color: "warm" },
   ]);
   await insertContexts(owner, f.workspaceB, [
     { name: "Zeta", kind: "pro", position: 1 },
@@ -80,7 +80,24 @@ describe("listContexts", () => {
     );
 
     expect(contexts).toEqual([
-      { id: f.contextA, name: `ctx-A-${f.run}`, side: "private", position: 0 },
+      {
+        id: f.contextA,
+        name: `ctx-A-${f.run}`,
+        side: "private",
+        position: 0,
+        color: "neutral",
+      },
+    ]);
+  });
+
+  it("renvoie la couleur de chaque espace", async () => {
+    const contexts = await db.asUser(f.userA, (tx) =>
+      listContexts(f.workspaceA, { side: "pro" }, tx),
+    );
+
+    expect(contexts.map((c) => [c.name, c.color])).toEqual([
+      ["Trustup", "warm"],
+      ["Nexxia", "indigo"],
     ]);
   });
 

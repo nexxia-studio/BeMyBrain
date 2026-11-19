@@ -19,6 +19,7 @@ import type { DashboardTile } from "@/modules/dashboard/tiles";
 import type { Task } from "@/modules/tasks/queries";
 import { isOverdue, sideTileItems } from "@/modules/tasks/view";
 
+import { contextChipClass } from "./context-chip-class";
 import { TaskRow } from "./TaskRow";
 
 type SideTodoTileProps = {
@@ -70,14 +71,9 @@ export function SideTodoTile({
         {tile.spaceLabels.length > 0 && (
           <ul aria-label={t("spaces")} className="flex flex-wrap gap-1.5">
             {tile.spaceLabels.map((space) => (
-              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit.
-              // raccourci: pastille neutre, aucune couleur par espace en base — à brancher avec la décision
-              // d'Antoine sur la couleur des espaces (même attente que ContextChip).
-              <li
-                key={space}
-                className="rounded-full bg-chip-neutral px-2.5 py-0.5 text-chip text-chip-neutral-foreground"
-              >
-                {space}
+              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit ; pastille de sa couleur.
+              <li key={space.name} className={contextChipClass(space.color)}>
+                {space.name}
               </li>
             ))}
           </ul>

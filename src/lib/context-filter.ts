@@ -5,13 +5,14 @@ import { cache } from "react";
 import { readContextSelection, readSide } from "@/lib/preferences";
 import { requireSession, requireSessionToken } from "@/lib/session";
 import { loadContexts } from "@/modules/core/contexts";
+import type { ContextOption } from "@/modules/core/context-colors";
 import type { Side } from "@/modules/core/schemas";
 
 export type ContextFilterData = {
   /** Côté dont les espaces sont filtrés (le côté actif). */
   side: Side;
-  /** Saisis par l'utilisateur : affichés tels quels, jamais traduits. */
-  contexts: { id: string; name: string }[];
+  /** Saisis par l'utilisateur : affichés tels quels, jamais traduits ; avec la couleur de leur pastille. */
+  contexts: ContextOption[];
   /** Espaces retenus, revalidés contre ceux du workspace ; tous = aucun filtre. */
   selected: string[];
 };
@@ -30,7 +31,7 @@ export const loadSideSpaces = cache(async (): Promise<SideSpaces> => {
   const ids = contexts.map((context) => context.id);
   return {
     side,
-    contexts: contexts.map(({ id, name }) => ({ id, name })),
+    contexts: contexts.map(({ id, name, color }) => ({ id, name, color })),
     selected: await readContextSelection(side, ids),
   };
 });
@@ -50,7 +51,7 @@ export type CurrentScope = {
   /** Côté actif (bascule Privé / Pro). */
   side: Side;
   /** Espaces du côté actif. Saisis par l'utilisateur : affichés tels quels, jamais traduits. */
-  contexts: { id: string; name: string }[];
+  contexts: ContextOption[];
   /** Espace filtré quand le filtre n'en retient qu'un parmi plusieurs ; sinon aucun (tous affichés). */
   contextId: string | null;
 };

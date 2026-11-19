@@ -420,6 +420,20 @@ describe("listTasks : filtres", () => {
     });
   });
 
+  it("une tâche porte la couleur de son espace (contextColor), null sans espace", async () => {
+    await owner.query("update contexts set color = 'indigo' where id = $1", [
+      f.contextA,
+    ]);
+
+    const r = await db.asUser(f.userA, async (tx) => ({
+      inContext: await getTask(f.workspaceA, t.taskA, tx),
+      noContext: await listTasks(f.workspaceA, { query: "100% payé" }, tx),
+    }));
+
+    expect(r.inContext).toMatchObject({ contextColor: "indigo" });
+    expect(r.noContext.tasks[0]).toMatchObject({ contextColor: null });
+  });
+
   it("tri : échéance (sans échéance en dernier), puis priorité (aucune en dernier), puis création", async () => {
     const r = await db.asUser(f.userA, (tx) =>
       listTasks(f.workspaceA, { side: "pro" }, tx),

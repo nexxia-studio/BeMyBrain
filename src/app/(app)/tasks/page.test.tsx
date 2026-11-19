@@ -47,8 +47,16 @@ const SESSION = {
   workspaceName: "Atelier Monie",
 };
 const TOKEN = "jeton";
-const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
-const NEXXIA = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
+const TRUSTUP = {
+  id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+  name: "Trustup",
+  color: "warm",
+} as const;
+const NEXXIA = {
+  id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+  name: "Nexxia",
+  color: "indigo",
+} as const;
 
 async function renderPage(search: Record<string, string> = {}) {
   const element = await TasksPage({ searchParams: Promise.resolve(search) });
@@ -159,7 +167,11 @@ describe("page /tasks", () => {
   });
 
   it("pastille d'espace seulement quand le côté a plusieurs espaces et qu'aucun n'est filtré", async () => {
-    const PERSO = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Perso" };
+    const PERSO = {
+      id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      name: "Perso",
+      color: "neutral",
+    } as const;
     loadCurrentScope.mockResolvedValueOnce({
       side: "private",
       contexts: [PERSO],

@@ -5,6 +5,8 @@ import { contexts, workspaceMembers, workspaces } from "@/db/schema/core";
 import type { AppLocale } from "@/i18n/locales";
 
 import {
+  contextColorSchema,
+  type ContextColor,
   contextFilterSchema,
   localeSchema,
   parseInput,
@@ -17,7 +19,7 @@ import {
 // Chaque fonction reçoit la transaction ouverte par withUserDb (identité déjà appliquée, RLS active)
 // et filtre en plus sur workspaceId (double verrou, ADR-002).
 
-export type { Side } from "./schemas";
+export type { ContextColor, Side } from "./schemas";
 
 export type Workspace = { id: string; name: string };
 
@@ -26,6 +28,8 @@ export type Context = {
   name: string;
   side: Side;
   position: number | null;
+  /** Pastille de l'espace (DESIGN.md § 2), posée par migration ou seed, jamais par l'app. */
+  color: ContextColor;
 };
 
 /**
@@ -71,14 +75,16 @@ export async function listContexts(
       name: contexts.name,
       kind: contexts.kind,
       position: contexts.position,
+      color: contexts.color,
     })
     .from(contexts)
     .where(and(eq(contexts.workspaceId, workspace), eq(contexts.kind, side)))
     .orderBy(asc(contexts.position), asc(contexts.name));
-  return rows.map(({ kind, ...rest }) => ({
+  return rows.map(({ kind, color, ...rest }) => ({
     ...rest,
-    // CHECK contexts_kind_check : kind ∈ ('private', 'pro') ; validé quand même, pas de cast.
+    // CHECK contexts_kind_check et contexts_color_check ; validés quand même, pas de cast.
     side: sideSchema.parse(kind),
+    color: contextColorSchema.parse(color),
   }));
 }
 

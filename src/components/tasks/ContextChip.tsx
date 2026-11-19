@@ -3,15 +3,16 @@
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Pastille Espace de l'ajout rapide : menu « Aucun » puis les espaces du côté actif (Menu de Base UI :
 // clavier, Échap, focus rendu à la pastille). Même motif que le filtre d'espace mobile (ContextFilterMenu).
-// Pas de couleur par espace : la base n'en stocke aucune (DESIGN.md § 2 prévoit neutre, chaude ou indigo par espace),
-// en attente d'une décision d'Antoine ; la pastille garde le style des autres.
-// raccourci: aucune couleur par espace — à brancher quand Antoine aura tranché où elle se stocke (colonne de `contexts`, choix parmi les trois `chip-*`).
+// Couleur de l'espace (contexts.color, DESIGN.md § 2) : la pastille choisie prend le fond et le texte `chip-*`
+// de son espace (contrastes ≥ 5,52:1 sur blanc) ; sans espace, le style des autres pastilles. Dans le menu,
+// chaque nom est posé dans sa pastille.
 import { Menu } from "@base-ui/react/menu";
 import { Check, Shapes } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
+import type { ContextColor } from "@/modules/core/context-colors";
 
 import {
   chipItemClass,
@@ -19,13 +20,14 @@ import {
   chipPositionerClass,
   chipTriggerClass,
 } from "./chip-styles";
+import { contextChipClass, contextColorClass } from "./context-chip-class";
 
 // Valeur du choix « Aucun » (jamais un identifiant d'espace, qui est un UUID).
 const NONE = "none";
 
 type ContextChipProps = {
   /** Espaces du côté actif ; noms saisis par l'utilisateur, jamais traduits. */
-  contexts: { id: string; name: string }[];
+  contexts: { id: string; name: string; color: ContextColor }[];
   value: string | null;
   onChange: (contextId: string | null) => void;
   disabled: boolean;
@@ -57,7 +59,7 @@ export function ContextChip({
         aria-label={t("menuLabel", { current: current?.name ?? t("none") })}
         className={cn(
           chipTriggerClass,
-          current ? "text-foreground" : "text-muted-foreground",
+          current ? contextColorClass[current.color] : "text-muted-foreground",
         )}
       >
         <Shapes
@@ -80,25 +82,35 @@ export function ContextChip({
                 onChange(next === NONE ? null : String(next))
               }
             >
-              {[{ id: NONE, name: t("none") }, ...contexts].map((option) => (
-                <Menu.RadioItem
-                  key={option.id}
-                  value={option.id}
-                  closeOnClick
-                  className={chipItemClass}
-                >
-                  <span className="flex size-4 shrink-0 items-center">
-                    <Menu.RadioItemIndicator>
-                      <Check
-                        aria-hidden="true"
-                        className="size-4 text-link"
-                        strokeWidth={2}
-                      />
-                    </Menu.RadioItemIndicator>
-                  </span>
-                  <span className="min-w-0 break-words">{option.name}</span>
-                </Menu.RadioItem>
-              ))}
+              {[{ id: NONE, name: t("none"), color: null }, ...contexts].map(
+                (option) => (
+                  <Menu.RadioItem
+                    key={option.id}
+                    value={option.id}
+                    closeOnClick
+                    className={chipItemClass}
+                  >
+                    <span className="flex size-4 shrink-0 items-center">
+                      <Menu.RadioItemIndicator>
+                        <Check
+                          aria-hidden="true"
+                          className="size-4 text-link"
+                          strokeWidth={2}
+                        />
+                      </Menu.RadioItemIndicator>
+                    </span>
+                    <span
+                      className={
+                        option.color === null
+                          ? "min-w-0 break-words"
+                          : `min-w-0 break-words ${contextChipClass(option.color)}`
+                      }
+                    >
+                      {option.name}
+                    </span>
+                  </Menu.RadioItem>
+                ),
+              )}
             </Menu.RadioGroup>
           </Menu.Popup>
         </Menu.Positioner>

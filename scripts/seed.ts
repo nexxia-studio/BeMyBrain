@@ -16,9 +16,9 @@ export const DEFAULT_WORKSPACE_NAME = "BeMyBrain";
 
 // Contenu utilisateur par défaut : non traduit.
 export const DEFAULT_CONTEXTS = [
-  { name: "Privé", kind: "private", position: 0 },
-  { name: "Trustup", kind: "pro", position: 1 },
-  { name: "Nexxia", kind: "pro", position: 2 },
+  { name: "Privé", kind: "private", position: 0, color: "neutral" },
+  { name: "Trustup", kind: "pro", position: 1, color: "warm" },
+  { name: "Nexxia", kind: "pro", position: 2, color: "indigo" },
 ] as const;
 
 type SeedOptions = { ownerUserId: string };

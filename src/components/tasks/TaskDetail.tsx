@@ -33,6 +33,7 @@ import {
 } from "@/components/command-palette/palette-motion";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
+import type { ContextOption } from "@/modules/core/context-colors";
 import { sides, type Side } from "@/modules/core/sides";
 import type { TaskDetail as TaskDetailData } from "@/modules/tasks/queries";
 import {
@@ -66,7 +67,7 @@ const fieldClass =
 type TaskDetailProps = {
   task: TaskDetailData;
   /** Espaces du côté de la tâche ; noms saisis par l'utilisateur, jamais traduits. */
-  contexts: { id: string; name: string }[];
+  contexts: ContextOption[];
   /** Jour local `YYYY-MM-DD` (`todayIn(getUserTimeZone(), now)`, calculé par la page). */
   today: string;
   /** Requête de la liste sous le détail (`?completed=1` ou rien), gardée par la fermeture et les liens. */

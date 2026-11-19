@@ -27,6 +27,7 @@ import type { Task } from "@/modules/tasks/queries";
 import { dueDateInstant, subtaskCounter } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
+import { contextChipClass } from "./context-chip-class";
 import { useTaskToggle } from "./use-task-toggle";
 
 const MotionLink = motion.create(Link);
@@ -135,10 +136,11 @@ export function TaskRow({
                 <span className="truncate">{task.parentTitle}</span>
               </span>
             )}
-            {/* raccourci: pastille d'espace neutre, aucune couleur par espace en base — à brancher avec la
-                décision d'Antoine sur la couleur des espaces (même attente que ContextChip). */}
+            {/* Pastille de la couleur de l'espace ; nom et couleur viennent de la même ligne de contexts. */}
             {showContext && task.contextName !== null && (
-              <span className="truncate rounded-full bg-chip-neutral px-2.5 py-0.5 text-chip text-chip-neutral-foreground">
+              <span
+                className={`truncate ${contextChipClass(task.contextColor ?? "neutral")}`}
+              >
                 {task.contextName}
               </span>
             )}

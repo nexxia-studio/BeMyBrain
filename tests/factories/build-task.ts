@@ -12,6 +12,7 @@ export function buildTask(overrides: Partial<Task> = {}): Task {
     side: "private",
     contextId: null,
     contextName: null,
+    contextColor: null,
     parentId: null,
     parentTitle: null,
     title: `Tâche ${sequence}`,

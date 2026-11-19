@@ -38,10 +38,26 @@ import {
 } from "./context-filter";
 
 const WORKSPACE_ID = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
-const PERSO = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Perso" };
-const MAISON = { id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e", name: "Maison" };
-const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
-const NEXXIA = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
+const PERSO = {
+  id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  name: "Perso",
+  color: "neutral",
+} as const;
+const MAISON = {
+  id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+  name: "Maison",
+  color: "neutral",
+} as const;
+const TRUSTUP = {
+  id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+  name: "Trustup",
+  color: "warm",
+} as const;
+const NEXXIA = {
+  id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+  name: "Nexxia",
+  color: "indigo",
+} as const;
 
 /** Simule une requête Next : un cache React neuf par requête. */
 async function inRequest<T>(fn: () => Promise<T>): Promise<T> {

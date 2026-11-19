@@ -160,6 +160,23 @@ describe("liste des tâches : pastille d'espace", () => {
     const link = screen.getByRole("link", { name: /Payer la crèche/ });
     expect(within(link).queryByText("Privé")).toBeNull();
   });
+
+  it("prend la couleur de l'espace (chip-warm pour Trustup)", () => {
+    renderList([
+      buildTask({
+        title: "Relancer le devis",
+        contextName: "Trustup",
+        contextColor: "warm",
+      }),
+    ]);
+
+    const link = screen.getByRole("link", { name: /Relancer le devis/ });
+    const chip = within(link).getByText("Trustup").className.split(/\s+/);
+    expect(chip).toEqual(
+      expect.arrayContaining(["bg-chip-warm", "text-chip-warm-foreground"]),
+    );
+    expect(chip).not.toContain("bg-chip-neutral");
+  });
 });
 
 describe("liste des tâches : cocher", () => {

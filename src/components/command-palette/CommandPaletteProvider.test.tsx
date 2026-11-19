@@ -39,8 +39,8 @@ import { PaletteTrigger } from "./PaletteTrigger";
 const SCOPE: CurrentScope = {
   side: "pro",
   contexts: [
-    { id: "c1", name: "Nexxia" },
-    { id: "c2", name: "Viniz" },
+    { id: "c1", name: "Nexxia", color: "indigo" as const },
+    { id: "c2", name: "Viniz", color: "neutral" as const },
   ],
   contextId: "c2",
 };

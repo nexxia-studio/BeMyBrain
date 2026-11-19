@@ -38,7 +38,13 @@ const messages = {
 
 const SCOPE: QuickAddScope = {
   side: "pro",
-  contexts: [{ id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" }],
+  contexts: [
+    {
+      id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+      name: "Trustup",
+      color: "warm",
+    },
+  ],
   contextId: null,
 };
 
@@ -205,9 +211,9 @@ describe("ajout rapide : formulaire et clavier", () => {
       for (const listener of listeners) listener();
     });
 
-    expect(
-      screen.getByTestId("quick-add-viewport").style.paddingBottom,
-    ).toBe("320px");
+    expect(screen.getByTestId("quick-add-viewport").style.paddingBottom).toBe(
+      "320px",
+    );
   });
 });
 
@@ -255,7 +261,9 @@ describe("ajout rapide : popups des pastilles dans le tiroir", () => {
         screen.queryByRole("textbox", { name: "Chercher ou créer un tag" }),
       ).toBeNull(),
     );
-    expect(screen.getByRole("dialog", { name: "Ajouter une tâche" })).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Ajouter une tâche" }),
+    ).toBeTruthy();
     expect(
       (screen.getByRole("textbox", { name: "Tâche" }) as HTMLInputElement)
         .value,
@@ -271,11 +279,13 @@ describe("ajout rapide : popups des pastilles dans le tiroir", () => {
     );
 
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-    expect(screen.getByRole("dialog", { name: "Ajouter une tâche" })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: /^Espace :/ }).getAttribute(
-        "aria-label",
-      ),
+      screen.getByRole("dialog", { name: "Ajouter une tâche" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: /^Espace :/ })
+        .getAttribute("aria-label"),
     ).toBe("Espace : Trustup");
     expect(
       (screen.getByRole("textbox", { name: "Tâche" }) as HTMLInputElement)
