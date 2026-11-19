@@ -44,7 +44,7 @@
   - Test à écrire d'abord : `src/modules/tasks/queries.test.ts` — « tâche à la corbeille absente de toute lecture sauf la corbeille » ; « recherche `devis` sans casse, `100%` littéral » ; « limit 2 sur 3 → `truncated` » ; « terminées exclues par défaut » ; « lecture filtrée sur le workspace passé »
   - Fini quand : tests verts, chaque fonction prend `workspaceId` en premier et `tx` en dernier
 
-- [ ] **6. Mutations : création et modification** [security]
+- [x] **6. Mutations : création et modification** [security]
   - Fichiers : `src/modules/tasks/mutations.ts` (`createTask`, `updateTask`, `completeTask`, résolution d'un espace et de tags par nom, création de tags à la volée)
   - Test à écrire d'abord : `src/modules/tasks/mutations.test.ts` — « sous-tâche sans côté ni espace hérite de la parente » ; « changer côté ou espace de la parente suit sur ses sous-tâches, corbeille comprise, en une instruction » ; « sous-tâche de sous-tâche → `subtask_depth` » ; « update d'une sous-tâche avec côté → `subtask_follows_parent` » ; « `addTags` garde l'existant, `removeTags` retire seulement le nom donné, nom dans les deux → refus » ; « `completed_at` posé à `completed`/`canceled`, vidé sinon » ; « cocher la parente ne touche pas les sous-tâches » ; « tâche à la corbeille → `not_found` » ; « espace inconnu → `context_not_found` »
   - Fini quand : tests verts
