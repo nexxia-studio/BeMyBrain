@@ -17,7 +17,10 @@ import {
   chipTriggerClass,
 } from "./chip-styles";
 
-/** Un choix ; `icon` (facultatif) remplace l'icône de la pastille quand il est choisi et s'affiche dans le menu. */
+/**
+ * Un choix ; `icon` (facultatif) remplace l'icône de la pastille quand il est choisi et s'affiche dans le menu.
+ * Sans `icon`, la pastille garde l'icône du champ.
+ */
 export type Choice<V extends string> = {
   value: V;
   label: string;
@@ -47,6 +50,8 @@ export function ChoiceChip<V extends string>({
 }: ChoiceChipProps<V>) {
   const current = options.find((option) => option.value === value);
   const TriggerIcon = current?.icon ?? Icon;
+  // Menu à icônes : un choix sans icône (Priorité « Aucune ») garde la place vide, libellés alignés.
+  const iconSlot = options.some((option) => option.icon !== undefined);
 
   return (
     <Menu.Root>
@@ -99,12 +104,20 @@ export function ChoiceChip<V extends string>({
                       />
                     </Menu.RadioItemIndicator>
                   </span>
-                  {option.icon && (
+                  {option.icon ? (
                     <option.icon
                       aria-hidden="true"
                       className="size-4 shrink-0 text-foreground"
                       strokeWidth={2}
                     />
+                  ) : (
+                    iconSlot && (
+                      <span
+                        aria-hidden="true"
+                        data-icon-slot=""
+                        className="size-4 shrink-0"
+                      />
+                    )
                   )}
                   {option.label}
                 </Menu.RadioItem>

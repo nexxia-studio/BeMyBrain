@@ -577,20 +577,31 @@ describe("détail : icônes de priorité", () => {
     expect(trigger.querySelector("svg.lucide-signal-high")).not.toBeNull();
   });
 
-  it("le menu montre une icône distincte pour chaque niveau", async () => {
+  it("sans priorité, la pastille garde l'icône du champ, sans point isolé", () => {
+    renderDetail(buildDetail({ priority: 0 }));
+
+    const trigger = chip(/^Priorité :/);
+
+    expect(trigger.querySelector("svg.lucide-flag")).not.toBeNull();
+    expect(trigger.querySelector("svg.lucide-signal-zero")).toBeNull();
+  });
+
+  it("le menu montre une icône distincte pour chaque niveau, aucune pour « Aucune »", async () => {
     renderDetail();
 
     fireEvent.click(chip(/^Priorité :/));
 
+    const levelIcon = async (name: string) => {
+      const item = await screen.findByRole("menuitemradio", { name });
+      return [...item.querySelectorAll("svg")]
+        .map((svg) => svg.getAttribute("class") ?? "")
+        .find((cls) => !cls.includes("lucide-check"));
+    };
     const icons = await Promise.all(
-      ["Aucune", "Urgente", "Haute", "Moyenne", "Basse"].map(async (name) => {
-        const item = await screen.findByRole("menuitemradio", { name });
-        return [...item.querySelectorAll("svg")]
-          .map((svg) => svg.getAttribute("class") ?? "")
-          .find((cls) => !cls.includes("lucide-check"));
-      }),
+      ["Urgente", "Haute", "Moyenne", "Basse"].map(levelIcon),
     );
-    expect(new Set(icons).size).toBe(5);
+    expect(new Set(icons).size).toBe(4);
     expect(icons.every(Boolean)).toBe(true);
+    expect(await levelIcon("Aucune")).toBeUndefined();
   });
 });
