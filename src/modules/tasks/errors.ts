@@ -11,7 +11,7 @@ export type TaskErrorCode =
   | "subtask_depth"
   /** Côté ou espace d'une sous-tâche modifié directement : ils suivent la parente. */
   | "subtask_follows_parent"
-  /** Restauration d'une sous-tâche dont la parente est à la corbeille. */
+  /** Parente à la corbeille : restauration d'une de ses sous-tâches, ou création d'une sous-tâche sous elle. */
   | "parent_in_trash";
 
 /**

@@ -341,12 +341,17 @@ describe("createTask", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("workspace dont l'utilisateur n'est pas membre : refusé, rien d'écrit", async () => {
+  it("workspace dont l'utilisateur n'est pas membre : refusé par la RLS (42501), rien d'écrit", async () => {
     const attempt = asA((tx) =>
       createTask(f.workspaceB, { title: "intrus B", side: "pro" }, "app", tx),
     );
 
-    await expect(attempt).rejects.toBeDefined();
+    // DatabaseError (src/db/user-db.ts) n'est pas importable depuis src/modules (frontière eslint) : reconnue
+    // par son nom, fixé en dur dans la classe.
+    await expect(attempt).rejects.toMatchObject({
+      name: "DatabaseError",
+      code: "42501",
+    });
     const { rows } = await owner.query(
       "select 1 from tasks where title = 'intrus B'",
     );
