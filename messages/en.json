@@ -41,7 +41,6 @@
   "dashboard": {
     "title": "Dashboard",
     "loading": "Loading the dashboard…",
-    "workspace": "Workspace: <name></name>",
     "today": {
       "greeting": "Hello.",
       "introNoSpace": "No space on this side yet. Tiles will appear with the first space.",

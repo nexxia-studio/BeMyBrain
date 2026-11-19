@@ -41,7 +41,6 @@
   "dashboard": {
     "title": "Tableau de bord",
     "loading": "Chargement du tableau de bord…",
-    "workspace": "Espace de travail : <name></name>",
     "today": {
       "greeting": "Bonjour.",
       "introNoSpace": "Aucun espace de ce côté pour l'instant. Les tuiles apparaîtront avec le premier espace.",

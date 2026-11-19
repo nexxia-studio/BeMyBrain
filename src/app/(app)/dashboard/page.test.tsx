@@ -282,12 +282,11 @@ describe("tableau de bord", () => {
     ).toBeTruthy();
   });
 
-  it("affiche le nom du workspace résolu depuis la session", async () => {
+  it("la tuile « Aujourd'hui » ne porte plus le nom de l'espace de travail", async () => {
     await renderPage();
 
-    expect(screen.getByTestId("workspace-name").textContent).toBe(
-      "Atelier Monie",
-    );
+    expect(screen.queryByTestId("workspace-name")).toBeNull();
+    expect(screen.queryByText(/Atelier Monie/)).toBeNull();
   });
 
   it("titre la page par son en-tête", async () => {

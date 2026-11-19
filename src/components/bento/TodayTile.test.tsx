@@ -33,7 +33,6 @@ function renderTile(props: Partial<TodayTileProps> = {}) {
     >
       <TodayTile
         hasSpaces
-        workspaceName="Atelier Monie"
         today={TODAY}
         due={todayTileItems([], TODAY)}
         {...props}

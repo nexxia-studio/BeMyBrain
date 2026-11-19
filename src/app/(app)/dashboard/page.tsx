@@ -55,7 +55,6 @@ export default async function DashboardPage() {
       <BentoGrid side={dashboard.side}>
         <TodayTile
           hasSpaces={dashboard.spaces.length > 0}
-          workspaceName={session.workspaceName}
           today={today}
           due={due === null ? null : todayTileItems(due, today)}
         />

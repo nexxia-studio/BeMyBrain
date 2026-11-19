@@ -19,7 +19,6 @@ import { TodayTaskRow } from "./TodayTaskRow";
 type TodayTileProps = {
   /** Le côté actif a au moins un espace (sinon ses tuiles n'existent pas, la tuile le dit). */
   hasSpaces: boolean;
-  workspaceName: string;
   /** Jour local `YYYY-MM-DD` (`todayIn(getUserTimeZone(), now)`). */
   today: string;
   /** Tâches en retard et du jour (`todayTileItems`) ; null si la lecture a échoué. */
@@ -28,7 +27,6 @@ type TodayTileProps = {
 
 export function TodayTile({
   hasSpaces,
-  workspaceName,
   today,
   due,
 }: TodayTileProps) {
@@ -115,16 +113,6 @@ export function TodayTile({
           </Link>
         </div>
       )}
-      <p className="text-small text-on-primary-muted">
-        {t.rich("workspace", {
-          // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit.
-          name: () => (
-            <span data-testid="workspace-name" className="font-semibold">
-              {workspaceName}
-            </span>
-          ),
-        })}
-      </p>
     </section>
   );
 }

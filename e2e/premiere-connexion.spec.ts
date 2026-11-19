@@ -52,10 +52,10 @@ async function expectPrivateDashboard(page: Page) {
   const today = tile(page, "today");
   await expect(today).toBeVisible();
   await expect(today).toContainText(fr.dashboard.today.greeting);
-  // Workspace nommé, puis la to-do du jour (DESIGN.md § 5) : pastilles de chiffres quand des tâches sont dues,
-  // sinon « Rien en retard… » ; jamais la phrase d'absence d'espace (le côté Privé en a un). Le compte e2e est
-  // partagé : l'un ou l'autre selon ce qu'il porte.
-  await expect(today.getByTestId("workspace-name")).toHaveText("BeMyBrain");
+  // La to-do du jour (DESIGN.md § 5) : pastilles de chiffres quand des tâches sont dues, sinon « Rien en
+  // retard… » ; jamais la phrase d'absence d'espace (le côté Privé en a un). Le compte e2e est partagé : l'un
+  // ou l'autre selon ce qu'il porte. Plus de pied « Espace de travail » (décision d'Antoine, 2026-11-19).
+  await expect(today).not.toContainText("BeMyBrain");
   await expect(
     today
       .getByTestId("today-due-count")
