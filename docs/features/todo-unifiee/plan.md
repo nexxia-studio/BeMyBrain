@@ -86,7 +86,7 @@
   - Test à écrire d'abord : `commands.test.ts` — « saisie libre → premier élément Ajouter la tâche « … » » ; « commandes Nouvelle tâche, Ouvrir la to-do, Corbeille » ; test de la Server Action — « origine `palette` »
   - Fini quand : tests verts
 
-- [ ] **14. Liste `/tasks`**
+- [x] **14. Liste `/tasks`**
   - Fichiers : `src/app/(app)/tasks/page.tsx`, `loading.tsx`, `error.tsx` (`retry()`), `src/components/tasks/TaskList.tsx`, `TaskRow.tsx`, `CompletedToggle.tsx`, `src/components/shell/nav-items.ts` (entrée To-do), `messages/*.json`
   - Test à écrire d'abord : `src/components/tasks/TaskList.test.tsx` — « sections, compteur n/m, légende parente » ; « case désactivée pendant l'appel, pas d'optimiste, erreur dans la ligne » ; « vide, vide filtré » ; `nav-items` — « To-do avant Réglages »
   - Aussi (review tâche 13) : palette sans doublon — retirer `/tasks` du groupe « Aller à » (la commande « Ouvrir la to-do » du groupe Tâches reste), le test « identifiant unique » de `commands.test.ts` reste vert
