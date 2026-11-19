@@ -78,7 +78,8 @@
 - [ ] **12. Ajout rapide : formulaire tâche**
   - Fichiers : `src/components/tasks/TaskQuickAddForm.tsx`, `ContextChip.tsx`, `DueDateChip.tsx`, `TagsChip.tsx`
   - Test à écrire d'abord : `src/components/tasks/TaskQuickAddForm.test.tsx` — « titre seul → création avec côté et espace courants » ; « espace, date, tags en un tap » ; « tag inconnu → Créer « … » » ; « succès : titre, date, tags vidés, espace gardé, focus au titre » ; « échec : saisie conservée, message » ; « bouton désactivé titre vide et pendant l'appel »
-  - Fini quand : tests verts
+  - Aussi (review tâche 11) : le tiroir suit le clavier (`visualViewport` `resize`/`scroll` pour remonter le tiroir ; `interactiveWidget: "resizes-content"` dans le `viewport` de `src/app/layout.tsx` pour Android), sans dépendance
+  - Fini quand : tests verts ; vérifié sur un vrai iPhone (navigateur et app installée) que le bouton Ajouter reste visible clavier ouvert. Échec → décision d'Antoine (tiroir en haut ou plein écran)
 
 - [ ] **13. Palette : ajouter une tâche**
   - Fichiers : `src/components/command-palette/commands.ts` (type `action` élargi aux noms du registre), `CommandPalette.tsx`, `PalettePanel.tsx`, `messages/*.json`
@@ -108,10 +109,10 @@
 - [ ] **18. Parcours e2e et passe design**
   - Fichiers : `e2e/todo-*.spec.ts` (scénarios 1 à 7 de la spec), corrections de style issues de l'anti-slop et de `/impeccable critique`
   - Test à écrire d'abord : les 7 scénarios en Playwright (`--workers=1`, Chromium émulation iPhone pour le 1)
-  - Fini quand : e2e verts, anti-slop et critique passés sur liste, ajout rapide, détail
+  - Fini quand : e2e verts, anti-slop et critique passés sur liste, ajout rapide, détail ; scénario 1 rejoué sur un vrai iPhone (Playwright ne simule pas le clavier)
 
 ## Questions ouvertes
-- [ ] Recherche insensible aux accents (« creche » trouve « crèche ») : demande l'extension `unaccent` (fonctions à re-GRANT, gotcha 0005). Reportée sauf avis contraire.
+- [x] Recherche insensible aux accents : reportée (décision d'Antoine, 2026-11-19), ticket BRAIN-41.
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
