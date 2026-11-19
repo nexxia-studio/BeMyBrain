@@ -155,7 +155,7 @@ Saisie et liste
 - [ ] L'ajout rapide crée une tâche avec un titre seul ; côté et espace prennent le filtre courant (côté actif, espace sélectionné ou aucun).
 - [ ] Espace, tags et date se choisissent chacun en un tap depuis l'ajout rapide, sans syntaxe ; un tag inconnu tapé est créé.
 - [ ] Une tâche créée depuis l'écran a `origin = app`, depuis la palette `origin = palette`.
-- [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier), puis heure, puis priorité, puis date de création ; terminées et annulées masquées, visibles par un interrupteur.
+- [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier), puis heure, puis priorité (aucune en dernier), puis date de création ; terminées et annulées masquées, visibles par un interrupteur.
 - [ ] Cocher une tâche la passe à `completed` ; le bouton est désactivé pendant l'appel, pas de mise à jour optimiste. Une erreur s'affiche dans la ligne.
 - [ ] Une sous-tâche sans échéance n'est pas une ligne de la liste ; avec une échéance, elle apparaît dans la section de cette échéance et dans la tuile « Aujourd'hui », titre de la parente en légende ; la parente montre « n/m ».
 - [ ] Le détail d'une tâche permet de modifier tous les champs de la tranche 1, d'ajouter des sous-tâches et de la mettre à la corbeille.
@@ -200,7 +200,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 - **Contenant** : tiroir bas sur mobile (verre opaque `popover`, `rounded-tile` en haut, poignée, ressort `bounce: 0.2`, 0,3 s), dialogue centré sur ordinateur (même entrée que la palette). Clavier ouvert d'office, focus dans le titre.
 - **Formulaire tâche** : champ titre (libellé visible « Tâche », `text-base`, ≥ 44 px), puis une rangée de pastilles d'un tap, toutes facultatives :
   - **Espace** : pré-rempli avec le filtre courant ; menu « Aucun » + espaces du côté actif, couleur de pastille de l'espace. Le côté suit la bascule Privé / Pro de la coque.
-  - **Date** : Aujourd'hui, Demain, Ce week-end, Semaine prochaine, Choisir… (calendrier), puis « Ajouter une heure » facultatif.
+  - **Date** : Aujourd'hui, Demain, Ce week-end, Semaine prochaine, Choisir… (calendrier), puis « Ajouter une heure » facultatif. Ce week-end = aujourd'hui le samedi et le dimanche, sinon le samedi qui suit ; Semaine prochaine = le lundi qui suit.
   - **Tags** : liste filtrée en tapant ; « Créer « … » » si le nom n'existe pas. Plusieurs tags.
   - Priorité et notes ne sont pas dans l'ajout rapide : dans le détail.
 - **Valider** : Entrée ou bouton « Ajouter » (désactivé tant que le titre est vide et pendant l'appel). Succès : titre vidé, date et tags vidés, espace gardé, focus rendu au titre, message court « Tâche ajoutée » avec lien « Ouvrir » (`role="status"`, `data-testid="quick-add-status"`). Échec : message dans le tiroir, saisie conservée.
