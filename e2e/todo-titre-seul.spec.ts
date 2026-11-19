@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 
 import fr from "../messages/fr.json";
 import { watchCspViolations } from "./csp";
@@ -6,7 +6,10 @@ import { signIn } from "./session";
 import {
   detailDialog,
   listSection,
+  openQuickAdd,
   quickAddTask,
+  quickAddTitle,
+  submitQuickAdd,
   t,
   taskLink,
   trashTasks,
@@ -75,13 +78,20 @@ test("un titre contenant « 3x0 » n'est pas transformé par la police", async (
   const title = uniqueTitle("Lot 3x0");
   await signIn(page);
 
-  created.push(await quickAddTask(page, title));
+  const ligatures = (locator: Locator) =>
+    locator.evaluate((el) => getComputedStyle(el).fontVariantLigatures);
+
+  const dialog = await openQuickAdd(page);
+  const input = quickAddTitle(dialog);
+  await input.fill(title);
+  expect(await ligatures(input)).toBe("no-contextual");
+  created.push(await submitQuickAdd(dialog));
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 
   await page.goto("/tasks");
   const link = taskLink(listSection(page, "none"), title);
   await expect(link).toBeVisible();
-  const ligatures = (locator: typeof link) =>
-    locator.evaluate((el) => getComputedStyle(el).fontVariantLigatures);
   expect(await ligatures(link)).toBe("no-contextual");
 
   await link.click();

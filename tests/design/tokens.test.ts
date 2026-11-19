@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -173,11 +173,30 @@ describe("contenu saisi affiché tel quel", () => {
     expect(html).toMatch(/font-variant-ligatures:\s*no-contextual;/);
   });
 
-  it("aucune autre règle ne réactive calt ni ne réinitialise les ligatures", () => {
+  it("aucune autre règle de globals.css ne réactive calt ni ne réinitialise les ligatures", () => {
+    // `font-variant:` et `font:` sont des raccourcis qui remettent les ligatures à `normal` (calt rallumé).
     const rules =
-      css.match(/font-feature-settings|font-variant-ligatures|[^-]font:/g) ??
-      [];
-    expect(rules).toHaveLength(1);
+      css.match(
+        /font-feature-settings|font-variant(?:-ligatures)?\s*:|[^-]font\s*:/g,
+      ) ?? [];
+
+    expect(rules).toEqual(["font-variant-ligatures:"]);
+  });
+
+  it("aucun composant ne réactive calt par une classe arbitraire ou un style en ligne", () => {
+    const pattern =
+      /\[font-feature-settings|\[font-variant|\bfontFeatureSettings\b|\bfontVariant(?:Ligatures)?\b\s*:/;
+    const files = readdirSync(join(process.cwd(), "src"), {
+      recursive: true,
+      encoding: "utf8",
+    }).filter((file) => file.endsWith(".tsx") && !file.includes(".test."));
+
+    const offenders = files.filter((file) =>
+      pattern.test(readFileSync(join(process.cwd(), "src", file), "utf8")),
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+    expect(offenders).toEqual([]);
   });
 
   it("DESIGN.md documente le réglage", () => {
