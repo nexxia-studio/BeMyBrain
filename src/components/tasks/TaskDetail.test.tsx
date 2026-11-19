@@ -565,3 +565,30 @@ describe("détail : mise en page", () => {
     expect(viewport.className.split(/\s+/)).toContain("lg:pt-detail-top");
   });
 });
+
+describe("détail : icônes de priorité", () => {
+  it("la pastille Priorité prend l'icône du niveau, la même que dans la liste", () => {
+    renderDetail(buildDetail({ priority: 2 }));
+
+    const trigger = chip(/^Priorité :/);
+
+    expect(trigger.querySelector("svg.lucide-signal-high")).not.toBeNull();
+  });
+
+  it("le menu montre une icône distincte pour chaque niveau", async () => {
+    renderDetail();
+
+    fireEvent.click(chip(/^Priorité :/));
+
+    const icons = await Promise.all(
+      ["Aucune", "Urgente", "Haute", "Moyenne", "Basse"].map(async (name) => {
+        const item = await screen.findByRole("menuitemradio", { name });
+        return [...item.querySelectorAll("svg")]
+          .map((svg) => svg.getAttribute("class") ?? "")
+          .find((cls) => !cls.includes("lucide-check"));
+      }),
+    );
+    expect(new Set(icons).size).toBe(5);
+    expect(icons.every(Boolean)).toBe(true);
+  });
+});

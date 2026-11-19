@@ -182,33 +182,39 @@ describe("liste des tâches : tags", () => {
 });
 
 describe("liste des tâches : priorité", () => {
-  it("un drapeau de 16 px à l'encre du détail pour chaque priorité, libellé lu inchangé", () => {
+  it("une icône distincte par niveau (modèle Linear), 16 px à l'encre, libellé lu inchangé", () => {
     renderList(
       [1, 2, 3, 4].map((priority) =>
         buildTask({ title: `Tâche ${priority}`, priority }),
       ),
     );
 
-    for (const [priority, label] of [
-      [1, "Priorité urgente"],
-      [4, "Priorité basse"],
-    ] as const) {
+    const expected = [
+      [1, "lucide-square-exclamation-point", "Priorité urgente"],
+      [2, "lucide-signal-high", "Priorité haute"],
+      [3, "lucide-signal-medium", "Priorité moyenne"],
+      [4, "lucide-signal-low", "Priorité basse"],
+    ] as const;
+    for (const [priority, icon, label] of expected) {
       const link = screen.getByRole("link", {
         name: new RegExp(`Tâche ${priority}`),
       });
-      const icon = link.querySelector("svg.lucide-flag");
-      expect(icon?.getAttribute("class")).toContain("size-4");
-      expect(icon?.getAttribute("class")).toContain("text-foreground");
+      const svg = link.querySelector(`svg.${icon}`);
+      expect(svg?.getAttribute("class")).toContain("size-4");
+      expect(svg?.getAttribute("class")).toContain("text-foreground");
       expect(within(link).getByText(label)).toBeTruthy();
     }
-    expect(document.querySelector("svg[class*='lucide-chevron']")).toBeNull();
   });
 
-  it("aucun drapeau sans priorité", () => {
+  it("aucune icône de priorité pour 0", () => {
     renderList([buildTask({ title: "Sans priorité", priority: 0 })]);
 
     const link = screen.getByRole("link", { name: /Sans priorité/ });
-    expect(link.querySelector("svg.lucide-flag")).toBeNull();
+
+    expect(link.querySelector("svg[class*='lucide-signal']")).toBeNull();
+    expect(
+      link.querySelector("svg.lucide-square-exclamation-point"),
+    ).toBeNull();
   });
 });
 

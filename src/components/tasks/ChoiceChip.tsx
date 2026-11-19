@@ -17,7 +17,12 @@ import {
   chipTriggerClass,
 } from "./chip-styles";
 
-export type Choice<V extends string> = { value: V; label: string };
+/** Un choix ; `icon` (facultatif) remplace l'icône de la pastille quand il est choisi et s'affiche dans le menu. */
+export type Choice<V extends string> = {
+  value: V;
+  label: string;
+  icon?: LucideIcon;
+};
 
 type ChoiceChipProps<V extends string> = {
   /** Nom accessible complet (« Statut : À faire »). */
@@ -41,6 +46,7 @@ export function ChoiceChip<V extends string>({
   describedBy,
 }: ChoiceChipProps<V>) {
   const current = options.find((option) => option.value === value);
+  const TriggerIcon = current?.icon ?? Icon;
 
   return (
     <Menu.Root>
@@ -56,7 +62,11 @@ export function ChoiceChip<V extends string>({
         aria-describedby={describedBy}
         className={cn(chipTriggerClass, "text-foreground")}
       >
-        <Icon aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />
+        <TriggerIcon
+          aria-hidden="true"
+          className="size-4 shrink-0"
+          strokeWidth={2}
+        />
         <span className="truncate">{current?.label}</span>
       </Menu.Trigger>
       <Menu.Portal>
@@ -89,6 +99,13 @@ export function ChoiceChip<V extends string>({
                       />
                     </Menu.RadioItemIndicator>
                   </span>
+                  {option.icon && (
+                    <option.icon
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-foreground"
+                      strokeWidth={2}
+                    />
+                  )}
                   {option.label}
                 </Menu.RadioItem>
               ))}

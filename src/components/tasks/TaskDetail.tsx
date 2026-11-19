@@ -49,6 +49,7 @@ import { ChoiceChip } from "./ChoiceChip";
 import { ContextChip } from "./ContextChip";
 import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
+import { PRIORITY_ICONS, type PriorityLevel } from "./priority-icons";
 import { SubtaskList } from "./SubtaskList";
 import { TagsChip } from "./TagsChip";
 import { useTrashTask } from "./task-trash-context";
@@ -257,6 +258,7 @@ export function TaskDetail({
   const priorityOptions = PRIORITIES.map((value) => ({
     value,
     label: t(`detail.priority.${value}`),
+    icon: PRIORITY_ICONS[Number(value) as PriorityLevel],
   }));
   const sideOptions = sides.map((value) => ({ value, label: tSide(value) }));
   const describedBy = (update: TaskUpdate, id: string) =>
