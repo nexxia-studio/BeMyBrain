@@ -17,7 +17,7 @@ export default async function TasksLoading() {
       <div
         aria-hidden="true"
         data-testid="tasks-skeleton"
-        className="glass flex flex-col gap-3 rounded-tile p-tile"
+        className="glass flex w-full max-w-3xl flex-col gap-3 rounded-tile p-tile"
       >
         <span className="h-3 w-24 rounded-full bg-track" />
         {Array.from({ length: SKELETON_ROWS }, (_, index) => (

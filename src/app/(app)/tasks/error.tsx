@@ -25,7 +25,7 @@ export default function TasksError({ error, retry }: TasksErrorProps) {
   return (
     <main className="flex flex-1 flex-col gap-grid">
       <h1 className="font-heading text-page-title">{t("title")}</h1>
-      <section className="glass flex flex-col items-start gap-3 rounded-tile p-tile">
+      <section className="glass flex w-full max-w-3xl flex-col items-start gap-3 rounded-tile p-tile">
         <h2 className="font-heading text-title">{t("error.title")}</h2>
         <p className="max-w-prose text-body text-foreground">
           {t("error.body")}

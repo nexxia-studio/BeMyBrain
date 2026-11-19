@@ -42,4 +42,16 @@ describe("erreur de la liste des tâches", () => {
     expect(retry).toHaveBeenCalledOnce();
     expect(reportClientError).toHaveBeenCalledWith(error);
   });
+
+  it("tuile d'erreur bornée comme la liste (max-w-3xl)", () => {
+    renderError(new Error("panne"));
+
+    const tile = screen.getByRole("heading", {
+      name: "Tâches indisponibles",
+    }).parentElement!;
+
+    expect(tile.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["glass", "w-full", "max-w-3xl"]),
+    );
+  });
 });

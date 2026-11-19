@@ -20,4 +20,14 @@ describe("chargement de la liste des tâches", () => {
     );
     expect(screen.getByTestId("tasks-skeleton").textContent).toBe("");
   });
+
+  it("squelette borné comme la liste (une tuile, max-w-3xl)", async () => {
+    render(await TasksLoading());
+
+    const skeleton = screen.getByTestId("tasks-skeleton");
+
+    expect(skeleton.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["glass", "w-full", "max-w-3xl"]),
+    );
+  });
 });
