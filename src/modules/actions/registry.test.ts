@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createTranslator } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -13,13 +14,23 @@ import {
   invokeAction,
   prepareAction,
   registry,
+  toToolDefinitions,
 } from "./registry";
 import type { ActionChannel, ActionContext } from "./types";
 
 const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const USER = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 const tx = {} as UserTx;
-const CTX: ActionContext = { workspaceId: WORKSPACE, userId: USER, tx };
+const CTX: ActionContext = {
+  workspaceId: WORKSPACE,
+  userId: USER,
+  origin: "palette",
+  tx,
+};
+
+// Descriptions pour un modèle : traduction anglaise de la clé, texte à langue fixe (createTranslator).
+const t = createTranslator({ locale: "en", messages: en });
+const describeInEnglish = (key: string) => t(key as Parameters<typeof t>[0]);
 
 function fakeAction(
   name: string,
@@ -222,5 +233,145 @@ describe("registre d'actions : exécution", () => {
     }
     expect(write.run).not.toHaveBeenCalled();
     expect(read.run).not.toHaveBeenCalled();
+  });
+});
+
+describe("registre d'actions : origine de l'appel", () => {
+  it("un contexte sans origine, ou d'origine inconnue, refuse de s'exécuter (missing_context)", async () => {
+    const write = fakeAction("test.write", "write");
+    const read = fakeAction("test.read", "read");
+    const reg = createRegistry([write.action, read.action]);
+
+    for (const name of ["test.write", "test.read"]) {
+      const prepared = prepareAction(reg, name, { value: "a" }, "web");
+      for (const origin of [undefined, "", "evil", "whatsapp"]) {
+        await expect(
+          invokeAction(prepared, {
+            ...CTX,
+            origin: origin as unknown as ActionContext["origin"],
+          }),
+        ).rejects.toMatchObject({ code: "missing_context" });
+      }
+    }
+    expect(write.run).not.toHaveBeenCalled();
+    expect(read.run).not.toHaveBeenCalled();
+  });
+
+  it("chaque origine déclarée est transmise telle quelle à run", async () => {
+    const { action, run } = fakeAction("test.origin");
+    const prepared = prepareAction(
+      createRegistry([action]),
+      "test.origin",
+      { value: "a" },
+      "web",
+    );
+
+    for (const origin of ["app", "palette", "assistant"] as const) {
+      await invokeAction(prepared, { ...CTX, origin });
+      expect(run).toHaveBeenLastCalledWith({ ...CTX, origin }, { value: "a" });
+    }
+  });
+});
+
+/** Toutes les clés de propriétés d'un JSON Schema, à toute profondeur. */
+function propertyKeys(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") return [];
+  const node = schema as Record<string, unknown>;
+  const own =
+    node.properties && typeof node.properties === "object"
+      ? Object.keys(node.properties)
+      : [];
+  return [...own, ...Object.values(node).flatMap(propertyKeys)];
+}
+
+describe("registre d'actions : définitions d'outils pour un modèle", () => {
+  it("toToolDefinitions('assistant') : nom, description anglaise en clair, JSON Schema des paramètres", () => {
+    const tools = toToolDefinitions("assistant", describeInEnglish);
+
+    expect(tools.map((tool) => tool.name).sort()).toEqual(
+      [...registry.values()]
+        .filter((a) => a.channels.includes("assistant"))
+        .map((a) => a.name)
+        .sort(),
+    );
+    expect(tools).toContainEqual({
+      name: "core.setLocale",
+      description: en.actions.core.setLocale,
+      inputSchema: expect.objectContaining({
+        type: "object",
+        properties: {
+          locale: expect.objectContaining({
+            type: "string",
+            enum: ["fr", "en"],
+            description: expect.any(String),
+          }),
+        },
+        required: ["locale"],
+        additionalProperties: false,
+      }),
+    });
+    for (const tool of tools) {
+      expect(tool.description, tool.name).not.toMatch(/^actions\./);
+      expect(tool.description, tool.name).toBe(
+        messageAt(en, registry.get(tool.name)!.description),
+      );
+    }
+  });
+
+  it("chaque JSON Schema est valide : relu par zod, il accepte et refuse comme le schéma de l'action", () => {
+    for (const tool of toToolDefinitions("assistant", describeInEnglish)) {
+      const reread = z.fromJSONSchema(tool.inputSchema);
+      expect(reread, tool.name).toBeInstanceOf(z.ZodType);
+      expect(reread.safeParse({ unexpected: 1 }).success, tool.name).toBe(
+        false,
+      );
+    }
+    const [setLocale] = toToolDefinitions(
+      "assistant",
+      describeInEnglish,
+    ).filter((tool) => tool.name === "core.setLocale");
+    const reread = z.fromJSONSchema(setLocale!.inputSchema);
+    expect(reread.safeParse({ locale: "en" }).success).toBe(true);
+    expect(reread.safeParse({ locale: "de" }).success).toBe(false);
+  });
+
+  it("chaque champ des paramètres porte une description pour le modèle", () => {
+    for (const tool of toToolDefinitions("assistant", describeInEnglish)) {
+      const properties = (tool.inputSchema.properties ?? {}) as Record<
+        string,
+        { description?: unknown }
+      >;
+      for (const [key, property] of Object.entries(properties)) {
+        expect(typeof property.description, `${tool.name}.${key}`).toBe(
+          "string",
+        );
+      }
+    }
+  });
+
+  it("aucun schéma n'expose workspaceId, userId ni origin, à aucune profondeur", () => {
+    for (const channel of ["web", "assistant"] as const) {
+      for (const tool of toToolDefinitions(channel, describeInEnglish)) {
+        const keys = propertyKeys(tool.inputSchema);
+        for (const reserved of ["workspaceId", "userId", "origin"]) {
+          expect(keys, `${tool.name} : ${reserved}`).not.toContain(reserved);
+        }
+      }
+    }
+  });
+
+  it("une action qui ne déclare pas le canal n'apparaît pas dans ses définitions", () => {
+    const web = fakeAction("test.webOnly", "read", undefined, ["web"]);
+    const both = fakeAction("test.both", "read", undefined, [
+      "web",
+      "assistant",
+    ]);
+    const actions = createRegistry([web.action, both.action]);
+
+    const names = toToolDefinitions("assistant", (key) => key, actions).map(
+      (tool) => tool.name,
+    );
+
+    expect(names).toEqual(["test.both"]);
   });
 });

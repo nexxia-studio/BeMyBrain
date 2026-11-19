@@ -5,7 +5,7 @@ export type ActionErrorCode =
   | "unknown_action"
   /** Paramètres refusés par le schéma de l'action : rien n'est exécuté. */
   | "invalid_params"
-  /** Contexte incomplet (workspaceId, userId ou transaction absents) : rien n'est exécuté. */
+  /** Contexte incomplet (workspaceId, userId, origine ou transaction absents ou invalides) : rien n'est exécuté. */
   | "missing_context"
   /** Deux actions déclarent le même nom (erreur de déclaration, levée au chargement du registre). */
   | "duplicate_action";

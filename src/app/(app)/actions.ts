@@ -40,7 +40,7 @@ function captureActionFailure(error: unknown, name: unknown): void {
 
 /**
  * Server Action unique de la palette (ADR-009) : session d'abord, puis registre. Le `workspaceId` est celui
- * de la session, l'utilisateur celui du jeton vérifié ; `name` et `params` viennent du client et ne servent
+ * de la session, l'utilisateur celui du jeton vérifié, l'origine toujours `palette` ; `name` et `params` viennent du client et ne servent
  * qu'à choisir et paramétrer l'action, jamais journalisés. Nom inconnu, paramètres invalides ou contexte
  * incomplet (ActionError, refus attendu) → `{ ok: false }`, rien d'exécuté, seul le code est journalisé.
  * Toute autre erreur (base, identité non appliquée…) est une panne : journalisée côté serveur (`console.error`,
@@ -59,6 +59,7 @@ export async function runAction(
     outcome = await runActionWithToken(
       token,
       session.workspaceId,
+      "palette",
       name,
       params,
     );

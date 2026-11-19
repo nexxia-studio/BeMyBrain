@@ -45,7 +45,12 @@ function run(
 ) {
   const prepared = prepareAction(registry, name, params, "web");
   return db.asUser(userId, (tx, identity) =>
-    invokeAction(prepared, { workspaceId, userId: identity.userId, tx }),
+    invokeAction(prepared, {
+      workspaceId,
+      userId: identity.userId,
+      origin: "palette",
+      tx,
+    }),
   );
 }
 

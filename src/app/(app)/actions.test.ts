@@ -47,7 +47,7 @@ beforeEach(() => {
     calls.push("requireSessionWithToken");
     return { session: SESSION, token: "eyJ.jwt.signe" };
   });
-  runActionWithToken.mockImplementation(async (_t, _w, name: string) => {
+  runActionWithToken.mockImplementation(async (_t, _w, _o, name: string) => {
     calls.push("runActionWithToken");
     return { name, result: name === "core.setLocale" ? "en" : [] };
   });
@@ -60,7 +60,7 @@ beforeEach(() => {
 });
 
 describe("runAction (Server Action unique de la palette)", () => {
-  it("lance l'action avec le jeton et le workspace de la session, jamais un workspace reçu", async () => {
+  it("lance l'action avec le jeton et le workspace de la session, origine palette, jamais un workspace reçu", async () => {
     const outcome = await runAction("core.listContexts", {
       side: "pro",
       workspaceId: OTHER_WORKSPACE,
@@ -69,10 +69,23 @@ describe("runAction (Server Action unique de la palette)", () => {
     expect(runActionWithToken).toHaveBeenCalledWith(
       "eyJ.jwt.signe",
       SESSION.workspaceId,
+      "palette",
       "core.listContexts",
       { side: "pro", workspaceId: OTHER_WORKSPACE },
     );
     expect(outcome).toEqual({ ok: true, result: [] });
+  });
+
+  it("l'origine est toujours palette, même si les paramètres en annoncent une autre", async () => {
+    await runAction("core.listContexts", { side: "pro", origin: "assistant" });
+
+    expect(runActionWithToken).toHaveBeenCalledWith(
+      "eyJ.jwt.signe",
+      SESSION.workspaceId,
+      "palette",
+      "core.listContexts",
+      { side: "pro", origin: "assistant" },
+    );
   });
 
   it("après core.setLocale, recopie la langue enregistrée dans NEXT_LOCALE puis rafraîchit", async () => {

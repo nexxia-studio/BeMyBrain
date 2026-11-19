@@ -14,22 +14,49 @@ export type ActionAccess = "read" | "write";
 export type ActionChannel = "web" | "assistant";
 
 /**
+ * Origine d'un appel, enregistrée sur ce qu'il écrit (`tasks.origin`) : `app` = Server Actions des écrans,
+ * `palette` = palette de commandes, `assistant` = assistant IA (déclaré, aucune route encore). Posée par le
+ * point d'entrée serveur, jamais lue dans les paramètres. Sous-ensemble du CHECK `tasks_origin_check` ;
+ * whatsapp et slack s'ajoutent le jour où le canal existe.
+ */
+export const actionOrigins = ["app", "palette", "assistant"] as const;
+export type ActionOrigin = (typeof actionOrigins)[number];
+
+/** Origines du canal `web`, les seules que `runActionWithToken` accepte. */
+export type WebActionOrigin = Extract<ActionOrigin, "app" | "palette">;
+
+/**
  * Contexte d'exécution, construit côté serveur seulement : `workspaceId` de la session, `userId` = `sub` du
- * jeton vérifié par withUserDb, `tx` = transaction de ce jeton (RLS active). Jamais un paramètre d'action.
+ * jeton vérifié par withUserDb, `origin` posée par le point d'entrée serveur, `tx` = transaction de ce
+ * jeton (RLS active). Jamais un paramètre d'action.
  */
 export type ActionContext = {
   workspaceId: string;
   userId: string;
+  origin: ActionOrigin;
   tx: UserTx;
+};
+
+/** Définition d'outil lisible par un modèle (assistant IA, connecteur MCP) : rien du contexte n'y figure. */
+export type ToolDefinition = {
+  name: string;
+  /** Texte en clair (traduction anglaise de la clé `description`), pas la clé. */
+  description: string;
+  /** JSON Schema (draft 2020-12) des paramètres d'entrée, produit par `z.toJSONSchema`. */
+  inputSchema: Record<string, unknown>;
 };
 
 /** Déclaration d'une action, telle qu'un module l'écrit (src/modules/<module>/actions.ts). */
 export type ActionDefinition<P, R> = {
   /** Stable, `<module>.<verbe>` (ex. `core.setLocale`) : c'est ce nom que les canaux appellent. */
   name: string;
-  /** Clé de traduction (ADR-007), lisible par un agent comme par la palette. */
+  /** Clé de traduction (ADR-007) ; sa traduction anglaise sert de description d'outil pour un modèle. */
   description: string;
-  /** Paramètres validés avant `run` ; `z.strictObject` : une clé en trop (userId, workspaceId…) est refusée. */
+  /**
+   * Paramètres validés avant `run` ; `z.strictObject` : une clé en trop (userId, workspaceId, origin…) est
+   * refusée. Chaque champ porte un `.describe()` en anglais (unités, formats) : il devient la description
+   * du champ dans le JSON Schema de l'outil.
+   */
   params: z.ZodType<P>;
   access: ActionAccess;
   /** Canaux autorisés à appeler l'action ; un canal absent la rend inconnue pour lui. Au moins un. */

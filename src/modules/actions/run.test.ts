@@ -15,9 +15,13 @@ const setMemberLocale = vi.hoisted(() => vi.fn());
 
 vi.mock("@/db/client", () => ({ withUserDb }));
 const assistantOnlyRun = vi.hoisted(() => vi.fn());
+const echoOriginRun = vi.hoisted(() =>
+  vi.fn(async (ctx: { origin: string }) => ctx.origin),
+);
 
 vi.mock("@/modules/core/mutations", () => ({ setMemberLocale }));
-// Le registre réel, plus une action réservée à l'assistant : runActionWithToken passe le canal "web".
+// Le registre réel, plus une action réservée à l'assistant (runActionWithToken passe le canal "web") et une
+// action web qui renvoie l'origine reçue dans son contexte.
 vi.mock("@/modules/core/actions", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/modules/core/actions")>();
@@ -31,7 +35,18 @@ vi.mock("@/modules/core/actions", async (importOriginal) => {
     channels: ["assistant"],
     run: assistantOnlyRun,
   });
-  return { ...original, coreActions: [...original.coreActions, assistantOnly] };
+  const echoOrigin = defineAction({
+    name: "core.echoOrigin",
+    description: "actions.core.echoOrigin",
+    params: z.strictObject({}),
+    access: "read",
+    channels: ["web"],
+    run: echoOriginRun,
+  });
+  return {
+    ...original,
+    coreActions: [...original.coreActions, assistantOnly, echoOrigin],
+  };
 });
 
 import { runActionWithToken } from "./run";
@@ -49,6 +64,7 @@ describe("exécution d'une action pour la session", () => {
     const outcome = await runActionWithToken(
       "eyJ.jwt.signe",
       WORKSPACE,
+      "palette",
       "core.setLocale",
       { locale: "en" },
     );
@@ -62,7 +78,13 @@ describe("exécution d'une action pour la session", () => {
   });
 
   it("un nom inconnu n'ouvre aucune transaction", async () => {
-    const run = runActionWithToken("eyJ.jwt.signe", WORKSPACE, "core.drop", {});
+    const run = runActionWithToken(
+      "eyJ.jwt.signe",
+      WORKSPACE,
+      "palette",
+      "core.drop",
+      {},
+    );
 
     await expect(run).rejects.toMatchObject({ code: "unknown_action" });
     expect(withUserDb).not.toHaveBeenCalled();
@@ -72,6 +94,7 @@ describe("exécution d'une action pour la session", () => {
     const run = runActionWithToken(
       "eyJ.jwt.signe",
       WORKSPACE,
+      "palette",
       "core.assistantOnly",
       {},
     );
@@ -85,12 +108,54 @@ describe("exécution d'une action pour la session", () => {
     const run = runActionWithToken(
       "eyJ.jwt.signe",
       WORKSPACE,
+      "palette",
       "core.setLocale",
       { locale: "de" },
     );
 
     await expect(run).rejects.toMatchObject({ code: "invalid_params" });
     expect(withUserDb).not.toHaveBeenCalled();
+    expect(setMemberLocale).not.toHaveBeenCalled();
+  });
+
+  it("l'origine du contexte est celle passée par l'appelant serveur", async () => {
+    for (const origin of ["palette", "app"] as const) {
+      const outcome = await runActionWithToken(
+        "eyJ.jwt.signe",
+        WORKSPACE,
+        origin,
+        "core.echoOrigin",
+        {},
+      );
+
+      expect(outcome).toEqual({ name: "core.echoOrigin", result: origin });
+      expect(echoOriginRun).toHaveBeenLastCalledWith(
+        { workspaceId: WORKSPACE, userId: JWT_USER, origin, tx },
+        {},
+      );
+    }
+  });
+
+  it("l'origine ne vient jamais des paramètres : une clé origin reçue est refusée, sans transaction", async () => {
+    for (const params of [
+      { origin: "assistant" },
+      { origin: "app" },
+      { locale: "en", origin: "assistant" },
+    ]) {
+      for (const name of ["core.echoOrigin", "core.setLocale"]) {
+        const run = runActionWithToken(
+          "eyJ.jwt.signe",
+          WORKSPACE,
+          "palette",
+          name,
+          params,
+        );
+
+        await expect(run).rejects.toMatchObject({ code: "invalid_params" });
+      }
+    }
+    expect(withUserDb).not.toHaveBeenCalled();
+    expect(echoOriginRun).not.toHaveBeenCalled();
     expect(setMemberLocale).not.toHaveBeenCalled();
   });
 });

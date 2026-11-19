@@ -15,7 +15,12 @@ const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const USER = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 const OTHER_USER = "7b0d6a1e-2c3f-4e5a-9b8c-1d2e3f4a5b6c";
 const tx = {} as UserTx;
-const CTX = { workspaceId: WORKSPACE, userId: USER, tx };
+const CTX = {
+  workspaceId: WORKSPACE,
+  userId: USER,
+  origin: "palette" as const,
+  tx,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
