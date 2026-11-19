@@ -171,6 +171,46 @@ describe("isolation de tasks, tags, task_tags : insertion", () => {
     });
   });
 
+  // Avec une clé (task_id, tag_id), l'insertion (workspace_B, tâche_A, tag_A) heurtait le lien de A
+  // avant la FK composite : 23505 (ou 0 ligne avec ON CONFLICT DO NOTHING) si le lien existait chez A,
+  // 23503 sinon. La clé porte workspace_id : la ligne de B ne heurte jamais celle de A, seule la FK répond.
+  it.each([
+    ["sans ON CONFLICT", ""],
+    ["avec ON CONFLICT DO NOTHING", "on conflict do nothing"],
+  ])(
+    "B ne peut plus sonder un lien de A (%s) : même refus que le lien existe chez A ou non",
+    async (_label, onConflict) => {
+      const attempt = (taskId: string) =>
+        asUser(f.userB, async (db) => ({
+          rows: (
+            await db.query(
+              `insert into task_tags (workspace_id, task_id, tag_id) values ($1, $2, $3) ${onConflict}`,
+              [f.workspaceB, taskId, t.tagA],
+            )
+          ).rowCount,
+        })).catch((error) => ({ code: error.code }));
+
+      const results = {
+        // taskA porte tagA chez A ; trashedTaskA ne le porte pas.
+        linkExistsInA: await attempt(t.taskA),
+        noLinkInA: await attempt(t.trashedTaskA),
+      };
+
+      const refusal = { code: FOREIGN_KEY_VIOLATION };
+      expect(results).toEqual({ linkExistsInA: refusal, noLinkInA: refusal });
+    },
+  );
+
+  it("verrou : la clé primaire de task_tags porte workspace_id", async () => {
+    const definition = await owner.query(
+      "select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'task_tags_pk' and conrelid = 'public.task_tags'::regclass",
+    );
+
+    expect(definition.rows).toEqual([
+      { def: "PRIMARY KEY (workspace_id, task_id, tag_id)" },
+    ]);
+  });
+
   it.each([
     ["DO NOTHING", "do nothing"],
     ["DO UPDATE", "do update set name = excluded.name"],

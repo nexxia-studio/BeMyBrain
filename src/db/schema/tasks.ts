@@ -186,7 +186,13 @@ export const taskTags = pgTable(
       .notNull(),
   },
   (t) => [
-    primaryKey({ name: "task_tags_pk", columns: [t.taskId, t.tagId] }),
+    // workspace_id dans la clé : une insertion d'un autre workspace ne heurte jamais un lien existant,
+    // seule la FK composite répond (pas d'oracle d'existence entre workspaces). Sert aussi d'index à la
+    // FK tâche (workspace_id, task_id) et à la FK workspace_id.
+    primaryKey({
+      name: "task_tags_pk",
+      columns: [t.workspaceId, t.taskId, t.tagId],
+    }),
     foreignKey({
       name: "task_tags_task_fk",
       columns: [t.workspaceId, t.taskId],
@@ -197,7 +203,7 @@ export const taskTags = pgTable(
       columns: [t.workspaceId, t.tagId],
       foreignColumns: [tags.workspaceId, tags.id],
     }),
-    // Index de la FK tag et de la FK workspace_id (colonne de tête).
+    // Index de la FK tag (workspace_id, tag_id), que la clé primaire ne couvre pas.
     index("task_tags_workspace_tag_idx").on(t.workspaceId, t.tagId),
     pgPolicy("task_tags_select", {
       for: "select",

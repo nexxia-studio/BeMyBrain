@@ -24,7 +24,7 @@ CREATE TABLE "task_tags" (
 	"task_id" uuid NOT NULL,
 	"tag_id" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "task_tags_pk" PRIMARY KEY("task_id","tag_id")
+	CONSTRAINT "task_tags_pk" PRIMARY KEY("workspace_id","task_id","tag_id")
 );
 --> statement-breakpoint
 ALTER TABLE "task_tags" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
