@@ -103,7 +103,7 @@
   - Test à écrire d'abord : test DB — « couleur hors des trois valeurs refusée (23514) », « défaut neutral », « app_backend lit la couleur, ne peut pas la modifier » ; `ContextChip.test.tsx` — « classe chip-warm pour un espace warm » ; seed — « Privé neutral, Trustup warm, Nexxia indigo »
   - Fini quand : tests verts, migration jouée sur `test`, aucune couleur saisie ni hors DESIGN.md
 
-- [ ] **16. Corbeille `/trash`**
+- [x] **16. Corbeille `/trash`**
   - Décision d'Antoine (2026-11-19) : corbeille de toute l'app, à `/trash`, les tâches en sont le premier type ; extensible sur le modèle de l'ajout rapide (un type déclaré par module : lecture, ligne, restauration). Le lien en bas de la liste et la commande de palette « Corbeille » pointent sur `/trash`. Le détail redevient une route interceptée `@detail/(.)[id]` au-dessus de la liste (plus de squelette à l'ouverture ni à la fermeture) ; retirer le `// raccourci:` de `src/app/(app)/tasks/[id]/page.tsx`.
   - Fichiers : `src/app/(app)/trash/page.tsx`, `loading.tsx`, `error.tsx`, `src/components/trash/*` (registre des types, `TrashList`), `src/components/tasks/TaskTrashRow.tsx`, `src/components/shell/nav-items.ts` (`TRASH_PATH`), `commands.ts`, `src/app/(app)/tasks/@detail/(.)[id]/…`, `messages/*.json`
   - Test à écrire d'abord : `TrashList.test.tsx` — « parente avec + n sous-tâches » ; « Restaurer » ; « vide » ; registre — « type tâches déclaré, ordre par date de mise à la corbeille » ; `commands.test.ts` — « Corbeille → /trash » ; liste — « lien Corbeille → /trash »
