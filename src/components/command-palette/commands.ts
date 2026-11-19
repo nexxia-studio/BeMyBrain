@@ -12,15 +12,19 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { NAV_ITEMS, type NavItem } from "@/components/shell/nav-items";
+import {
+  NAV_ITEMS,
+  type NavItem,
+  TASKS_PATH,
+  TASKS_TRASH_PATH,
+} from "@/components/shell/nav-items";
 import { type AppLocale, locales } from "@/i18n/locales";
 import type { CurrentScope } from "@/lib/context-filter";
 import type { Side } from "@/modules/core/sides";
 import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 /** Liste et corbeille des tâches (pages des tâches 14 et 16 du plan todo-unifiee). */
-export const TASKS_PATH = "/tasks";
-export const TASKS_TRASH_PATH = "/tasks/trash";
+export { TASKS_PATH, TASKS_TRASH_PATH };
 
 /** Côté et espace courants de la coque : la tâche ajoutée depuis la palette les prend (comme l'ajout rapide). */
 export type PaletteScope = CurrentScope;
@@ -154,13 +158,16 @@ export function paletteGroups(
     },
     {
       value: "navigation",
-      commands: NAV_ITEMS.map(({ href, labelKey, icon }) => ({
-        kind: "navigate",
-        id: `navigate:${href}`,
-        href,
-        labelKey,
-        icon,
-      })),
+      // Sans la To-do : « Ouvrir la to-do » du groupe Tâches y mène déjà (pas de doublon).
+      commands: NAV_ITEMS.filter(({ href }) => href !== TASKS_PATH).map(
+        ({ href, labelKey, icon }) => ({
+          kind: "navigate",
+          id: `navigate:${href}`,
+          href,
+          labelKey,
+          icon,
+        }),
+      ),
     },
     {
       value: "actions",

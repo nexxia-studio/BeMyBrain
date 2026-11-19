@@ -120,6 +120,7 @@
     "searchShortcut": "⌘K",
     "openPalette": "Ouvrir la palette de commandes",
     "preferenceError": "Choix non enregistré. Réessaie.",
+    "tasks": "To-do",
     "settings": "Réglages"
   },
   "settings": {
@@ -237,6 +238,43 @@
         "loading": "Chargement des tags…",
         "loadFailed": "Tags non chargés. Tu peux en créer.",
         "limit": "{max} tags au plus."
+      }
+    },
+    "list": {
+      "title": "To-do",
+      "completedToggle": "Terminées",
+      "sections": {
+        "overdue": "En retard",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain",
+        "later": "Plus tard",
+        "none": "Sans échéance",
+        "completed": "Terminées"
+      },
+      "complete": "Terminer « {title} »",
+      "reopen": "Rouvrir « {title} »",
+      "updateFailed": "Tâche non mise à jour. Réessaie.",
+      "priority": {
+        "1": "Priorité urgente",
+        "2": "Priorité haute",
+        "3": "Priorité moyenne",
+        "4": "Priorité basse"
+      },
+      "subtasks": "{done, plural, one {# sous-tâche terminée} other {# sous-tâches terminées}} sur {total}",
+      "parent": "Sous-tâche de",
+      "tags": "Tags",
+      "empty": "Rien à faire de ce côté. Note ici ce qui te passe par la tête, pour ne plus y penser.",
+      "add": "Ajouter une tâche",
+      "emptyFiltered": "Rien dans cet espace",
+      "showAllSpaces": "Voir tous les espaces",
+      "showAllFailed": "Filtre non retiré. Réessaie.",
+      "truncated": "Seules les {count} premières tâches sont affichées.",
+      "trash": "Corbeille",
+      "loading": "Chargement des tâches…",
+      "error": {
+        "title": "Tâches indisponibles",
+        "body": "La liste n'a pas pu être chargée. Réessaie dans un instant.",
+        "retry": "Réessayer"
       }
     }
   }

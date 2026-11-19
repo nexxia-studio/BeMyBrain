@@ -120,6 +120,14 @@ export function groupBySection(tasks: Task[], today: string): TaskSection[] {
     .filter((section) => section.tasks.length > 0);
 }
 
+/**
+ * Instant à afficher pour une échéance `YYYY-MM-DD` (formatage par next-intl, dans le fuseau de
+ * l'utilisateur) : midi UTC, qui tombe le même jour dans tout fuseau de -11 h à +11 h.
+ */
+export function dueDateInstant(day: string): Date {
+  return new Date(toUtcMs(day) + DAY_MS / 2);
+}
+
 /** Compteur « n/m » des sous-tâches (calculé en base, annulées exclues) ; null sans sous-tâche comptée. */
 export function subtaskCounter(task: Task): string | null {
   return task.subtaskTotal === 0
@@ -182,7 +190,10 @@ export function dateShortcuts(today: string): DateShortcuts {
 const tagKey = (name: string) => name.trim().toLowerCase();
 
 /** Tags dont le nom contient `query` (sans casse), dans l'ordre reçu ; recherche vide → tous. */
-export function matchTagNames(names: readonly string[], query: string): string[] {
+export function matchTagNames(
+  names: readonly string[],
+  query: string,
+): string[] {
   const wanted = tagKey(query);
   return names.filter((name) => tagKey(name).includes(wanted));
 }

@@ -66,12 +66,20 @@ function group(groups: ReturnType<typeof paletteGroups>, value: string) {
 }
 
 describe("commandes de la palette", () => {
-  it("propose chaque section de la navigation en raccourci, hors registre", () => {
+  it("propose chaque section de la navigation en raccourci, hors registre, sauf la To-do", () => {
     const navigation = group(commandsFor(), "navigation");
 
     expect(navigation.map((c) => c.kind === "navigate" && c.href)).toEqual(
-      NAV_ITEMS.map((i) => i.href),
+      NAV_ITEMS.map((i) => i.href).filter((href) => href !== "/tasks"),
     );
+  });
+
+  it("la To-do n'apparaît qu'une fois dans la palette, par Ouvrir la to-do", () => {
+    const toTodo = commandsFor()
+      .flatMap((g) => g.commands)
+      .filter((c) => c.kind === "navigate" && c.href === "/tasks");
+
+    expect(toTodo.map((c) => c.labelKey)).toEqual(["openTodo"]);
   });
 
   it("propose de passer dans l'autre langue, jamais dans la langue courante", () => {

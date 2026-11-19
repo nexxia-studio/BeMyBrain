@@ -7,6 +7,7 @@ import { buildTask } from "../../../tests/factories/build-task";
 
 import {
   dateShortcuts,
+  dueDateInstant,
   findTagName,
   groupBySection,
   matchTagNames,
@@ -375,6 +376,19 @@ describe("findTagName", () => {
     const found = findTagName(names, "clients");
 
     expect(found).toBeUndefined();
+  });
+});
+
+describe("dueDateInstant", () => {
+  it("donne un instant du même jour local, quel que soit le fuseau d'affichage (de -11 h à +11 h)", () => {
+    const instant = dueDateInstant("2026-11-17");
+
+    for (const timeZone of ["Etc/GMT+11", "UTC", "Etc/GMT-11"]) {
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone }).format(
+        instant,
+      );
+      expect(day).toBe("2026-11-17");
+    }
   });
 });
 
