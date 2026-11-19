@@ -55,7 +55,7 @@ async function expectPrivateDashboard(page: Page) {
   // La to-do du jour (DESIGN.md § 5) : pastilles de chiffres quand des tâches sont dues, sinon « Rien en
   // retard… » ; jamais la phrase d'absence d'espace (le côté Privé en a un). Le compte e2e est partagé : l'un
   // ou l'autre selon ce qu'il porte. Plus de pied « Espace de travail » (décision d'Antoine, 2026-11-19).
-  await expect(today).not.toContainText("BeMyBrain");
+  await expect(today.getByTestId("workspace-name")).toHaveCount(0);
   await expect(
     today
       .getByTestId("today-due-count")

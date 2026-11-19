@@ -98,6 +98,21 @@ describe("TrashList", () => {
     );
   });
 
+  it("lecteur d'écran : pastilles précédées de « Côté : » et « Espace : »", () => {
+    renderList([
+      taskItem({
+        title: "Relancer le devis",
+        side: "pro",
+        contextName: "Nexxia",
+        contextColor: "indigo",
+      }),
+    ]);
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("Côté :").className).toContain("sr-only");
+    expect(within(row).getByText("Espace :").className).toContain("sr-only");
+  });
+
   it("mise à la corbeille une autre année : l'année est écrite", () => {
     const deletedAt = new Date("2025-12-30T10:00:00Z");
     const item = taskItem({ title: "Déménager" });

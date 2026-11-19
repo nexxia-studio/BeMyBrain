@@ -331,6 +331,8 @@
       "restoreFailed": "Tâche non restaurée. Réessaie."
     },
     "trash": {
+      "side": "Côté :",
+      "context": "Espace :",
       "subtasks": "+ {count, plural, one {# sous-tâche} other {# sous-tâches}}"
     }
   },

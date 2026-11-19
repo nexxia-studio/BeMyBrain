@@ -331,6 +331,8 @@
       "restoreFailed": "Task not restored. Try again."
     },
     "trash": {
+      "side": "Side:",
+      "context": "Space:",
       "subtasks": "+ {count, plural, one {# subtask} other {# subtasks}}"
     }
   },
