@@ -2,7 +2,7 @@ import { DomainError } from "@/lib/errors";
 
 export type TaskErrorCode =
   /** Paramètre refusé par zod : aucune requête n'est envoyée. */
-  | "invalid_input"
+  | "invalid_params"
   /** Tâche absente du workspace, ou à la corbeille (pour toute écriture sauf la restauration). */
   | "not_found"
   /** Espace désigné par son nom introuvable dans le workspace de la session. */
@@ -20,7 +20,7 @@ export type TaskErrorCode =
  * ni une donnée d'un autre workspace.
  */
 export const TASK_ERROR_MESSAGES = {
-  invalid_input:
+  invalid_params:
     "The parameters are invalid. Check the expected formats and limits, then try again.",
   not_found:
     "The task does not exist or is in the trash. List the tasks to get a valid task id.",

@@ -79,6 +79,8 @@ beforeAll(async () => {
     "Sous-tâche du jour",
     "Sous-tâche jetée",
     "Fait aujourd'hui",
+    "Annulée aujourd'hui",
+    "Compteur",
   ];
   const inserted = await insertTasks(owner, f.workspaceA, f.userA, [
     {
@@ -140,12 +142,42 @@ beforeAll(async () => {
       statusCategory: "completed",
       dueDate: TODAY,
     },
+    {
+      side: "private",
+      title: "Annulée aujourd'hui",
+      statusCategory: "canceled",
+      dueDate: TODAY,
+    },
+    { side: "private", title: "Compteur" },
   ]);
   ids = Object.fromEntries(titles.map((title, i) => [title, inserted[i]]));
+  // Sous-tâches de « Compteur » : ouverte, terminée, annulée, à la corbeille.
+  const counterSubtasks = await insertTasks(owner, f.workspaceA, f.userA, [
+    { side: "private", title: "Sous ouverte", parentId: ids.Compteur },
+    {
+      side: "private",
+      title: "Sous terminée",
+      parentId: ids.Compteur,
+      statusCategory: "completed",
+    },
+    {
+      side: "private",
+      title: "Sous annulée",
+      parentId: ids.Compteur,
+      statusCategory: "canceled",
+    },
+    {
+      side: "private",
+      title: "Sous jetée",
+      parentId: ids.Compteur,
+      deletedAt: "2026-11-19T09:00:00Z",
+    },
+  ]);
   trashedIds = [
     t.trashedTaskA,
     ids["Devis corbeille"],
     ids["Sous-tâche jetée"],
+    counterSubtasks[3],
   ];
   [dueTodayB] = await insertTasks(owner, f.workspaceB, f.userB, [
     { side: "pro", title: "Devis de B du jour", dueDate: TODAY },
@@ -188,7 +220,7 @@ describe("corbeille", () => {
       ...(result.parent?.subtasks ?? []),
     ].map((x) => x.id);
     for (const id of trashedIds) expect(listed).not.toContain(id);
-    expect(result.trashed).toEqual([null, null, null]);
+    expect(result.trashed).toEqual(trashedIds.map(() => null));
     expect(titlesOf(result.byTag.tasks)).toEqual(["Relancer le Devis"]);
 
     expect(result.trash.map((x) => x.id).sort()).toEqual(
@@ -247,7 +279,7 @@ describe("listTasks : limite", () => {
     expect(three.truncated).toBe(false);
   });
 
-  it("limit au-delà de 200, nulle, ou requête vide → invalid_input, sans la valeur reçue", async () => {
+  it("limit au-delà de 200, nulle, ou requête vide → invalid_params, sans la valeur reçue", async () => {
     for (const filter of [
       { limit: 500 },
       { limit: 0 },
@@ -260,8 +292,8 @@ describe("listTasks : limite", () => {
         .asUser(f.userA, (tx) => listTasks(f.workspaceA, filter as never, tx))
         .catch((e: unknown) => e);
       expect(error).toBeInstanceOf(TaskError);
-      expect((error as TaskError).code).toBe("invalid_input");
-      expect((error as TaskError).message).toBe("invalid_input");
+      expect((error as TaskError).code).toBe("invalid_params");
+      expect((error as TaskError).message).toBe("invalid_params");
     }
   });
 });
@@ -285,24 +317,56 @@ describe("listTasks : filtres", () => {
     expect(done?.statusCategory).toBe("completed");
   });
 
-  it("côté, espace, tag (sans casse) et échéance au plus tard", async () => {
-    const r = await db.asUser(f.userA, async (tx) => ({
-      pro: await listTasks(f.workspaceA, { side: "pro" }, tx),
-      context: await listTasks(f.workspaceA, { contextId: f.contextA }, tx),
-      tag: await listTasks(f.workspaceA, { tag: "CLIENT" }, tx),
-      due: await listTasks(f.workspaceA, { dueOnOrBefore: "2026-11-18" }, tx),
-    }));
+  it("filtre de côté : seulement les tâches de ce côté", async () => {
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { side: "pro" }, tx),
+    );
 
-    expect(titlesOf(r.pro.tasks).sort()).toEqual(
+    expect(titlesOf(r.tasks).sort()).toEqual(
       ["Aujourd'hui 14h", "Relancer le Devis"].sort(),
     );
-    expect(titlesOf(r.context.tasks).sort()).toEqual(
+  });
+
+  it("filtre d'espace : seulement les tâches de cet espace, sous-tâches comprises", async () => {
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { contextId: f.contextA }, tx),
+    );
+
+    expect(titlesOf(r.tasks).sort()).toEqual(
       ["Payer la crèche", "Sous-tâche du jour", "Virement"].sort(),
     );
-    expect(r.tag.tasks.map((x) => [x.title, x.tags])).toEqual([
+  });
+
+  it("filtre de tag : nom sans tenir compte de la casse, tâche à la corbeille exclue", async () => {
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { tag: "CLIENT" }, tx),
+    );
+
+    expect(r.tasks.map((x) => [x.title, x.tags])).toEqual([
       ["Relancer le Devis", ["Client"]],
     ]);
-    expect(titlesOf(r.due.tasks)).toEqual(["En retard"]);
+  });
+
+  it("filtre d'échéance : au plus tard le jour donné, sans échéance exclues", async () => {
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { dueOnOrBefore: "2026-11-18" }, tx),
+    );
+
+    expect(titlesOf(r.tasks)).toEqual(["En retard"]);
+  });
+
+  it("compteur n/m : sous-tâches actives, annulées exclues, faite = terminée, quel que soit le filtre", async () => {
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { query: "Compteur" }, tx),
+    );
+
+    expect(r.tasks).toEqual([
+      expect.objectContaining({
+        title: "Compteur",
+        subtaskTotal: 2,
+        subtaskDone: 1,
+      }),
+    ]);
   });
 
   it("une sous-tâche porte parentId et parentTitle ; heure au format HH:MM", async () => {
@@ -414,11 +478,11 @@ describe("getTask", () => {
     expect(task?.subtasks[1].parentTitle).toBe("Payer la crèche");
   });
 
-  it("id invalide → invalid_input", async () => {
+  it("id invalide → invalid_params", async () => {
     const error = await db
       .asUser(f.userA, (tx) => getTask(f.workspaceA, "pas-un-uuid", tx))
       .catch((e: unknown) => e);
-    expect((error as TaskError).code).toBe("invalid_input");
+    expect((error as TaskError).code).toBe("invalid_params");
   });
 });
 
@@ -437,11 +501,19 @@ describe("listDueToday", () => {
     expect(due[3].parentTitle).toBe("Payer la crèche");
   });
 
-  it("date mal formée → invalid_input", async () => {
+  it("une tâche annulée due aujourd'hui est exclue", async () => {
+    const due = await db.asUser(f.userA, (tx) =>
+      listDueToday(f.workspaceA, TODAY, tx),
+    );
+
+    expect(due.map((x) => x.id)).not.toContain(ids["Annulée aujourd'hui"]);
+  });
+
+  it("date mal formée → invalid_params", async () => {
     const error = await db
       .asUser(f.userA, (tx) => listDueToday(f.workspaceA, "19/11/2026", tx))
       .catch((e: unknown) => e);
-    expect((error as TaskError).code).toBe("invalid_input");
+    expect((error as TaskError).code).toBe("invalid_params");
   });
 });
 

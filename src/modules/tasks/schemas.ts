@@ -118,12 +118,12 @@ export const listTasksFilterSchema = z.strictObject({
 
 export type ListTasksFilter = z.input<typeof listTasksFilterSchema>;
 
-/** Valide une entrée ; refus → TaskError("invalid_input"), sans la valeur reçue (pas de ZodError masquée par withUserDb). */
+/** Valide une entrée ; refus → TaskError("invalid_params"), sans la valeur reçue (pas de ZodError masquée par withUserDb). */
 export function parseTaskInput<S extends z.ZodType>(
   schema: S,
   value: unknown,
 ): z.output<S> {
   const result = schema.safeParse(value);
-  if (!result.success) throw new TaskError("invalid_input");
+  if (!result.success) throw new TaskError("invalid_params");
   return result.data;
 }

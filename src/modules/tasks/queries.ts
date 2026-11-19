@@ -53,6 +53,10 @@ export type Task = {
   createdAt: Date;
   /** Noms des tags, triés sans tenir compte de la casse. */
   tags: string[];
+  /** Sous-tâches actives comptées (annulées exclues) : dénominateur du compteur « n/m ». */
+  subtaskTotal: number;
+  /** Parmi elles, les terminées : numérateur du compteur. */
+  subtaskDone: number;
 };
 
 export type TaskDetail = Task & {
@@ -84,6 +88,20 @@ const tagNames = sql<string[]>`coalesce((
   where tt.workspace_id = tasks.workspace_id and tt.task_id = tasks.id
 ), '{}')`;
 
+// Compteur « n/m » des sous-tâches actives (corbeille exclue), indépendant du filtre et du limit de la lecture.
+// Règle du compteur, ici seulement (à valider par Antoine) : une sous-tâche annulée ne compte ni au numérateur
+// ni au dénominateur ; « faite » = catégorie completed.
+const countedSubtask = sql`s.status_category <> 'canceled'`;
+const doneSubtask = sql`s.status_category = 'completed'`;
+
+function subtaskCount(condition: SQL) {
+  return sql<number>`(
+    select count(*)::int from ${tasks} as s
+    where s.workspace_id = tasks.workspace_id and s.parent_id = tasks.id and s.deleted_at is null
+      and ${condition}
+  )`;
+}
+
 const taskColumns = {
   id: tasks.id,
   side: tasks.side,
@@ -98,6 +116,8 @@ const taskColumns = {
   completedAt: tasks.completedAt,
   createdAt: tasks.createdAt,
   tags: tagNames,
+  subtaskTotal: subtaskCount(countedSubtask),
+  subtaskDone: subtaskCount(sql`${countedSubtask} and ${doneSubtask}`),
 };
 
 // Ligne telle que la base la renvoie : side et statusCategory en text.

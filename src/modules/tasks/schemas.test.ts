@@ -42,7 +42,7 @@ describe("schémas tasks", () => {
     );
   });
 
-  it("parseTaskInput lève invalid_input sans la valeur reçue", () => {
+  it("parseTaskInput lève invalid_params sans la valeur reçue", () => {
     const error = (() => {
       try {
         parseTaskInput(taskTitleSchema, "");
@@ -53,8 +53,8 @@ describe("schémas tasks", () => {
 
     expect(error).toBeInstanceOf(TaskError);
     expect(error).toMatchObject({
-      code: "invalid_input",
-      message: "invalid_input",
+      code: "invalid_params",
+      message: "invalid_params",
     });
   });
 });
@@ -62,7 +62,7 @@ describe("schémas tasks", () => {
 describe("erreurs tasks", () => {
   it("chaque code a un message anglais non vide et fixe", () => {
     const codes: TaskErrorCode[] = [
-      "invalid_input",
+      "invalid_params",
       "not_found",
       "context_not_found",
       "subtask_depth",
