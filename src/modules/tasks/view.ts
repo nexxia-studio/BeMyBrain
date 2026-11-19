@@ -140,6 +140,17 @@ export function subtaskCounter(task: Task): string | null {
     : `${task.subtaskDone}/${task.subtaskTotal}`;
 }
 
+/**
+ * Pastille d'espace sur les lignes (liste, tuile To-do) : seulement s'il y a à distinguer, c'est-à-dire plusieurs
+ * espaces du côté et aucun espace filtré.
+ */
+export function showContextChip(scope: {
+  contextId: string | null;
+  contexts: readonly unknown[];
+}): boolean {
+  return scope.contextId === null && scope.contexts.length > 1;
+}
+
 export type TodayTile = {
   overdueCount: number;
   todayCount: number;
@@ -222,7 +233,9 @@ export function tagChanges(
   current: readonly string[],
   next: readonly string[],
 ): TagChanges | null {
-  const addTags = next.filter((name) => findTagName(current, name) === undefined);
+  const addTags = next.filter(
+    (name) => findTagName(current, name) === undefined,
+  );
   const removeTags = current.filter(
     (name) => findTagName(next, name) === undefined,
   );

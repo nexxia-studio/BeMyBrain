@@ -12,6 +12,7 @@ import {
   groupBySection,
   isOverdue,
   matchTagNames,
+  showContextChip,
   sideTileItems,
   subtaskCounter,
   tagChanges,
@@ -303,6 +304,14 @@ describe("sideTileItems", () => {
     const items = sideTileItems([parent, bare, dated], "pro");
 
     expect(ids(items)).toEqual([dated.id, parent.id]);
+  });
+});
+
+describe("showContextChip", () => {
+  it("pastille d'espace seulement s'il y a à distinguer : plusieurs espaces et aucun filtré", () => {
+    expect(showContextChip({ contextId: null, contexts: [{}, {}] })).toBe(true);
+    expect(showContextChip({ contextId: "x", contexts: [{}, {}] })).toBe(false);
+    expect(showContextChip({ contextId: null, contexts: [{}] })).toBe(false);
   });
 });
 

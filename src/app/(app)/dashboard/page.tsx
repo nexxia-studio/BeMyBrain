@@ -16,7 +16,11 @@ import { requireSessionWithToken } from "@/lib/session";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 import { buildDashboard } from "@/modules/dashboard/tiles";
 import { loadDueToday, loadUpcomingTasks } from "@/modules/tasks/load";
-import { SIDE_TILE_LIMIT, todayTileItems } from "@/modules/tasks/view";
+import {
+  showContextChip,
+  SIDE_TILE_LIMIT,
+  todayTileItems,
+} from "@/modules/tasks/view";
 
 import { settleTile } from "./settle-tile";
 
@@ -62,10 +66,7 @@ export default async function DashboardPage() {
               tile={tile}
               tasks={upcoming}
               today={today}
-              // Même règle que la liste : un seul espace, ou un espace filtré, rien à nommer.
-              showContext={
-                scope.contextId === null && scope.contexts.length > 1
-              }
+              showContext={showContextChip(scope)}
             />
           ) : (
             <EmptyTile key={tile.id} tile={tile} />

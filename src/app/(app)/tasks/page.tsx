@@ -17,6 +17,7 @@ import { requireSessionWithToken } from "@/lib/session";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 import { loadTaskList } from "@/modules/tasks/load";
 import { statusCategories, TASK_LIST_MAX_LIMIT } from "@/modules/tasks/sides";
+import { showContextChip } from "@/modules/tasks/view";
 
 type TasksPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -59,8 +60,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         today={today}
         side={scope.side}
         filtered={scope.contextId !== null}
-        // Même règle que les tuiles du tableau de bord : un seul espace, ou un espace filtré, rien à nommer.
-        showContext={scope.contextId === null && scope.contexts.length > 1}
+        showContext={showContextChip(scope)}
         listQuery={listQuery(search)}
       />
       {list.truncated && (

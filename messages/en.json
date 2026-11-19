@@ -49,7 +49,7 @@
       "overdue": "Overdue",
       "dueToday": "Today",
       "list": "Today's tasks",
-      "seeAll": "See all",
+      "seeAll": "Open to-do",
       "error": "Today's tasks are unavailable. Reload the page in a moment."
     },
     "tiles": {

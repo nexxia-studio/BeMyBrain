@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 describe("tuile « Aujourd'hui »", () => {
-  it("compteurs en retard / aujourd'hui, 3 lignes, côté en légende, lien Tout voir", () => {
+  it("compteurs en retard / aujourd'hui, 3 lignes, côté en légende, lien vers la to-do", () => {
     const due = todayTileItems(
       [
         buildTask({
@@ -95,7 +95,7 @@ describe("tuile « Aujourd'hui »", () => {
     expect(rows[1].textContent).toContain("Pro");
     expect(rows[1].textContent).toContain("14:00");
     expect(tile().textContent).not.toContain("Quatrième");
-    const seeAll = within(tile()).getByRole("link", { name: "Tout voir" });
+    const seeAll = within(tile()).getByRole("link", { name: "Voir la to-do" });
     expect(seeAll.getAttribute("href")).toBe("/tasks");
   });
 

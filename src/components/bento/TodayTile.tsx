@@ -1,7 +1,8 @@
 // Curseurs nexxia-design (DESIGN.md § 1, tableau de bord) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Tuile « Aujourd'hui » (DESIGN.md § 5) : la seule tuile pleine de l'app. Date du jour selon la langue,
 // salutation, puis la to-do du jour des deux côtés (spec todo-unifiee) : pastilles de chiffres « En retard » et
-// « Aujourd'hui », les 3 premières tâches (côté en légende) et le lien « Tout voir ». Rien de dû : une phrase.
+// « Aujourd'hui », les 3 premières tâches (côté en légende) et le lien « Voir la to-do » (la liste
+// montre le côté actif seulement, pas « tout »). Rien de dû : une phrase.
 // Lecture en échec : un message à la place, la tuile et le reste du tableau de bord s'affichent quand même.
 // Une colonne à toutes les largeurs ; les deux pastilles restent côte à côte, même à 390 px.
 // Animée par GSAP seul (entrée du tableau de bord) : aucun survol Motion sur la tuile.

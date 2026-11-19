@@ -22,6 +22,7 @@ import {
   listTags,
   listTasks,
   listTrashedTasks,
+  listUpcomingTasks,
 } from "./queries";
 import { compareTasks } from "./view";
 
@@ -435,7 +436,7 @@ describe("listTasks : filtres", () => {
 });
 
 describe("isolation : lecture filtrée sur le workspace passé", () => {
-  it("un membre de A et de B qui lit A ne voit rien de B", async () => {
+  it("un membre de A et de B qui lit A ne voit rien de B (tuile To-do comprise)", async () => {
     const r = await db.asUser(f.userAB, async (tx) => ({
       list: await listTasks(
         f.workspaceA,
@@ -447,16 +448,27 @@ describe("isolation : lecture filtrée sur le workspace passé", () => {
       trash: await listTrashedTasks(f.workspaceA, tx),
       tags: await listTags(f.workspaceA, tx),
       taskB: await getTask(f.workspaceA, t.taskB, tx),
+      // Tuile To-do : côté Pro de A, alors que les tâches de B sont toutes Pro.
+      upcoming: await listUpcomingTasks(
+        f.workspaceA,
+        { side: "pro", limit: 200 },
+        tx,
+      ),
     }));
 
     const bIds = [t.taskB, t.subtaskB, dueTodayB];
-    const seen = [...r.list.tasks, ...r.search.tasks, ...r.due, ...r.trash].map(
-      (x) => x.id,
-    );
+    const seen = [
+      ...r.list.tasks,
+      ...r.search.tasks,
+      ...r.due,
+      ...r.trash,
+      ...r.upcoming,
+    ].map((x) => x.id);
     for (const id of bIds) expect(seen).not.toContain(id);
     expect(titlesOf(r.search.tasks)).toEqual(["Relancer le Devis"]);
     expect(r.tags.map((x) => x.id)).not.toContain(t.tagB);
     expect(r.taskB).toBeNull();
+    expect(r.upcoming.map((x) => x.id)).toContain(ids["Relancer le Devis"]);
   });
 
   it("un utilisateur de A qui passe le workspace B ne lit rien (RLS)", async () => {

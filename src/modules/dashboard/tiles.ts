@@ -25,10 +25,34 @@ const CATALOG = [
     content: "tasks",
   },
   // La paire de tuiles chiffre, seule à partager une rangée sur mobile (DESIGN.md § 8, décision 9).
-  { id: "shopping", side: "private", size: "figure", mixesSpaces: false },
-  { id: "budget", side: "private", size: "figure", mixesSpaces: false },
-  { id: "health", side: "private", size: "standard", mixesSpaces: false },
-  { id: "home", side: "private", size: "standard", mixesSpaces: false },
+  {
+    id: "shopping",
+    side: "private",
+    size: "figure",
+    mixesSpaces: false,
+    content: "empty",
+  },
+  {
+    id: "budget",
+    side: "private",
+    size: "figure",
+    mixesSpaces: false,
+    content: "empty",
+  },
+  {
+    id: "health",
+    side: "private",
+    size: "standard",
+    mixesSpaces: false,
+    content: "empty",
+  },
+  {
+    id: "home",
+    side: "private",
+    size: "standard",
+    mixesSpaces: false,
+    content: "empty",
+  },
   {
     id: "proTodo",
     side: "pro",
@@ -36,15 +60,33 @@ const CATALOG = [
     mixesSpaces: true,
     content: "tasks",
   },
-  { id: "clients", side: "pro", size: "standard", mixesSpaces: false },
-  { id: "proFinances", side: "pro", size: "standard", mixesSpaces: false },
-  { id: "social", side: "pro", size: "standard", mixesSpaces: false },
+  {
+    id: "clients",
+    side: "pro",
+    size: "standard",
+    mixesSpaces: false,
+    content: "empty",
+  },
+  {
+    id: "proFinances",
+    side: "pro",
+    size: "standard",
+    mixesSpaces: false,
+    content: "empty",
+  },
+  {
+    id: "social",
+    side: "pro",
+    size: "standard",
+    mixesSpaces: false,
+    content: "empty",
+  },
 ] as const satisfies readonly {
   id: string;
   side: Side;
   size: TileSize;
   mixesSpaces: boolean;
-  content?: TileContent;
+  content: TileContent;
 }[];
 
 export type TileId = (typeof CATALOG)[number]["id"];
@@ -101,7 +143,7 @@ export function buildDashboard(input: {
       id: tile.id,
       side: tile.side,
       size: tile.size,
-      content: "content" in tile ? tile.content : "empty",
+      content: tile.content,
       spaces,
       spaceLabels: tile.mixesSpaces && distinguishable ? spaces : [],
     })),
