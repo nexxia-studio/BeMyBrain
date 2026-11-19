@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { buildTask } from "../../../tests/factories/task";
+import { buildTask } from "../../../tests/factories/build-task";
 
 import {
   dateShortcuts,
@@ -115,6 +115,27 @@ describe("groupBySection", () => {
     expect(sections.map((s) => [s.key, ids(s.tasks)])).toEqual([
       ["overdue", [open.id]],
       ["completed", [doneNew.id, doneOld.id]],
+    ]);
+  });
+
+  it("annulée dans la section des terminées, triée avec elles par date de fin", () => {
+    const doneOld = buildTask({
+      statusCategory: "completed",
+      completedAt: new Date("2026-11-11T08:00:00Z"),
+    });
+    const canceled = buildTask({
+      statusCategory: "canceled",
+      completedAt: new Date("2026-11-13T08:00:00Z"),
+    });
+    const doneNew = buildTask({
+      statusCategory: "completed",
+      completedAt: new Date("2026-11-15T08:00:00Z"),
+    });
+
+    const sections = groupBySection([doneOld, canceled, doneNew], today);
+
+    expect(sections.map((s) => [s.key, ids(s.tasks)])).toEqual([
+      ["completed", [doneNew.id, canceled.id, doneOld.id]],
     ]);
   });
 });
