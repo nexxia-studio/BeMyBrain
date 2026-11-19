@@ -23,6 +23,10 @@ export const TASK_TITLE_MAX = 500;
 export const TASK_NOTES_MAX = 10_000;
 export const TAG_NAME_MAX = 50;
 export const TASK_QUERY_MAX = 100;
+/** Nom d'espace désigné par un appelant (aucun CHECK en base : borne de saisie seulement). */
+export const CONTEXT_NAME_MAX = 200;
+/** Tags passés en une écriture (`tags`, `addTags`, `removeTags`). */
+export const TASK_TAGS_PER_WRITE_MAX = 20;
 
 /** `limit` de `listTasks` : défaut et plafond. */
 export const TASK_LIST_DEFAULT_LIMIT = 50;

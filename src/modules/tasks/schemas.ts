@@ -4,6 +4,7 @@ import { sideSchema } from "@/modules/core/schemas";
 
 import { TaskError } from "./errors";
 import {
+  CONTEXT_NAME_MAX,
   openStatusCategories,
   statusCategories,
   TAG_NAME_MAX,
@@ -11,6 +12,7 @@ import {
   TASK_LIST_MAX_LIMIT,
   TASK_NOTES_MAX,
   TASK_QUERY_MAX,
+  TASK_TAGS_PER_WRITE_MAX,
   TASK_TITLE_MAX,
 } from "./sides";
 
@@ -117,6 +119,103 @@ export const listTasksFilterSchema = z.strictObject({
 });
 
 export type ListTasksFilter = z.input<typeof listTasksFilterSchema>;
+
+const contextNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(CONTEXT_NAME_MAX)
+  .describe("Space name, exactly as listed for the side.");
+
+const tagNamesSchema = z.array(tagNameSchema).min(1).max(TASK_TAGS_PER_WRITE_MAX);
+
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+export const createTaskInputSchema = z
+  .strictObject({
+    title: taskTitleSchema,
+    notes: taskNotesSchema.optional(),
+    side: sideSchema
+      .optional()
+      .describe(
+        "Side of life: private (personal life) or pro (work). Required for a top-level task without a space; omit for a subtask (it follows its parent).",
+      ),
+    context: contextNameSchema
+      .optional()
+      .describe(
+        "Space name, exactly as listed. The task takes the side of the space. Omit for no space, and for a subtask (it follows its parent).",
+      ),
+    parentId: taskIdSchema
+      .optional()
+      .describe(
+        "Parent task id (UUID) to create a subtask. The parent must be a top-level task.",
+      ),
+    statusCategory: statusCategorySchema.optional(),
+    priority: prioritySchema.optional(),
+    dueDate: dueDateSchema.optional(),
+    dueTime: dueTimeSchema.optional(),
+    tags: tagNamesSchema
+      .optional()
+      .describe(
+        `Tag names, up to ${TASK_TAGS_PER_WRITE_MAX}, matched case-insensitively; unknown names are created.`,
+      ),
+  })
+  .refine((v) => v.dueTime === undefined || v.dueDate !== undefined);
+
+export type CreateTaskInput = z.input<typeof createTaskInputSchema>;
+
+export const updateTaskInputSchema = z
+  .strictObject({
+    taskId: taskIdSchema,
+    title: taskTitleSchema.optional(),
+    notes: taskNotesSchema.nullable().optional().describe(
+      `Free-text notes, up to ${TASK_NOTES_MAX} characters; null clears them.`,
+    ),
+    side: sideSchema
+      .optional()
+      .describe(
+        "New side: private or pro. Without a space, the task leaves its current space. Refused on a subtask.",
+      ),
+    context: contextNameSchema
+      .nullable()
+      .optional()
+      .describe(
+        "New space name, exactly as listed; the task takes the side of the space. null removes the space. Refused on a subtask.",
+      ),
+    statusCategory: statusCategorySchema.optional(),
+    priority: prioritySchema.optional(),
+    dueDate: dueDateSchema
+      .nullable()
+      .optional()
+      .describe(
+        "Due date, local calendar day, format YYYY-MM-DD; null removes the due date and time.",
+      ),
+    dueTime: dueTimeSchema
+      .nullable()
+      .optional()
+      .describe(
+        "Due time, local, 24-hour format HH:MM; requires a due date. null removes the time.",
+      ),
+    addTags: tagNamesSchema
+      .optional()
+      .describe(
+        `Tag names to add, up to ${TASK_TAGS_PER_WRITE_MAX}, case-insensitive; existing tags are kept, unknown names are created.`,
+      ),
+    removeTags: tagNamesSchema
+      .optional()
+      .describe(
+        `Tag names to remove from this task, up to ${TASK_TAGS_PER_WRITE_MAX}, case-insensitive; a name the task does not carry is ignored.`,
+      ),
+  })
+  .refine(
+    (v) =>
+      !(v.addTags ?? []).some((a) =>
+        (v.removeTags ?? []).some((r) => sameName(a, r)),
+      ),
+  )
+  .refine((v) => !(v.dueDate === null && typeof v.dueTime === "string"));
+
+export type UpdateTaskInput = z.input<typeof updateTaskInputSchema>;
 
 /** Valide une entrée ; refus → TaskError("invalid_params"), sans la valeur reçue (pas de ZodError masquée par withUserDb). */
 export function parseTaskInput<S extends z.ZodType>(
