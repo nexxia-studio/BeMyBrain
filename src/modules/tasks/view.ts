@@ -128,6 +128,11 @@ export function dueDateInstant(day: string): Date {
   return new Date(toUtcMs(day) + DAY_MS / 2);
 }
 
+/** Tâche ouverte dont l'échéance est passée (même règle que la section « En retard »). */
+export function isOverdue(task: Task, today: string): boolean {
+  return isOpen(task) && task.dueDate !== null && task.dueDate < today;
+}
+
 /** Compteur « n/m » des sous-tâches (calculé en base, annulées exclues) ; null sans sous-tâche comptée. */
 export function subtaskCounter(task: Task): string | null {
   return task.subtaskTotal === 0
@@ -205,4 +210,25 @@ export function findTagName(
 ): string | undefined {
   const wanted = tagKey(name);
   return names.find((existing) => tagKey(existing) === wanted);
+}
+
+export type TagChanges = { addTags?: string[]; removeTags?: string[] };
+
+/**
+ * Écriture `tasks.update` qui fait passer une tâche des tags `current` aux tags `next` (noms comparés sans casse) :
+ * ajouts et retraits seulement, jamais de remplacement de l'ensemble ; null s'il n'y a rien à changer.
+ */
+export function tagChanges(
+  current: readonly string[],
+  next: readonly string[],
+): TagChanges | null {
+  const addTags = next.filter((name) => findTagName(current, name) === undefined);
+  const removeTags = current.filter(
+    (name) => findTagName(next, name) === undefined,
+  );
+  if (addTags.length === 0 && removeTags.length === 0) return null;
+  return {
+    ...(addTags.length > 0 && { addTags }),
+    ...(removeTags.length > 0 && { removeTags }),
+  };
 }

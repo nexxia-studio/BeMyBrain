@@ -10,9 +10,11 @@ import {
   dueDateInstant,
   findTagName,
   groupBySection,
+  isOverdue,
   matchTagNames,
   sideTileItems,
   subtaskCounter,
+  tagChanges,
   todayTileItems,
 } from "./view";
 
@@ -389,6 +391,45 @@ describe("dueDateInstant", () => {
       );
       expect(day).toBe("2026-11-17");
     }
+  });
+});
+
+describe("isOverdue", () => {
+  it("tâche ouverte due avant aujourd'hui : en retard", () => {
+    expect(isOverdue(buildTask({ dueDate: "2026-11-18" }), today)).toBe(true);
+  });
+
+  it("due aujourd'hui ou sans échéance : pas en retard", () => {
+    expect(isOverdue(buildTask({ dueDate: today }), today)).toBe(false);
+    expect(isOverdue(buildTask(), today)).toBe(false);
+  });
+
+  it("terminée ou annulée : jamais en retard", () => {
+    const due = { dueDate: "2026-11-01" };
+
+    expect(
+      isOverdue(buildTask({ ...due, statusCategory: "completed" }), today),
+    ).toBe(false);
+    expect(
+      isOverdue(buildTask({ ...due, statusCategory: "canceled" }), today),
+    ).toBe(false);
+  });
+});
+
+describe("tagChanges", () => {
+  it("ajouts et retraits entre les tags enregistrés et les tags choisis", () => {
+    expect(tagChanges(["client", "devis"], ["devis", "urgent"])).toEqual({
+      addTags: ["urgent"],
+      removeTags: ["client"],
+    });
+  });
+
+  it("même nom dans une autre casse : aucun changement", () => {
+    expect(tagChanges(["Client"], ["client"])).toBeNull();
+  });
+
+  it("seulement des ajouts : pas de removeTags", () => {
+    expect(tagChanges([], ["client"])).toEqual({ addTags: ["client"] });
   });
 });
 

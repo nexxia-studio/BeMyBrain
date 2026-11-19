@@ -32,6 +32,10 @@ type DueDateChipProps = {
   value: DueDate;
   onChange: (value: DueDate) => void;
   disabled: boolean;
+  /** Ouverture et fermeture de la popup (le détail enregistre à la fermeture). */
+  onOpenChange?: (open: boolean) => void;
+  /** Id du message d'erreur sous le champ (détail), s'il y en a un. */
+  describedBy?: string;
 };
 
 /** Jour `YYYY-MM-DD` en instant UTC, formaté en UTC : le jour affiché est celui saisi. */
@@ -53,6 +57,8 @@ export function DueDateChip({
   value,
   onChange,
   disabled,
+  onOpenChange,
+  describedBy,
 }: DueDateChipProps) {
   const t = useTranslations("tasks.quickAdd.date");
   const format = useFormatter();
@@ -78,9 +84,14 @@ export function DueDateChip({
     current = value.time ? `${day} · ${value.time}` : day;
   }
 
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    onOpenChange?.(next);
+  }
+
   function choose(date: string) {
     onChange({ date, time: value.time });
-    setOpen(false);
+    changeOpen(false);
   }
 
   function changeDate(date: string) {
@@ -91,11 +102,11 @@ export function DueDateChip({
   function clear() {
     onChange({ date: null, time: null });
     setTimeShown(false);
-    setOpen(false);
+    changeOpen(false);
   }
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={changeOpen}>
       <Popover.Trigger
         render={
           <motion.button
@@ -104,6 +115,7 @@ export function DueDateChip({
           />
         }
         disabled={disabled}
+        aria-describedby={describedBy}
         aria-label={t("menuLabel", { current: current ?? t("none") })}
         className={cn(
           chipTriggerClass,

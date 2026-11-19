@@ -30,6 +30,10 @@ type TagsChipProps = {
   value: string[];
   onChange: (tags: string[]) => void;
   disabled: boolean;
+  /** Ouverture et fermeture de la popup (le détail enregistre à la fermeture). */
+  onOpenChange?: (open: boolean) => void;
+  /** Id du message d'erreur sous le champ (détail), s'il y en a un. */
+  describedBy?: string;
 };
 
 type Known =
@@ -50,7 +54,13 @@ function tagNames(result: unknown): string[] | null {
   return names.every((name) => typeof name === "string") ? names : null;
 }
 
-export function TagsChip({ value, onChange, disabled }: TagsChipProps) {
+export function TagsChip({
+  value,
+  onChange,
+  disabled,
+  onOpenChange: notifyOpenChange,
+  describedBy,
+}: TagsChipProps) {
   const t = useTranslations("tasks.quickAdd.tags");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -81,6 +91,7 @@ export function TagsChip({ value, onChange, disabled }: TagsChipProps) {
 
   function onOpenChange(next: boolean) {
     setOpen(next);
+    notifyOpenChange?.(next);
     if (next && (known.state === "idle" || known.state === "failed")) {
       void load();
     }
@@ -111,6 +122,7 @@ export function TagsChip({ value, onChange, disabled }: TagsChipProps) {
           />
         }
         disabled={disabled}
+        aria-describedby={describedBy}
         aria-label={t("menuLabel", { current: current ?? t("none") })}
         className={cn(
           chipTriggerClass,

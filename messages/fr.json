@@ -278,6 +278,49 @@
         "body": "La liste n'a pas pu être chargée. Réessaie dans un instant.",
         "retry": "Réessayer"
       }
+    },
+    "detail": {
+      "label": "Détail de la tâche",
+      "close": "Fermer",
+      "parent": "Sous-tâche de",
+      "title": "Titre",
+      "titleRequired": "Le titre ne peut pas être vide.",
+      "notes": "Notes",
+      "menuLabel": "{field} : {current}",
+      "status": {
+        "label": "Statut",
+        "backlog": "Backlog",
+        "unstarted": "À faire",
+        "started": "En cours",
+        "completed": "Fait",
+        "canceled": "Annulé"
+      },
+      "priority": {
+        "label": "Priorité",
+        "0": "Aucune",
+        "1": "Urgente",
+        "2": "Haute",
+        "3": "Moyenne",
+        "4": "Basse"
+      },
+      "placement": "Côté et espace",
+      "side": "Côté",
+      "followsParent": "Comme la tâche parente",
+      "due": "Échéance",
+      "tags": "Tags",
+      "updateFailed": "Modification non enregistrée. Réessaie.",
+      "subtasks": {
+        "title": "Sous-tâches",
+        "add": "Ajouter une sous-tâche",
+        "addFailed": "Sous-tâche non ajoutée. Réessaie."
+      },
+      "trash": "Mettre à la corbeille",
+      "trashing": "Mise à la corbeille…",
+      "trashed": "Tâche mise à la corbeille",
+      "undo": "Annuler",
+      "restored": "Tâche restaurée",
+      "trashFailed": "Tâche non mise à la corbeille. Réessaie.",
+      "restoreFailed": "Tâche non restaurée. Réessaie."
     }
   }
 }

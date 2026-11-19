@@ -29,6 +29,8 @@ type ContextChipProps = {
   value: string | null;
   onChange: (contextId: string | null) => void;
   disabled: boolean;
+  /** Id du message d'erreur sous le champ (détail), s'il y en a un. */
+  describedBy?: string;
 };
 
 export function ContextChip({
@@ -36,6 +38,7 @@ export function ContextChip({
   value,
   onChange,
   disabled,
+  describedBy,
 }: ContextChipProps) {
   const t = useTranslations("tasks.quickAdd.context");
   const current = contexts.find((context) => context.id === value);
@@ -50,6 +53,7 @@ export function ContextChip({
           />
         }
         disabled={disabled}
+        aria-describedby={describedBy}
         aria-label={t("menuLabel", { current: current?.name ?? t("none") })}
         className={cn(
           chipTriggerClass,

@@ -58,6 +58,8 @@ type TaskRowProps = {
   showDate: boolean;
   /** Faux quand il n'y a rien à distinguer (côté à un seul espace, ou espace filtré). */
   showContext: boolean;
+  /** Surface propre à un emplacement (ex. ligne posée sur le `popover` opaque du détail). */
+  className?: string;
 };
 
 export function TaskRow({
@@ -65,6 +67,7 @@ export function TaskRow({
   overdue,
   showDate,
   showContext,
+  className,
 }: TaskRowProps) {
   const t = useTranslations("tasks");
   const format = useFormatter();
@@ -100,7 +103,12 @@ export function TaskRow({
 
   return (
     // Survol du lien de la ligne : fond `accent` sur toute la ligne (DESIGN.md § 2, états dérivés).
-    <div className="flex flex-col rounded-lg bg-row has-[a:hover]:bg-accent">
+    <div
+      className={cn(
+        "flex flex-col rounded-lg bg-row has-[a:hover]:bg-accent",
+        className,
+      )}
+    >
       <div className="flex min-h-11 items-start gap-1 pr-3.5 pl-0.5">
         <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center has-disabled:cursor-not-allowed">
           <input

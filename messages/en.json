@@ -278,6 +278,49 @@
         "body": "The list couldn't be loaded. Try again in a moment.",
         "retry": "Try again"
       }
+    },
+    "detail": {
+      "label": "Task details",
+      "close": "Close",
+      "parent": "Subtask of",
+      "title": "Title",
+      "titleRequired": "The title can't be empty.",
+      "notes": "Notes",
+      "menuLabel": "{field}: {current}",
+      "status": {
+        "label": "Status",
+        "backlog": "Backlog",
+        "unstarted": "To do",
+        "started": "In progress",
+        "completed": "Done",
+        "canceled": "Canceled"
+      },
+      "priority": {
+        "label": "Priority",
+        "0": "None",
+        "1": "Urgent",
+        "2": "High",
+        "3": "Medium",
+        "4": "Low"
+      },
+      "placement": "Side and space",
+      "side": "Side",
+      "followsParent": "Same as the parent task",
+      "due": "Due",
+      "tags": "Tags",
+      "updateFailed": "Change not saved. Try again.",
+      "subtasks": {
+        "title": "Subtasks",
+        "add": "Add a subtask",
+        "addFailed": "Subtask not added. Try again."
+      },
+      "trash": "Move to trash",
+      "trashing": "Moving to trash…",
+      "trashed": "Task moved to trash",
+      "undo": "Undo",
+      "restored": "Task restored",
+      "trashFailed": "Task not moved to trash. Try again.",
+      "restoreFailed": "Task not restored. Try again."
     }
   }
 }
