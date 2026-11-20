@@ -1,47 +1,54 @@
 // Curseurs nexxia-design (DESIGN.md § 1, tableau de bord) : VARIANCE 4 · MOTION 5 · DENSITY 5.
-// Chargement du tableau de bord : titre, puis la forme de la tuile pleine « Aujourd'hui » et d'une tuile verre
-// de lignes (sans texte inventé). Squelettes immobiles : aucune boucle (DESIGN.md § 11). Même grille que la
-// page (rangées flex-wrap) : une colonne sous 768 px.
+// Chargement du tableau de bord (DESIGN.md § 5 « États de chargement — givre ») : le vrai titre, puis la
+// tuile pleine « Aujourd'hui » vide et des tuiles givrées, aux classes de taille de la grille
+// (tile-sizes.ts) : aucun décalage quand le contenu arrive. Même conteneur que BentoGrid : une colonne
+// sous 768 px. CSS pur, rendu par le serveur ; éclaircissement unique, aucune boucle (DESIGN.md § 11).
 import { getTranslations } from "next-intl/server";
 
-const SKELETON_ROWS = 3;
+import { TILE_SIZE_CLASSES } from "@/components/bento/tile-sizes";
+import { FrostTile } from "@/components/loading/FrostTile";
+import type { TileSize } from "@/modules/dashboard/tiles";
+
+// Tuiles givrées après « Aujourd'hui » : la To-do du côté (large), présente des deux côtés, puis deux tuiles
+// standard (forme des rangées du côté Pro).
+// raccourci: forme fixe, le côté et les espaces ne sont pas lus pendant le chargement — la reprendre de
+// buildDashboard si une lecture du côté sans requête devient possible.
+const FROST_TILES: readonly TileSize[] = ["wide", "standard", "standard"];
+
+// Sous 1024 px, les tuiles n'ont pas de hauteur minimale : le givre, vide, reprend celle de l'ordinateur
+// pour approcher la hauteur du contenu réel.
+const MOBILE_MIN_HEIGHT: Record<TileSize, string> = {
+  wide: "min-h-75",
+  standard: "min-h-57.5",
+  figure: "min-h-57.5",
+};
+
+const tileClass = (size: TileSize) =>
+  `min-w-0 ${TILE_SIZE_CLASSES[size]} ${MOBILE_MIN_HEIGHT[size]}`;
 
 export default async function DashboardLoading() {
   const t = await getTranslations("dashboard");
 
   return (
     <main aria-busy="true" className="flex flex-1 flex-col gap-grid">
-      <h1 className="font-heading text-page-title">{t("title")}</h1>
+      {/* Même en-tête que PageHeader : la place de la pastille du filtre d'espace (min-h-11, sous 1024 px)
+          est réservée, sinon titre et grille bougeraient à son arrivée. */}
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 className="min-w-0 font-heading text-page-title">{t("title")}</h1>
+        <div aria-hidden="true" className="min-h-11 lg:hidden" />
+      </header>
       <p role="status" className="sr-only">
         {t("loading")}
       </p>
       <div
         aria-hidden="true"
-        data-testid="dashboard-skeleton"
+        data-testid="dashboard-frost"
         className="flex flex-wrap gap-grid"
       >
-        <div className="flex min-w-0 grow-2 basis-100 flex-col gap-3 rounded-tile bg-primary p-today shadow-today lg:min-h-75">
-          <span className="h-3 w-32 rounded-full bg-on-primary-surface" />
-          <span className="h-8 w-40 rounded-full bg-on-primary-surface" />
-          {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-            <span
-              key={index}
-              className="min-h-11 rounded-lg border border-on-primary-border bg-on-primary-surface"
-            />
-          ))}
-        </div>
-        <div className="glass flex min-w-0 grow-2 basis-100 flex-col gap-3 rounded-tile p-tile lg:min-h-75">
-          <span className="h-3 w-24 rounded-full bg-track" />
-          {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-            <span
-              key={index}
-              className="flex min-h-11 items-center gap-3 rounded-lg bg-row px-3.5"
-            >
-              <span className="size-4.5 shrink-0 rounded-sm bg-track" />
-              <span className="h-3 w-2/3 rounded-full bg-track" />
-            </span>
-          ))}
-        </div>
+        <FrostTile variant="solid" className={tileClass("wide")} />
+        {FROST_TILES.map((size, i) => (
+          <FrostTile key={i} index={i + 1} className={tileClass(size)} />
+        ))}
       </div>
     </main>
   );
