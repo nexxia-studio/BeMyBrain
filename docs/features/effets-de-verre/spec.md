@@ -34,7 +34,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - [ ] Le reflet s'anime en `transform` seulement, sur un calque composé dès sa création. Il n'anime jamais `backdrop-filter` et ne crée pas de verre sur du verre.
 - [ ] Il ne bloque jamais l'interaction (`pointer-events: none`). Le survol (Motion) reste sur un autre élément que celui animé par GSAP.
 - [ ] Quitter le tableau de bord pendant le balayage : plus aucun calque ni style posé par le moment ne reste.
-- [ ] « Réduire les animations » actif : aucun reflet, aucun calque, la grille est dans son état final.
+- [ ] « Réduire les animations » actif : aucun reflet, aucun calque visible ni animé, la grille est dans son état final.
 - [ ] GSAP reste hors du bundle initial : le test de bundle existant reste vert.
 
 ### Givre de chargement
@@ -72,7 +72,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 ## Scénarios utilisateur (joués par /qa)
 1. **Reflet à l'ouverture** : Antoine ouvre l'app sur le tableau de bord, avec une session neuve. La grille se révèle, puis le reflet balaie les tuiles de verre et disparaît. Variante mobile : oui.
 2. **Pas de rejeu** : depuis le tableau de bord, Antoine va sur la liste puis revient. La grille s'affiche sans révélation ni reflet. Variante mobile : oui.
-3. **Mouvement réduit** : avec « réduire les animations », Antoine ouvre une session neuve. Grille immédiate, aucun reflet, aucun calque dans le DOM. Variante mobile : oui.
+3. **Mouvement réduit** : avec « réduire les animations », Antoine ouvre une session neuve. Grille immédiate, aucun reflet, aucun calque visible ni animé. Variante mobile : oui.
 4. **Givre du tableau de bord** : chargement ralenti (requête retardée dans Playwright). Le givre s'affiche avec le titre, s'éclaircit tuile par tuile, puis le contenu le remplace sans décalage. Variante mobile : oui.
 5. **Givre de la liste et de la corbeille** : même parcours sur `/tasks` et `/trash`. Variante mobile : oui.
 6. **Givre en mouvement réduit** : le voile s'affiche directement à son niveau de repos, sans transition. Variante mobile : non.
