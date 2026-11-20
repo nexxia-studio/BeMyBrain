@@ -32,37 +32,37 @@ export default async function AppLayout({
   return (
     <MotionRoot>
       <ShellScopeProvider shell={shell}>
-          <div className="flex min-h-dvh flex-col pr-safe-right pl-safe-left">
-            <div className="mx-auto flex w-full max-w-content flex-1 flex-col gap-grid px-page pt-page-top pb-tabbar-reserve lg:pb-page">
-              <ShellHeader side={side} />
-              <div className="flex flex-1 items-start gap-grid">
-                <Sidebar
-                  side={side}
-                  filter={
-                    filter ? (
-                      <ContextFilter
-                        key={filter.side}
-                        side={filter.side}
-                        contexts={filter.contexts}
-                        selected={filter.selected}
-                      />
-                    ) : null
-                  }
-                  // Sur ordinateur seulement ; sous 1024 px, la déconnexion est dans les Réglages.
-                  footer={
-                    <form action={signOut}>
-                      <SignOutButton />
-                    </form>
-                  }
-                  className="hidden lg:flex"
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-grid">
-                  {children}
-                </div>
+        <div className="flex min-h-dvh flex-col pr-safe-right pl-safe-left">
+          <div className="mx-auto flex w-full max-w-content flex-1 flex-col gap-grid px-page pt-page-top pb-tabbar-reserve lg:pb-page">
+            <ShellHeader side={side} />
+            <div className="flex flex-1 items-start gap-grid">
+              <Sidebar
+                side={side}
+                filter={
+                  filter ? (
+                    <ContextFilter
+                      key={filter.side}
+                      side={filter.side}
+                      contexts={filter.contexts}
+                      selected={filter.selected}
+                    />
+                  ) : null
+                }
+                // Sur ordinateur seulement ; sous 1024 px, la déconnexion est dans les Réglages.
+                footer={
+                  <form action={signOut}>
+                    <SignOutButton />
+                  </form>
+                }
+                className="hidden lg:flex"
+              />
+              <div className="flex min-w-0 flex-1 flex-col gap-grid">
+                {children}
               </div>
             </div>
-            <TabBar className="lg:hidden" />
           </div>
+          <TabBar className="lg:hidden" />
+        </div>
       </ShellScopeProvider>
     </MotionRoot>
   );

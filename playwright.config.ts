@@ -18,7 +18,8 @@ const isLocal = new URL(baseURL).protocol === "http:";
 assertE2eTargetAllowed(baseURL, process.env.E2E_FORBIDDEN_HOSTS);
 
 // Parcours qui modifient le compte e2e partagé (sa langue) : réglages, palette de commandes, to-do en anglais.
-const ACCOUNT_LOCALE_SPEC = /(changer-de-langue|palette|todo-langue)\.spec\.ts$/;
+const ACCOUNT_LOCALE_SPEC =
+  /(changer-de-langue|palette|todo-langue)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",

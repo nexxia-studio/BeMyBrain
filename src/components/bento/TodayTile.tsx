@@ -25,11 +25,7 @@ type TodayTileProps = {
   due: TodayTileData | null;
 };
 
-export function TodayTile({
-  hasSpaces,
-  today,
-  due,
-}: TodayTileProps) {
+export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
   const t = useTranslations("dashboard");
   const format = useFormatter();
   const now = useNow();

@@ -135,7 +135,9 @@ describe("tuile « To-do pro »", () => {
   it("espaces nommés dans leur couleur : Trustup chip-warm, Nexxia chip-indigo", () => {
     renderTile([]);
 
-    const spaces = within(tile()).getByRole("list", { name: "Espaces couverts" });
+    const spaces = within(tile()).getByRole("list", {
+      name: "Espaces couverts",
+    });
     const classes = (name: string) =>
       within(spaces).getByText(name).className.split(/\s+/);
     expect(classes("Trustup")).toContain("bg-chip-warm");

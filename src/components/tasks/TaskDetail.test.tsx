@@ -211,6 +211,17 @@ describe("détail : chaque champ appelle tasks.update", () => {
     );
   });
 
+  it("statut : libellés accordés avec « tâche », dans l'ordre des catégories (décision du 2026-11-20)", async () => {
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+    await screen.findByRole("menuitemradio", { name: "À planifier" });
+
+    expect(
+      screen.getAllByRole("menuitemradio").map((item) => item.textContent),
+    ).toEqual(["À planifier", "À faire", "En cours", "Terminée", "Annulée"]);
+  });
+
   it("statut : En cours → catégorie started", async () => {
     const task = renderDetail();
 
@@ -251,7 +262,9 @@ describe("détail : chaque champ appelle tasks.update", () => {
     renderDetail();
 
     fireEvent.click(chip(/^Statut :/));
-    fireEvent.click(await screen.findByRole("menuitemradio", { name: "Fait" }));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Terminée" }),
+    );
 
     const status = await screen.findByText(
       "Modification non enregistrée. Réessaie.",

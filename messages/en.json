@@ -298,7 +298,7 @@
       "menuLabel": "{field}: {current}",
       "status": {
         "label": "Status",
-        "backlog": "Backlog",
+        "backlog": "To plan",
         "unstarted": "To do",
         "started": "In progress",
         "completed": "Done",

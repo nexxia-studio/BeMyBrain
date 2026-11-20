@@ -613,14 +613,7 @@ describe("palette et clavier de l'ajout rapide", () => {
     render(
       <NextIntlClientProvider locale="fr" messages={fr}>
         <QuickAddProvider
-          types={[
-            {
-              key: "task",
-              icon: Plus,
-              Form: TitleForm,
-              action: "tasks.create",
-            },
-          ]}
+          types={[{ key: "task", icon: Plus, Form: TitleForm }]}
           scope={SCOPE}
         >
           <CommandPaletteProvider scope={SCOPE}>{null}</CommandPaletteProvider>

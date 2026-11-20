@@ -40,7 +40,10 @@ describe("loadContextsBySide", () => {
     withUserDb.mockClear();
     listContexts.mockReset();
     const prive = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Privé" };
-    const nexxia = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
+    const nexxia = {
+      id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+      name: "Nexxia",
+    };
     listContexts.mockImplementation(
       async (_workspace: string, { side }: { side: string }) =>
         side === "private" ? [prive] : [nexxia],
@@ -49,7 +52,11 @@ describe("loadContextsBySide", () => {
     const bySide = await loadContextsBySide("eyJ.jwt.signe", WORKSPACE);
 
     expect(withUserDb).toHaveBeenCalledTimes(1);
-    expect(listContexts).toHaveBeenCalledWith(WORKSPACE, { side: "private" }, tx);
+    expect(listContexts).toHaveBeenCalledWith(
+      WORKSPACE,
+      { side: "private" },
+      tx,
+    );
     expect(listContexts).toHaveBeenCalledWith(WORKSPACE, { side: "pro" }, tx);
     expect(bySide).toEqual({ private: [prive], pro: [nexxia] });
   });

@@ -32,7 +32,11 @@ type ContextFilterProps = {
   selected: string[];
 };
 
-export function ContextFilter({ side, contexts, selected }: ContextFilterProps) {
+export function ContextFilter({
+  side,
+  contexts,
+  selected,
+}: ContextFilterProps) {
   const t = useTranslations("shell.contexts");
   const { showSelection } = useShowPreference();
   const allIds = contexts.map((context) => context.id);

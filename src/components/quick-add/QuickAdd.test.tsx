@@ -69,13 +69,11 @@ const TASK: QuickAddType = {
   key: "task",
   icon: Plus,
   Form: TaskForm,
-  action: "tasks.create",
 };
 const EXPENSE: QuickAddType = {
   key: "expense",
   icon: Receipt,
   Form: ExpenseForm,
-  action: "finance.createExpense",
 };
 
 function renderQuickAdd(

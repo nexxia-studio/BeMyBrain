@@ -132,13 +132,13 @@
       - priorité « Aucune » sans point isolé (`5b33340`) ;
       - sous-tâche mise à la corbeille depuis son détail : retour au détail de sa parente, avec message et « Annuler » (`c568e86`, `c4d4099`, `78fc6ee`, `ffe16be`).
     - Tickets : BRAIN-43 (relais libéré à la fin de l'ouverture du tiroir), BRAIN-44 (contrôles désactivés un instant après un ajout), BRAIN-45 (pagination de la corbeille).
-    - En attente de la décision d'Antoine : libellés de statut (« Backlog », « Fait », « Annulé », fixés par la spec ; la critique propose « En attente », « Terminée », « Annulée », accordés avec la liste).
+    - Libellés de statut : décidés par Antoine le 2026-11-20 (voir Questions ouvertes).
     - Ticket proposé à Antoine, non créé : icônes de priorité peu lisibles à 16 px.
     - À discuter : menus Date et Tags qui couvrent le titre à 390 px ; champ Notes vide trop haut sur mobile ; « Demain » et « Ce week-end » identiques le vendredi ; place vide à droite de la liste à 1440 px ; survol de ligne peu visible.
 
 ## Questions ouvertes
 - [x] Recherche insensible aux accents : reportée (décision d'Antoine, 2026-11-19), ticket BRAIN-41.
-- [ ] Libellés de statut du détail : garder « Backlog / Fait / Annulé » (spec) ou passer à « En attente / Terminée / Annulée » (critique design du 2026-11-20) ?
+- [x] Libellés de statut du détail : « À planifier / À faire / En cours / Terminée / Annulée » (EN « To plan / To do / In progress / Done / Canceled ») ; « En attente » réservé à la tranche 2, pour les tâches bloquées (décision d'Antoine, 2026-11-20).
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->

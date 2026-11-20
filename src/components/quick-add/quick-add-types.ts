@@ -22,10 +22,8 @@ export type QuickAddType = {
   /** Stable ; ses libellés sont `quickAdd.types.<key>.label` (sélecteur) et `.title` (nom du tiroir). */
   key: string;
   icon: LucideIcon;
-  /** Formulaire du type, affiché sous le sélecteur. */
+  /** Formulaire du type, affiché sous le sélecteur ; il appelle lui-même son action du registre (ADR-009). */
   Form: ComponentType<QuickAddFormProps>;
-  /** Action du registre (ADR-009) appelée par le formulaire. */
-  action: string;
 };
 
 export const QUICK_ADD_TYPES: readonly QuickAddType[] = [
@@ -33,6 +31,5 @@ export const QUICK_ADD_TYPES: readonly QuickAddType[] = [
     key: "task",
     icon: ListChecks,
     Form: TaskQuickAddForm,
-    action: "tasks.create",
   },
 ];

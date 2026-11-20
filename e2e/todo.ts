@@ -113,7 +113,9 @@ export async function pickDueDate(
 ) {
   await dialog
     .getByRole("button", {
-      name: new RegExp(`^${fr.tasks.quickAdd.date.quickMenuLabel.split(" :")[0]}`),
+      name: new RegExp(
+        `^${fr.tasks.quickAdd.date.quickMenuLabel.split(" :")[0]}`,
+      ),
     })
     .click();
   await page.getByLabel(fr.tasks.quickAdd.date.pick).fill(date);

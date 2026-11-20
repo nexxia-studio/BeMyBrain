@@ -26,13 +26,8 @@ const messages = {
 };
 
 const TYPES: readonly QuickAddType[] = [
-  { key: "task", icon: Plus, Form: () => null, action: "tasks.create" },
-  {
-    key: "expense",
-    icon: Receipt,
-    Form: () => null,
-    action: "finance.createExpense",
-  },
+  { key: "task", icon: Plus, Form: () => null },
+  { key: "expense", icon: Receipt, Form: () => null },
 ];
 
 function Opener() {
@@ -139,7 +134,7 @@ function renderWithForm(
   const utils = render(
     <NextIntlClientProvider locale="fr" messages={messages}>
       <QuickAddProvider
-        types={[{ key: "task", icon: Plus, Form, action: "tasks.create" }]}
+        types={[{ key: "task", icon: Plus, Form }]}
         scope={{ side: "private", contexts: [], contextId: null }}
       >
         <GestureOpener />

@@ -1,7 +1,8 @@
 "use client";
 
 // Palette de commandes de la coque (ADR-009) : état d'ouverture, raccourci ⌘K / Ctrl+K (bascule), et
-// fonction d'ouverture partagée avec les déclencheurs (recherche et ajout de l'en-tête, ajout mobile).
+// fonction d'ouverture partagée avec les déclencheurs de recherche de l'en-tête (champ sur ordinateur, loupe
+// sous 1024 px). Le bouton d'ajout de l'en-tête et le « + » mobile ouvrent l'ajout rapide, pas la palette.
 // Placée sous QuickAddProvider : la commande « Nouvelle tâche » ouvre l'ajout rapide.
 import { useCallback, useEffect, useState } from "react";
 

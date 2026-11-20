@@ -92,7 +92,9 @@ test("en anglais, ajout rapide, liste, détail, corbeille et tuiles sont en angl
   await dialog.getByLabel(en.tasks.quickAdd.title, { exact: true }).fill(title);
   await dialog
     .getByRole("button", {
-      name: new RegExp(`^${en.tasks.quickAdd.date.quickMenuLabel.split(":")[0]}`),
+      name: new RegExp(
+        `^${en.tasks.quickAdd.date.quickMenuLabel.split(":")[0]}`,
+      ),
     })
     .click();
   await expect(

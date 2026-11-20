@@ -298,11 +298,11 @@
       "menuLabel": "{field} : {current}",
       "status": {
         "label": "Statut",
-        "backlog": "Backlog",
+        "backlog": "À planifier",
         "unstarted": "À faire",
         "started": "En cours",
-        "completed": "Fait",
-        "canceled": "Annulé"
+        "completed": "Terminée",
+        "canceled": "Annulée"
       },
       "priority": {
         "label": "Priorité",
