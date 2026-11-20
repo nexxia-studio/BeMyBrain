@@ -73,6 +73,8 @@ function tree(task: TaskDetailData | null, listQuery = "") {
       <TaskTrashProvider>
         {task !== null && (
           <TaskDetail
+            // Comme TaskDetailPanel : une autre tâche, une autre instance.
+            key={task.id}
             task={task}
             contexts={[TRUSTUP, NEXXIA]}
             today={TODAY}
@@ -89,6 +91,8 @@ function renderDetail(task: TaskDetailData = buildDetail(), listQuery = "") {
   return Object.assign(task, {
     /** Navigation vers la liste (router.push simulé) : le détail quitte la page, le layout reste. */
     leave: () => rerender(tree(null)),
+    /** Navigation vers le détail d'une autre tâche (router.push simulé), sous le même layout. */
+    show: (next: TaskDetailData) => rerender(tree(next, listQuery)),
   });
 }
 
@@ -472,7 +476,7 @@ describe("détail : corbeille", () => {
     expect(await screen.findByText("Tâche mise à la corbeille")).toBeTruthy();
   });
 
-  it("sous-tâche mise à la corbeille : retour à la liste (message et Annuler hors de toute fenêtre)", () => {
+  it("sous-tâche mise à la corbeille : retour au détail de sa parente, pas à la liste", () => {
     const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
     renderDetail(buildDetail({ parentId, parentTitle: "Parente" }));
 
@@ -480,7 +484,62 @@ describe("détail : corbeille", () => {
       screen.getByRole("button", { name: "Mettre à la corbeille" }),
     );
 
-    expect(push).toHaveBeenCalledWith("/tasks", { scroll: false });
+    expect(push).toHaveBeenCalledWith(`/tasks/${parentId}`, {
+      scroll: false,
+    });
+  });
+
+  it("sous-tâche : message et « Annuler » dans la fenêtre du détail de la parente, « Annuler » la restaure", async () => {
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      await within(dialog).findByText("Tâche mise à la corbeille"),
+    ).toBeTruthy();
+    const undo = within(dialog).getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+    fireEvent.click(undo);
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.restore")).toEqual({ taskId: subtask.id }),
+    );
+    expect(await within(dialog).findByText("Tâche restaurée")).toBeTruthy();
+  });
+
+  it("message quitté (détail de la parente fermé) : il ne revient pas en rouvrant ce détail", async () => {
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    await screen.findByText("Tâche mise à la corbeille");
+
+    pathname.current = "/tasks";
+    view.leave();
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
   });
 
   it("corbeille refusée : message, pas d'Annuler", async () => {
@@ -509,6 +568,30 @@ describe("détail : terminées affichées (?completed=1) gardé", () => {
     );
 
     expect(push).toHaveBeenCalledWith("/tasks?completed=1", { scroll: false });
+  });
+
+  it("corbeille : le message s'affiche sur la liste avec les terminées", async () => {
+    const view = renderDetail(buildDetail(), COMPLETED);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    view.leave();
+
+    expect(await screen.findByText("Tâche mise à la corbeille")).toBeTruthy();
+  });
+
+  it("sous-tâche mise à la corbeille : retour au détail de sa parente avec les terminées", () => {
+    const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+    renderDetail(buildDetail({ parentId, parentTitle: "Parente" }), COMPLETED);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(push).toHaveBeenCalledWith(`/tasks/${parentId}${COMPLETED}`, {
+      scroll: false,
+    });
   });
 
   it("lien vers une sous-tâche et vers la parente : requête gardée", () => {

@@ -16,7 +16,8 @@ import {
 } from "./todo";
 
 // Scénario 5 de la spec todo-unifiee (sous-tâches et corbeille) : Antoine ajoute deux sous-tâches à une tâche,
-// met une sous-tâche seule à la corbeille, puis la parente. La corbeille montre la parente et la sous-tâche
+// met une sous-tâche seule à la corbeille (retour au détail de la parente, « Annuler » essayé puis remise à la
+// corbeille), puis la parente. La corbeille montre la parente et la sous-tâche
 // isolée ; restaurer la parente la ramène avec une sous-tâche, l'autre reste à la corbeille. Tourne dans les
 // deux projets (panneau latéral sur ordinateur, tiroir sur mobile). La corbeille du compte e2e est partagée :
 // chaque ligne est cherchée par son titre unique.
@@ -53,6 +54,25 @@ async function trashFromDetail(page: Page, detail: Locator) {
   await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
 }
 
+/**
+ * Sous-tâche mise à la corbeille depuis son détail : retour au détail de sa parente, sans la sous-tâche, message
+ * et « Annuler » dans la fenêtre du détail.
+ */
+async function trashSubtaskFromDetail(
+  page: Page,
+  detail: Locator,
+  parentId: string,
+) {
+  await detail
+    .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${parentId}$`));
+  await expect(detail.getByText(fr.tasks.detail.trashed)).toBeVisible();
+  await expect(
+    detail.getByRole("link", { name: new RegExp(fr.tasks.detail.parent) }),
+  ).toHaveCount(0);
+}
+
 /** Ligne de la corbeille qui contient `text` (titre unique, légende). */
 function trashRow(page: Page, ...texts: string[]): Locator {
   return texts.reduce(
@@ -77,7 +97,8 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   const isolated = uniqueTitle("Résilier internet");
   const kept = uniqueTitle("Commander des cartons");
   await signIn(page);
-  created.push(await quickAddTask(page, parent));
+  const parentId = await quickAddTask(page, parent);
+  created.push(parentId);
 
   let detail = await openFromList(page, parent);
   created.push(await addSubtask(detail, isolated));
@@ -86,7 +107,19 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   await expect(
     detail.getByRole("link", { name: new RegExp(fr.tasks.detail.parent) }),
   ).toContainText(parent);
-  await trashFromDetail(page, detail);
+  await trashSubtaskFromDetail(page, detail, parentId);
+  await detail
+    .getByRole("button", { name: fr.tasks.detail.undo, exact: true })
+    .click();
+  await expect(detail.getByText(fr.tasks.detail.restored)).toBeVisible();
+  // « Annuler » la remet à sa place : première sous-tâche, comme avant.
+  await expect(detail.getByRole("listitem").first()).toContainText(isolated);
+  await taskLink(detail, isolated).click();
+  // Détail de la sous-tâche affiché avant de cliquer « Mettre à la corbeille » (sinon : celui de la parente).
+  await expect(
+    detail.getByRole("link", { name: new RegExp(fr.tasks.detail.parent) }),
+  ).toBeVisible();
+  await trashSubtaskFromDetail(page, detail, parentId);
   detail = await openFromList(page, parent);
   await expect(taskLink(detail, isolated)).toHaveCount(0);
   await trashFromDetail(page, detail);

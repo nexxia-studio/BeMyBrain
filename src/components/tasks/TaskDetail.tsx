@@ -9,6 +9,8 @@
 // Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
 // Contenu, une colonne : parente en lien (sous-tâche), titre, notes, puis lignes de champs (Statut, Priorité,
 // Côté et espace, Échéance, Tags), sous-tâches (pas sur une sous-tâche), pied « Mettre à la corbeille ».
+// Corbeille : retour à la liste ; une sous-tâche revient au détail de sa parente, où le message et « Annuler »
+// s'affichent dans la fenêtre (emplacement collé en bas du panneau, au-dessus du contenu qui défile).
 // Chaque champ appelle `tasks.update` seul (registre, origine `app`) : désactivé pendant l'appel, pas
 // d'optimiste, erreur sous le champ (code traduit, sinon message générique). Titre et notes : au départ du
 // champ ; Date et Tags : à la fermeture de leur pastille (une seule écriture pour plusieurs crans de roue iOS).
@@ -52,7 +54,7 @@ import { type DueDate, DueDateChip } from "./DueDateChip";
 import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
 import { SubtaskList } from "./SubtaskList";
 import { TagsChip } from "./TagsChip";
-import { useTrashTask } from "./task-trash-context";
+import { useTrashNoticeHost, useTrashTask } from "./task-trash-context";
 import { type TaskUpdate, useTaskUpdate } from "./use-task-update";
 
 const DESKTOP = "(min-width: 1024px)";
@@ -100,6 +102,7 @@ export function TaskDetail({
   const tSide = useTranslations("shell.side");
   const router = useRouter();
   const trash = useTrashTask();
+  const noticeHost = useTrashNoticeHost();
   const reduced = useReducedMotion() ?? false;
   const desktop = useMediaQuery(DESKTOP);
   const dragControls = useDragControls();
@@ -213,9 +216,11 @@ export function TaskDetail({
 
   function moveToTrash() {
     setTrashing(true);
-    // Toujours vers la liste, même pour une sous-tâche : sur le détail de la parente (fenêtre modale), le
-    // message et « Annuler » seraient inertes.
-    trash(task.id, closeHref);
+    // Sous-tâche : retour au détail de sa parente (spec, « Détail », pied), message affiché dans sa fenêtre.
+    trash(
+      task.id,
+      subtask ? `${TASKS_PATH}/${task.parentId}${listQuery}` : closeHref,
+    );
   }
 
   function onDragEnd(_event: PointerEvent, info: PanInfo) {
@@ -579,6 +584,12 @@ export function TaskDetail({
                     </motion.button>
                   </div>
                 </div>
+                {/* Message de corbeille (sous-tâche mise à la corbeille, « Annuler ») : dans la fenêtre, sinon
+                    inerte ; collé en bas du panneau quand le contenu défile. */}
+                <div
+                  ref={noticeHost}
+                  className="pointer-events-none sticky bottom-0 shrink-0 px-4 has-[p]:pb-4 lg:px-5 lg:has-[p]:pb-5"
+                />
               </Dialog.Popup>
             </Dialog.Viewport>
           </Dialog.Portal>
