@@ -350,5 +350,17 @@
       "body": "The trash could not be loaded. Try again in a moment.",
       "retry": "Try again"
     }
+  },
+  "glassDemo": {
+    "title": "Demo · glass effects",
+    "direction": "Direction",
+    "directions": {
+      "brume": "A · Mist",
+      "givre": "B · Frost",
+      "reflet": "C · Sheen"
+    },
+    "replay": "Replay",
+    "reduceMotion": "Reduce motion",
+    "systemReduced": "Your device already asks for less motion: nothing moves."
   }
 }

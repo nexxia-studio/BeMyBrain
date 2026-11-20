@@ -350,5 +350,17 @@
       "body": "La corbeille n'a pas pu être chargée. Réessaie dans un instant.",
       "retry": "Réessayer"
     }
+  },
+  "glassDemo": {
+    "title": "Démo · effets de verre",
+    "direction": "Direction",
+    "directions": {
+      "brume": "A · Brume",
+      "givre": "B · Givre",
+      "reflet": "C · Reflet"
+    },
+    "replay": "Rejouer",
+    "reduceMotion": "Réduire les animations",
+    "systemReduced": "Ton appareil demande déjà moins d'animations : rien ne bouge."
   }
 }
