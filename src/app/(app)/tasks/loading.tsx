@@ -3,6 +3,8 @@
 // givrée à la largeur de la liste (`max-w-3xl`, comme TaskList). L'interrupteur « Terminées » est rendu
 // invisible et inerte : il réserve sa place (sa taille ne dépend pas de son état) pour que le titre et la
 // tuile ne bougent pas à l'arrivée du contenu. Une colonne à toutes les largeurs. CSS pur, aucune boucle.
+// Filtre d'espace de l'en-tête (mobile) : place réservée, invisible et inerte (`filterInert`) ; utilisable
+// seulement une fois la page chargée.
 // En-tête : lectures mémoïsées par requête, déjà faites par le layout (aucune requête en plus).
 import { getTranslations } from "next-intl/server";
 
@@ -18,6 +20,7 @@ export default async function TasksLoading() {
     <main aria-busy="true" className="flex flex-1 flex-col gap-grid">
       <PageHeader
         title={t("title")}
+        filterInert
         actions={
           <div aria-hidden="true" inert className="invisible">
             <CompletedToggle checked={false} href={TASKS_PATH} />

@@ -74,6 +74,7 @@ describe("chargement du tableau de bord", () => {
 
     expect(pageHeaderProps).toHaveBeenCalledWith({
       title: messages.dashboard.title,
+      filterInert: true,
     });
     expect(
       screen.getByRole("heading", { level: 1, name: messages.dashboard.title }),
@@ -88,6 +89,17 @@ describe("chargement du tableau de bord", () => {
       expect(tile.querySelector(".frost")).not.toBeNull();
       expect(tile.style.getPropertyValue("--frost-index")).toBe(String(i + 1));
     });
+  });
+
+  it("pendant le chargement, le filtre d'espace est présent mais inerte et masqué (place réservée)", async () => {
+    await renderLoading();
+
+    expect(pageHeaderProps).toHaveBeenCalledWith(
+      expect.objectContaining({ filterInert: true }),
+    );
+    expect(pageHeaderProps).not.toHaveBeenCalledWith(
+      expect.objectContaining({ contextFilter: false }),
+    );
   });
 
   it("plus aucune ligne de squelette", async () => {

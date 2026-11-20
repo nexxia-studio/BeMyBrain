@@ -37,6 +37,17 @@ beforeEach(() => {
 });
 
 describe("chargement de la liste des tâches", () => {
+  it("pendant le chargement, le filtre d'espace est présent mais inerte et masqué (place réservée)", async () => {
+    render(await TasksLoading());
+
+    expect(pageHeaderProps).toHaveBeenCalledWith(
+      expect.objectContaining({ filterInert: true }),
+    );
+    expect(pageHeaderProps).not.toHaveBeenCalledWith(
+      expect.objectContaining({ contextFilter: false }),
+    );
+  });
+
   it("titre par l'en-tête de page, statut, une tuile givrée à la largeur de la liste (max-w-3xl), aucun squelette", async () => {
     const { container } = render(await TasksLoading());
 

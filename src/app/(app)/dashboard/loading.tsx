@@ -3,6 +3,8 @@
 // tuile pleine « Aujourd'hui » vide et une tuile givrée par tuile du côté actif, à ses classes de taille
 // (tile-sizes.ts) : aucun décalage quand le contenu arrive. Même conteneur que BentoGrid : une colonne
 // sous 768 px, sauf la paire de tuiles chiffre. CSS pur ; éclaircissement unique, aucune boucle (§ 11).
+// Filtre d'espace de l'en-tête (mobile) : place réservée, invisible et inerte (`filterInert`) ; utilisable
+// seulement une fois la page chargée.
 // En-tête et espaces du côté : lectures mémoïsées par requête, déjà faites par le layout (aucune requête en plus).
 import { getTranslations } from "next-intl/server";
 
@@ -32,7 +34,7 @@ export default async function DashboardLoading() {
 
   return (
     <main aria-busy="true" className="flex flex-1 flex-col gap-grid">
-      <PageHeader title={t("title")} />
+      <PageHeader title={t("title")} filterInert />
       <p role="status" className="sr-only">
         {t("loading")}
       </p>
