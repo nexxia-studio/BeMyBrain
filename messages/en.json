@@ -360,6 +360,18 @@
       "reflet": "C · Sheen"
     },
     "replay": "Replay",
+    "intensity": "Intensity",
+    "intensities": {
+      "discret": "Subtle",
+      "moyen": "Medium",
+      "marque": "Strong"
+    },
+    "speed": "Speed",
+    "speeds": {
+      "lent": "Slow",
+      "moyen": "Medium",
+      "rapide": "Fast"
+    },
     "reduceMotion": "Reduce motion",
     "systemReduced": "Your device already asks for less motion: nothing moves."
   }

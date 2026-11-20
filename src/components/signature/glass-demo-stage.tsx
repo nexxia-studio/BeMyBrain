@@ -13,6 +13,10 @@ import type { RefObject } from "react";
 import { releasePrehide } from "./signature-keys";
 
 export type GlassDirection = "brume" | "givre" | "reflet";
+/** Intensité de A et B (essai iPhone du 2026-11-20 : amplitudes de départ imperceptibles). */
+export type GlassIntensity = "discret" | "moyen" | "marque";
+/** Vitesse du balayage de C. */
+export type GlassSpeed = "lent" | "moyen" | "rapide";
 
 type GlassDemoStageProps = {
   /** Racine de la grille (tuiles `data-signature="intro"` et `"reveal"`). */
@@ -20,6 +24,8 @@ type GlassDemoStageProps = {
   /** Calque des halos, élément dédié aria-hidden. */
   haloRef: RefObject<HTMLElement | null>;
   direction: GlassDirection;
+  intensity: GlassIntensity;
+  speed: GlassSpeed;
   /** Simulation de « réduire les animations » : état final, rien ne bouge. */
   reduced: boolean;
   /** Incrémenté par « Rejouer ». */
@@ -29,7 +35,31 @@ type GlassDemoStageProps = {
 };
 
 const TILE_PROPS = "opacity,visibility,transform";
-const FROST_BACKGROUND = "var(--popover)";
+
+// A · Brume : les halos arrivent de plus grand et décalés, puis se posent ; les tuiles n'entrent qu'ensuite.
+const MIST = {
+  discret: { scale: 1.2, yPercent: -4, duration: 0.9 },
+  moyen: { scale: 1.45, yPercent: -8, duration: 1.1 },
+  marque: { scale: 1.8, yPercent: -14, duration: 1.4 },
+} as const satisfies Record<GlassIntensity, object>;
+
+// B · Givre : voile teinté bleu-lilas (couleurs des halos), fondu tuile par tuile.
+const FROST = {
+  discret: { tint: 30, opacity: 0.85, duration: 0.9, stagger: 0.1 },
+  moyen: { tint: 50, opacity: 0.95, duration: 1.1, stagger: 0.14 },
+  marque: { tint: 75, opacity: 1, duration: 1.3, stagger: 0.18 },
+} as const satisfies Record<GlassIntensity, object>;
+
+// C · Reflet : durée d'un passage et décalage entre tuiles.
+const SHEEN = {
+  lent: { duration: 2.2, stagger: 0.16 },
+  moyen: { duration: 1.5, stagger: 0.12 },
+  rapide: { duration: 0.9, stagger: 0.08 },
+} as const satisfies Record<GlassSpeed, object>;
+
+function frostBackground(tint: number): string {
+  return `linear-gradient(135deg, color-mix(in srgb, var(--halo-blue) ${tint}%, var(--popover)), color-mix(in srgb, var(--halo-lilac) ${tint}%, var(--popover)))`;
+}
 // Reflet teinté des halos (le blanc ne se voit pas sur un verre déjà blanc) : aucune couleur hors charte.
 const SHEEN_BACKGROUND =
   "linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--halo-blue) 55%, transparent) 45%, color-mix(in srgb, var(--halo-lilac) 55%, transparent) 55%, transparent 70%)";
@@ -51,6 +81,8 @@ function addLayers(surfaces: HTMLElement[], background: string): Layer[] {
       zIndex: "-1",
       borderRadius: "inherit",
       pointerEvents: "none",
+      // Couche composée dès sa création : pas de promotion ni de rétrogradation au milieu du balayage.
+      willChange: "transform, opacity",
       background,
     });
     surface.prepend(overlay);
@@ -70,6 +102,8 @@ export function GlassDemoStage({
   rootRef,
   haloRef,
   direction,
+  intensity,
+  speed,
   reduced,
   runId,
   onReady,
@@ -102,19 +136,29 @@ export function GlassDemoStage({
       let layers: Layer[] = [];
 
       const tl = gsap.timeline();
-      // Brume d'abord (A, C) : halos installés pendant que les tuiles sont encore cachées. Givre (B) : brume fixe.
-      const mistFirst = direction !== "givre";
-      const todayAt = mistFirst ? 0.35 : 0;
-      const tilesAt = todayAt + 0.15;
-
-      if (mistFirst) {
+      // Règle de fluidité : rien ne bouge derrière un verre visible (le flou serait recalculé à chaque image).
+      // A : les halos se posent entièrement avant la première tuile. C : halos fixes, comme B.
+      let todayAt = 0;
+      if (direction === "brume") {
+        const mist = MIST[intensity];
         tl.fromTo(
           halo,
-          { autoAlpha: 0, scale: 0.92 },
-          { autoAlpha: 1, scale: 1, duration: 1.2, ease: "power2.out" },
+          { autoAlpha: 0, scale: mist.scale, yPercent: mist.yPercent },
+          {
+            autoAlpha: 1,
+            scale: 1,
+            yPercent: 0,
+            duration: mist.duration,
+            ease: "power2.out",
+            force3D: true,
+            clearProps: "transform",
+          },
           0,
         );
+        todayAt = mist.duration;
       }
+      const tilesAt = todayAt + 0.15;
+
       if (today) {
         tl.from(
           today,
@@ -141,40 +185,54 @@ export function GlassDemoStage({
         );
       }
       const each = Math.min(0.05, 0.4 / Math.max(tiles.length - 1, 1));
+      const tilesDuration = 0.5;
       tl.from(
         tiles,
         {
           autoAlpha: 0,
           y: 24,
-          duration: 0.5,
+          duration: tilesDuration,
           ease: "expo.out",
           stagger: each,
           clearProps: TILE_PROPS,
         },
         tilesAt,
       );
+      // Fin du mouvement des tuiles : le balayage C ne démarre qu'une fois toutes immobiles.
+      const tilesSettled = Math.max(
+        todayAt + 0.08 + 0.6 + 0.08 * Math.max(todayItems.length - 1, 0),
+        tilesAt + each * Math.max(tiles.length - 1, 0) + tilesDuration,
+      );
 
       if (direction === "givre") {
-        layers = addLayers(surfaces, FROST_BACKGROUND);
+        const frost = FROST[intensity];
+        layers = addLayers(surfaces, frostBackground(frost.tint));
         tl.fromTo(
           layers.map((layer) => layer.overlay),
-          { opacity: 0.9 },
-          { opacity: 0, duration: 0.8, ease: "power2.out", stagger: each },
-          tilesAt + 0.1,
+          { opacity: frost.opacity },
+          {
+            opacity: 0,
+            duration: frost.duration,
+            ease: "power1.inOut",
+            stagger: frost.stagger,
+          },
+          tilesAt + 0.3,
         );
       }
       if (direction === "reflet") {
+        const sheen = SHEEN[speed];
         layers = addLayers(surfaces, SHEEN_BACKGROUND);
         tl.fromTo(
           layers.map((layer) => layer.overlay),
           { xPercent: -110 },
           {
             xPercent: 110,
-            duration: 0.9,
-            ease: "power2.inOut",
-            stagger: 0.08,
+            duration: sheen.duration,
+            ease: "sine.inOut",
+            stagger: sheen.stagger,
+            force3D: true,
           },
-          tilesAt + 0.7,
+          tilesSettled + 0.1,
         );
       }
       tl.call(() => {
@@ -186,7 +244,7 @@ export function GlassDemoStage({
       return () => removeLayers(layers);
     },
     {
-      dependencies: [direction, reduced, runId],
+      dependencies: [direction, intensity, speed, reduced, runId],
       revertOnUpdate: true,
     },
   );

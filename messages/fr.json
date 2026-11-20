@@ -360,6 +360,18 @@
       "reflet": "C · Reflet"
     },
     "replay": "Rejouer",
+    "intensity": "Intensité",
+    "intensities": {
+      "discret": "Discret",
+      "moyen": "Moyen",
+      "marque": "Marqué"
+    },
+    "speed": "Vitesse",
+    "speeds": {
+      "lent": "Lent",
+      "moyen": "Moyen",
+      "rapide": "Rapide"
+    },
     "reduceMotion": "Réduire les animations",
     "systemReduced": "Ton appareil demande déjà moins d'animations : rien ne bouge."
   }

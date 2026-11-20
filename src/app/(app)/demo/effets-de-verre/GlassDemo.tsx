@@ -10,7 +10,11 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { GlassDirection } from "@/components/signature/glass-demo-stage";
+import type {
+  GlassDirection,
+  GlassIntensity,
+  GlassSpeed,
+} from "@/components/signature/glass-demo-stage";
 import { SignatureBoundary } from "@/components/signature/SignatureBoundary";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +27,48 @@ const GlassDemoStage = dynamic(
 );
 
 const DIRECTIONS: readonly GlassDirection[] = ["brume", "givre", "reflet"];
+const INTENSITIES: readonly GlassIntensity[] = ["discret", "moyen", "marque"];
+const SPEEDS: readonly GlassSpeed[] = ["lent", "moyen", "rapide"];
+
+type PillGroupProps<T extends string> = {
+  label: string;
+  values: readonly T[];
+  current: T;
+  text: (value: T) => string;
+  onPick: (value: T) => void;
+};
+
+function PillGroup<T extends string>({
+  label,
+  values,
+  current,
+  text,
+  onPick,
+}: PillGroupProps<T>) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex gap-1 rounded-full bg-pill-track p-1"
+    >
+      {values.map((value) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={current === value}
+          onClick={() => onPick(value)}
+          className={cn(
+            "min-h-11 rounded-full px-3 text-small font-semibold text-muted-foreground",
+            current === value && "bg-pill-active text-foreground shadow-raised",
+          )}
+        >
+          {text(value)}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 type GlassDemoProps = {
   /** Tuiles du tableau de bord, rendues par le serveur avec les vraies données. */
@@ -35,6 +81,8 @@ export function GlassDemo({ children }: GlassDemoProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const haloRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState<GlassDirection>("brume");
+  const [intensity, setIntensity] = useState<GlassIntensity>("moyen");
+  const [speed, setSpeed] = useState<GlassSpeed>("moyen");
   const [reduced, setReduced] = useState(false);
   const [runId, setRunId] = useState(0);
   const [ready, setReady] = useState(false);
@@ -68,28 +116,30 @@ export function GlassDemo({ children }: GlassDemoProps) {
 
       {/* Barre compacte : la grille doit commencer au même endroit que sur le tableau de bord. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div
-          role="radiogroup"
-          aria-label={t("direction")}
-          className="flex gap-1 rounded-full bg-pill-track p-1"
-        >
-          {DIRECTIONS.map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={direction === value}
-              onClick={() => replay(() => setDirection(value))}
-              className={cn(
-                "min-h-11 rounded-full px-3 text-small font-semibold text-muted-foreground",
-                direction === value &&
-                  "bg-pill-active text-foreground shadow-raised",
-              )}
-            >
-              {t(`directions.${value}`)}
-            </button>
-          ))}
-        </div>
+        <PillGroup
+          label={t("direction")}
+          values={DIRECTIONS}
+          current={direction}
+          text={(value) => t(`directions.${value}`)}
+          onPick={(value) => replay(() => setDirection(value))}
+        />
+        {direction === "reflet" ? (
+          <PillGroup
+            label={t("speed")}
+            values={SPEEDS}
+            current={speed}
+            text={(value) => t(`speeds.${value}`)}
+            onPick={(value) => replay(() => setSpeed(value))}
+          />
+        ) : (
+          <PillGroup
+            label={t("intensity")}
+            values={INTENSITIES}
+            current={intensity}
+            text={(value) => t(`intensities.${value}`)}
+            onPick={(value) => replay(() => setIntensity(value))}
+          />
+        )}
         <button
           type="button"
           onClick={() => replay()}
@@ -128,6 +178,8 @@ export function GlassDemo({ children }: GlassDemoProps) {
           rootRef={rootRef}
           haloRef={haloRef}
           direction={direction}
+          intensity={intensity}
+          speed={speed}
           reduced={reduced}
           runId={runId}
           onReady={markReady}
