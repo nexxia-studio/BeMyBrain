@@ -298,6 +298,7 @@ Sourcing : primitives shadcn/ui (base-nova) réalignées sur ces tokens, sinon c
 - **Barres de progression** : piste `bg-track h-2.5 rounded-full`, remplissage `bg-primary` ; elles portent une donnée, jamais décoratives.
 - **Pastilles d'espace** : `rounded-full px-2.5 py-0.5 text-chip`, couleur `chip-*` choisie par `contexts.color` (`neutral`, `warm`, `indigo`).
 - **Pastille de côté (Privé / Pro)** : même forme, contour `border border-border`, texte `text-foreground`, aucun fond `chip-*` (jamais confondue avec un espace). Seulement dans la corbeille, qui mêle les deux côtés.
+- **États de chargement — givre** (BRAIN-33) : un seul composant réutilisable, en CSS pur (aucun JS, il s'affiche avant le reste du code). Il remplace les squelettes : plus aucune ligne de squelette. Le vrai titre de la page, puis des tuiles aux dimensions et positions réelles (aucun décalage de mise en page). Dans chaque tuile de verre, un voile teinté (jamais un second verre) : dégradé à 135° de `color-mix(in srgb, var(--halo-blue) 75%, var(--popover))` vers `color-mix(in srgb, var(--halo-lilac) 75%, var(--popover))`. Opacité 1 → 0,45 (repos, le voile reste affiché), 1,3 s par tuile, décalage 0,18 s : un seul éclaircissement, aucune boucle. Tuile pleine « Aujourd'hui » : couleur primaire, vide, sans voile. Mouvement réduit : voile fixe à 0,45. Accessibilité : `aria-busy` sur `<main>`, message en `role="status"`, givre `aria-hidden`.
 - **Focus visible** : partout `outline 2px ring` décalé de 2 px (posé en base dans `globals.css`) ; sur la tuile pleine, `ring-on-primary`. Les primitives shadcn qui utilisent `ring-ring/50` passent à `ring-ring` plein (50 % tombe sous 3:1).
 
 ## 6. Grille bento et navigation
@@ -324,11 +325,11 @@ Une animation a une raison (hiérarchie, récit, feedback, état) ou elle saute.
 | --- | --- | --- |
 | Entrée du tableau de bord | Tuile « Aujourd'hui » : `autoAlpha` 0 → 1, `y` 16 → 0 ; salutation puis intro en décalé | 0,6 s `power3.out`, décalage 0,08 s |
 | Révélation de la grille | Tuiles : `autoAlpha` 0 → 1, `y` 24 → 0, dans l'ordre de lecture | 0,5 s `expo.out`, décalage 0,05 s, total ≤ 0,9 s, départ 0,15 s après la tuile pleine |
-| Effets de verre | Les halos s'installent : `opacity` 0 → 1, `scale` 0,92 → 1 (élément dédié `aria-hidden` au lieu de `body::before` le jour où il est animé) ; jamais d'animation de `backdrop-filter` | 1,2 s `power2.out` |
+| Reflet (fin de la révélation) | Un calque balaie chaque tuile de verre de la grille, de gauche à droite (jamais la tuile pleine) : `xPercent` −110 → 110. Dégradé à 105° : transparent 30 %, `--halo-blue` à 55 % (`color-mix` avec transparent) à 45 %, `--halo-lilac` à 55 % à 55 %, transparent 70 %. `transform` seulement, `pointer-events: none` ; jamais d'animation de `backdrop-filter` | 2,2 s `sine.inOut`, décalage 0,16 s, départ 0,1 s après la fin du mouvement de la dernière tuile |
 | Bascule Privé / Pro (première de la session) | Pilule active glisse (`x`) ; tuiles du nouveau côté en fondu + `y` 8 → 0 | 0,4 s `power3.out` ; tuiles 0,25 s |
 | Écrans vides | Icône, phrase, action : `autoAlpha` + `y` 12 → 0 en décalé | 0,4 s `power3.out`, décalage 0,06 s |
 
-Effets de verre : reportés (2026-11-16, BRAIN-33), livrés avec le premier module à vraies données ; la ligne du tableau reste la cible.
+Reflet (BRAIN-33) : même marqueur de session que la révélation, jamais rejoué par une navigation. Halos fixes (`body::before`) : rien ne bouge derrière un verre visible pendant le reflet. L'animation des halos (direction « brume ») est abandonnée (2026-11-20).
 
 **Interactions — Motion** (`motion/react`, racine en `<MotionConfig reducedMotion="user">`, `useReducedMotion` pour le reste) :
 - Pression (boutons, lignes, onglets) : `scale` 0,97, 0,1 s ease-out, au `pointerdown`.
@@ -377,4 +378,4 @@ Chaque module peut proposer ses propres moments signature, validés à sa spec, 
 - Une deuxième tuile pleine ; du verre sur du verre ; une ombre noire.
 - Du texte secondaire directement sur le cœur d'un halo ; du texte en dégradé.
 - Une zone tactile sous 44 px ; un focus invisible ; un placeholder comme libellé.
-- Une animation sur `width`, `height`, `top`, `left` ou `backdrop-filter` ; une boucle ; un moment signature rejoué sur un geste répété.
+- Une animation sur `width`, `height`, `top`, `left` ou `backdrop-filter` ; une boucle (un éclaircissement unique, comme le givre de chargement, n'en est pas une) ; un moment signature rejoué sur un geste répété.
