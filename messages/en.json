@@ -227,6 +227,7 @@
       "date": {
         "label": "Date",
         "menuLabel": "Due: {current}",
+        "quickMenuLabel": "Date: {current}",
         "none": "No date",
         "today": "Today",
         "tomorrow": "Tomorrow",

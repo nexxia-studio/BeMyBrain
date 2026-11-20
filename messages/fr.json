@@ -227,6 +227,7 @@
       "date": {
         "label": "Date",
         "menuLabel": "Échéance : {current}",
+        "quickMenuLabel": "Date : {current}",
         "none": "Sans date",
         "today": "Aujourd'hui",
         "tomorrow": "Demain",

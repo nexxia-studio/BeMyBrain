@@ -66,7 +66,7 @@ function renderForm(scope: QuickAddScope = PRO_TRUSTUP, onClose = vi.fn()) {
 const title = () => screen.getByRole("textbox", { name: "Tâche" });
 const submit = () => screen.getByRole("button", { name: /^Ajout/ });
 const contextChip = () => screen.getByRole("button", { name: /^Espace :/ });
-const dateChip = () => screen.getByRole("button", { name: /^Échéance :/ });
+const dateChip = () => screen.getByRole("button", { name: /^Date :/ });
 const tagsChip = () => screen.getByRole("button", { name: /^Tags :/ });
 
 /** Entrée dans le titre : envoi du formulaire. */
@@ -112,6 +112,17 @@ describe("ajout rapide : formulaire tâche", () => {
     expect(contextChip().textContent).toBe("Espace");
     expect(dateChip().textContent).toBe("Date");
     expect(tagsChip().textContent).toBe("Tags");
+  });
+
+  it("nom accessible de chaque pastille vide : commence par le texte visible (WCAG 2.5.3, commande vocale)", () => {
+    renderForm({ side: "pro", contexts: [TRUSTUP, NEXXIA], contextId: null });
+
+    for (const chip of [contextChip(), dateChip(), tagsChip()]) {
+      expect(chip.getAttribute("aria-label")).toMatch(
+        new RegExp(`^${chip.textContent} :`),
+      );
+    }
+    expect(dateChip().getAttribute("aria-label")).toBe("Date : Sans date");
   });
 
   it("titre seul → création avec le côté et l'espace courants, sans date ni tags", async () => {
@@ -279,7 +290,7 @@ describe("ajout rapide : formulaire tâche", () => {
       within(status).getByRole("link", { name: "Ouvrir" }).getAttribute("href"),
     ).toBe(`/tasks/${TASK_ID}`);
     expect((title() as HTMLInputElement).value).toBe("");
-    expect(dateChip().getAttribute("aria-label")).toBe("Échéance : Sans date");
+    expect(dateChip().getAttribute("aria-label")).toBe("Date : Sans date");
     expect(tagsChip().getAttribute("aria-label")).toBe("Tags : Aucun");
     expect(contextChip().getAttribute("aria-label")).toBe("Espace : Trustup");
     expect(document.activeElement).toBe(title());

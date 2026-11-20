@@ -1,4 +1,5 @@
-// Pastilles d'un tap de l'ajout rapide (Espace, Date, Tags) : bouton secondaire pilule (DESIGN.md § 5,
+// Pastilles d'un tap de l'ajout rapide (Espace, Date, Tags) et des champs du détail (Statut, Priorité, Côté,
+// Espace, Échéance, Tags) : bouton secondaire pilule (DESIGN.md § 5,
 // **Boutons**), 44 px de haut. Valeur choisie en encre, pastille vide en encre secondaire (sur `popover`
 // blanc : 6,83:1). Désactivée pendant l'appel : opacité 60 %.
 export const chipTriggerClass =

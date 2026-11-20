@@ -124,7 +124,10 @@ export function DueDateChip({
         }
         disabled={disabled}
         aria-describedby={describedBy}
-        aria-label={t("menuLabel", { current: current ?? t("none") })}
+        // Ajout rapide : le nom commence par le texte visible « Date » (WCAG 2.5.3) ; détail : la ligne dit « Échéance ».
+        aria-label={t(emptyLabel === "label" ? "quickMenuLabel" : "menuLabel", {
+          current: current ?? t("none"),
+        })}
         className={cn(
           chipTriggerClass,
           current ? "text-foreground" : "text-muted-foreground",

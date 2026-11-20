@@ -25,7 +25,7 @@ function openChip(locale: "fr" | "en", date: string | null) {
       />
     </NextIntlClientProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: /^(Échéance|Due)/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^(Date|Due)/ }));
 }
 
 describe("pastille Date : champ « Choisir… »", () => {
@@ -52,5 +52,40 @@ describe("pastille Date : champ « Choisir… »", () => {
     const field = await screen.findByLabelText("Choisir…");
 
     expect(field.getAttribute("aria-describedby")).toBeNull();
+  });
+});
+
+describe("pastille Date : nom accessible", () => {
+  function renderEmpty(locale: "fr" | "en", emptyLabel: "label" | "none") {
+    render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={locale === "fr" ? fr : en}
+        timeZone="UTC"
+      >
+        <DueDateChip
+          today={TODAY}
+          value={{ date: null, time: null }}
+          onChange={vi.fn()}
+          disabled={false}
+          emptyLabel={emptyLabel}
+        />
+      </NextIntlClientProvider>,
+    );
+    return screen.getByRole("button");
+  }
+
+  it("ajout rapide, en anglais : « Date: No date », le texte visible « Date » en tête", () => {
+    const chip = renderEmpty("en", "label");
+
+    expect(chip.textContent).toBe("Date");
+    expect(chip.getAttribute("aria-label")).toBe("Date: No date");
+  });
+
+  it("détail (la ligne dit « Échéance ») : « Échéance : Sans date »", () => {
+    const chip = renderEmpty("fr", "none");
+
+    expect(chip.textContent).toBe("Sans date");
+    expect(chip.getAttribute("aria-label")).toBe("Échéance : Sans date");
   });
 });

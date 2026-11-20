@@ -54,7 +54,7 @@ test("@mobile ajoute « Relancer le devis » avec espace, tag et demain, puis la
   await tagSearch.fill("client");
   await tagSearch.press("Enter");
   await page.keyboard.press("Escape");
-  await dialog.getByRole("button", { name: /^Échéance : / }).click();
+  await dialog.getByRole("button", { name: /^Date : / }).click();
   await page
     .getByRole("button", {
       name: new RegExp(`^${fr.tasks.quickAdd.date.tomorrow}`),
@@ -68,7 +68,7 @@ test("@mobile ajoute « Relancer le devis » avec espace, tag et demain, puis la
   ).toBeVisible();
   await expect(
     dialog.getByRole("button", {
-      name: `Échéance : ${fr.tasks.quickAdd.date.tomorrow}`,
+      name: `Date : ${fr.tasks.quickAdd.date.tomorrow}`,
     }),
   ).toBeVisible();
   created.push(await submitQuickAdd(dialog));
@@ -81,7 +81,7 @@ test("@mobile ajoute « Relancer le devis » avec espace, tag et demain, puis la
   ).toBeVisible();
   await expect(
     dialog.getByRole("button", {
-      name: `Échéance : ${fr.tasks.quickAdd.date.none}`,
+      name: `Date : ${fr.tasks.quickAdd.date.none}`,
     }),
   ).toBeVisible();
   await expect(
@@ -109,7 +109,7 @@ test("@mobile les popups Espace, Date et Tags restent à 16 px des bords de l'é
   const dialog = await openQuickAdd(page);
   const width = page.viewportSize()!.width;
 
-  for (const name of [/^Espace : /, /^Échéance : /, /^Tags : /]) {
+  for (const name of [/^Espace : /, /^Date : /, /^Tags : /]) {
     await dialog.getByRole("button", { name }).click();
     const popup = page.locator("[data-side][data-open]").last();
     await expect(popup).toBeVisible();
