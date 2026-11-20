@@ -169,6 +169,16 @@ describe("liste des tâches : sections", () => {
   });
 });
 
+describe("liste des tâches : focus clavier", () => {
+  it("le lien de la ligne suit le rayon de la ligne (rounded-lg), anneau de focus arrondi", () => {
+    renderList([buildTask({ title: "Payer la crèche" })]);
+
+    const link = screen.getByRole("link", { name: /Payer la crèche/ });
+
+    expect(link.className.split(/\s+/)).toContain("rounded-lg");
+  });
+});
+
 describe("liste des tâches : tags", () => {
   it("tags séparés selon la langue (« client, maison et fête »)", () => {
     renderList([

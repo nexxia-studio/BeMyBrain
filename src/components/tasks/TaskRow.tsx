@@ -90,7 +90,7 @@ export function TaskRow({
           href={`${TASKS_PATH}/${task.id}${listQuery}`}
           whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.1, ease: "easeOut" }}
-          className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 py-2.5 text-foreground no-underline hover:text-foreground"
+          className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-lg py-2.5 text-foreground no-underline hover:text-foreground"
         >
           {/* Contenu saisi : jamais traduit. */}
           <span
