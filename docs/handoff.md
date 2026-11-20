@@ -8,13 +8,13 @@
   - C · Reflet (lent, 2,2 s) retenu pour l'ouverture du tableau de bord ;
   - B · Givre (marqué) retenu pour les états de chargement, en CSS pur ;
   - A · Brume abandonnée.
-- Spec et plan écrits : `docs/features/effets-de-verre/spec.md` (brouillon, à valider par Antoine) et `plan.md` (10 tâches, la 6 en `[security]`, la 9 optionnelle).
-- Essai iPhone sur la preview prévu à la tâche 8, avant `/qa`. Démo supprimée à la tâche 10.
+- Spec et plan écrits : `docs/features/effets-de-verre/spec.md` (validée) et `plan.md` (9 tâches, la 6 en `[security]` ; bascule Privé / Pro abandonnée).
+- Essai iPhone sur la preview prévu à la tâche 8, avant `/qa`. Démo supprimée à la tâche 9.
 - BRAIN-48 créé : retour à la page demandée après connexion depuis un lien direct (remplace la note QA-1).
 - Tests rouges : aucun.
 
 ## Prochaine étape
-Validation de la spec par Antoine, puis tâche 1 (amender DESIGN.md).
+Tâche 1 (amender DESIGN.md).
 
 ## Suite
 - Ticket à créer, proposé à Antoine : erreur du détail affichée par `tasks/error.tsx` sous la liste. Correction : `error.tsx` dans `@detail`.

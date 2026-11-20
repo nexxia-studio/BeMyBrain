@@ -1,6 +1,6 @@
 # Spec — Effets de verre (BRAIN-33)
 
-**Créée le** : 2026-11-20 · **Statut** : brouillon · **Plan** : `plan.md`
+**Créée le** : 2026-11-20 · **Statut** : validée (2026-11-20) · **Plan** : `plan.md`
 
 Directions jouées sur iPhone avec la démo de la PR #11 (preview, 2026-11-20) :
 - C · Reflet, vitesse lente, retenu pour l'ouverture.
@@ -14,7 +14,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - Liste, ajout rapide, détail, corbeille : aucun reflet. La corbeille reçoit seulement le givre de chargement, à la place de son squelette.
 - Tout effet lié au défilement.
 - Animation des halos (direction A abandonnée) : les halos restent fixes dans `body::before`.
-- Bascule Privé / Pro : le moment existant (pilule + fondu des tuiles) ne change pas. Ajout d'un effet de verre : tâche optionnelle, voir « Questions ouvertes ».
+- Bascule Privé / Pro : le moment existant (pilule + fondu des tuiles) ne change pas ; aucun effet de verre ajouté (décision d'Antoine, 2026-11-20).
 - Chargement du détail d'une tâche (`@detail`) : il n'a pas de squelette aujourd'hui. Il recevra le givre avec le ticket `error.tsx`/`loading.tsx` de `@detail`.
 - Toute couleur, police, ombre ou dépendance nouvelle.
 
@@ -99,4 +99,4 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 
 ## Questions ouvertes
 - [ ] Niveau de repos du givre : je propose une opacité de 0,45. Assez pour lire « en attente », assez clair pour que l'éclaircissement se voie. À valider à l'essai iPhone (tâche 8).
-- [ ] Bascule Privé / Pro : ajouter un effet de verre ? Avis d'Antoine attendu après lecture de la spec, avant la tâche 9 (optionnelle).
+- [x] Bascule Privé / Pro : pas d'effet de verre (Antoine, 2026-11-20).

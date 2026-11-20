@@ -6,6 +6,8 @@
 
 Aucune nouvelle dépendance : GSAP, `@gsap/react` et Motion sont déjà là. Le givre est en CSS pur.
 
+Bascule Privé / Pro : abandonnée par Antoine le 2026-11-20 (aucun effet ajouté).
+
 Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
 - **Reflet** :
   - 2,2 s par tuile, 0,16 s de décalage, courbe `sine.inOut` ;
@@ -130,10 +132,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
     - les deux avec « réduire les animations » activé dans iOS.
   - Fini quand : Antoine valide. Chaque retour devient une tâche dans « Corrections QA ».
 
-- [ ] **9. (Optionnelle) Effet de verre sur la bascule Privé / Pro**
-  - À cadrer seulement si Antoine le demande après la spec. Sinon, cochée « abandonnée » avec la date.
-
-- [ ] **10. Supprimer la page de démo**
+- [ ] **9. Supprimer la page de démo**
   - Fichiers supprimés :
     - le dossier `src/app/(app)/demo/` entier, tests compris ;
     - la section `glassDemo` de `messages/{fr,en}.json`.
