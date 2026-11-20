@@ -353,26 +353,9 @@
   },
   "glassDemo": {
     "title": "Démo · effets de verre",
-    "direction": "Direction",
-    "directions": {
-      "brume": "A · Brume",
-      "givre": "B · Givre",
-      "reflet": "C · Reflet"
-    },
-    "replay": "Rejouer",
-    "intensity": "Intensité",
-    "intensities": {
-      "discret": "Discret",
-      "moyen": "Moyen",
-      "marque": "Marqué"
-    },
-    "speed": "Vitesse",
-    "speeds": {
-      "lent": "Lent",
-      "moyen": "Moyen",
-      "rapide": "Rapide"
-    },
-    "reduceMotion": "Réduire les animations",
-    "systemReduced": "Ton appareil demande déjà moins d'animations : rien ne bouge."
+    "intro": "Pour l'essai sur iPhone. « Revoir le reflet » remet à zéro les moments de la session et rouvre le tableau de bord. Les chargements ralentis attendent 3 s pour montrer le givre.",
+    "replaySheen": "Revoir le reflet",
+    "slowDashboard": "Tableau de bord, chargement ralenti",
+    "slowTasks": "Liste des tâches, chargement ralenti"
   }
 }

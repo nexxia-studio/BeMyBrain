@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as signatureKeys from "./signature-keys";
 import {
   BENTO_REVEAL_SIGNATURE_KEY,
   DASHBOARD_INTRO_SIGNATURE_KEY,
@@ -11,6 +12,7 @@ import {
   releasePrehide,
   SIDE_SWITCH_SIGNATURE_KEY,
   SIDE_SWITCH_TILES_SIGNATURE_KEY,
+  SIGNATURE_KEYS,
   SIGNATURE_PENDING_ATTRIBUTE,
   signaturePrehideScript,
 } from "./signature-keys";
@@ -216,5 +218,15 @@ describe("minuteurs de masquage concurrents", () => {
     cancelFirst();
 
     expect(html().hasAttribute(SIGNATURE_PENDING_ATTRIBUTE)).toBe(true);
+  });
+});
+
+describe("liste des marqueurs de moments", () => {
+  it("contient chaque marqueur exporté, et rien d'autre", () => {
+    const exported = Object.entries(signatureKeys)
+      .filter(([name]) => name.endsWith("_SIGNATURE_KEY"))
+      .map(([, value]) => value);
+
+    expect([...SIGNATURE_KEYS].sort()).toEqual([...exported].sort());
   });
 });

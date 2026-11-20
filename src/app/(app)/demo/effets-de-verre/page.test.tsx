@@ -9,18 +9,7 @@ const notFound = vi.hoisted(() =>
 
 vi.mock("next/navigation", () => ({ notFound }));
 vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
-vi.mock("@/lib/context-filter", () => ({
-  loadSideSpaces: vi.fn(),
-  loadCurrentScope: vi.fn(),
-}));
-vi.mock("@/modules/tasks/load", () => ({
-  loadDueToday: vi.fn(),
-  loadUpcomingTasks: vi.fn(),
-}));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
-vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn() }));
-vi.mock("next/dynamic", () => ({ default: () => () => null }));
 vi.mock("@/components/shell/PageHeader", () => ({ PageHeader: () => null }));
 
 import GlassDemoPage from "./page";
@@ -31,7 +20,7 @@ afterEach(() => {
 });
 
 describe("page de démo des effets de verre", () => {
-  it("répond 404 en production Vercel, sans lire la session ni les données", async () => {
+  it("répond 404 en production Vercel, sans lire la session", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "production");
 
