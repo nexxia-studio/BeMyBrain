@@ -25,6 +25,7 @@ function renderChip(value: string | null) {
         value={value}
         onChange={vi.fn()}
         disabled={false}
+        emptyLabel="label"
       />
     </NextIntlClientProvider>,
   );

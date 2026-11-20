@@ -9,13 +9,22 @@ vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
 
 import { TagsChip } from "./TagsChip";
 
-function renderChip(locale: "fr" | "en", value: string[]) {
+function renderChip(
+  locale: "fr" | "en",
+  value: string[],
+  emptyLabel: "label" | "none" = "none",
+) {
   render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "fr" ? fr : en}
     >
-      <TagsChip value={value} onChange={vi.fn()} disabled={false} />
+      <TagsChip
+        value={value}
+        onChange={vi.fn()}
+        disabled={false}
+        emptyLabel={emptyLabel}
+      />
     </NextIntlClientProvider>,
   );
   return screen.getByRole("button", { name: /^Tags/ });
@@ -28,6 +37,13 @@ describe("pastille Tags", () => {
     expect(chip.textContent).toBe("Aucun");
     expect(chip.getAttribute("aria-label")).toBe("Tags : Aucun");
     expect(chip.className.split(/\s+/)).toContain("text-muted-foreground");
+  });
+
+  it("vide, sans ligne qui nomme le champ (ajout rapide) : « Tags », nom accessible inchangé", () => {
+    const chip = renderChip("fr", [], "label");
+
+    expect(chip.textContent).toBe("Tags");
+    expect(chip.getAttribute("aria-label")).toBe("Tags : Aucun");
   });
 
   it("vide, en anglais : « None »", () => {

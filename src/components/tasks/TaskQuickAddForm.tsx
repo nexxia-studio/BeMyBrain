@@ -126,6 +126,7 @@ export function TaskQuickAddForm({
               value={context?.id ?? null}
               onChange={setContextId}
               disabled={pending}
+              emptyLabel="label"
             />
           )}
           <DueDateChip
@@ -134,8 +135,15 @@ export function TaskQuickAddForm({
             value={due}
             onChange={setDue}
             disabled={pending}
+            emptyLabel="label"
           />
-          <TagsChip key={`tags-${round}`} value={tags} onChange={setTags} disabled={pending} />
+          <TagsChip
+            key={`tags-${round}`}
+            value={tags}
+            onChange={setTags}
+            disabled={pending}
+            emptyLabel="label"
+          />
         </div>
         <motion.button
           type="submit"

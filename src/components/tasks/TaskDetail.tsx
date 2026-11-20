@@ -522,6 +522,7 @@ export function TaskDetail({
                               }
                               disabled={side.pending || context.pending}
                               describedBy={describedBy(context, ids.context)}
+                              emptyLabel="none"
                             />
                           )}
                         </>
@@ -538,6 +539,7 @@ export function TaskDetail({
                         onOpenChange={saveDue}
                         disabled={due.pending}
                         describedBy={describedBy(due, ids.due)}
+                        emptyLabel="none"
                       />
                     </DetailField>
                     <DetailField
@@ -550,6 +552,7 @@ export function TaskDetail({
                         onOpenChange={saveTags}
                         disabled={tags.pending}
                         describedBy={describedBy(tags, ids.tags)}
+                        emptyLabel="none"
                       />
                     </DetailField>
                   </div>

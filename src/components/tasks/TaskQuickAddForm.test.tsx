@@ -106,6 +106,14 @@ afterEach(() => {
 });
 
 describe("ajout rapide : formulaire tâche", () => {
+  it("pastilles vides : elles nomment leur champ (Espace, Date, Tags), rien d'autre ne le fait", () => {
+    renderForm({ side: "pro", contexts: [TRUSTUP, NEXXIA], contextId: null });
+
+    expect(contextChip().textContent).toBe("Espace");
+    expect(dateChip().textContent).toBe("Date");
+    expect(tagsChip().textContent).toBe("Tags");
+  });
+
   it("titre seul → création avec le côté et l'espace courants, sans date ni tags", async () => {
     renderForm();
 

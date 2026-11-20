@@ -21,6 +21,7 @@ function openChip(locale: "fr" | "en", date: string | null) {
         value={{ date, time: null }}
         onChange={vi.fn()}
         disabled={false}
+        emptyLabel="label"
       />
     </NextIntlClientProvider>,
   );

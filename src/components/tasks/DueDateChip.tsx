@@ -37,6 +37,11 @@ type DueDateChipProps = {
   onOpenChange?: (open: boolean) => void;
   /** Id du message d'erreur sous le champ (détail), s'il y en a un. */
   describedBy?: string;
+  /**
+   * Texte de la pastille vide : `label` nomme le champ (ajout rapide, où rien d'autre ne le nomme) ;
+   * `none` dit l'absence (détail, où la ligne nomme déjà le champ). Le nom accessible garde `none`.
+   */
+  emptyLabel: "label" | "none";
 };
 
 /** Jour `YYYY-MM-DD` en instant UTC, formaté en UTC : le jour affiché est celui saisi. */
@@ -60,6 +65,7 @@ export function DueDateChip({
   disabled,
   onOpenChange,
   describedBy,
+  emptyLabel,
 }: DueDateChipProps) {
   const t = useTranslations("tasks.quickAdd.date");
   const format = useFormatter();
@@ -129,7 +135,7 @@ export function DueDateChip({
           className="size-4 shrink-0"
           strokeWidth={2}
         />
-        <span className="truncate">{current ?? t("label")}</span>
+        <span className="truncate">{current ?? t(emptyLabel)}</span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner

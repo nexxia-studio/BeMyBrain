@@ -35,6 +35,11 @@ type TagsChipProps = {
   onOpenChange?: (open: boolean) => void;
   /** Id du message d'erreur sous le champ (détail), s'il y en a un. */
   describedBy?: string;
+  /**
+   * Texte de la pastille vide : `label` nomme le champ (ajout rapide, où rien d'autre ne le nomme) ;
+   * `none` dit l'absence (détail, où la ligne nomme déjà le champ). Le nom accessible garde `none`.
+   */
+  emptyLabel: "label" | "none";
 };
 
 type Known =
@@ -61,6 +66,7 @@ export function TagsChip({
   disabled,
   onOpenChange: notifyOpenChange,
   describedBy,
+  emptyLabel,
 }: TagsChipProps) {
   const t = useTranslations("tasks.quickAdd.tags");
   const locale = useLocale();
@@ -132,7 +138,7 @@ export function TagsChip({
         )}
       >
         <Tag aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />
-        <span className="truncate">{current ?? t("none")}</span>
+        <span className="truncate">{current ?? t(emptyLabel)}</span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner

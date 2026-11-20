@@ -125,6 +125,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("détail : pastilles vides", () => {
+  it("la ligne nomme le champ : les pastilles disent Aucun, Sans date, Aucun", () => {
+    renderDetail(buildDetail({ contextId: null, contextName: null, tags: [] }));
+
+    expect(chip(/^Espace :/).textContent).toBe("Aucun");
+    expect(chip(/^Échéance :/).textContent).toBe("Sans date");
+    expect(chip(/^Tags :/).textContent).toBe("Aucun");
+  });
+});
+
 describe("détail : chaque champ appelle tasks.update", () => {
   it("titre modifié puis quitté : tasks.update avec le nouveau titre, champ désactivé pendant l'appel", async () => {
     const call = deferred<{ ok: true; result: null }>();

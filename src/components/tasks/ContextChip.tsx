@@ -34,6 +34,11 @@ type ContextChipProps = {
   disabled: boolean;
   /** Id du message d'erreur sous le champ (détail), s'il y en a un. */
   describedBy?: string;
+  /**
+   * Texte de la pastille vide : `label` nomme le champ (ajout rapide, où rien d'autre ne le nomme) ;
+   * `none` dit l'absence (détail, où la ligne nomme déjà le champ). Le nom accessible garde `none`.
+   */
+  emptyLabel: "label" | "none";
 };
 
 export function ContextChip({
@@ -42,6 +47,7 @@ export function ContextChip({
   onChange,
   disabled,
   describedBy,
+  emptyLabel,
 }: ContextChipProps) {
   const t = useTranslations("tasks.quickAdd.context");
   const current = contexts.find((context) => context.id === value);
@@ -68,7 +74,7 @@ export function ContextChip({
           className="size-4 shrink-0"
           strokeWidth={2}
         />
-        <span className="truncate">{current?.name ?? t("label")}</span>
+        <span className="truncate">{current?.name ?? t(emptyLabel)}</span>
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner
