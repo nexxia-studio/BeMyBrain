@@ -529,6 +529,55 @@ describe("détail : corbeille", () => {
     expect(await within(dialog).findByText("Tâche restaurée")).toBeTruthy();
   });
 
+  it("sous-tâche : le message s'affiche dans la région « status » posée par le détail lui-même (annonce fiable)", async () => {
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+
+    const dialog = screen.getByRole("dialog");
+    const region = within(dialog).getByTestId("detail-notice");
+    expect(region.getAttribute("role")).toBe("status");
+    expect(within(dialog).getAllByRole("status")).toEqual([region]);
+    expect(
+      await within(region).findByText("Tâche mise à la corbeille"),
+    ).toBeTruthy();
+  });
+
+  it("message arrivé après avoir quitté sa page (détail de la parente fermé pendant l'appel) : jamais affiché", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    pathname.current = "/tasks";
+    view.leave();
+
+    await act(async () => call.resolve({ ok: true, result: null }));
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    await act(async () => {});
+
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
+  });
+
   it("message quitté (détail de la parente fermé) : il ne revient pas en rouvrant ce détail", async () => {
     const parent = buildDetail({ title: "Parente" });
     const subtask = buildDetail({

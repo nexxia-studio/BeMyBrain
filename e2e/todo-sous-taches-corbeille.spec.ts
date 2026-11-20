@@ -62,15 +62,19 @@ async function trashSubtaskFromDetail(
   page: Page,
   detail: Locator,
   parentId: string,
+  subtaskTitle: string,
 ) {
   await detail
     .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${parentId}$`));
-  await expect(detail.getByText(fr.tasks.detail.trashed)).toBeVisible();
+  await expect(
+    detail.getByRole("status").getByText(fr.tasks.detail.trashed),
+  ).toBeVisible();
   await expect(
     detail.getByRole("link", { name: new RegExp(fr.tasks.detail.parent) }),
   ).toHaveCount(0);
+  await expect(taskLink(detail, subtaskTitle)).toHaveCount(0);
 }
 
 /** Ligne de la corbeille qui contient `text` (titre unique, légende). */
@@ -107,7 +111,7 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   await expect(
     detail.getByRole("link", { name: new RegExp(fr.tasks.detail.parent) }),
   ).toContainText(parent);
-  await trashSubtaskFromDetail(page, detail, parentId);
+  await trashSubtaskFromDetail(page, detail, parentId, isolated);
   await detail
     .getByRole("button", { name: fr.tasks.detail.undo, exact: true })
     .click();
@@ -119,7 +123,7 @@ test("restaurer la parente la ramène avec la sous-tâche mise avec elle, pas ce
   await expect(
     detail.getByRole("link", { name: new RegExp(fr.tasks.detail.parent) }),
   ).toBeVisible();
-  await trashSubtaskFromDetail(page, detail, parentId);
+  await trashSubtaskFromDetail(page, detail, parentId, isolated);
   detail = await openFromList(page, parent);
   await expect(taskLink(detail, isolated)).toHaveCount(0);
   await trashFromDetail(page, detail);

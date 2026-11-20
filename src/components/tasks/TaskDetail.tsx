@@ -591,7 +591,11 @@ export function TaskDetail({
                     inerte ; collé en bas du panneau quand le contenu défile. */}
                 <div
                   ref={noticeHost}
-                  className="pointer-events-none sticky bottom-0 shrink-0 px-4 has-[p]:pb-4 lg:px-5 lg:has-[p]:pb-5"
+                  // Région d'annonce rendue avec la fenêtre, avant tout message : VoiceOver annonce ce qui
+                  // y arrive ensuite (une région créée déjà remplie ne l'est pas de façon fiable).
+                  role="status"
+                  data-testid="detail-notice"
+                  className="pointer-events-none sticky bottom-0 flex shrink-0 justify-center px-4 has-[p]:pb-4 lg:px-5 lg:has-[p]:pb-5"
                 />
               </Dialog.Popup>
             </Dialog.Viewport>

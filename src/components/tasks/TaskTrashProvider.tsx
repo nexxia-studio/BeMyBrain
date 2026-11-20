@@ -29,6 +29,8 @@ const DISMISS_MS = 8_000;
 const SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
 
 type NoticeKind =
+  // Appel en cours : rien d'affiché, mais quitter sa page l'abandonne (le résultat ne s'affichera pas).
+  | { kind: "pending" }
   | { kind: "trashed"; taskId: string }
   | { kind: "restored" }
   | { kind: "trashFailed"; code?: TaskErrorCode }
@@ -84,21 +86,21 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
   }, [notice, pending, here]);
 
   function trash(taskId: string, returnHref: string) {
-    setNotice(null);
+    setNotice({ kind: "pending", href: returnHref, seen: false });
     router.push(returnHref, { scroll: false });
     startTransition(async () => {
       const outcome = await settleAction(() =>
         runAppAction("tasks.moveToTrash", { taskId }),
       );
-      setNotice(
+      const result: NoticeKind =
         outcome.ok && outcome.value.ok
-          ? { kind: "trashed", taskId, href: returnHref, seen: false }
-          : {
-              kind: "trashFailed",
-              code: failureCode(outcome),
-              href: returnHref,
-              seen: false,
-            },
+          ? { kind: "trashed", taskId }
+          : { kind: "trashFailed", code: failureCode(outcome) };
+      // Page quittée pendant l'appel (attente effacée) : le résultat n'est plus affiché.
+      setNotice((current) =>
+        current?.kind === "pending" && current.href === returnHref
+          ? { ...result, href: returnHref, seen: current.seen }
+          : current,
       );
     });
   }
@@ -122,7 +124,7 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
   }
 
   // L'écriture finit souvent avant la navigation : le message attend d'être sur sa page.
-  const shown = here ? notice : null;
+  const shown = here && notice.kind !== "pending" ? notice : null;
   const failed =
     shown?.kind === "trashFailed" || shown?.kind === "restoreFailed";
 
@@ -176,13 +178,8 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
         {children}
       </TrashNoticeHostContext>
       {host !== null ? (
-        // Dans la fenêtre du détail ouvert : `role="status"` rendu avec elle, pour l'annonce.
-        createPortal(
-          <div role="status" className="flex justify-center">
-            {bubble}
-          </div>,
-          host,
-        )
+        // Dans la fenêtre du détail ouvert : la région `role="status"` est l'emplacement du détail lui-même.
+        createPortal(bubble, host)
       ) : (
         <div
           role="status"
