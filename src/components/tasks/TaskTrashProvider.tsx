@@ -6,10 +6,12 @@
 // mises avec elle comprises). Monté dans le layout de `/tasks` : le message survit à la fermeture du détail.
 // Ordre : on quitte le détail d'abord, puis on écrit ; sinon le rafraîchissement d'après l'écriture rendrait la
 // page 404 de la tâche disparue. Bulle opaque (`popover`, jamais de verre sur du verre) au-dessus de la barre
-// d'onglets sur mobile, en bas à droite sur ordinateur ; `role="status"` toujours rendu pour l'annonce.
+// d'onglets sur mobile, en bas à droite sur ordinateur ; `role="status"` toujours rendu pour l'annonce quand aucun
+// détail n'est ouvert (sinon, la région est l'emplacement du détail).
 // Mouvement : apparition `opacity` + `y` 8, ressort sans rebond, 0,3 s (DESIGN.md § 7) ; coupé par
 // MotionConfig reducedMotion="user" (coque). Effacée après 8 s, sauf pendant un appel, et dès qu'on quitte la
-// page où elle s'affichait (elle ne revient pas en y retournant).
+// page où elle s'affichait (elle ne revient pas en y retournant). Chaque réponse ne s'applique qu'à l'état qui
+// l'attend (même tâche) : une réponse tardive d'une autre tâche ou d'une page quittée est ignorée.
 // Sous-tâche (spec, « Détail », pied) : retour au détail de la parente ; le message s'y affiche DANS la fenêtre
 // (emplacement fourni par le détail, `TrashNoticeHostContext`), sinon il serait inerte sous la fenêtre modale.
 import { AnimatePresence, motion } from "motion/react";
@@ -30,7 +32,7 @@ const SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
 
 type NoticeKind =
   // Appel en cours : rien d'affiché, mais quitter sa page l'abandonne (le résultat ne s'affichera pas).
-  | { kind: "pending" }
+  | { kind: "pending"; taskId: string }
   | { kind: "trashed"; taskId: string }
   | { kind: "restored" }
   | { kind: "trashFailed"; code?: TaskErrorCode }
@@ -86,7 +88,7 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
   }, [notice, pending, here]);
 
   function trash(taskId: string, returnHref: string) {
-    setNotice({ kind: "pending", href: returnHref, seen: false });
+    setNotice({ kind: "pending", taskId, href: returnHref, seen: false });
     router.push(returnHref, { scroll: false });
     startTransition(async () => {
       const outcome = await settleAction(() =>
@@ -96,9 +98,9 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
         outcome.ok && outcome.value.ok
           ? { kind: "trashed", taskId }
           : { kind: "trashFailed", code: failureCode(outcome) };
-      // Page quittée pendant l'appel (attente effacée) : le résultat n'est plus affiché.
+      // Page quittée pendant l'appel (attente effacée) ou autre tâche mise à la corbeille depuis : ignoré.
       setNotice((current) =>
-        current?.kind === "pending" && current.href === returnHref
+        current?.kind === "pending" && current.taskId === taskId
           ? { ...result, href: returnHref, seen: current.seen }
           : current,
       );
@@ -110,15 +112,15 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
       const outcome = await settleAction(() =>
         runAppAction("tasks.restore", { taskId }),
       );
-      setNotice(
+      const result: NoticeKind =
         outcome.ok && outcome.value.ok
-          ? { kind: "restored", href, seen: false }
-          : {
-              kind: "restoreFailed",
-              code: failureCode(outcome),
-              href,
-              seen: false,
-            },
+          ? { kind: "restored" }
+          : { kind: "restoreFailed", code: failureCode(outcome) };
+      // Le message « mise à la corbeille » de cette tâche est encore là (page gardée) : sinon, ignoré.
+      setNotice((current) =>
+        current?.kind === "trashed" && current.taskId === taskId
+          ? { ...result, href, seen: current.seen }
+          : current,
       );
     });
   }

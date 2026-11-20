@@ -552,6 +552,108 @@ describe("détail : corbeille", () => {
     ).toBeTruthy();
   });
 
+  it("réponse lente, page jamais quittée : message puis « Annuler » actif dans le détail de la parente", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    await act(async () => {});
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
+
+    await act(async () => call.resolve({ ok: true, result: null }));
+
+    const region = screen.getByTestId("detail-notice");
+    expect(
+      await within(region).findByText("Tâche mise à la corbeille"),
+    ).toBeTruthy();
+    const undo = within(region).getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+  });
+
+  it.each([
+    ["la première répond en premier", true],
+    ["la première répond en dernier", false],
+  ])(
+    "deux mises à la corbeille vers la même page, %s : message et « Annuler » de la seconde",
+    async (_order, firstAnswersFirst) => {
+      const calls = new Map<string, Deferred<{ ok: true; result: null }>>();
+      runAppAction.mockImplementation(
+        async (name: string, params: { taskId: string }) => {
+          if (name !== "tasks.moveToTrash") return { ok: true, result: null };
+          const call = deferred<{ ok: true; result: null }>();
+          calls.set(params.taskId, call);
+          return call.promise;
+        },
+      );
+      const first = buildDetail({ title: "Première" });
+      const second = buildDetail({ title: "Seconde" });
+      const view = renderDetail(first);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Mettre à la corbeille" }),
+      );
+      view.show(second);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Mettre à la corbeille" }),
+      );
+      view.leave();
+      await waitFor(() => expect(calls.size).toBe(2));
+
+      const order = firstAnswersFirst ? [first, second] : [second, first];
+      for (const task of order) {
+        await act(async () =>
+          calls.get(task.id)!.resolve({ ok: true, result: null }),
+        );
+      }
+      const undo = (await screen.findByRole("button", {
+        name: "Annuler",
+      })) as HTMLButtonElement;
+      await waitFor(() => expect(undo.disabled).toBe(false));
+      fireEvent.click(undo);
+
+      await waitFor(() =>
+        expect(paramsOf("tasks.restore")).toEqual({ taskId: second.id }),
+      );
+    },
+  );
+
+  it("« Annuler » dont la page est quittée pendant l'appel : « Tâche restaurée » n'apparaît pas au retour", async () => {
+    const restore = deferred<{ ok: true; result: null }>();
+    runAppAction.mockImplementation(async (name: string) =>
+      name === "tasks.restore" ? restore.promise : { ok: true, result: null },
+    );
+    const task = renderDetail();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    task.leave();
+    const undo = (await screen.findByRole("button", {
+      name: "Annuler",
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+    fireEvent.click(undo);
+    pathname.current = "/tasks/autre";
+    task.show(buildDetail({ title: "Autre" }));
+
+    await act(async () => restore.resolve({ ok: true, result: null }));
+    pathname.current = "/tasks";
+    task.leave();
+    await act(async () => {});
+
+    expect(screen.queryByText("Tâche restaurée")).toBeNull();
+  });
+
   it("message arrivé après avoir quitté sa page (détail de la parente fermé pendant l'appel) : jamais affiché", async () => {
     const call = deferred<{ ok: true; result: null }>();
     runAppAction.mockReturnValue(call.promise);
