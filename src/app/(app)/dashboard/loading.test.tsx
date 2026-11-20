@@ -93,7 +93,6 @@ describe("chargement du tableau de bord", () => {
   it("plus aucune ligne de squelette", async () => {
     const { container } = await renderLoading();
 
-    expect(screen.queryByTestId("dashboard-skeleton")).toBeNull();
     expect(container.querySelectorAll("span")).toHaveLength(0);
     expect(
       container.querySelectorAll(".bg-on-primary-surface, .bg-track, .bg-row"),

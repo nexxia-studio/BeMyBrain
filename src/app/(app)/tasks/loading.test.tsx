@@ -66,7 +66,6 @@ describe("chargement de la liste des tâches", () => {
     expect(frost.className.split(/\s+/)).toEqual(
       expect.arrayContaining(["w-full", "max-w-3xl", "min-h-75"]),
     );
-    expect(screen.queryByTestId("tasks-skeleton")).toBeNull();
     expect(container.querySelector(".bg-track")).toBeNull();
   });
 

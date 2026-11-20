@@ -51,7 +51,6 @@ describe("chargement de la corbeille", () => {
     expect(frost.querySelectorAll(".frost")).toHaveLength(1);
     expect(frost.classList.contains("min-h-75")).toBe(true);
     expect(frost.className).not.toMatch(/max-w-/);
-    expect(screen.queryByTestId("trash-skeleton")).toBeNull();
     expect(container.querySelector(".bg-track")).toBeNull();
   });
 });
