@@ -19,7 +19,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
   - opacité de 1 vers 0,45 (repos), 1,3 s par tuile, 0,18 s de décalage, aucune boucle.
 
 ## Tâches
-- [ ] **1. Amender DESIGN.md pour le reflet et le givre**
+- [x] **1. Amender DESIGN.md pour le reflet et le givre**
   - Fichiers : `DESIGN.md` (§ 7, § 11, et la sous-section des états de chargement si elle existe), `docs/roadmap.md` (ligne BRAIN-33).
   - DESIGN.md :
     - la ligne « Effets de verre » du tableau § 7 devient « Reflet (fin de la révélation) », avec les valeurs ci-dessus ;
@@ -30,7 +30,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
   - Test : aucun (docs seules). `tests/design/tokens.test.ts` reste vert.
   - Fini quand : DESIGN.md décrit exactement les valeurs de la spec, sans couleur ni token nouveaux.
 
-- [ ] **2. Créer le composant givre (CSS pur)**
+- [x] **2. Créer le composant givre (CSS pur)**
   - Fichiers :
     - `src/components/loading/FrostTile.tsx` : composant serveur, sans `"use client"` ;
     - `src/app/globals.css` : utilitaire `frost` et `@keyframes frost-clear`, décalage par `--frost-index` posé en style en ligne (CSP : `style-src-attr` autorisé) ;
@@ -50,7 +50,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
       - « jamais de backdrop-filter dans le voile ».
   - Fini quand : tests verts, lint et types verts, aucun import client.
 
-- [ ] **3. Givre au chargement du tableau de bord**
+- [x] **3. Givre au chargement du tableau de bord**
   - Fichiers : `src/app/(app)/dashboard/loading.tsx`, `src/app/(app)/dashboard/loading.test.tsx`.
   - Le titre, `aria-busy` et `role="status"` restent. Les squelettes sont remplacés par la tuile pleine vide puis les tuiles givrées, avec les mêmes classes de taille que `BentoGrid` (`basis`, `grow`, `lg:min-h-75`).
   - Test à écrire d'abord : `loading.test.tsx`.
@@ -60,12 +60,12 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
     - « les tuiles reprennent les classes de taille de la grille » (comparées aux constantes de `tile-sizes.ts`, pas recopiées).
   - Fini quand : tests verts. Vérification visuelle à 390 et 1440 px (capture locale) : positions identiques au tableau de bord chargé.
 
-- [ ] **4. Givre au chargement de la liste et de la corbeille**
+- [x] **4. Givre au chargement de la liste et de la corbeille**
   - Fichiers : `src/app/(app)/tasks/loading.tsx` et `.test.tsx`, `src/app/(app)/trash/loading.tsx` et `.test.tsx`.
   - Test à écrire d'abord : dans chaque `loading.test.tsx`, « titre, statut, une tuile givrée à la largeur de la page (max-w-3xl pour /tasks), aucun squelette ».
   - Fini quand : tests verts. Plus aucune occurrence de `skeleton` dans `src/` (grep vide).
 
-- [ ] **5. Reflet à la fin de la révélation de la grille**
+- [x] **5. Reflet à la fin de la révélation de la grille**
   - Fichiers :
     - `src/components/bento/TileSurface.tsx` : calque du reflet rendu par React, `aria-hidden`, `pointer-events: none`, hors champ par défaut, `will-change: transform` ; la surface reçoit `relative isolate overflow-hidden` ;
     - `src/components/signature/bento-reveal.tsx` : balayage enchaîné dans le même `playOnce` que la révélation, donc même marqueur de session ;
@@ -85,7 +85,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
     - `tests/build/initial-bundle.test.ts` vert (`pnpm test:build`) ;
     - capture locale à 390 px du reflet en cours.
 
-- [ ] **6. Préparer l'essai iPhone dans la démo** [security]
+- [x] **6. Préparer l'essai iPhone dans la démo** [security]
   - Fichiers : `src/app/(app)/demo/effets-de-verre/` :
     - `page.tsx` et `GlassDemo.tsx`, réduits à deux contrôles : le bouton de remise à zéro de session et les liens lents ;
     - `lent/tableau-de-bord/{page,loading}.tsx` et `lent/taches/{page,loading}.tsx` ;
@@ -105,7 +105,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
     - « le bouton efface toutes les clés de moments et seulement elles ».
   - Fini quand : tests verts, parité des messages verte, captures locales des deux chargements ralentis.
 
-- [ ] **7. Tests e2e : givre sans décalage, reflet une fois par session**
+- [x] **7. Tests e2e : givre sans décalage, reflet une fois par session**
   - Fichiers : `e2e/effets-de-verre.spec.ts`.
   - Le chargement est ralenti par `page.route` : la requête RSC de la navigation côté client est retardée de 2 s. Ce test ne dépend pas de la démo, fermée sous `next start`.
   - Test à écrire :

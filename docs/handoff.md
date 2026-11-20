@@ -14,7 +14,16 @@
 - Tests rouges : aucun.
 
 ## Prochaine étape
-Tâche 1 (amender DESIGN.md).
+Tâche 8 : essai d'Antoine sur iPhone (preview de la PR #11). Tâches 1 à 7 faites, relues, poussées ; audit sécurité de la tâche 6 sans faille (durcissement : BRAIN-49). Retours de l'essai → « Corrections QA » du plan, puis tâche 9 (suppression de la démo) et `/qa effets-de-verre`.
+
+Pièges relevés pendant l'exécution, à verser dans gotchas.md par le scribe :
+- garde `notFound()` dans une page qui a un `loading.tsx` au même niveau → levée après le début du flux (200) → garde dans un `layout.tsx` au-dessus ;
+- `loading.tsx` qui rend le vrai `PageHeader` → filtre d'espace utilisable pendant l'attente, menu démonté à l'arrivée du contenu → `filterInert` ;
+- le `loading.tsx` de `/tasks` s'affiche aussi dans `@detail` (doublon, même cause que le piège `error.tsx`) ;
+- calque déjà décalé par une classe (`translateX(-110%)`) : GSAP ajoute ce décalage en px à `xPercent` → `fromTo` avec `x: 0` ;
+- filet global `prefers-reduced-motion` insuffisant pour une animation CSS décalée en `both` → `animation: none` explicite ;
+- jest-dom non chargé : `getAttribute`/`classList` plutôt que `toHaveAttribute` ;
+- `.next/dev/types/validator.ts` périmé après un checkout d'un commit sans la démo → le supprimer avant le build.
 
 ## Suite
 - Ticket à créer, proposé à Antoine : erreur du détail affichée par `tasks/error.tsx` sous la liste. Correction : `error.tsx` dans `@detail`.
