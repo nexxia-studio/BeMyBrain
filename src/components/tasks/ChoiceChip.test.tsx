@@ -2,6 +2,21 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { Flag, SignalHigh } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
+// Props reçues par le positionneur du menu (le placement réel n'existe pas en jsdom : on vérifie la
+// consigne passée à Base UI ; le résultat à 390 px est vérifié par l'e2e de l'ajout rapide mobile).
+const positionerProps = vi.hoisted(() => [] as Record<string, unknown>[]);
+vi.mock("@base-ui/react/menu", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@base-ui/react/menu")>();
+  const { createElement } = await import("react");
+  const Original = actual.Menu.Positioner;
+  function Positioner(props: Record<string, unknown>) {
+    positionerProps.push(props);
+    return createElement(Original, props);
+  }
+  return { ...actual, Menu: { ...actual.Menu, Positioner } };
+});
+
+import { chipPositionerProps } from "./chip-styles";
 import { ChoiceChip } from "./ChoiceChip";
 
 describe("pastille à choix unique", () => {
@@ -46,5 +61,23 @@ describe("pastille à choix unique", () => {
 
     expect(item.querySelector("svg:not(.lucide-check)")).toBeNull();
     expect(item.querySelector("[data-icon-slot]")).not.toBeNull();
+  });
+
+  it("menu placé comme les autres pastilles : 16 px des bords latéraux et du haut", async () => {
+    render(
+      <ChoiceChip
+        label="Statut : À faire"
+        icon={Flag}
+        options={[{ value: "unstarted", label: "À faire" }]}
+        value="unstarted"
+        onChange={vi.fn()}
+        disabled={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Statut : À faire" }));
+    await screen.findByRole("menuitemradio", { name: "À faire" });
+
+    expect(positionerProps.at(-1)).toMatchObject(chipPositionerProps);
   });
 });

@@ -14,6 +14,7 @@ import {
   chipItemClass,
   chipPopupClass,
   chipPositionerClass,
+  chipPositionerProps,
   chipTriggerClass,
 } from "./chip-styles";
 
@@ -76,8 +77,7 @@ export function ChoiceChip<V extends string>({
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner
-          sideOffset={8}
-          align="start"
+          {...chipPositionerProps}
           className={chipPositionerClass}
         >
           <Menu.Popup className={chipPopupClass}>

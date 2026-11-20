@@ -12,7 +12,7 @@ export const chipPopupClass =
 export const chipPositionerClass = "z-(--z-dialog) outline-none";
 
 /**
- * Placement des popups de pastille (Espace, Date, Tags) : sous la pastille, à 16 px au moins des bords
+ * Placement des popups de pastille (Espace, Date, Tags ; Statut, Priorité, Côté du détail) : sous la pastille, à 16 px au moins des bords
  * latéraux et du haut (à 390 px, la popup Date débordait à droite). En bas, la marge par défaut de Base UI
  * (5 px) : à 16 px, la popup Espace n'a plus la place sous la pastille du tiroir et se retourne. Le
  * retournement vers le haut reste le repli quand la place manque (Date et Tags dans le tiroir, clavier ouvert).
