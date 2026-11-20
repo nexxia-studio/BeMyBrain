@@ -114,16 +114,35 @@
   - Test à écrire d'abord : `TodayTile.test.tsx` — « compteurs en retard / aujourd'hui, 3 lignes, côté en légende, lien Tout voir » ; `SideTodoTile.test.tsx` — « 5 prochaines du côté, lien vers /tasks sur ce côté » ; « 5 lignes même avec des sous-tâches sans échéance » (lire plus de 5 tâches ou exclure ces sous-tâches dans la requête, `sideTileItems` les écarte) ; états vide et erreur
   - Fini quand : tests verts, DESIGN.md § 5 respecté (contraste de la tuile pleine)
 
-- [ ] **18. Parcours e2e et passe design**
+- [x] **18. Parcours e2e et passe design**
   - Fichiers : `e2e/todo-*.spec.ts` (scénarios 1 à 7 de la spec), corrections de style issues de l'anti-slop et de `/impeccable critique`
   - Test à écrire d'abord : les 7 scénarios en Playwright (`--workers=1`, Chromium émulation iPhone pour le 1)
   - Fini quand : e2e verts, anti-slop et critique passés sur liste, ajout rapide, détail ; scénario 1 rejoué sur un vrai iPhone (Playwright ne simule pas le clavier)
+  - Résultat (2026-11-20) :
+    - e2e des 7 scénarios verts, ordinateur et mobile ; scénario 1 rejoué sur iPhone par Antoine (clavier ouvert d'office) ; `/qa` passée (`qa-report.md`).
+    - Anti-slop : aucun constat. Détecteur Impeccable : aucun constat. Critique Impeccable : 32/40 (Nielsen, indicatif).
+    - Corrigé :
+      - interrupteur « Terminées » éteint visible, ≥ 3:1 (`54cc12e`) ;
+      - pastilles vides cohérentes : « Espace / Date / Tags » dans l'ajout rapide, « Aucun / Sans date » dans le détail (`e2fcacf`) ;
+      - nom accessible de la pastille Date aligné sur son texte visible, WCAG 2.5.3 (`a7ba847`) ;
+      - anneau de focus de la ligne arrondi (`03bea66`) ;
+      - menus du détail à 16 px des bords (`0d29bbc`).
+    - Corrections demandées par Antoine après la QA :
+      - texte saisi affiché tel quel, « 3x0 » ne devient plus « 3×0 » (`705d865`, `b033f15`) ;
+      - priorité « Aucune » sans point isolé (`5b33340`) ;
+      - sous-tâche mise à la corbeille depuis son détail : retour au détail de sa parente, avec message et « Annuler » (`c568e86`, `c4d4099`, `78fc6ee`, `ffe16be`).
+    - Tickets : BRAIN-43 (relais libéré à la fin de l'ouverture du tiroir), BRAIN-44 (contrôles désactivés un instant après un ajout), BRAIN-45 (pagination de la corbeille).
+    - En attente de la décision d'Antoine : libellés de statut (« Backlog », « Fait », « Annulé », fixés par la spec ; la critique propose « En attente », « Terminée », « Annulée », accordés avec la liste).
+    - Ticket proposé à Antoine, non créé : icônes de priorité peu lisibles à 16 px.
+    - À discuter : menus Date et Tags qui couvrent le titre à 390 px ; champ Notes vide trop haut sur mobile ; « Demain » et « Ce week-end » identiques le vendredi ; place vide à droite de la liste à 1440 px ; survol de ligne peu visible.
 
 ## Questions ouvertes
 - [x] Recherche insensible aux accents : reportée (décision d'Antoine, 2026-11-19), ticket BRAIN-41.
+- [ ] Libellés de statut du détail : garder « Backlog / Fait / Annulé » (spec) ou passer à « En attente / Terminée / Annulée » (critique design du 2026-11-20) ?
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
+- Rapport `/qa` du 2026-11-20 : 7 scénarios passés. Constats hors spec traités en tâche 18 ou en tickets (BRAIN-44, BRAIN-45).
 
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->
