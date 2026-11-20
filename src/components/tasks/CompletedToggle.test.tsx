@@ -42,4 +42,26 @@ describe("interrupteur Terminées", () => {
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(replace).toHaveBeenCalledWith("/tasks", { scroll: false });
   });
+
+  it("éteint : la piste porte le bord des champs, pour rester visible sur le verre (≥ 3:1)", () => {
+    const toggle = renderToggle(false, "/tasks?completed=1");
+
+    const track = toggle.querySelector("[aria-hidden='true']");
+
+    expect(track?.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["border", "border-input", "bg-pill-track"]),
+    );
+  });
+
+  it("allumé : la piste pleine en primary, sans bord", () => {
+    const toggle = renderToggle(true, "/tasks");
+
+    const classes = toggle
+      .querySelector("[aria-hidden='true']")
+      ?.className.split(/\s+/);
+
+    expect(classes).toContain("bg-primary");
+    expect(classes).not.toContain("border");
+    expect(classes).not.toContain("border-input");
+  });
 });
