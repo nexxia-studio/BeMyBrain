@@ -405,6 +405,32 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
   }
 }
 
+/* Reflet (DESIGN.md § 7, ligne « Reflet ») : calque rendu par TileSurface dans chaque tuile de verre de la
+   grille, sous le contenu, hors champ au repos. GSAP le balaie une fois par session, en transform seulement
+   (src/components/signature/bento-reveal.tsx). Couche composée dès sa création (will-change) : pas de
+   promotion au milieu du balayage. Teinte des halos : le blanc ne se voit pas sur un verre déjà blanc.
+   Jamais de backdrop-filter : pas de verre sur du verre. Mouvement réduit : aucun calque. */
+@utility sheen {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  transform: translateX(-110%);
+  will-change: transform;
+  background-image: linear-gradient(
+    105deg,
+    transparent 30%,
+    color-mix(in srgb, var(--halo-blue) 55%, transparent) 45%,
+    color-mix(in srgb, var(--halo-lilac) 55%, transparent) 55%,
+    transparent 70%
+  );
+
+  @media (prefers-reduced-motion: reduce) {
+    display: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring;
