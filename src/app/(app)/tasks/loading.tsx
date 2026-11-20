@@ -1,34 +1,36 @@
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
-// Chargement de `/tasks` : titre, puis une tuile de lignes squelettes (forme de la liste, sans texte inventé).
-// Squelettes immobiles : aucune boucle (DESIGN.md § 11). Une colonne à toutes les largeurs.
+// Chargement de `/tasks` (DESIGN.md § 5 « États de chargement — givre ») : le vrai en-tête, puis une tuile
+// givrée à la largeur de la liste (`max-w-3xl`, comme TaskList). L'interrupteur « Terminées » est rendu
+// invisible et inerte : il réserve sa place (sa taille ne dépend pas de son état) pour que le titre et la
+// tuile ne bougent pas à l'arrivée du contenu. Une colonne à toutes les largeurs. CSS pur, aucune boucle.
+// En-tête : lectures mémoïsées par requête, déjà faites par le layout (aucune requête en plus).
 import { getTranslations } from "next-intl/server";
 
-const SKELETON_ROWS = 4;
+import { FrostTile } from "@/components/loading/FrostTile";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { TASKS_PATH } from "@/components/shell/nav-items";
+import { CompletedToggle } from "@/components/tasks/CompletedToggle";
 
 export default async function TasksLoading() {
   const t = await getTranslations("tasks.list");
 
   return (
     <main aria-busy="true" className="flex flex-1 flex-col gap-grid">
-      <h1 className="font-heading text-page-title">{t("title")}</h1>
+      <PageHeader
+        title={t("title")}
+        actions={
+          <div aria-hidden="true" inert className="invisible">
+            <CompletedToggle checked={false} href={TASKS_PATH} />
+          </div>
+        }
+      />
       <p role="status" className="sr-only">
         {t("loading")}
       </p>
-      <div
-        aria-hidden="true"
-        data-testid="tasks-skeleton"
-        className="glass flex w-full max-w-3xl flex-col gap-3 rounded-tile p-tile"
-      >
-        <span className="h-3 w-24 rounded-full bg-track" />
-        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-          <span
-            key={index}
-            className="flex min-h-11 items-center gap-3 rounded-lg bg-row px-3.5"
-          >
-            <span className="size-4.5 shrink-0 rounded-sm bg-track" />
-            <span className="h-3 w-2/3 rounded-full bg-track" />
-          </span>
-        ))}
+      {/* raccourci: hauteur minimale fixe (celle d'une tuile large) — la liste réelle peut être plus haute ou plus
+          basse ; seul le bas de la tuile bouge, jamais le titre ni son bord haut. */}
+      <div aria-hidden="true" data-testid="tasks-frost">
+        <FrostTile className="w-full max-w-3xl min-h-75" />
       </div>
     </main>
   );

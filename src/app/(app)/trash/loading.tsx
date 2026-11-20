@@ -1,36 +1,25 @@
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
-// Chargement de `/trash` : titre, puis une tuile de lignes squelettes (forme de la corbeille, sans texte
-// inventé). Squelettes immobiles : aucune boucle (DESIGN.md § 11). Une colonne à toutes les largeurs.
+// Chargement de `/trash` (DESIGN.md § 5 « États de chargement — givre ») : le vrai en-tête (sans filtre
+// d'espace, comme la page), puis une tuile givrée pleine largeur, comme TrashList. Une colonne à toutes
+// les largeurs. CSS pur, aucune boucle.
 import { getTranslations } from "next-intl/server";
 
-const SKELETON_ROWS = 3;
+import { FrostTile } from "@/components/loading/FrostTile";
+import { PageHeader } from "@/components/shell/PageHeader";
 
 export default async function TrashLoading() {
   const t = await getTranslations("trash");
 
   return (
     <main aria-busy="true" className="flex flex-1 flex-col gap-grid">
-      <h1 className="font-heading text-page-title">{t("title")}</h1>
+      <PageHeader title={t("title")} contextFilter={false} />
       <p role="status" className="sr-only">
         {t("loading")}
       </p>
-      <div
-        aria-hidden="true"
-        data-testid="trash-skeleton"
-        className="glass flex flex-col gap-2 rounded-tile p-tile"
-      >
-        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-          <span
-            key={index}
-            className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-row px-3.5 py-2.5"
-          >
-            <span className="flex w-2/3 flex-col gap-2">
-              <span className="h-3 w-full rounded-full bg-track" />
-              <span className="h-2.5 w-1/2 rounded-full bg-track" />
-            </span>
-            <span className="h-3 w-16 rounded-full bg-track" />
-          </span>
-        ))}
+      {/* raccourci: hauteur minimale fixe (celle d'une tuile large) — la corbeille réelle peut être plus haute ou
+          plus basse ; seul le bas de la tuile bouge, jamais le titre ni son bord haut. */}
+      <div aria-hidden="true" data-testid="trash-frost">
+        <FrostTile className="min-h-75" />
       </div>
     </main>
   );
