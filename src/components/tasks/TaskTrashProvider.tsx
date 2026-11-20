@@ -9,15 +9,15 @@
 // d'onglets sur mobile, en bas à droite sur ordinateur ; `role="status"` toujours rendu pour l'annonce quand aucun
 // détail n'est ouvert (sinon, la région est l'emplacement du détail).
 // Mouvement : apparition `opacity` + `y` 8, ressort sans rebond, 0,3 s (DESIGN.md § 7) ; coupé par
-// MotionConfig reducedMotion="user" (coque). Effacée après 8 s, sauf pendant un appel, et dès qu'on quitte la
-// page où elle s'affichait (elle ne revient pas en y retournant). Chaque réponse ne s'applique qu'à l'état qui
-// l'attend (même tâche) : une réponse tardive d'une autre tâche ou d'une page quittée est ignorée.
+// MotionConfig reducedMotion="user" (coque). Effacée après 8 s, sauf pendant son propre appel (« Annuler »), et
+// dès qu'on quitte la page où elle s'affichait (elle ne revient pas en y retournant). Chaque réponse ne s'applique
+// qu'à l'état qui l'attend (même tâche) : une réponse tardive d'une autre tâche ou d'une page quittée est ignorée.
 // Sous-tâche (spec, « Détail », pied) : retour au détail de la parente ; le message s'y affiche DANS la fenêtre
 // (emplacement fourni par le détail, `TrashNoticeHostContext`), sinon il serait inerte sous la fenêtre modale.
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { type AppActionResult, runAppAction } from "@/app/(app)/tasks/actions";
@@ -33,7 +33,9 @@ const SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
 type NoticeKind =
   // Appel en cours : rien d'affiché, mais quitter sa page l'abandonne (le résultat ne s'affichera pas).
   | { kind: "pending"; taskId: string }
-  | { kind: "trashed"; taskId: string }
+  // `undoing` : « Annuler » en cours pour cette tâche (bouton désactivé, minuteur suspendu). Propre au
+  // message : un autre appel encore en vol (autre tâche) ne bloque ni le bouton ni le minuteur.
+  | { kind: "trashed"; taskId: string; undoing?: boolean }
   | { kind: "restored" }
   | { kind: "trashFailed"; code?: TaskErrorCode }
   | { kind: "restoreFailed"; code?: TaskErrorCode };
@@ -62,7 +64,6 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
   const t = useTranslations("tasks");
   const router = useRouter();
   const pathname = usePathname();
-  const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [host, setHost] = useState<HTMLElement | null>(null);
 
@@ -82,15 +83,22 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
   }, []);
 
   useEffect(() => {
-    if (notice === null || pending || !here) return;
+    if (
+      notice === null ||
+      !here ||
+      notice.kind === "pending" ||
+      (notice.kind === "trashed" && notice.undoing)
+    ) {
+      return;
+    }
     const timer = setTimeout(() => setNotice(null), DISMISS_MS);
     return () => clearTimeout(timer);
-  }, [notice, pending, here]);
+  }, [notice, here]);
 
   function trash(taskId: string, returnHref: string) {
     setNotice({ kind: "pending", taskId, href: returnHref, seen: false });
     router.push(returnHref, { scroll: false });
-    startTransition(async () => {
+    void (async () => {
       const outcome = await settleAction(() =>
         runAppAction("tasks.moveToTrash", { taskId }),
       );
@@ -104,11 +112,16 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
           ? { ...result, href: returnHref, seen: current.seen }
           : current,
       );
-    });
+    })();
   }
 
   function undo(taskId: string, href: string) {
-    startTransition(async () => {
+    setNotice((current) =>
+      current?.kind === "trashed" && current.taskId === taskId
+        ? { ...current, undoing: true }
+        : current,
+    );
+    void (async () => {
       const outcome = await settleAction(() =>
         runAppAction("tasks.restore", { taskId }),
       );
@@ -122,7 +135,7 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
           ? { ...result, href, seen: current.seen }
           : current,
       );
-    });
+    })();
   }
 
   // L'écriture finit souvent avant la navigation : le message attend d'être sur sa page.
@@ -160,7 +173,7 @@ export function TaskTrashProvider({ children }: TaskTrashProviderProps) {
           {shown.kind === "trashed" && (
             <motion.button
               type="button"
-              disabled={pending}
+              disabled={shown.undoing === true}
               onClick={() => undo(shown.taskId, shown.href)}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.1, ease: "easeOut" }}

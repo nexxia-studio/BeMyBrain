@@ -620,6 +620,7 @@ describe("détail : corbeille", () => {
         name: "Annuler",
       })) as HTMLButtonElement;
       await waitFor(() => expect(undo.disabled).toBe(false));
+      expect(screen.getAllByText("Tâche mise à la corbeille")).toHaveLength(1);
       fireEvent.click(undo);
 
       await waitFor(() =>
@@ -627,6 +628,46 @@ describe("détail : corbeille", () => {
       );
     },
   );
+
+  it("première encore en attente, seconde répondue : « Annuler » actif et message effacé après 8 s", async () => {
+    const calls = new Map<string, Deferred<{ ok: true; result: null }>>();
+    runAppAction.mockImplementation(
+      async (name: string, params: { taskId: string }) => {
+        if (name !== "tasks.moveToTrash") return { ok: true, result: null };
+        const call = deferred<{ ok: true; result: null }>();
+        calls.set(params.taskId, call);
+        return call.promise;
+      },
+    );
+    const first = buildDetail({ title: "Première" });
+    const second = buildDetail({ title: "Seconde" });
+    const view = renderDetail(first);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    view.show(second);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    view.leave();
+    await waitFor(() => expect(calls.size).toBe(2));
+    // Minuteur seul : Motion garde ses vraies images (requestAnimationFrame) pour la sortie.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    await act(async () =>
+      calls.get(second.id)!.resolve({ ok: true, result: null }),
+    );
+    const undo = screen.getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    expect(undo.disabled).toBe(false);
+    await act(async () => vi.advanceTimersByTime(8_000));
+    vi.useRealTimers();
+
+    await waitFor(() =>
+      expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull(),
+    );
+  });
 
   it("« Annuler » dont la page est quittée pendant l'appel : « Tâche restaurée » n'apparaît pas au retour", async () => {
     const restore = deferred<{ ok: true; result: null }>();
