@@ -4,7 +4,7 @@
 
 import type { Side } from "@/modules/core/sides";
 
-import type { Task } from "./queries";
+import type { Task, TrashedTask } from "./queries";
 import { openStatusCategories } from "./sides";
 
 export const sectionKeys = [
@@ -71,17 +71,17 @@ function compareNullable(a: string | null, b: string | null): number {
   return a < b ? -1 : 1;
 }
 
-/** Ordre d'une section : priorité puis date de création. */
-function compareInSection(a: Task, b: Task): number {
-  return priorityRank(a) - priorityRank(b) || compareCreation(a, b);
-}
-
-/** Ordre « prochaines » : échéance, heure, priorité, création (même ordre que listOrder de queries.ts). */
-function compareByDue(a: Task, b: Task): number {
+/**
+ * Ordre des tâches ouvertes (sections de la liste, tuiles) : échéance (sans échéance en dernier), heure (sans heure
+ * en dernier), priorité (aucune en dernier), création, id. Doit rester identique à listOrder de queries.ts
+ * (verrou : test « ordre » de queries.test.ts). Dans « Sans échéance », reste priorité puis création.
+ */
+export function compareTasks(a: Task, b: Task): number {
   return (
     compareNullable(a.dueDate, b.dueDate) ||
     compareNullable(a.dueTime, b.dueTime) ||
-    compareInSection(a, b)
+    priorityRank(a) - priorityRank(b) ||
+    compareCreation(a, b)
   );
 }
 
@@ -100,7 +100,7 @@ function openSectionOf(task: Task, today: string): SectionKey {
 }
 
 /**
- * Sections de la liste, dans l'ordre de `sectionKeys`, vides omises. Ouvertes par échéance (priorité puis création) ;
+ * Sections de la liste, dans l'ordre de `sectionKeys`, vides omises. Ouvertes triées par `compareTasks` ;
  * fermées (terminées et annulées, si la lecture les inclut) en dernière section, par fin décroissante.
  * Sous-tâche : seulement si elle a une échéance (jamais dans « Sans échéance »).
  */
@@ -114,10 +114,23 @@ export function groupBySection(tasks: Task[], today: string): TaskSection[] {
   return sectionKeys
     .map((key) => {
       const list = byKey.get(key) ?? [];
-      list.sort(key === "completed" ? compareCompleted : compareInSection);
+      list.sort(key === "completed" ? compareCompleted : compareTasks);
       return { key, tasks: list };
     })
     .filter((section) => section.tasks.length > 0);
+}
+
+/**
+ * Instant à afficher pour une échéance `YYYY-MM-DD` (formatage par next-intl, dans le fuseau de
+ * l'utilisateur) : midi UTC, qui tombe le même jour dans tout fuseau de -11 h à +11 h.
+ */
+export function dueDateInstant(day: string): Date {
+  return new Date(toUtcMs(day) + DAY_MS / 2);
+}
+
+/** Tâche ouverte dont l'échéance est passée (même règle que la section « En retard »). */
+export function isOverdue(task: Task, today: string): boolean {
+  return isOpen(task) && task.dueDate !== null && task.dueDate < today;
 }
 
 /** Compteur « n/m » des sous-tâches (calculé en base, annulées exclues) ; null sans sous-tâche comptée. */
@@ -125,6 +138,17 @@ export function subtaskCounter(task: Task): string | null {
   return task.subtaskTotal === 0
     ? null
     : `${task.subtaskDone}/${task.subtaskTotal}`;
+}
+
+/**
+ * Pastille d'espace sur les lignes (liste, tuile To-do) : seulement s'il y a à distinguer, c'est-à-dire plusieurs
+ * espaces du côté et aucun espace filtré.
+ */
+export function showContextChip(scope: {
+  contextId: string | null;
+  contexts: readonly unknown[];
+}): boolean {
+  return scope.contextId === null && scope.contexts.length > 1;
 }
 
 export type TodayTile = {
@@ -142,7 +166,7 @@ export function todayTileItems(tasks: Task[], today: string): TodayTile {
   return {
     overdueCount: due.filter((t) => t.dueDate !== today).length,
     todayCount: due.filter((t) => t.dueDate === today).length,
-    items: [...due].sort(compareByDue).slice(0, TODAY_TILE_LIMIT),
+    items: [...due].sort(compareTasks).slice(0, TODAY_TILE_LIMIT),
   };
 }
 
@@ -153,14 +177,14 @@ export function todayTileItems(tasks: Task[], today: string): TodayTile {
 export function sideTileItems(tasks: Task[], side: Side): Task[] {
   return tasks
     .filter((t) => t.side === side && isOpen(t) && isListed(t))
-    .sort(compareByDue)
+    .sort(compareTasks)
     .slice(0, SIDE_TILE_LIMIT);
 }
 
 export type DateShortcuts = {
   today: string;
   tomorrow: string;
-  /** Prochain samedi, ou `today` si on est samedi. */
+  /** `today` le samedi et le dimanche ; du lundi au vendredi, le samedi qui suit. */
   weekend: string;
   /** Lundi suivant (lundi d'après si on est lundi). */
   nextWeek: string;
@@ -172,7 +196,92 @@ export function dateShortcuts(today: string): DateShortcuts {
   return {
     today,
     tomorrow: addDays(today, 1),
-    weekend: addDays(today, (6 - day + 7) % 7),
+    weekend: day === 0 ? today : addDays(today, 6 - day),
     nextWeek: addDays(today, (1 - day + 7) % 7 || 7),
   };
+}
+
+// Tags de l'ajout rapide : un nom se compare sans casse (unique `(workspace_id, lower(name))` en base) et sans
+// les espaces autour (le schéma les retire).
+const tagKey = (name: string) => name.trim().toLowerCase();
+
+/** Tags dont le nom contient `query` (sans casse), dans l'ordre reçu ; recherche vide → tous. */
+export function matchTagNames(
+  names: readonly string[],
+  query: string,
+): string[] {
+  const wanted = tagKey(query);
+  return names.filter((name) => tagKey(name).includes(wanted));
+}
+
+/** Nom enregistré du tag désigné par `name` (sans casse), ou undefined s'il n'existe pas. */
+export function findTagName(
+  names: readonly string[],
+  name: string,
+): string | undefined {
+  const wanted = tagKey(name);
+  return names.find((existing) => tagKey(existing) === wanted);
+}
+
+/**
+ * Tags d'une ligne de liste, séparés selon la langue (`Intl.ListFormat` court, type « unité » : en français
+ * « client, maison et fête », en anglais « client, home, party », sans « & »).
+ */
+export function tagList(tags: readonly string[], locale: string): string {
+  return new Intl.ListFormat(locale, { type: "unit", style: "short" }).format(
+    tags,
+  );
+}
+
+export type TagChanges = { addTags?: string[]; removeTags?: string[] };
+
+/**
+ * Écriture `tasks.update` qui fait passer une tâche des tags `current` aux tags `next` (noms comparés sans casse) :
+ * ajouts et retraits seulement, jamais de remplacement de l'ensemble ; null s'il n'y a rien à changer.
+ */
+export function tagChanges(
+  current: readonly string[],
+  next: readonly string[],
+): TagChanges | null {
+  const addTags = next.filter(
+    (name) => findTagName(current, name) === undefined,
+  );
+  const removeTags = current.filter(
+    (name) => findTagName(next, name) === undefined,
+  );
+  if (addTags.length === 0 && removeTags.length === 0) return null;
+  return {
+    ...(addTags.length > 0 && { addTags }),
+    ...(removeTags.length > 0 && { removeTags }),
+  };
+}
+
+/** Ligne de la corbeille : une tâche, et pour une parente le nombre de sous-tâches mises à la corbeille avec elle. */
+export type TrashEntry = { task: TrashedTask; subtaskCount: number };
+
+/**
+ * Lignes de la corbeille (spec todo-unifiee, « Corbeille ») dans l'ordre reçu (`listTrashedTasks`, plus récente
+ * d'abord). Une sous-tâche mise à la corbeille avec sa parente (même horodatage, parente à la corbeille) n'a pas
+ * de ligne : elle est comptée sur celle de la parente (« + n sous-tâches ») et revient avec elle. Une sous-tâche
+ * mise à la corbeille seule garde sa ligne.
+ */
+export function trashEntries(tasks: TrashedTask[]): TrashEntry[] {
+  const trashedAt = new Map(
+    tasks.map((task) => [task.id, task.deletedAt.getTime()]),
+  );
+  const counts = new Map<string, number>();
+  const rows: TrashedTask[] = [];
+  for (const task of tasks) {
+    const parentAt =
+      task.parentId === null ? undefined : trashedAt.get(task.parentId);
+    if (task.parentId !== null && parentAt === task.deletedAt.getTime()) {
+      counts.set(task.parentId, (counts.get(task.parentId) ?? 0) + 1);
+    } else {
+      rows.push(task);
+    }
+  }
+  return rows.map((task) => ({
+    task,
+    subtaskCount: counts.get(task.id) ?? 0,
+  }));
 }

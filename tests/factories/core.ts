@@ -113,6 +113,8 @@ export type ContextRow = {
   name: string;
   kind: "private" | "pro";
   position: number | null;
+  /** Défaut de la base : neutral. */
+  color?: "neutral" | "warm" | "indigo";
 };
 
 /** Ajoute des contextes à un workspace de la fixture (supprimés par deleteCoreFixture). */
@@ -123,8 +125,8 @@ export async function insertContexts(
 ): Promise<void> {
   for (const row of rows) {
     await owner.query(
-      "insert into contexts (workspace_id, name, kind, position) values ($1, $2, $3, $4)",
-      [workspaceId, row.name, row.kind, row.position],
+      "insert into contexts (workspace_id, name, kind, position, color) values ($1, $2, $3, $4, $5)",
+      [workspaceId, row.name, row.kind, row.position, row.color ?? "neutral"],
     );
   }
 }

@@ -1,0 +1,905 @@
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { getUserTimeZone } from "@/modules/core/time-zone";
+import type { TaskDetail as TaskDetailData } from "@/modules/tasks/queries";
+
+import messages from "../../../messages/fr.json";
+import { buildTask } from "../../../tests/factories/build-task";
+
+const runAppAction = vi.hoisted(() => vi.fn());
+vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
+const push = vi.hoisted(() => vi.fn());
+const pathname = vi.hoisted(() => ({ current: "/tasks" }));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push }),
+  usePathname: () => pathname.current,
+}));
+
+import { TaskDetail } from "./TaskDetail";
+import { TaskTrashProvider } from "./TaskTrashProvider";
+
+const TODAY = "2026-11-19";
+const TRUSTUP = {
+  id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+  name: "Trustup",
+  color: "warm",
+} as const;
+const NEXXIA = {
+  id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+  name: "Nexxia",
+  color: "indigo",
+} as const;
+
+type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+}
+
+function buildDetail(overrides: Partial<TaskDetailData> = {}): TaskDetailData {
+  return {
+    ...buildTask({
+      title: "Relancer le devis",
+      side: "pro",
+      contextId: TRUSTUP.id,
+      contextName: TRUSTUP.name,
+      tags: ["devis"],
+    }),
+    notes: "Appeler avant midi",
+    subtasks: [],
+    ...overrides,
+  };
+}
+
+function tree(task: TaskDetailData | null, listQuery = "") {
+  return (
+    <NextIntlClientProvider
+      locale="fr"
+      messages={messages}
+      timeZone={getUserTimeZone()}
+    >
+      <TaskTrashProvider>
+        {task !== null && (
+          <TaskDetail
+            // Comme TaskDetailPanel : une autre tâche, une autre instance.
+            key={task.id}
+            task={task}
+            contexts={[TRUSTUP, NEXXIA]}
+            today={TODAY}
+            listQuery={listQuery}
+          />
+        )}
+      </TaskTrashProvider>
+    </NextIntlClientProvider>
+  );
+}
+
+function renderDetail(task: TaskDetailData = buildDetail(), listQuery = "") {
+  const { rerender } = render(tree(task, listQuery));
+  return Object.assign(task, {
+    /** Navigation vers la liste (router.push simulé) : le détail quitte la page, le layout reste. */
+    leave: () => rerender(tree(null)),
+    /** Navigation vers le détail d'une autre tâche (router.push simulé), sous le même layout. */
+    show: (next: TaskDetailData) => rerender(tree(next, listQuery)),
+  });
+}
+
+/** Paramètres du dernier appel à l'action `name`. */
+function paramsOf(name: string): Record<string, unknown> | undefined {
+  const call = runAppAction.mock.calls.findLast(([called]) => called === name);
+  return call?.[1] as Record<string, unknown> | undefined;
+}
+
+const titleField = () => screen.getByRole("textbox", { name: "Titre" });
+const chip = (field: RegExp) => screen.getByRole("button", { name: field });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  pathname.current = "/tasks";
+  runAppAction.mockImplementation(async (name: string) =>
+    name === "tasks.listTags"
+      ? {
+          ok: true,
+          result: [
+            { id: "t1", name: "client" },
+            { id: "t2", name: "devis" },
+          ],
+        }
+      : { ok: true, result: null },
+  );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("détail : pastilles vides", () => {
+  it("la ligne nomme le champ : les pastilles disent Aucun, Sans date, Aucun", () => {
+    renderDetail(buildDetail({ contextId: null, contextName: null, tags: [] }));
+
+    expect(chip(/^Espace :/).textContent).toBe("Aucun");
+    expect(chip(/^Échéance :/).textContent).toBe("Sans date");
+    expect(chip(/^Tags :/).textContent).toBe("Aucun");
+  });
+});
+
+describe("détail : chaque champ appelle tasks.update", () => {
+  it("titre modifié puis quitté : tasks.update avec le nouveau titre, champ désactivé pendant l'appel", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    const task = renderDetail();
+
+    fireEvent.change(titleField(), { target: { value: "Relancer Trustup" } });
+    fireEvent.blur(titleField());
+
+    expect(paramsOf("tasks.update")).toEqual({
+      taskId: task.id,
+      title: "Relancer Trustup",
+    });
+    await waitFor(() =>
+      expect((titleField() as HTMLTextAreaElement).disabled).toBe(true),
+    );
+    call.resolve({ ok: true, result: null });
+    await waitFor(() =>
+      expect((titleField() as HTMLTextAreaElement).disabled).toBe(false),
+    );
+  });
+
+  it("titre inchangé : aucun appel", () => {
+    renderDetail();
+
+    fireEvent.blur(titleField());
+
+    expect(runAppAction).not.toHaveBeenCalled();
+  });
+
+  it("titre vidé : aucun appel, message sous le champ", () => {
+    renderDetail();
+
+    fireEvent.change(titleField(), { target: { value: "  " } });
+    fireEvent.blur(titleField());
+
+    expect(runAppAction).not.toHaveBeenCalled();
+    expect(titleField().getAttribute("aria-describedby")).toBeTruthy();
+    expect(
+      document.getElementById(
+        titleField().getAttribute("aria-describedby") ?? "",
+      )?.textContent,
+    ).toBe("Le titre ne peut pas être vide.");
+  });
+
+  it("refus traduit : erreur sous le champ, reliée par aria-describedby", async () => {
+    runAppAction.mockResolvedValue({ ok: false, code: "not_found" });
+    renderDetail();
+
+    fireEvent.change(titleField(), { target: { value: "Autre" } });
+    fireEvent.blur(titleField());
+
+    await waitFor(() =>
+      expect(
+        document.getElementById(
+          titleField().getAttribute("aria-describedby") ?? "",
+        )?.textContent,
+      ).toBe("Tâche introuvable ou à la corbeille."),
+    );
+  });
+
+  it("notes vidées : enregistrées comme absentes (null)", async () => {
+    const task = renderDetail();
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.change(notes, { target: { value: "" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        notes: null,
+      }),
+    );
+  });
+
+  it("statut : libellés accordés avec « tâche », dans l'ordre des catégories (décision du 2026-11-20)", async () => {
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+    await screen.findByRole("menuitemradio", { name: "À planifier" });
+
+    expect(
+      screen.getAllByRole("menuitemradio").map((item) => item.textContent),
+    ).toEqual(["À planifier", "À faire", "En cours", "Terminée", "Annulée"]);
+  });
+
+  it("statut : En cours → catégorie started", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "En cours" }),
+    );
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        statusCategory: "started",
+      }),
+    );
+  });
+
+  it("statut : pastille désactivée pendant l'appel, réactivée après", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "En cours" }),
+    );
+
+    await waitFor(() =>
+      expect((chip(/^Statut :/) as HTMLButtonElement).disabled).toBe(true),
+    );
+    call.resolve({ ok: true, result: null });
+    await waitFor(() =>
+      expect((chip(/^Statut :/) as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
+  it("panne pendant le changement de statut : message générique sous le statut, pastille réactivée", async () => {
+    runAppAction.mockRejectedValue(new Error("réseau"));
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Terminée" }),
+    );
+
+    const status = await screen.findByText(
+      "Modification non enregistrée. Réessaie.",
+    );
+    expect(chip(/^Statut :/).getAttribute("aria-describedby")).toBe(status.id);
+    await waitFor(() =>
+      expect((chip(/^Statut :/) as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
+  it("priorité : Haute → 2", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(chip(/^Priorité :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Haute" }),
+    );
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        priority: 2,
+      }),
+    );
+  });
+
+  it("côté : Privé → side private", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(chip(/^Côté :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Privé" }),
+    );
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        side: "private",
+      }),
+    );
+  });
+
+  it("espace : Nexxia → context par son nom ; Aucun → null", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(chip(/^Espace :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Nexxia" }),
+    );
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        context: "Nexxia",
+      }),
+    );
+    // La pastille reste désactivée jusqu'à la fin du premier appel (transition) : sous charge, un clic
+    // envoyé avant serait ignoré et le menu ne s'ouvrirait pas. On attend, comme l'utilisateur.
+    await waitFor(() =>
+      expect((chip(/^Espace :/) as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(chip(/^Espace :/));
+    fireEvent.click(
+      await screen.findByRole("menuitemradio", { name: "Aucun" }),
+    );
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        context: null,
+      }),
+    );
+  });
+
+  it("échéance : Demain → date et heure enregistrées ensemble", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(chip(/^Échéance :/));
+    fireEvent.click(await screen.findByRole("button", { name: /^Demain/ }));
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        dueDate: "2026-11-20",
+        dueTime: null,
+      }),
+    );
+  });
+
+  it("échéance saisie au champ natif : un seul appel, à la fermeture de la pastille", async () => {
+    const task = renderDetail(buildDetail({ dueDate: "2026-11-25" }));
+
+    fireEvent.click(chip(/^Échéance :/));
+    const date = await screen.findByLabelText("Choisir…");
+    fireEvent.change(date, { target: { value: "2026-12-01" } });
+    fireEvent.change(date, { target: { value: "2026-12-02" } });
+    expect(paramsOf("tasks.update")).toBeUndefined();
+    fireEvent.keyDown(date, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        dueDate: "2026-12-02",
+        dueTime: null,
+      }),
+    );
+    expect(
+      runAppAction.mock.calls.filter(([name]) => name === "tasks.update"),
+    ).toHaveLength(1);
+  });
+
+  it("tags : ajout et retrait envoyés en addTags / removeTags à la fermeture", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(chip(/^Tags :/));
+    fireEvent.click(await screen.findByRole("button", { name: "client" }));
+    fireEvent.click(screen.getByRole("button", { name: "devis" }));
+    fireEvent.keyDown(
+      screen.getByRole("textbox", { name: "Chercher ou créer un tag" }),
+      { key: "Escape" },
+    );
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        addTags: ["client"],
+        removeTags: ["devis"],
+      }),
+    );
+  });
+});
+
+describe("détail : sous-tâches", () => {
+  it("Entrée dans « Ajouter une sous-tâche » : tasks.create sous cette tâche, champ vidé", async () => {
+    const task = renderDetail();
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    });
+
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.create")).toEqual({
+        title: "Préparer le devis",
+        parentId: task.id,
+      }),
+    );
+    await waitFor(() => expect((field as HTMLInputElement).value).toBe(""));
+  });
+
+  it("sous-tâches listées, cochables, avec lien vers leur détail", () => {
+    const subtask = buildTask({ title: "Préparer le devis", parentTitle: "x" });
+    renderDetail(buildDetail({ subtasks: [subtask] }));
+
+    const list = screen.getByRole("region", { name: "Sous-tâches" });
+
+    expect(
+      within(list).getByRole("checkbox", {
+        name: "Terminer « Préparer le devis »",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(list)
+        .getByRole("link", { name: /Préparer le devis/ })
+        .getAttribute("href"),
+    ).toBe(`/tasks/${subtask.id}`);
+    // La parente est la tâche ouverte : pas de légende « Sous-tâche de » dans sa propre liste.
+    expect(within(list).queryByText("x")).toBeNull();
+  });
+
+  it("détail d'une sous-tâche : lien vers la parente, pas d'ajout de sous-tâche, côté et espace non modifiables", () => {
+    const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+    renderDetail(buildDetail({ parentId, parentTitle: "Relancer le devis" }));
+
+    expect(
+      screen
+        .getByRole("link", { name: /Relancer le devis/ })
+        .getAttribute("href"),
+    ).toBe(`/tasks/${parentId}`);
+    expect(
+      screen.queryByRole("textbox", { name: "Ajouter une sous-tâche" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Côté :/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Espace :/ })).toBeNull();
+    expect(screen.getByText("Comme la tâche parente")).toBeTruthy();
+  });
+});
+
+describe("détail : corbeille", () => {
+  it("corbeille : retour à la liste, puis « Annuler » restaure la tâche", async () => {
+    const task = renderDetail();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(push).toHaveBeenCalledWith("/tasks", { scroll: false });
+    task.leave();
+    await waitFor(() =>
+      expect(paramsOf("tasks.moveToTrash")).toEqual({ taskId: task.id }),
+    );
+    await screen.findByText("Tâche mise à la corbeille");
+    // Message posé après l'await de la transition : il peut s'afficher un rendu avant la fin de l'appel,
+    // « Annuler » encore désactivé (clic ignoré). On attend, comme l'utilisateur.
+    const undo = screen.getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+    fireEvent.click(undo);
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.restore")).toEqual({ taskId: task.id }),
+    );
+    expect(await screen.findByText("Tâche restaurée")).toBeTruthy();
+  });
+
+  it("message gardé tant que la liste n'est pas affichée (sur le détail encore ouvert, il serait inerte)", async () => {
+    pathname.current = "/tasks/en-cours";
+    const task = renderDetail();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    await waitFor(() =>
+      expect(paramsOf("tasks.moveToTrash")).toEqual({ taskId: task.id }),
+    );
+    await act(async () => {});
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
+    pathname.current = "/tasks";
+    task.leave();
+
+    expect(await screen.findByText("Tâche mise à la corbeille")).toBeTruthy();
+  });
+
+  it("sous-tâche mise à la corbeille : retour au détail de sa parente, pas à la liste", () => {
+    const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+    renderDetail(buildDetail({ parentId, parentTitle: "Parente" }));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(push).toHaveBeenCalledWith(`/tasks/${parentId}`, {
+      scroll: false,
+    });
+  });
+
+  it("sous-tâche : message et « Annuler » dans la fenêtre du détail de la parente, « Annuler » la restaure", async () => {
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      await within(dialog).findByText("Tâche mise à la corbeille"),
+    ).toBeTruthy();
+    const undo = within(dialog).getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+    fireEvent.click(undo);
+
+    await waitFor(() =>
+      expect(paramsOf("tasks.restore")).toEqual({ taskId: subtask.id }),
+    );
+    expect(await within(dialog).findByText("Tâche restaurée")).toBeTruthy();
+  });
+
+  it("sous-tâche : le message s'affiche dans la région « status » posée par le détail lui-même (annonce fiable)", async () => {
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+
+    const dialog = screen.getByRole("dialog");
+    const region = within(dialog).getByTestId("detail-notice");
+    expect(region.getAttribute("role")).toBe("status");
+    expect(within(dialog).getAllByRole("status")).toEqual([region]);
+    expect(
+      await within(region).findByText("Tâche mise à la corbeille"),
+    ).toBeTruthy();
+  });
+
+  it("réponse lente, page jamais quittée : message puis « Annuler » actif dans le détail de la parente", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    await act(async () => {});
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
+
+    await act(async () => call.resolve({ ok: true, result: null }));
+
+    const region = screen.getByTestId("detail-notice");
+    expect(
+      await within(region).findByText("Tâche mise à la corbeille"),
+    ).toBeTruthy();
+    const undo = within(region).getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+  });
+
+  it.each([
+    ["la première répond en premier", true],
+    ["la première répond en dernier", false],
+  ])(
+    "deux mises à la corbeille vers la même page, %s : message et « Annuler » de la seconde",
+    async (_order, firstAnswersFirst) => {
+      const calls = new Map<string, Deferred<{ ok: true; result: null }>>();
+      runAppAction.mockImplementation(
+        async (name: string, params: { taskId: string }) => {
+          if (name !== "tasks.moveToTrash") return { ok: true, result: null };
+          const call = deferred<{ ok: true; result: null }>();
+          calls.set(params.taskId, call);
+          return call.promise;
+        },
+      );
+      const first = buildDetail({ title: "Première" });
+      const second = buildDetail({ title: "Seconde" });
+      const view = renderDetail(first);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Mettre à la corbeille" }),
+      );
+      view.show(second);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Mettre à la corbeille" }),
+      );
+      view.leave();
+      await waitFor(() => expect(calls.size).toBe(2));
+
+      const order = firstAnswersFirst ? [first, second] : [second, first];
+      for (const task of order) {
+        await act(async () =>
+          calls.get(task.id)!.resolve({ ok: true, result: null }),
+        );
+      }
+      const undo = (await screen.findByRole("button", {
+        name: "Annuler",
+      })) as HTMLButtonElement;
+      await waitFor(() => expect(undo.disabled).toBe(false));
+      expect(screen.getAllByText("Tâche mise à la corbeille")).toHaveLength(1);
+      fireEvent.click(undo);
+
+      await waitFor(() =>
+        expect(paramsOf("tasks.restore")).toEqual({ taskId: second.id }),
+      );
+    },
+  );
+
+  it("première encore en attente, seconde répondue : « Annuler » actif et message effacé après 8 s", async () => {
+    const calls = new Map<string, Deferred<{ ok: true; result: null }>>();
+    runAppAction.mockImplementation(
+      async (name: string, params: { taskId: string }) => {
+        if (name !== "tasks.moveToTrash") return { ok: true, result: null };
+        const call = deferred<{ ok: true; result: null }>();
+        calls.set(params.taskId, call);
+        return call.promise;
+      },
+    );
+    const first = buildDetail({ title: "Première" });
+    const second = buildDetail({ title: "Seconde" });
+    const view = renderDetail(first);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    view.show(second);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    view.leave();
+    await waitFor(() => expect(calls.size).toBe(2));
+    // Minuteur seul : Motion garde ses vraies images (requestAnimationFrame) pour la sortie.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+    await act(async () =>
+      calls.get(second.id)!.resolve({ ok: true, result: null }),
+    );
+    const undo = screen.getByRole("button", {
+      name: "Annuler",
+    }) as HTMLButtonElement;
+    expect(undo.disabled).toBe(false);
+    await act(async () => vi.advanceTimersByTime(8_000));
+    vi.useRealTimers();
+
+    await waitFor(() =>
+      expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull(),
+    );
+  });
+
+  it("« Annuler » dont la page est quittée pendant l'appel : « Tâche restaurée » n'apparaît pas au retour", async () => {
+    const restore = deferred<{ ok: true; result: null }>();
+    runAppAction.mockImplementation(async (name: string) =>
+      name === "tasks.restore" ? restore.promise : { ok: true, result: null },
+    );
+    const task = renderDetail();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    task.leave();
+    const undo = (await screen.findByRole("button", {
+      name: "Annuler",
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(undo.disabled).toBe(false));
+    fireEvent.click(undo);
+    pathname.current = "/tasks/autre";
+    task.show(buildDetail({ title: "Autre" }));
+
+    await act(async () => restore.resolve({ ok: true, result: null }));
+    pathname.current = "/tasks";
+    task.leave();
+    await act(async () => {});
+
+    expect(screen.queryByText("Tâche restaurée")).toBeNull();
+  });
+
+  it("message arrivé après avoir quitté sa page (détail de la parente fermé pendant l'appel) : jamais affiché", async () => {
+    const call = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValue(call.promise);
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    pathname.current = "/tasks";
+    view.leave();
+
+    await act(async () => call.resolve({ ok: true, result: null }));
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    await act(async () => {});
+
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
+  });
+
+  it("message quitté (détail de la parente fermé) : il ne revient pas en rouvrant ce détail", async () => {
+    const parent = buildDetail({ title: "Parente" });
+    const subtask = buildDetail({
+      parentId: parent.id,
+      parentTitle: "Parente",
+    });
+    pathname.current = `/tasks/${subtask.id}`;
+    const view = renderDetail(subtask);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+    await screen.findByText("Tâche mise à la corbeille");
+
+    pathname.current = "/tasks";
+    view.leave();
+    pathname.current = `/tasks/${parent.id}`;
+    view.show(parent);
+
+    expect(screen.queryByText("Tâche mise à la corbeille")).toBeNull();
+  });
+
+  it("corbeille refusée : message, pas d'Annuler", async () => {
+    runAppAction.mockResolvedValue({ ok: false });
+    renderDetail();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(
+      await screen.findByText("Tâche non mise à la corbeille. Réessaie."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Annuler" })).toBeNull();
+  });
+});
+
+describe("détail : terminées affichées (?completed=1) gardé", () => {
+  const COMPLETED = "?completed=1";
+
+  it("corbeille : retour à la liste avec les terminées", () => {
+    renderDetail(buildDetail(), COMPLETED);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(push).toHaveBeenCalledWith("/tasks?completed=1", { scroll: false });
+  });
+
+  it("corbeille : le message s'affiche sur la liste avec les terminées", async () => {
+    const view = renderDetail(buildDetail(), COMPLETED);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+    view.leave();
+
+    expect(await screen.findByText("Tâche mise à la corbeille")).toBeTruthy();
+  });
+
+  it("sous-tâche mise à la corbeille : retour au détail de sa parente avec les terminées", () => {
+    const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+    renderDetail(buildDetail({ parentId, parentTitle: "Parente" }), COMPLETED);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    );
+
+    expect(push).toHaveBeenCalledWith(`/tasks/${parentId}${COMPLETED}`, {
+      scroll: false,
+    });
+  });
+
+  it("lien vers une sous-tâche et vers la parente : requête gardée", () => {
+    const parentId = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+    const subtask = buildTask({ title: "Préparer le devis" });
+    renderDetail(buildDetail({ subtasks: [subtask] }), COMPLETED);
+
+    expect(
+      screen
+        .getByRole("link", { name: /Préparer le devis/ })
+        .getAttribute("href"),
+    ).toBe(`/tasks/${subtask.id}${COMPLETED}`);
+
+    cleanup();
+    renderDetail(buildDetail({ parentId, parentTitle: "Parente" }), COMPLETED);
+
+    expect(
+      screen.getByRole("link", { name: /Parente/ }).getAttribute("href"),
+    ).toBe(`/tasks/${parentId}${COMPLETED}`);
+  });
+});
+
+describe("détail : mise en page", () => {
+  it("sans parente : la croix de fermeture est dans la rangée du libellé « Titre »", () => {
+    renderDetail();
+
+    const close = screen.getByRole("button", { name: "Fermer" });
+    const row = close.parentElement!;
+
+    expect(within(row).getByText("Titre", { selector: "label" })).toBeTruthy();
+  });
+
+  it("sous-tâche : la croix reste à côté du lien vers la parente", () => {
+    renderDetail(
+      buildDetail({
+        parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+        parentTitle: "Relancer le devis",
+      }),
+    );
+
+    const row = screen.getByRole("button", { name: "Fermer" }).parentElement!;
+
+    expect(
+      within(row).getByRole("link", { name: /Relancer le devis/ }),
+    ).toBeTruthy();
+    expect(within(row).queryByText("Titre", { selector: "label" })).toBeNull();
+  });
+
+  it("sur ordinateur, le panneau démarre sous l'en-tête de la coque et s'aligne sur son bord droit", () => {
+    renderDetail();
+
+    const viewport = screen.getByRole("dialog").parentElement!;
+
+    expect(viewport.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["lg:pt-detail-top", "lg:pr-detail-right"]),
+    );
+  });
+});
+
+describe("détail : icônes de priorité", () => {
+  it("la pastille Priorité prend l'icône du niveau, la même que dans la liste", () => {
+    renderDetail(buildDetail({ priority: 2 }));
+
+    const trigger = chip(/^Priorité :/);
+
+    expect(trigger.querySelector("svg.lucide-signal-high")).not.toBeNull();
+  });
+
+  it("sans priorité, la pastille garde l'icône du champ, sans point isolé", () => {
+    renderDetail(buildDetail({ priority: 0 }));
+
+    const trigger = chip(/^Priorité :/);
+
+    expect(trigger.querySelector("svg.lucide-flag")).not.toBeNull();
+    expect(trigger.querySelector("svg.lucide-signal-zero")).toBeNull();
+  });
+
+  it("le menu montre une icône distincte pour chaque niveau, aucune pour « Aucune »", async () => {
+    renderDetail();
+
+    fireEvent.click(chip(/^Priorité :/));
+
+    const levelIcon = async (name: string) => {
+      const item = await screen.findByRole("menuitemradio", { name });
+      return [...item.querySelectorAll("svg")]
+        .map((svg) => svg.getAttribute("class") ?? "")
+        .find((cls) => !cls.includes("lucide-check"));
+    };
+    const icons = await Promise.all(
+      ["Urgente", "Haute", "Moyenne", "Basse"].map(levelIcon),
+    );
+    expect(new Set(icons).size).toBe(4);
+    expect(icons.every(Boolean)).toBe(true);
+    expect(await levelIcon("Aucune")).toBeUndefined();
+  });
+});

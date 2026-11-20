@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { sides, type Side } from "@/modules/core/sides";
 
 import { PreferenceStatus } from "./PreferenceStatus";
+import { useShowPreference } from "./shown-preference-context";
 import { useOptimisticPreference } from "./use-optimistic-preference";
 
 const SideSwitchSignature = dynamic(
@@ -46,12 +47,13 @@ type SideSwitchProps = {
 
 export function SideSwitch({ side }: SideSwitchProps) {
   const t = useTranslations("shell.side");
+  const { showSide } = useShowPreference();
   const {
     shown: shownSide,
     pending,
     failed,
     update,
-  } = useOptimisticPreference(side, setSide);
+  } = useOptimisticPreference(side, setSide, showSide);
   // Côté au montage : le moment signature, chargé après l'hydratation, s'y compare pour voir aussi une
   // bascule faite avant son chargement.
   const [initialSide] = useState(side);

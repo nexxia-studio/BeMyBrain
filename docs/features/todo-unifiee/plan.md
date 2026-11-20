@@ -12,7 +12,7 @@
 - **Messages d'erreur pour un modèle** : `TaskError` porte un code ; une table `TASK_ERROR_MESSAGES` (anglais, en code, pas dans `messages/` : ce n'est pas de l'interface) donne le texte lisible ; l'interface traduit le code via `messages/*.json`.
 - **Description des actions pour un modèle** : traduction anglaise de la clé `description` (`messages/en.json`, section `actions`), lue directement dans le JSON par `toToolDefinitions` (next-intl tire React, exclu du registre par ADR-009) ; égalité avec `createTranslator` vérifiée par test.
 - **Recherche par texte** : `ILIKE` avec échappement de `%`, `_` et `\`, sans `unaccent` ni `pg_trgm` (aucune extension ajoutée ; volume personnel). « Sans accents exigés » de la spec : la recherche est insensible à la casse ; l'insensibilité aux accents est reportée (question en bas).
-- **Raccourcis de date** de l'ajout rapide : Aujourd'hui, Demain, Ce week-end = prochain samedi (aujourd'hui si on est samedi), Semaine prochaine = lundi suivant. Calculés par une fonction pure de `src/modules/tasks/` à partir de `getUserTimeZone`.
+- **Raccourcis de date** de l'ajout rapide : Aujourd'hui, Demain, Ce week-end = aujourd'hui le samedi et le dimanche, sinon le samedi qui suit (décision d'Antoine, 2026-11-19), Semaine prochaine = lundi suivant. Calculés par une fonction pure de `src/modules/tasks/` à partir de `getUserTimeZone`.
 - **Primitives** : tiroir et menus avec Base UI (déjà installé, `Dialog`, `Menu`, `Popover`) ; calendrier de « Choisir… » : `<input type="date">` et `<input type="time">` natifs (iOS les rend en roues), aucune bibliothèque de calendrier.
 
 ## Dépendances nouvelles (justification, constitution 7)
@@ -62,7 +62,7 @@
 
 - [x] **9. Règles d'affichage : sections, sous-tâches, tuiles, raccourcis de date**
   - Fichiers : `src/modules/tasks/view.ts` (fonctions pures : `groupBySection(tasks, today)`, `todayTileItems`, `sideTileItems`, `subtaskCounter`, `dateShortcuts(today)`)
-  - Test à écrire d'abord : `src/modules/tasks/view.test.ts` — « sous-tâche sans échéance absente, avec échéance dans sa section avec titre de parente » ; « en retard / aujourd'hui / demain / plus tard / sans échéance » ; « tuile Aujourd'hui : 3 premières, des deux côtés, compteurs » ; « ce week-end un samedi = aujourd'hui »
+  - Test à écrire d'abord : `src/modules/tasks/view.test.ts` — « sous-tâche sans échéance absente, avec échéance dans sa section avec titre de parente » ; « en retard / aujourd'hui / demain / plus tard / sans échéance » ; « tuile Aujourd'hui : 3 premières, des deux côtés, compteurs » ; « ce week-end samedi et dimanche = aujourd'hui, lundi à vendredi = samedi suivant »
   - Fini quand : tests verts, aucun import de React ni de Next
 
 - [x] **10. Server Actions de l'écran tâches** [security]
@@ -70,51 +70,79 @@
   - Test à écrire d'abord : `src/app/(app)/tasks/actions.test.ts` — « origine `app` posée » ; « session absente → redirect » ; lint `tests/lint/unguarded-actions.ts` vert
   - Fini quand : tests verts
 
-- [ ] **11. Ajout rapide : coque extensible et bouton d'ajout**
+- [x] **11. Ajout rapide : coque extensible et bouton d'ajout**
   - Fichiers : `src/components/quick-add/quick-add-types.ts`, `QuickAdd.tsx` (tiroir mobile, dialogue ordinateur, sélecteur de types masqué sous deux types), `QuickAddProvider.tsx`, `src/components/shell/TabBar.tsx` (« + » → ajout rapide), `ShellHeader.tsx` (bouton d'ajout rond ordinateur ; accès palette sur mobile), `messages/*.json`
   - Test à écrire d'abord : `src/components/quick-add/QuickAdd.test.tsx` — « un seul type : pas de sélecteur » ; « deux types factices : sélecteur visible » ; `TabBar.test.tsx` — « le + ouvre l'ajout rapide » ; `ShellHeader.test.tsx` — « palette accessible sur mobile »
   - Fini quand : tests verts
 
-- [ ] **12. Ajout rapide : formulaire tâche**
+- [x] **12. Ajout rapide : formulaire tâche**
   - Fichiers : `src/components/tasks/TaskQuickAddForm.tsx`, `ContextChip.tsx`, `DueDateChip.tsx`, `TagsChip.tsx`
   - Test à écrire d'abord : `src/components/tasks/TaskQuickAddForm.test.tsx` — « titre seul → création avec côté et espace courants » ; « espace, date, tags en un tap » ; « tag inconnu → Créer « … » » ; « succès : titre, date, tags vidés, espace gardé, focus au titre » ; « échec : saisie conservée, message » ; « bouton désactivé titre vide et pendant l'appel »
-  - Fini quand : tests verts
+  - Aussi (review tâche 11) : le tiroir suit le clavier (`visualViewport` `resize`/`scroll` pour remonter le tiroir ; `interactiveWidget: "resizes-content"` dans le `viewport` de `src/app/layout.tsx` pour Android), sans dépendance
+  - Fini quand : tests verts ; vérifié sur un vrai iPhone (navigateur et app installée) que le bouton Ajouter reste visible clavier ouvert. Échec → décision d'Antoine (tiroir en haut ou plein écran)
 
-- [ ] **13. Palette : ajouter une tâche**
+- [x] **13. Palette : ajouter une tâche**
   - Fichiers : `src/components/command-palette/commands.ts` (type `action` élargi aux noms du registre), `CommandPalette.tsx`, `PalettePanel.tsx`, `messages/*.json`
   - Test à écrire d'abord : `commands.test.ts` — « saisie libre → premier élément Ajouter la tâche « … » » ; « commandes Nouvelle tâche, Ouvrir la to-do, Corbeille » ; test de la Server Action — « origine `palette` »
   - Fini quand : tests verts
 
-- [ ] **14. Liste `/tasks`**
+- [x] **14. Liste `/tasks`**
   - Fichiers : `src/app/(app)/tasks/page.tsx`, `loading.tsx`, `error.tsx` (`retry()`), `src/components/tasks/TaskList.tsx`, `TaskRow.tsx`, `CompletedToggle.tsx`, `src/components/shell/nav-items.ts` (entrée To-do), `messages/*.json`
   - Test à écrire d'abord : `src/components/tasks/TaskList.test.tsx` — « sections, compteur n/m, légende parente » ; « case désactivée pendant l'appel, pas d'optimiste, erreur dans la ligne » ; « vide, vide filtré » ; `nav-items` — « To-do avant Réglages »
+  - Aussi (review tâche 13) : palette sans doublon — retirer `/tasks` du groupe « Aller à » (la commande « Ouvrir la to-do » du groupe Tâches reste), le test « identifiant unique » de `commands.test.ts` reste vert
   - Fini quand : tests verts, page rendue à 390 px
 
-- [ ] **15. Détail `/tasks/[id]`**
+- [x] **15. Détail `/tasks/[id]`**
   - Fichiers : `src/app/(app)/tasks/[id]/page.tsx`, `src/components/tasks/TaskDetail.tsx`, `SubtaskList.tsx`, `messages/*.json`
   - Test à écrire d'abord : `src/components/tasks/TaskDetail.test.tsx` — « chaque champ appelle `tasks.update`, désactivé pendant l'appel, erreur sous le champ » ; « détail d'une sous-tâche : pas d'ajout de sous-tâche, lien vers la parente, côté et espace non modifiables » ; « corbeille puis Annuler restaure »
   - Fini quand : tests verts
 
-- [ ] **16. Corbeille `/tasks/trash`**
-  - Fichiers : `src/app/(app)/tasks/trash/page.tsx`, `src/components/tasks/TrashList.tsx`, `messages/*.json`
-  - Test à écrire d'abord : `src/components/tasks/TrashList.test.tsx` — « parente avec + n sous-tâches » ; « Restaurer » ; « vide »
-  - Fini quand : tests verts
+- [x] **16a. Couleur des espaces** [security]
+  - Décision d'Antoine (2026-11-19) : colonne `contexts.color text NOT NULL DEFAULT 'neutral' CHECK (color IN ('neutral','warm','indigo'))`, migration `drizzle/0007_context_color.sql` additive ; valeurs posées pour les espaces existants : Privé `neutral`, Trustup `warm`, Nexxia `indigo` (UPDATE par nom dans la migration, et `scripts/seed.ts`). Pas d'écran pour la changer (BRAIN-30). Droits : lecture par `app_backend` (GRANT SELECT de la colonne si les GRANT de `contexts` sont par colonne), aucun UPDATE de la colonne.
+  - Fichiers : `drizzle/0007_context_color.sql` + meta, `src/db/schema/*` (contexts), `scripts/seed.ts`, `src/modules/core/queries.ts` ou `src/modules/tasks/queries.ts` (lecture de la couleur avec le nom de l'espace), `src/components/tasks/ContextChip.tsx`, `TaskRow.tsx`, `SideTodoTile.tsx`, `src/components/bento/TodayTaskRow.tsx`, menu Espace de l'ajout rapide et du détail ; retirer les `// raccourci:` de pastille neutre
+  - Test à écrire d'abord : test DB — « couleur hors des trois valeurs refusée (23514) », « défaut neutral », « app_backend lit la couleur, ne peut pas la modifier » ; `ContextChip.test.tsx` — « classe chip-warm pour un espace warm » ; seed — « Privé neutral, Trustup warm, Nexxia indigo »
+  - Fini quand : tests verts, migration jouée sur `test`, aucune couleur saisie ni hors DESIGN.md
 
-- [ ] **17. Tuiles du tableau de bord**
+- [x] **16. Corbeille `/trash`**
+  - Décision d'Antoine (2026-11-19) : corbeille de toute l'app, à `/trash`, les tâches en sont le premier type ; extensible sur le modèle de l'ajout rapide (un type déclaré par module : lecture, ligne, restauration). Le lien en bas de la liste et la commande de palette « Corbeille » pointent sur `/trash`. Le détail redevient une route interceptée `@detail/(.)[id]` au-dessus de la liste (plus de squelette à l'ouverture ni à la fermeture) ; retirer le `// raccourci:` de `src/app/(app)/tasks/[id]/page.tsx`.
+  - Fichiers : `src/app/(app)/trash/page.tsx`, `loading.tsx`, `error.tsx`, `src/components/trash/*` (registre des types, `TrashList`), `src/components/tasks/TaskTrashRow.tsx`, `src/components/shell/nav-items.ts` (`TRASH_PATH`), `commands.ts`, `src/app/(app)/tasks/@detail/(.)[id]/…`, `messages/*.json`
+  - Test à écrire d'abord : `TrashList.test.tsx` — « parente avec + n sous-tâches » ; « Restaurer » ; « vide » ; registre — « type tâches déclaré, ordre par date de mise à la corbeille » ; `commands.test.ts` — « Corbeille → /trash » ; liste — « lien Corbeille → /trash »
+  - Fini quand : tests verts, ouvrir puis fermer le détail depuis la liste sans squelette (vérifié dans le navigateur)
+
+- [x] **17. Tuiles du tableau de bord**
   - Fichiers : `src/components/bento/TodayTile.tsx`, `src/components/tasks/SideTodoTile.tsx`, `src/modules/dashboard/tiles.ts`, `src/app/(app)/dashboard/page.tsx`, `messages/*.json`
   - Test à écrire d'abord : `TodayTile.test.tsx` — « compteurs en retard / aujourd'hui, 3 lignes, côté en légende, lien Tout voir » ; `SideTodoTile.test.tsx` — « 5 prochaines du côté, lien vers /tasks sur ce côté » ; « 5 lignes même avec des sous-tâches sans échéance » (lire plus de 5 tâches ou exclure ces sous-tâches dans la requête, `sideTileItems` les écarte) ; états vide et erreur
   - Fini quand : tests verts, DESIGN.md § 5 respecté (contraste de la tuile pleine)
 
-- [ ] **18. Parcours e2e et passe design**
+- [x] **18. Parcours e2e et passe design**
   - Fichiers : `e2e/todo-*.spec.ts` (scénarios 1 à 7 de la spec), corrections de style issues de l'anti-slop et de `/impeccable critique`
   - Test à écrire d'abord : les 7 scénarios en Playwright (`--workers=1`, Chromium émulation iPhone pour le 1)
-  - Fini quand : e2e verts, anti-slop et critique passés sur liste, ajout rapide, détail
+  - Fini quand : e2e verts, anti-slop et critique passés sur liste, ajout rapide, détail ; scénario 1 rejoué sur un vrai iPhone (Playwright ne simule pas le clavier)
+  - Résultat (2026-11-20) :
+    - e2e des 7 scénarios verts, ordinateur et mobile ; scénario 1 rejoué sur iPhone par Antoine (clavier ouvert d'office) ; `/qa` passée (`qa-report.md`).
+    - Anti-slop : aucun constat. Détecteur Impeccable : aucun constat. Critique Impeccable : 32/40 (Nielsen, indicatif).
+    - Corrigé :
+      - interrupteur « Terminées » éteint visible, ≥ 3:1 (`54cc12e`) ;
+      - pastilles vides cohérentes : « Espace / Date / Tags » dans l'ajout rapide, « Aucun / Sans date » dans le détail (`e2fcacf`) ;
+      - nom accessible de la pastille Date aligné sur son texte visible, WCAG 2.5.3 (`a7ba847`) ;
+      - anneau de focus de la ligne arrondi (`03bea66`) ;
+      - menus du détail à 16 px des bords (`0d29bbc`).
+    - Corrections demandées par Antoine après la QA :
+      - texte saisi affiché tel quel, « 3x0 » ne devient plus « 3×0 » (`705d865`, `b033f15`) ;
+      - priorité « Aucune » sans point isolé (`5b33340`) ;
+      - sous-tâche mise à la corbeille depuis son détail : retour au détail de sa parente, avec message et « Annuler » (`c568e86`, `c4d4099`, `78fc6ee`, `ffe16be`).
+    - Tickets : BRAIN-43 (relais libéré à la fin de l'ouverture du tiroir), BRAIN-44 (contrôles désactivés un instant après un ajout), BRAIN-45 (pagination de la corbeille).
+    - Libellés de statut : décidés par Antoine le 2026-11-20 (voir Questions ouvertes).
+    - Ticket proposé à Antoine, non créé : icônes de priorité peu lisibles à 16 px.
+    - À discuter : menus Date et Tags qui couvrent le titre à 390 px ; champ Notes vide trop haut sur mobile ; « Demain » et « Ce week-end » identiques le vendredi ; place vide à droite de la liste à 1440 px ; survol de ligne peu visible.
 
 ## Questions ouvertes
-- [ ] Recherche insensible aux accents (« creche » trouve « crèche ») : demande l'extension `unaccent` (fonctions à re-GRANT, gotcha 0005). Reportée sauf avis contraire.
+- [x] Recherche insensible aux accents : reportée (décision d'Antoine, 2026-11-19), ticket BRAIN-41.
+- [x] Libellés de statut du détail : « À planifier / À faire / En cours / Terminée / Annulée » (EN « To plan / To do / In progress / Done / Canceled ») ; « En attente » réservé à la tranche 2, pour les tâches bloquées (décision d'Antoine, 2026-11-20).
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
+- Rapport `/qa` du 2026-11-20 : 7 scénarios passés. Constats hors spec traités en tâche 18 ou en tickets (BRAIN-44, BRAIN-45).
 
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->

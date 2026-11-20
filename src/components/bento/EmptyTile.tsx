@@ -2,10 +2,9 @@
 // Tuile de module sans données (DESIGN.md § 5–6) : surtitre, titre, espaces couverts, puis état vide
 // (icône et phrase qui dit à quoi sert la tuile). Aucune donnée inventée (PRODUCT.md).
 // raccourci: pas d'action dans l'état vide, aucun module n'existe encore — chaque module ajoute la sienne.
-// raccourci: pastilles d'espace neutres, la couleur par espace n'est pas encore en base — à attribuer
-// avec les espaces personnalisables (BRAIN-30).
 import { useTranslations } from "next-intl";
 
+import { contextChipClass } from "@/components/tasks/context-chip-class";
 import { cn } from "@/lib/utils";
 import type { DashboardTile } from "@/modules/dashboard/tiles";
 
@@ -41,12 +40,9 @@ export function EmptyTile({ tile }: EmptyTileProps) {
         {tile.spaceLabels.length > 0 ? (
           <ul aria-label={t("spaces")} className="flex flex-wrap gap-1.5">
             {tile.spaceLabels.map((space) => (
-              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit.
-              <li
-                key={space}
-                className="rounded-full bg-chip-neutral px-2.5 py-0.5 text-chip text-chip-neutral-foreground"
-              >
-                {space}
+              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit ; pastille de sa couleur.
+              <li key={space.name} className={contextChipClass(space.color)}>
+                {space.name}
               </li>
             ))}
           </ul>

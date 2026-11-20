@@ -20,10 +20,13 @@ export const FAILURE_VISIBLE_MS = 5000;
  * passe à vrai, le temps d'afficher un message. Seul l'échec du dernier `update` compte : un
  * enregistrement dépassé par un geste plus récent n'affiche rien. Un renvoi vers /login (session expirée)
  * n'est pas un échec : il est relancé et Next navigue.
+ * `show` remonte la valeur affichée à un autre `useOptimistic` (portée de la coque), dans la même transition :
+ * les deux retombent ensemble.
  */
 export function useOptimisticPreference<T>(
   saved: T,
   save: (next: T) => Promise<void>,
+  show?: (next: T) => void,
 ) {
   const [shown, setShown] = useOptimistic(saved);
   const [pending, startTransition] = useTransition();
@@ -41,6 +44,7 @@ export function useOptimisticPreference<T>(
     setFailed(false);
     startTransition(async () => {
       setShown(next);
+      show?.(next);
       // Session expirée : le renvoi vers /login est relancé par settleAction, Next navigue.
       const outcome = await settleAction(() => save(next));
       if (!outcome.ok && request === latestRequest.current) setFailed(true);

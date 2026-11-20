@@ -4,14 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requireSession = vi.hoisted(() => vi.fn());
 const readSide = vi.hoisted(() => vi.fn());
 const loadContextFilter = vi.hoisted(() => vi.fn());
+const loadShellScope = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({ requireSession }));
 vi.mock("@/lib/preferences", () => ({ readSide }));
-vi.mock("@/lib/context-filter", () => ({ loadContextFilter }));
+vi.mock("@/lib/context-filter", () => ({
+  loadContextFilter,
+  loadShellScope,
+}));
 const signOut = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/actions", () => ({ signOut }));
 
 import { ContextFilter } from "@/components/shell/ContextFilter";
+import { ShellScopeProvider } from "@/components/shell/ShellScopeProvider";
 import { Sidebar } from "@/components/shell/Sidebar";
 
 import AppLayout from "./layout";
@@ -53,6 +58,13 @@ beforeEach(() => {
   });
   readSide.mockResolvedValue("private");
   loadContextFilter.mockResolvedValue(null);
+  loadShellScope.mockResolvedValue({
+    side: "private",
+    sides: {
+      private: { contexts: [], selected: [] },
+      pro: { contexts: [], selected: [] },
+    },
+  });
 });
 
 describe("layout de l'app (second verrou)", () => {
@@ -106,6 +118,25 @@ describe("coque : côté et filtre d'espace", () => {
     const element = await AppLayout({ children: null });
 
     expect(sidebarFilter(element)?.props.side).toBe("private");
+  });
+});
+
+describe("coque : ajout rapide", () => {
+  it("donne à l'ajout rapide et à la palette le côté, et les espaces et le filtre des deux côtés", async () => {
+    const shell = {
+      side: "pro",
+      sides: {
+        private: { contexts: [], selected: [] },
+        pro: { contexts: [TRUSTUP, NEXXIA], selected: [TRUSTUP.id] },
+      },
+    };
+    loadShellScope.mockResolvedValue(shell);
+
+    const element = await AppLayout({ children: null });
+
+    expect(findElement(element, ShellScopeProvider)?.props.shell).toEqual(
+      shell,
+    );
   });
 });
 

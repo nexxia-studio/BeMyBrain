@@ -40,11 +40,16 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "workspace": "Workspace: <name></name>",
+    "loading": "Loading the dashboard…",
     "today": {
       "greeting": "Hello.",
-      "intro": "Nothing planned today in {spaces}. What matters will show up here.",
-      "introNoSpace": "No space on this side yet. Tiles will appear with the first space."
+      "introNoSpace": "No space on this side yet. Tiles will appear with the first space.",
+      "introClear": "Nothing overdue, nothing due today.",
+      "overdue": "Overdue",
+      "dueToday": "Today",
+      "list": "Today's tasks",
+      "seeAll": "Open to-do",
+      "error": "Today's tasks are unavailable. Reload the page in a moment."
     },
     "tiles": {
       "spaces": "Spaces covered",
@@ -92,7 +97,10 @@
         "eyebrow": "Social",
         "title": "Content to publish",
         "body": "The publishing calendar will show up here."
-      }
+      },
+      "seeAll": "See all",
+      "upcoming": "Upcoming tasks",
+      "tasksError": "Tasks are unavailable. Reload the page in a moment."
     }
   },
   "noWorkspace": {
@@ -120,6 +128,7 @@
     "searchShortcut": "⌘K",
     "openPalette": "Open command palette",
     "preferenceError": "Choice not saved. Try again.",
+    "tasks": "To-do",
     "settings": "Settings"
   },
   "settings": {
@@ -156,13 +165,21 @@
   "palette": {
     "title": "Command palette",
     "search": "Search commands",
-    "placeholder": "Search for a page or an action…",
-    "empty": "Nothing for \"{query}\". Try \"language\" or \"settings\".",
+    "placeholder": "Search or add a task…",
+    "titleTooLong": "Too long for a task title ({max} characters max).",
     "groups": {
+      "tasks": "Tasks",
       "navigation": "Go to",
       "actions": "Actions"
     },
     "commands": {
+      "addTask": "Add task \"{title}\"",
+      "newTask": "New task",
+      "newTaskKeywords": "add create task to-do todo",
+      "openTodo": "Open to-do",
+      "openTodoKeywords": "tasks list to-do todo",
+      "openTrash": "Trash",
+      "openTrashKeywords": "tasks deleted restore",
       "switchLocale": {
         "fr": "Switch to French",
         "en": "Switch to English"
@@ -175,6 +192,17 @@
     "error": "Action not run. Try again.",
     "hint": "<kbd>↑↓</kbd> to choose, <kbd>Enter</kbd> to run, <kbd>Esc</kbd> to close"
   },
+  "quickAdd": {
+    "open": "Quick add",
+    "close": "Close",
+    "typesLabel": "What to add",
+    "types": {
+      "task": {
+        "label": "Task",
+        "title": "Add a task"
+      }
+    }
+  },
   "tasks": {
     "errors": {
       "invalid_params": "Invalid data. Check what you entered.",
@@ -183,6 +211,144 @@
       "subtask_depth": "A subtask cannot have subtasks.",
       "subtask_follows_parent": "A subtask always has the side and space of its parent task.",
       "parent_in_trash": "The parent task is in the trash. Restore it first."
+    },
+    "quickAdd": {
+      "title": "Task",
+      "submit": "Add",
+      "submitting": "Adding…",
+      "added": "Task added",
+      "open": "Open",
+      "failed": "Task not added. Try again.",
+      "context": {
+        "label": "Space",
+        "none": "None",
+        "menuLabel": "Space: {current}"
+      },
+      "date": {
+        "label": "Date",
+        "menuLabel": "Due: {current}",
+        "quickMenuLabel": "Date: {current}",
+        "none": "No date",
+        "today": "Today",
+        "tomorrow": "Tomorrow",
+        "weekend": "This weekend",
+        "nextWeek": "Next week",
+        "pick": "Pick…",
+        "addTime": "Add a time",
+        "time": "Time",
+        "clear": "Remove the date"
+      },
+      "tags": {
+        "label": "Tags",
+        "menuLabel": "Tags: {current}",
+        "none": "None",
+        "search": "Search or create a tag",
+        "create": "Create “{name}”",
+        "loading": "Loading tags…",
+        "loadFailed": "Tags not loaded. You can create some.",
+        "limit": "{max} tags at most."
+      }
+    },
+    "list": {
+      "title": "To-do",
+      "completedToggle": "Completed",
+      "sections": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "tomorrow": "Tomorrow",
+        "later": "Later",
+        "none": "No due date",
+        "completed": "Completed"
+      },
+      "complete": "Complete \"{title}\"",
+      "reopen": "Reopen \"{title}\"",
+      "reopenCanceled": "Reopen \"{title}\", canceled",
+      "canceled": "Canceled",
+      "updateFailed": "Task not updated. Try again.",
+      "priority": {
+        "1": "Urgent priority",
+        "2": "High priority",
+        "3": "Medium priority",
+        "4": "Low priority"
+      },
+      "subtasks": "{done, plural, one {# subtask done} other {# subtasks done}} out of {total}",
+      "parent": "Subtask of",
+      "tags": "Tags",
+      "empty": "Nothing to do on this side. Jot down what's on your mind so you can stop thinking about it.",
+      "add": "Add a task",
+      "emptyFiltered": "Nothing in this space",
+      "showAllSpaces": "Show all spaces",
+      "showAllFailed": "Filter not removed. Try again.",
+      "truncated": "Only the first {count} tasks are shown.",
+      "trash": "Trash",
+      "loading": "Loading tasks…",
+      "error": {
+        "title": "Tasks unavailable",
+        "body": "The list couldn't be loaded. Try again in a moment.",
+        "retry": "Try again"
+      }
+    },
+    "detail": {
+      "label": "Task details",
+      "close": "Close",
+      "parent": "Subtask of",
+      "title": "Title",
+      "titleRequired": "The title can't be empty.",
+      "notes": "Notes",
+      "menuLabel": "{field}: {current}",
+      "status": {
+        "label": "Status",
+        "backlog": "To plan",
+        "unstarted": "To do",
+        "started": "In progress",
+        "completed": "Done",
+        "canceled": "Canceled"
+      },
+      "priority": {
+        "label": "Priority",
+        "0": "None",
+        "1": "Urgent",
+        "2": "High",
+        "3": "Medium",
+        "4": "Low"
+      },
+      "placement": "Side and space",
+      "side": "Side",
+      "followsParent": "Same as the parent task",
+      "due": "Due",
+      "tags": "Tags",
+      "updateFailed": "Change not saved. Try again.",
+      "subtasks": {
+        "title": "Subtasks",
+        "add": "Add a subtask",
+        "addFailed": "Subtask not added. Try again."
+      },
+      "trash": "Move to trash",
+      "trashing": "Moving to trash…",
+      "trashed": "Task moved to trash",
+      "undo": "Undo",
+      "restored": "Task restored",
+      "trashFailed": "Task not moved to trash. Try again.",
+      "restoreFailed": "Task not restored. Try again."
+    },
+    "trash": {
+      "side": "Side:",
+      "context": "Space:",
+      "subtasks": "+ {count, plural, one {# subtask} other {# subtasks}}"
+    }
+  },
+  "trash": {
+    "title": "Trash",
+    "empty": "The trash is empty",
+    "loading": "Loading the trash…",
+    "trashedOn": "Moved to trash on {date}",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "restoreFailed": "Not restored. Try again.",
+    "error": {
+      "title": "Trash unavailable",
+      "body": "The trash could not be loaded. Try again in a moment.",
+      "retry": "Try again"
     }
   }
 }

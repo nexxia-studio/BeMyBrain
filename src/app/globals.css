@@ -145,6 +145,8 @@
   --spacing-page-top: var(--page-top);
   --spacing-tabbar-offset: var(--tabbar-offset);
   --spacing-tabbar-reserve: var(--tabbar-reserve);
+  --spacing-detail-top: var(--detail-top);
+  --spacing-detail-right: var(--detail-right);
   --color-pill-active: var(--pill-active);
 }
 
@@ -253,6 +255,18 @@
   --tabbar-height: 74px;
   --tabbar-offset: max(26px, calc(var(--safe-bottom) + 8px));
   --tabbar-reserve: calc(var(--tabbar-height) + var(--tabbar-offset) + 16px);
+  /* En-tête de la coque sur ordinateur (ShellHeader, verre) : pilule Privé / Pro (boutons 2,75rem + piste p-1
+     2 × 0,25rem = 3,25rem) + padding `lg:py-3` (2 × 0,75rem) + bord du verre (2 × 1px). À suivre si l'en-tête change.
+     Le panneau du détail démarre dessous, à l'écart de la grille (ne recouvre ni ⌘K ni « + »). */
+  --header-height: calc(3.25rem + 1.5rem + 2px);
+  --detail-top: calc(
+    var(--page-top) + var(--header-height) + var(--space-grid)
+  );
+  /* Bord droit du panneau aligné sur celui de la coque (contenu centré à `--container-content`, marge de page) :
+     le % se rapporte à la largeur du calque fixe, barre de défilement exclue. */
+  --detail-right: calc(
+    max(0px, (100% - var(--container-content)) / 2) + var(--space-page)
+  );
 
   /* Calques. */
   --z-halo: -1;
@@ -360,8 +374,11 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
   * {
     @apply border-border outline-ring;
   }
+  /* Texte saisi affiché tel quel : les alternatives contextuelles (calt) d'Inter changent « 3x0 » en « 3×0 »
+     et « -> » en flèche. Coupées ici, héritées partout (y compris les champs, que le preflight fait hériter). */
   html {
     @apply font-sans;
+    font-variant-ligatures: no-contextual;
   }
   body {
     @apply bg-background text-foreground;

@@ -1,0 +1,45 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import messages from "../../../../messages/fr.json";
+
+const reportClientError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sentry-client", () => ({ reportClientError }));
+
+import TrashError from "./error";
+
+function renderError(error: Error & { digest?: string }, retry = vi.fn()) {
+  render(
+    <NextIntlClientProvider locale="fr" messages={messages}>
+      <TrashError error={error} retry={retry} />
+    </NextIntlClientProvider>,
+  );
+  return retry;
+}
+
+beforeEach(() => reportClientError.mockClear());
+
+describe("erreur de la corbeille", () => {
+  it("affiche un texte fixe traduit, jamais le message ni le digest de l'erreur", () => {
+    renderError(
+      Object.assign(new Error("panne Relancer le devis"), { digest: "987" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Corbeille indisponible" }),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("Relancer le devis");
+    expect(document.body.textContent).not.toContain("987");
+  });
+
+  it("Réessayer refait les requêtes (retry), et l'erreur part chez Sentry", () => {
+    const error = new Error("x");
+    const retry = renderError(error);
+
+    fireEvent.click(screen.getByRole("button", { name: "Réessayer" }));
+
+    expect(retry).toHaveBeenCalledOnce();
+    expect(reportClientError).toHaveBeenCalledWith(error);
+  });
+});

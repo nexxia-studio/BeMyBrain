@@ -11,11 +11,14 @@ type PageHeaderProps = {
   title: string;
   /** Faux sur une page dont le contenu ne dépend pas des espaces (réglages) : pas de pastille. */
   contextFilter?: boolean;
+  /** Contrôles propres à la page (interrupteur « Terminées » de la to-do), après le filtre, à toutes les largeurs. */
+  actions?: React.ReactNode;
 };
 
 export async function PageHeader({
   title,
   contextFilter = true,
+  actions,
 }: PageHeaderProps) {
   const filter = contextFilter ? await loadContextFilter() : null;
 
@@ -32,6 +35,7 @@ export async function PageHeader({
           />
         </div>
       ) : null}
+      {actions}
     </header>
   );
 }

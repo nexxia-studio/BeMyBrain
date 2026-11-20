@@ -29,6 +29,22 @@ beforeEach(() => {
 });
 
 describe("en-tête de page", () => {
+  it("affiche les contrôles propres à la page à côté du titre, à toutes les largeurs", async () => {
+    loadContextFilter.mockResolvedValue(null);
+    const element = await PageHeader({
+      title: "To-do",
+      actions: <button type="button">Terminées</button>,
+    });
+
+    render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        {element}
+      </NextIntlClientProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Terminées" })).toBeTruthy();
+  });
+
   it("rend le titre de page en h1", async () => {
     loadContextFilter.mockResolvedValue(null);
 

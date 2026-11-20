@@ -12,15 +12,21 @@ import { Dialog } from "@base-ui/react/dialog";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 
+import type { PaletteScope } from "./commands";
 import { EASE_OUT_EXPO, paletteDurations } from "./palette-motion";
 import { PalettePanel } from "./PalettePanel";
 
 type CommandPaletteProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  scope: PaletteScope;
 };
 
-export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  scope,
+}: CommandPaletteProps) {
   const t = useTranslations("palette");
   const { enter, exit } = paletteDurations(useReducedMotion() ?? false);
 
@@ -66,7 +72,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 }
                 className="flex w-full max-w-xl origin-top flex-col overflow-hidden rounded-tile bg-popover text-popover-foreground shadow-glass"
               >
-                <PalettePanel onDone={() => onOpenChange(false)} />
+                <PalettePanel
+                  scope={scope}
+                  onDone={() => onOpenChange(false)}
+                />
               </Dialog.Popup>
             </Dialog.Viewport>
           </Dialog.Portal>

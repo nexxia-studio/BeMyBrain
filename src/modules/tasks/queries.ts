@@ -7,6 +7,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -14,7 +15,12 @@ import {
 import type { UserTx } from "@/db/client";
 import { contexts } from "@/db/schema/core";
 import { tags, tasks, taskTags } from "@/db/schema/tasks";
-import { sideSchema, uuidSchema } from "@/modules/core/schemas";
+import type { ContextColor } from "@/modules/core/context-colors";
+import {
+  contextColorSchema,
+  sideSchema,
+  uuidSchema,
+} from "@/modules/core/schemas";
 import type { Side } from "@/modules/core/sides";
 
 import {
@@ -24,8 +30,10 @@ import {
   openStatusCategories,
   parseTaskInput,
   statusCategorySchema,
+  upcomingTasksFilterSchema,
   type ListTasksFilter,
   type StatusCategory,
+  type UpcomingTasksFilter,
 } from "./schemas";
 
 // Lectures du module tasks (ADR-004) : nommées, typées, réutilisables par l'assistant.
@@ -42,6 +50,8 @@ export type Task = {
   contextId: string | null;
   /** Nom de l'espace, pour un appelant qui désigne les espaces par leur nom (modèle) ; null sans espace. */
   contextName: string | null;
+  /** Pastille de l'espace (DESIGN.md § 2) ; null sans espace. */
+  contextColor: ContextColor | null;
   parentId: string | null;
   /** Titre de la parente active ; null pour une tâche de premier niveau. */
   parentTitle: string | null;
@@ -90,6 +100,12 @@ const contextName = sql<string | null>`(
   where c.workspace_id = tasks.workspace_id and c.id = tasks.context_id
 )`;
 
+// Couleur de l'espace de la tâche (même forme que contextName).
+const contextColor = sql<string | null>`(
+  select c.color from ${contexts} as c
+  where c.workspace_id = tasks.workspace_id and c.id = tasks.context_id
+)`;
+
 // Noms des tags de la tâche (liens et tags du même workspace, par FK composite et par filtre).
 const tagNames = sql<string[]>`coalesce((
   select array_agg(tg.name order by lower(tg.name), tg.id)
@@ -117,6 +133,7 @@ const taskColumns = {
   side: tasks.side,
   contextId: tasks.contextId,
   contextName,
+  contextColor,
   parentId: tasks.parentId,
   parentTitle,
   title: tasks.title,
@@ -131,18 +148,23 @@ const taskColumns = {
   subtaskDone: subtaskCount(sql`${countedSubtask} and ${doneSubtask}`),
 };
 
-// Ligne telle que la base la renvoie : side et statusCategory en text.
-type TaskRow = Omit<Task, "side" | "statusCategory"> & {
+// Ligne telle que la base la renvoie : side, statusCategory et contextColor en text.
+type TaskRow = Omit<Task, "side" | "statusCategory" | "contextColor"> & {
   side: string;
   statusCategory: string;
+  contextColor: string | null;
 };
 
 function toTask(row: TaskRow): Task {
   return {
     ...row,
-    // CHECK tasks_side_check et tasks_status_category_check ; validés quand même, pas de cast.
+    // CHECK tasks_side_check, tasks_status_category_check et contexts_color_check ; validés quand même.
     side: sideSchema.parse(row.side),
     statusCategory: statusCategorySchema.parse(row.statusCategory),
+    contextColor:
+      row.contextColor === null
+        ? null
+        : contextColorSchema.parse(row.contextColor),
     // time renvoyé en HH:MM:SS ; les secondes ne sont jamais saisies.
     dueTime: row.dueTime === null ? null : row.dueTime.slice(0, 5),
   };
@@ -208,6 +230,38 @@ export async function listTasks(
     tasks: rows.slice(0, f.limit).map(toTask),
     truncated: rows.length > f.limit,
   };
+}
+
+/**
+ * Prochaines tâches ouvertes et actives d'un côté (tuiles « To-do privée » / « To-do pro »), espace en option,
+ * dans l'ordre de la liste. Une sous-tâche sans échéance n'y est pas une ligne (même règle que la liste) : elle
+ * est écartée ici, pour que `limit` lignes sortent même quand ces sous-tâches passeraient devant.
+ */
+export async function listUpcomingTasks(
+  workspaceId: string,
+  filter: UpcomingTasksFilter,
+  tx: UserTx,
+): Promise<Task[]> {
+  const workspace = workspaceOf(workspaceId);
+  const f = parseTaskInput(upcomingTasksFilterSchema, filter);
+  const rows = await tx
+    .select(taskColumns)
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.workspaceId, workspace),
+        isActive,
+        inArray(tasks.statusCategory, [...openStatusCategories]),
+        eq(tasks.side, f.side),
+        f.contextId === undefined
+          ? undefined
+          : eq(tasks.contextId, f.contextId),
+        or(isNull(tasks.parentId), isNotNull(tasks.dueDate)),
+      ),
+    )
+    .orderBy(...listOrder)
+    .limit(f.limit);
+  return rows.map(toTask);
 }
 
 /** Une tâche active avec ses notes, ses tags et ses sous-tâches actives ; null si absente ou à la corbeille. */

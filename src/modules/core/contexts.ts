@@ -16,3 +16,18 @@ export function loadContexts(
 ): Promise<Context[]> {
   return withUserDb(token, (tx) => listContexts(workspaceId, { side }, tx));
 }
+
+/**
+ * Contextes des deux côtés du workspace de la session, en une transaction (coque : l'ajout rapide et la palette
+ * suivent une bascule Privé / Pro sans attendre de lecture). Même verrou que `loadContexts`.
+ */
+export function loadContextsBySide(
+  token: string,
+  workspaceId: string,
+): Promise<Record<Side, Context[]>> {
+  return withUserDb(token, async (tx) => ({
+    // Une requête à la fois sur la transaction.
+    private: await listContexts(workspaceId, { side: "private" }, tx),
+    pro: await listContexts(workspaceId, { side: "pro" }, tx),
+  }));
+}

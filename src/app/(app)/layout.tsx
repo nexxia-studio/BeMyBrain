@@ -3,14 +3,14 @@
 // flottante en bas (le contenu réserve sa hauteur) ; à partir de 1024 px, en-tête en verre + barre
 // latérale + contenu, ≤ 1400 px centré. Côtés écartés des zones sûres iOS (paysage).
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider";
 import { ContextFilter } from "@/components/shell/ContextFilter";
 import { MotionRoot } from "@/components/shell/MotionRoot";
 import { ShellHeader } from "@/components/shell/ShellHeader";
+import { ShellScopeProvider } from "@/components/shell/ShellScopeProvider";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { TabBar } from "@/components/shell/TabBar";
 import { signOut } from "@/lib/auth/actions";
-import { loadContextFilter } from "@/lib/context-filter";
+import { loadContextFilter, loadShellScope } from "@/lib/context-filter";
 import { readSide } from "@/lib/preferences";
 import { requireSession } from "@/lib/session";
 
@@ -21,12 +21,17 @@ export default async function AppLayout({
   // les Server Actions) : chaque page et chaque action non publique appelle aussi requireSession.
   await requireSession();
   // Filtre d'espace du côté actif (Privé ou Pro) : mémoïsé, l'en-tête de page (PageHeader) le relit
-  // sans seconde requête.
-  const [side, filter] = await Promise.all([readSide(), loadContextFilter()]);
+  // sans seconde requête. L'ajout rapide et la palette en tirent le côté et l'espace affichés (même lecture,
+  // les deux côtés : ShellScopeProvider suit la bascule et le filtre optimistes).
+  const [side, filter, shell] = await Promise.all([
+    readSide(),
+    loadContextFilter(),
+    loadShellScope(),
+  ]);
 
   return (
     <MotionRoot>
-      <CommandPaletteProvider>
+      <ShellScopeProvider shell={shell}>
         <div className="flex min-h-dvh flex-col pr-safe-right pl-safe-left">
           <div className="mx-auto flex w-full max-w-content flex-1 flex-col gap-grid px-page pt-page-top pb-tabbar-reserve lg:pb-page">
             <ShellHeader side={side} />
@@ -58,7 +63,7 @@ export default async function AppLayout({
           </div>
           <TabBar className="lg:hidden" />
         </div>
-      </CommandPaletteProvider>
+      </ShellScopeProvider>
     </MotionRoot>
   );
 }

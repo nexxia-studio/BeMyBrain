@@ -53,7 +53,9 @@ Index (partiels `WHERE deleted_at IS NULL` sauf mention) : `(workspace_id, side,
 Unique `(workspace_id, id)` et `(workspace_id, id, side)` : cibles des FK composites.
 Côté `contexts` (additif) : unique `(workspace_id, id, kind)`, cible de la FK de `tasks`.
 
-**Statuts.** La colonne porte une catégorie au sens de Linear, pas un statut. Les cinq catégories sont figées : tout le code (tuiles, filtres, `completed_at`, kanban) raisonne sur elles. Des statuts personnalisés viendront plus tard par migration additive : table `task_statuses (id, workspace_id, name, category, position)` et colonne `tasks.status_id` nullable, FK composite `(workspace_id, status_id, status_category)` → `task_statuses(workspace_id, id, category)`. La catégorie de la tâche reste ainsi toujours celle de son statut, et une tâche sans statut personnalisé garde le statut par défaut de sa catégorie. Libellés par défaut de l'interface : Backlog, À faire, En cours, Fait, Annulé.
+Couleur des espaces (migration 0007, additive, décision d'Antoine du 2026-11-19) : `contexts.color text NOT NULL DEFAULT 'neutral' CHECK (color IN ('neutral','warm','indigo'))`, les trois pastilles de DESIGN.md (`chip-neutral`, `chip-warm`, `chip-indigo`). Valeurs posées pour les espaces existants : Privé `neutral`, Trustup `warm`, Nexxia `indigo` (seed et migration). Aucun écran pour la changer : BRAIN-30.
+
+**Statuts.** La colonne porte une catégorie au sens de Linear, pas un statut. Les cinq catégories sont figées : tout le code (tuiles, filtres, `completed_at`, kanban) raisonne sur elles. Des statuts personnalisés viendront plus tard par migration additive : table `task_statuses (id, workspace_id, name, category, position)` et colonne `tasks.status_id` nullable, FK composite `(workspace_id, status_id, status_category)` → `task_statuses(workspace_id, id, category)`. La catégorie de la tâche reste ainsi toujours celle de son statut, et une tâche sans statut personnalisé garde le statut par défaut de sa catégorie. Libellés par défaut de l'interface (décision d'Antoine, 2026-11-20), accordés avec « tâche » : À planifier (`backlog`), À faire (`unstarted`), En cours (`started`), Terminée (`completed`), Annulée (`canceled`) ; en anglais To plan, To do, In progress, Done, Canceled. Les valeurs en base ne changent pas. « En attente » est réservé à la tranche 2, pour les tâches bloquées (relations « bloquée par »).
 
 **Corbeille.** Aucune suppression définitive : `app_backend` n'a pas le droit DELETE sur `tasks` (pas de GRANT, pas de policy DELETE). Mettre une tâche à la corbeille = `deleted_at = now()`, la restaurer = `deleted_at = NULL`.
 - Sous-tâches : la mise à la corbeille d'une parente pose **le même horodatage** sur ses sous-tâches encore actives. La restauration de la parente restaure les sous-tâches qui portent cet horodatage, et seulement elles : une sous-tâche mise à la corbeille seule avant sa parente y reste. Une sous-tâche dont la parente est à la corbeille ne se restaure pas seule (erreur `parent_in_trash`).
@@ -155,7 +157,7 @@ Saisie et liste
 - [ ] L'ajout rapide crée une tâche avec un titre seul ; côté et espace prennent le filtre courant (côté actif, espace sélectionné ou aucun).
 - [ ] Espace, tags et date se choisissent chacun en un tap depuis l'ajout rapide, sans syntaxe ; un tag inconnu tapé est créé.
 - [ ] Une tâche créée depuis l'écran a `origin = app`, depuis la palette `origin = palette`.
-- [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier) puis priorité ; terminées et annulées masquées, visibles par un interrupteur.
+- [ ] La liste n'affiche que le côté actif et l'espace filtré, triée par échéance (sans échéance en dernier), puis heure, puis priorité (aucune en dernier), puis date de création ; terminées et annulées masquées, visibles par un interrupteur.
 - [ ] Cocher une tâche la passe à `completed` ; le bouton est désactivé pendant l'appel, pas de mise à jour optimiste. Une erreur s'affiche dans la ligne.
 - [ ] Une sous-tâche sans échéance n'est pas une ligne de la liste ; avec une échéance, elle apparaît dans la section de cette échéance et dans la tuile « Aujourd'hui », titre de la parente en légende ; la parente montre « n/m ».
 - [ ] Le détail d'une tâche permet de modifier tous les champs de la tranche 1, d'ajouter des sous-tâches et de la mettre à la corbeille.
@@ -186,7 +188,7 @@ Registre
 7. **Langue** : en anglais, l'ajout rapide, la liste, le détail, la corbeille et les tuiles sont entièrement en anglais ; les titres saisis restent tels quels.
 
 ## Données et sécurité
-- Nouvelles tables : `tasks`, `tags`, `task_tags`. Table modifiée : `contexts` (contrainte unique additive). Migration unique, additive.
+- Nouvelles tables : `tasks`, `tags`, `task_tags`. Table modifiée : `contexts` (contrainte unique additive en 0006, colonne `color` en 0007). Migrations additives.
 - RLS : SELECT, INSERT, UPDATE sur `tasks` et `tags` ; SELECT, INSERT, DELETE sur `task_tags`, filtre `app.is_workspace_member(workspace_id)`. FK composites contre tout lien entre workspaces. Corbeille filtrée dans `queries.ts`, pas en RLS (voir « Corbeille »).
 - Accès : uniquement via `src/modules/tasks/queries.ts` et `mutations.ts`, `workspaceId` de la session.
 - Registre modifié (`origin` dans le contexte, `toToolDefinitions`) : `[security]`.
@@ -196,24 +198,25 @@ Registre
 Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, lu vite, saisi vite). Mobile d'abord, 390 px (ADR-008). Composants et tokens de DESIGN.md uniquement ; aucune couleur ni police nouvelle.
 
 ### Ajout rapide (`src/components/quick-add/`)
-- **Geste unique, plusieurs types.** Le « + » central (mobile) et le bouton d'ajout rond de l'en-tête (ordinateur, retiré le 2026-11-16 « jusqu'à la première action d'ajout d'un module », il revient ici) ouvrent le même composant `QuickAdd`. Il lit une liste de types déclarés (`quick-add-types.ts` : clé, libellé, icône, formulaire, action du registre). Tranche 1 : un seul type, `task`. Avec un seul type, aucun sélecteur n'est affiché ; à partir de deux (dépense, article de courses), une pilule de types apparaît en haut, comme la bascule Privé / Pro, sans changer le geste. Le dernier type utilisé est retenu pour la session.
-- **Contenant** : tiroir bas sur mobile (verre opaque `popover`, `rounded-tile` en haut, poignée, ressort `bounce: 0.2`, 0,3 s), dialogue centré sur ordinateur (même entrée que la palette). Clavier ouvert d'office, focus dans le titre.
+- **Geste unique, plusieurs types.** Le « + » central (mobile) et le bouton d'ajout rond de l'en-tête (ordinateur, retiré le 2026-11-16 « jusqu'à la première action d'ajout d'un module », il revient ici) ouvrent le même composant `QuickAdd`. Il lit une liste de types déclarés (`quick-add-types.ts` : clé, libellé, icône, formulaire ; le formulaire appelle lui-même son action du registre). Tranche 1 : un seul type, `task`. Avec un seul type, aucun sélecteur n'est affiché ; à partir de deux (dépense, article de courses), une pilule de types apparaît en haut, comme la bascule Privé / Pro, sans changer le geste. Le dernier type utilisé est retenu pour la session.
+- **Contenant** : tiroir bas sur mobile (verre opaque `popover`, `rounded-tile` en haut, poignée, ressort `bounce: 0.2`, 0,3 s), dialogue centré sur ordinateur (même entrée que la palette). Clavier ouvert d'office, focus dans le titre (au toucher, un champ relais caché prend le focus dans le geste puis le passe au titre : iOS n'ouvre le clavier qu'ainsi).
 - **Formulaire tâche** : champ titre (libellé visible « Tâche », `text-base`, ≥ 44 px), puis une rangée de pastilles d'un tap, toutes facultatives :
   - **Espace** : pré-rempli avec le filtre courant ; menu « Aucun » + espaces du côté actif, couleur de pastille de l'espace. Le côté suit la bascule Privé / Pro de la coque.
-  - **Date** : Aujourd'hui, Demain, Ce week-end, Semaine prochaine, Choisir… (calendrier), puis « Ajouter une heure » facultatif.
+  - **Date** : Aujourd'hui, Demain, Ce week-end, Semaine prochaine, Choisir… (calendrier), puis « Ajouter une heure » facultatif. Ce week-end = aujourd'hui le samedi et le dimanche, sinon le samedi qui suit ; Semaine prochaine = le lundi qui suit.
   - **Tags** : liste filtrée en tapant ; « Créer « … » » si le nom n'existe pas. Plusieurs tags.
   - Priorité et notes ne sont pas dans l'ajout rapide : dans le détail.
+  - Menus Espace, Date et Tags : même menu flottant sur mobile et sur ordinateur, ancré à sa pastille, au-dessus du tiroir. Pas de panneau qui monte du bas (essai iPhone d'Antoine, 2026-11-19 : lisibles clavier ouvert).
 - **Valider** : Entrée ou bouton « Ajouter » (désactivé tant que le titre est vide et pendant l'appel). Succès : titre vidé, date et tags vidés, espace gardé, focus rendu au titre, message court « Tâche ajoutée » avec lien « Ouvrir » (`role="status"`, `data-testid="quick-add-status"`). Échec : message dans le tiroir, saisie conservée.
 - Origine : la Server Action de l'ajout rapide pose `app`.
 
 ### Palette
-- Saisie libre → premier élément « Ajouter la tâche « … » » qui appelle `tasks.create` (origine `palette`), avec le côté et l'espace courants. Commandes : « Nouvelle tâche » (ouvre l'ajout rapide), « Ouvrir la to-do », « Corbeille ».
+- Saisie libre → élément « Ajouter la tâche « … » » : premier quand aucune commande ne correspond à la saisie, sinon après la dernière commande correspondante (Entrée lance la commande trouvée : « corb » → Corbeille). Il appelle `tasks.create` (origine `palette`), avec le côté et l'espace courants. Commandes : « Nouvelle tâche » (ouvre l'ajout rapide), « Ouvrir la to-do », « Corbeille ».
 - Le type `action` de `commands.ts` est aujourd'hui un littéral `"core.setLocale"` : il s'élargit aux noms d'actions du registre.
 
 ### Liste (`/tasks`)
 - Entrée « To-do » dans la navigation (`nav-items.ts`), avant Réglages ; onglet mobile à gauche du « + ».
 - En-tête de page : titre « To-do », filtre d'espace (existant), interrupteur « Terminées ». La bascule Privé / Pro de la coque filtre le côté.
-- Sections par échéance : En retard, Aujourd'hui, Demain, Plus tard, Sans échéance ; dans chaque section, priorité puis date de création.
+- Sections par échéance : En retard, Aujourd'hui, Demain, Plus tard, Sans échéance ; dans chaque section, échéance, puis heure, puis priorité (aucune en dernier), puis date de création (« Sans échéance » : priorité puis date de création). Même ordre que la lecture en base.
 - Sous-tâches : pas de ligne de premier niveau, seulement le compteur « n/m » sur la parente. Exception : une sous-tâche qui a sa propre échéance apparaît aussi dans la section de son échéance (jamais dans « Sans échéance ») et dans la tuile « Aujourd'hui », avec le titre de la parente en légende. Règle portée par une fonction pure de `src/modules/tasks/` (testée), pas par le composant. Terminées (si affichées) en dernière section, par `completed_at` décroissant.
 - Ligne (`row rounded-lg min-h-11 px-3.5`) : case à cocher (zone 44 px, `label` sur la case seule), titre (`text-body`, deux lignes max), puis en `text-caption` : pastille d'espace, échéance (`text-destructive` si en retard), heure, tags, icône de priorité (aucune icône pour 0), compteur de sous-tâches « 1/3 ». Tap sur le reste de la ligne → détail.
 - Cocher : case désactivée pendant l'appel, ligne qui sort en `opacity` + `y` 8 (Motion) après succès ; pas de mise à jour optimiste ; erreur dans la ligne.
@@ -221,15 +224,20 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 
 ### Détail (`/tasks/[id]`)
 - Tiroir sur mobile, panneau latéral sur ordinateur, au-dessus de la liste ; URL propre pour le lien profond.
-- Titre modifiable, notes (zone de texte), puis lignes de champs : Statut (5 catégories, libellés par défaut), Priorité, Côté et espace, Échéance (date, heure), Tags. Chaque modification appelle `tasks.update` ; le champ est désactivé pendant l'appel, erreur sous le champ.
+- Titre modifiable, notes (zone de texte), puis lignes de champs : Statut (5 catégories, libellés par défaut : À planifier, À faire, En cours, Terminée, Annulée — voir « Statuts »), Priorité, Côté et espace, Échéance (date, heure), Tags. Chaque modification appelle `tasks.update` ; le champ est désactivé pendant l'appel, erreur sous le champ.
+- Chargement : pas d'écran de chargement pour le détail (décision du 2026-11-20). Il est rendu côté serveur dans l'emplacement `@detail`, par-dessus la liste déjà affichée (route interceptée `@detail/(.)[id]`) : l'ouverture est rapide et un squelette clignoterait ; la liste reste visible pendant la lecture.
+- Erreur de lecture : `TaskDetailPanel` ne rattrape rien, l'erreur remonte à `error.tsx` de `/tasks` (texte fixe et traduit, jamais le message de l'erreur ; « Réessayer » appelle `retry()` ; erreur envoyée à Sentry). Tâche absente, à la corbeille ou adresse invalide : 404, pas l'état d'erreur. Testé : `TaskDetailPanel.test.tsx`, `tasks/error.test.tsx`. Limite connue : cette `error.tsx` est celle de la liste (« Tâches indisponibles », « La liste n'a pas pu être chargée »), rendue sous la liste dans l'emplacement du détail ; un texte propre au détail reste à décider.
 - Sous-tâches : liste de lignes cochables + champ « Ajouter une sous-tâche » (Entrée). Pas de sous-tâche dans une sous-tâche : le champ n'existe pas sur le détail d'une sous-tâche, qui affiche sa parente en lien.
 - Pied : « Mettre à la corbeille » (bouton secondaire, pas de confirmation, message « Mise à la corbeille » + « Annuler » qui restaure).
+  - Retour après la corbeille : une tâche sans parente ferme le détail et revient à la liste, où s'affichent le message et « Annuler ». Une sous-tâche revient au détail de sa parente (décision d'Antoine, 2026-11-20, après la QA) : le message et « Annuler » s'affichent dans la fenêtre du détail, la sous-tâche quitte la liste des sous-tâches, « Annuler » la remet à sa place. Pas de bouton corbeille sur les lignes de sous-tâches. Le message disparaît dès qu'on quitte sa page (ou si on la quitte avant son arrivée) et ne revient pas quand on y retourne.
 
-### Corbeille (`/tasks/trash`)
-- Accès : lien en bas de la liste et commande de palette. Lignes non cochables, date de mise à la corbeille, bouton « Restaurer » par ligne. Une parente montre « + n sous-tâches ». Vide : « La corbeille est vide ».
+### Corbeille (`/trash`)
+- Corbeille de toute l'app (décision d'Antoine, 2026-11-19) : les tâches en sont le premier type. Chaque module y déclare son type (lecture des éléments à la corbeille, ligne, restauration), comme l'ajout rapide déclare ses formulaires ; aucun autre type en tranche 1. Hors de `/tasks/…`, pour que le détail `/tasks/[id]` s'ouvre par-dessus la liste sans squelette.
+- Les deux côtés ensemble (décision d'Antoine, 2026-11-19) : ni bascule Privé / Pro ni filtre d'espace ; toujours dans l'ordre de mise à la corbeille, la plus récente d'abord. Chaque ligne porte la pastille de côté (Privé / Pro) et la pastille de son espace, dans sa couleur.
+- Accès : lien en bas de la liste et commande de palette, tous deux vers `/trash`. Lignes non cochables, date de mise à la corbeille, bouton « Restaurer » par ligne. Une parente montre « + n sous-tâches ». Vide : « La corbeille est vide ».
 
 ### Tableau de bord
-- Tuile « Aujourd'hui » (pleine, DESIGN.md § 5) : pastilles de chiffres « En retard » et « Aujourd'hui », puis les 3 premières tâches (voir Questions ouvertes), lien « Tout voir ».
+- Tuile « Aujourd'hui » (pleine, DESIGN.md § 5) : pastilles de chiffres « En retard » et « Aujourd'hui », puis les 3 premières tâches (voir Questions ouvertes), lien « Voir la to-do ».
 - Tuiles « To-do privée » et « To-do pro » (verre, existantes, aujourd'hui vides) : 5 prochaines tâches actives du côté, case à cocher comprise, lien « Tout voir » vers `/tasks` sur ce côté.
 
 ### Mouvement

@@ -7,10 +7,18 @@ import { buildTask } from "../../../tests/factories/build-task";
 
 import {
   dateShortcuts,
+  dueDateInstant,
+  findTagName,
   groupBySection,
+  isOverdue,
+  matchTagNames,
+  showContextChip,
   sideTileItems,
   subtaskCounter,
+  tagChanges,
+  tagList,
   todayTileItems,
+  trashEntries,
 } from "./view";
 
 // Jeudi 2026-11-19.
@@ -74,22 +82,82 @@ describe("groupBySection", () => {
     expect(tomorrow?.tasks[0]?.parentTitle).toBe("Déménagement");
   });
 
-  it("dans une section : priorité (aucune en dernier) puis date de création", () => {
-    const none = buildTask({ dueDate: "2026-12-01", priority: 0 });
-    const lowOld = buildTask({
+  it("dans une section : échéance, puis heure, puis priorité (aucune en dernier), puis création", () => {
+    const lateUrgent = buildTask({ dueDate: "2026-12-10", priority: 1 });
+    const earlyNone = buildTask({ dueDate: "2026-11-22", priority: 0 });
+    const sameDayNoTime = buildTask({ dueDate: "2026-11-25", priority: 1 });
+    const sameDay9h = buildTask({
       dueDate: "2026-11-25",
+      dueTime: "09:00",
+      priority: 4,
+    });
+    const sameDay14hLowNew = buildTask({
+      dueDate: "2026-11-25",
+      dueTime: "14:00",
+      priority: 4,
+      createdAt: new Date("2026-11-02T08:00:00Z"),
+    });
+    const sameDay14hLowOld = buildTask({
+      dueDate: "2026-11-25",
+      dueTime: "14:00",
       priority: 4,
       createdAt: new Date("2026-11-01T08:00:00Z"),
     });
-    const urgent = buildTask({ dueDate: "2026-12-10", priority: 1 });
+    const sameDay14hHigh = buildTask({
+      dueDate: "2026-11-25",
+      dueTime: "14:00",
+      priority: 2,
+    });
+
+    const sections = groupBySection(
+      [
+        lateUrgent,
+        sameDayNoTime,
+        sameDay14hLowNew,
+        earlyNone,
+        sameDay14hHigh,
+        sameDay9h,
+        sameDay14hLowOld,
+      ],
+      today,
+    );
+
+    expect(sections.map((s) => s.key)).toEqual(["later"]);
+    expect(ids(sections[0]?.tasks ?? [])).toEqual([
+      earlyNone.id,
+      sameDay9h.id,
+      sameDay14hHigh.id,
+      sameDay14hLowOld.id,
+      sameDay14hLowNew.id,
+      sameDayNoTime.id,
+      lateUrgent.id,
+    ]);
+  });
+
+  it("en retard : la plus ancienne échéance d'abord", () => {
+    const yesterday = buildTask({ dueDate: "2026-11-18", priority: 1 });
+    const lastWeek = buildTask({ dueDate: "2026-11-12", priority: 4 });
+
+    const sections = groupBySection([yesterday, lastWeek], today);
+
+    expect(ids(sections[0]?.tasks ?? [])).toEqual([lastWeek.id, yesterday.id]);
+  });
+
+  it("sans échéance : priorité (aucune en dernier) puis création", () => {
+    const none = buildTask({ priority: 0 });
     const lowNew = buildTask({
-      dueDate: "2026-11-22",
       priority: 4,
       createdAt: new Date("2026-11-02T08:00:00Z"),
+    });
+    const urgent = buildTask({ priority: 1 });
+    const lowOld = buildTask({
+      priority: 4,
+      createdAt: new Date("2026-11-01T08:00:00Z"),
     });
 
     const sections = groupBySection([none, lowNew, urgent, lowOld], today);
 
+    expect(sections.map((s) => s.key)).toEqual(["none"]);
     expect(ids(sections[0]?.tasks ?? [])).toEqual([
       urgent.id,
       lowOld.id,
@@ -241,6 +309,14 @@ describe("sideTileItems", () => {
   });
 });
 
+describe("showContextChip", () => {
+  it("pastille d'espace seulement s'il y a à distinguer : plusieurs espaces et aucun filtré", () => {
+    expect(showContextChip({ contextId: null, contexts: [{}, {}] })).toBe(true);
+    expect(showContextChip({ contextId: "x", contexts: [{}, {}] })).toBe(false);
+    expect(showContextChip({ contextId: null, contexts: [{}] })).toBe(false);
+  });
+});
+
 describe("dateShortcuts", () => {
   it("un jeudi : demain vendredi, ce week-end samedi, semaine prochaine lundi", () => {
     expect(dateShortcuts("2026-11-19")).toEqual({
@@ -251,15 +327,21 @@ describe("dateShortcuts", () => {
     });
   });
 
-  it("ce week-end un samedi = aujourd'hui", () => {
-    expect(dateShortcuts("2026-11-21").weekend).toBe("2026-11-21");
+  // Jeudi 2026-11-19 : week-end des 21 et 22 novembre.
+  it.each([
+    ["lundi", "2026-11-16", "2026-11-21"],
+    ["mardi", "2026-11-17", "2026-11-21"],
+    ["mercredi", "2026-11-18", "2026-11-21"],
+    ["jeudi", "2026-11-19", "2026-11-21"],
+    ["vendredi", "2026-11-20", "2026-11-21"],
+    ["samedi", "2026-11-21", "2026-11-21"],
+    ["dimanche", "2026-11-22", "2026-11-22"],
+  ])("ce week-end un %s (%s) = %s", (_day, day, weekend) => {
+    expect(dateShortcuts(day).weekend).toBe(weekend);
   });
 
-  it("un dimanche : ce week-end = samedi suivant, semaine prochaine = le lendemain", () => {
-    const shortcuts = dateShortcuts("2026-11-22");
-
-    expect(shortcuts.weekend).toBe("2026-11-28");
-    expect(shortcuts.nextWeek).toBe("2026-11-23");
+  it("un dimanche : semaine prochaine = le lendemain", () => {
+    expect(dateShortcuts("2026-11-22").nextWeek).toBe("2026-11-23");
   });
 
   it("un lundi : semaine prochaine = lundi d'après", () => {
@@ -271,6 +353,94 @@ describe("dateShortcuts", () => {
     expect(dateShortcuts("2028-02-28").tomorrow).toBe("2028-02-29");
     expect(dateShortcuts("2026-10-24").tomorrow).toBe("2026-10-25");
     expect(dateShortcuts("2026-10-25").tomorrow).toBe("2026-10-26");
+  });
+});
+
+describe("matchTagNames", () => {
+  it("filtre les tags par morceau du nom, sans casse, dans l'ordre reçu", () => {
+    const names = ["Client", "maison", "Clinique"];
+
+    const matched = matchTagNames(names, "  CLI ");
+
+    expect(matched).toEqual(["Client", "Clinique"]);
+  });
+
+  it("recherche vide : tous les tags", () => {
+    const names = ["client", "maison"];
+
+    const matched = matchTagNames(names, "  ");
+
+    expect(matched).toEqual(["client", "maison"]);
+  });
+});
+
+describe("findTagName", () => {
+  it("retrouve un tag existant sans casse ni espaces autour, sous son nom enregistré", () => {
+    const names = ["Client", "maison"];
+
+    const found = findTagName(names, " client ");
+
+    expect(found).toBe("Client");
+  });
+
+  it("nom inconnu : undefined", () => {
+    const names = ["Client"];
+
+    const found = findTagName(names, "clients");
+
+    expect(found).toBeUndefined();
+  });
+});
+
+describe("dueDateInstant", () => {
+  it("donne un instant du même jour local, quel que soit le fuseau d'affichage (de -11 h à +11 h)", () => {
+    const instant = dueDateInstant("2026-11-17");
+
+    for (const timeZone of ["Etc/GMT+11", "UTC", "Etc/GMT-11"]) {
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone }).format(
+        instant,
+      );
+      expect(day).toBe("2026-11-17");
+    }
+  });
+});
+
+describe("isOverdue", () => {
+  it("tâche ouverte due avant aujourd'hui : en retard", () => {
+    expect(isOverdue(buildTask({ dueDate: "2026-11-18" }), today)).toBe(true);
+  });
+
+  it("due aujourd'hui ou sans échéance : pas en retard", () => {
+    expect(isOverdue(buildTask({ dueDate: today }), today)).toBe(false);
+    expect(isOverdue(buildTask(), today)).toBe(false);
+  });
+
+  it("terminée ou annulée : jamais en retard", () => {
+    const due = { dueDate: "2026-11-01" };
+
+    expect(
+      isOverdue(buildTask({ ...due, statusCategory: "completed" }), today),
+    ).toBe(false);
+    expect(
+      isOverdue(buildTask({ ...due, statusCategory: "canceled" }), today),
+    ).toBe(false);
+  });
+});
+
+describe("tagChanges", () => {
+  it("ajouts et retraits entre les tags enregistrés et les tags choisis", () => {
+    expect(tagChanges(["client", "devis"], ["devis", "urgent"])).toEqual({
+      addTags: ["urgent"],
+      removeTags: ["client"],
+    });
+  });
+
+  it("même nom dans une autre casse : aucun changement", () => {
+    expect(tagChanges(["Client"], ["client"])).toBeNull();
+  });
+
+  it("seulement des ajouts : pas de removeTags", () => {
+    expect(tagChanges([], ["client"])).toEqual({ addTags: ["client"] });
   });
 });
 
@@ -290,5 +460,67 @@ describe("view.ts côté client", () => {
       "type ./queries",
       "type @/modules/core/sides",
     ]);
+  });
+});
+
+describe("trashEntries", () => {
+  const PARENT = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+  const together = new Date("2026-11-19T09:00:00Z");
+  const before = new Date("2026-11-18T09:00:00Z");
+
+  function trashed(
+    overrides: Parameters<typeof buildTask>[0],
+    deletedAt: Date,
+  ) {
+    return { ...buildTask(overrides), deletedAt };
+  }
+
+  it("parente : les sous-tâches mises avec elle sont comptées sur sa ligne, pas listées", () => {
+    const parent = trashed({ id: PARENT, title: "Déménager" }, together);
+    const withParent = [
+      trashed({ parentId: PARENT, parentTitle: "Déménager" }, together),
+      trashed({ parentId: PARENT, parentTitle: "Déménager" }, together),
+    ];
+
+    const entries = trashEntries([parent, ...withParent]);
+
+    expect(entries).toEqual([{ task: parent, subtaskCount: 2 }]);
+  });
+
+  it("sous-tâche mise à la corbeille seule avant sa parente : sa propre ligne, après la parente", () => {
+    const parent = trashed({ id: PARENT }, together);
+    const alone = trashed({ parentId: PARENT }, before);
+
+    const entries = trashEntries([parent, alone]);
+
+    expect(entries).toEqual([
+      { task: parent, subtaskCount: 0 },
+      { task: alone, subtaskCount: 0 },
+    ]);
+  });
+
+  it("sous-tâche dont la parente est active : sa propre ligne", () => {
+    const alone = trashed({ parentId: PARENT }, together);
+
+    expect(trashEntries([alone])).toEqual([{ task: alone, subtaskCount: 0 }]);
+  });
+});
+
+describe("tagList", () => {
+  it("sépare les tags à la française : virgules, puis « et » avant le dernier", () => {
+    expect(tagList(["client", "maison", "fête"], "fr")).toBe(
+      "client, maison et fête",
+    );
+  });
+
+  it("sépare les tags à l'anglaise : virgules seules", () => {
+    expect(tagList(["client", "home", "party"], "en")).toBe(
+      "client, home, party",
+    );
+  });
+
+  it("un seul tag tel quel, aucun tag : chaîne vide", () => {
+    expect(tagList(["client"], "fr")).toBe("client");
+    expect(tagList([], "fr")).toBe("");
   });
 });

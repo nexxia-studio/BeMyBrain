@@ -101,6 +101,22 @@ describe("seed rejouable", () => {
     ]);
   });
 
+  it("donne aux espaces par défaut leur couleur : Privé neutral, Trustup warm, Nexxia indigo", async () => {
+    const owner = newOwner();
+
+    const { workspaceId } = await seedWorkspace(db, { ownerUserId: owner });
+
+    const { rows } = await pool.query(
+      "select name, color from contexts where workspace_id = $1 order by position",
+      [workspaceId],
+    );
+    expect(rows).toEqual([
+      { name: "Privé", color: "neutral" },
+      { name: "Trustup", color: "warm" },
+      { name: "Nexxia", color: "indigo" },
+    ]);
+  });
+
   it("deux seeds simultanés pour le même propriétaire produisent un seul workspace", async () => {
     const owner = newOwner();
 

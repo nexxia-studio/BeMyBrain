@@ -6,11 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireSession = vi.hoisted(() => vi.fn());
 const requireSessionToken = vi.hoisted(() => vi.fn());
-const loadContexts = vi.hoisted(() => vi.fn());
+const loadContextsBySide = vi.hoisted(() => vi.fn());
 const cookieValues = vi.hoisted(() => new Map<string, string>());
 
 vi.mock("@/lib/session", () => ({ requireSession, requireSessionToken }));
-vi.mock("@/modules/core/contexts", () => ({ loadContexts }));
+vi.mock("@/modules/core/contexts", () => ({ loadContextsBySide }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) =>
@@ -31,13 +31,34 @@ vi.mock("react", () => {
   return require(join(dir, "cjs/react.react-server.development.js"));
 });
 
-import { loadContextFilter, loadSideSpaces } from "./context-filter";
+import {
+  loadContextFilter,
+  loadCurrentScope,
+  loadShellScope,
+  loadSideSpaces,
+} from "./context-filter";
 
 const WORKSPACE_ID = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
-const PERSO = { id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", name: "Perso" };
-const MAISON = { id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e", name: "Maison" };
-const TRUSTUP = { id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b", name: "Trustup" };
-const NEXXIA = { id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d", name: "Nexxia" };
+const PERSO = {
+  id: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  name: "Perso",
+  color: "neutral",
+} as const;
+const MAISON = {
+  id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+  name: "Maison",
+  color: "neutral",
+} as const;
+const TRUSTUP = {
+  id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
+  name: "Trustup",
+  color: "warm",
+} as const;
+const NEXXIA = {
+  id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+  name: "Nexxia",
+  color: "indigo",
+} as const;
 
 /** Simule une requête Next : un cache React neuf par requête. */
 async function inRequest<T>(fn: () => Promise<T>): Promise<T> {
@@ -59,10 +80,10 @@ async function inRequest<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function contextsBySide(byside: Record<string, unknown[]>) {
-  loadContexts.mockImplementation(
-    async (_token: string, _workspace: string, side: string) =>
-      byside[side] ?? [],
-  );
+  loadContextsBySide.mockResolvedValue({
+    private: byside.private ?? [],
+    pro: byside.pro ?? [],
+  });
 }
 
 beforeEach(() => {
@@ -83,10 +104,9 @@ describe("chargement du filtre d'espace", () => {
 
     const filter = await inRequest(() => loadContextFilter());
 
-    expect(loadContexts).toHaveBeenCalledWith(
+    expect(loadContextsBySide).toHaveBeenCalledWith(
       "eyJ.jwt.signe",
       WORKSPACE_ID,
-      "pro",
     );
     expect(filter).toEqual({
       side: "pro",
@@ -143,7 +163,7 @@ describe("chargement du filtre d'espace", () => {
       await loadContextFilter();
     });
 
-    expect(loadContexts).toHaveBeenCalledTimes(1);
+    expect(loadContextsBySide).toHaveBeenCalledTimes(1);
   });
 
   it("relit les espaces à chaque nouvelle requête", async () => {
@@ -152,7 +172,7 @@ describe("chargement du filtre d'espace", () => {
     await inRequest(() => loadContextFilter());
     await inRequest(() => loadContextFilter());
 
-    expect(loadContexts).toHaveBeenCalledTimes(2);
+    expect(loadContextsBySide).toHaveBeenCalledTimes(2);
   });
 
   it("vérifie la session avant toute lecture", async () => {
@@ -161,7 +181,7 @@ describe("chargement du filtre d'espace", () => {
     await expect(inRequest(() => loadContextFilter())).rejects.toThrow(
       "REDIRECT:/login",
     );
-    expect(loadContexts).not.toHaveBeenCalled();
+    expect(loadContextsBySide).not.toHaveBeenCalled();
   });
 });
 
@@ -186,6 +206,81 @@ describe("espaces du côté actif (tableau de bord)", () => {
       await loadSideSpaces();
     });
 
-    expect(loadContexts).toHaveBeenCalledTimes(1);
+    expect(loadContextsBySide).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("côté et espace courants (ajout rapide)", () => {
+  it("un seul espace filtré : c'est l'espace courant", async () => {
+    cookieValues.set("bmb_side", "pro");
+    cookieValues.set("bmb_contexts_pro", TRUSTUP.id);
+
+    const scope = await inRequest(() => loadCurrentScope());
+
+    expect(scope).toEqual({
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      contextId: TRUSTUP.id,
+    });
+  });
+
+  it("tous les espaces affichés : aucun espace courant", async () => {
+    cookieValues.set("bmb_side", "pro");
+
+    const scope = await inRequest(() => loadCurrentScope());
+
+    expect(scope.contextId).toBeNull();
+  });
+
+  it("un seul espace sur le côté (pas de filtre) : aucun espace courant", async () => {
+    cookieValues.set("bmb_side", "private");
+
+    const scope = await inRequest(() => loadCurrentScope());
+
+    expect(scope).toEqual({
+      side: "private",
+      contexts: [PERSO],
+      contextId: null,
+    });
+  });
+
+  it("partage la lecture avec le filtre d'espace dans la même requête", async () => {
+    cookieValues.set("bmb_side", "pro");
+
+    await inRequest(async () => {
+      await loadContextFilter();
+      await loadCurrentScope();
+    });
+
+    expect(loadContextsBySide).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("portée de la coque (deux côtés)", () => {
+  it("donne le côté actif, et les espaces et le filtre de chaque côté", async () => {
+    cookieValues.set("bmb_side", "private");
+    cookieValues.set("bmb_contexts_pro", NEXXIA.id);
+
+    const shell = await inRequest(() => loadShellScope());
+
+    expect(shell).toEqual({
+      side: "private",
+      sides: {
+        private: { contexts: [PERSO], selected: [PERSO.id] },
+        pro: { contexts: [TRUSTUP, NEXXIA], selected: [NEXXIA.id] },
+      },
+    });
+  });
+
+  it("partage la lecture avec le filtre et la portée courante dans la même requête", async () => {
+    cookieValues.set("bmb_side", "pro");
+
+    await inRequest(async () => {
+      await loadShellScope();
+      await loadContextFilter();
+      await loadCurrentScope();
+    });
+
+    expect(loadContextsBySide).toHaveBeenCalledTimes(1);
   });
 });

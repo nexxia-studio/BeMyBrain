@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -117,7 +117,9 @@ describe("charte dans globals.css", () => {
 
     const implemented = documented.map(([name]) => [
       name,
-      css.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})`))?.[1]?.toLowerCase(),
+      css
+        .match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})`))?.[1]
+        ?.toLowerCase(),
     ]);
 
     expect(documented).toHaveLength(11);
@@ -160,5 +162,44 @@ describe("charte dans globals.css", () => {
 
     expect(colors.length).toBeGreaterThan(0);
     expect(outside).toEqual([]);
+  });
+});
+
+// Inter (calt) dessine « 3x0 » en « 3×0 » et « -> » en flèche : le texte saisi doit s'afficher tel quel.
+// Coupé une fois sur <html>, hérité partout (preflight : `font: inherit` sur les champs) ; rien ne le rallume.
+describe("contenu saisi affiché tel quel", () => {
+  it("html coupe les alternatives contextuelles", () => {
+    const html = css.match(/\n {2}html \{([^}]*)\}/)?.[1] ?? "";
+    expect(html).toMatch(/font-variant-ligatures:\s*no-contextual;/);
+  });
+
+  it("aucune autre règle de globals.css ne réactive calt ni ne réinitialise les ligatures", () => {
+    // `font-variant:` et `font:` sont des raccourcis qui remettent les ligatures à `normal` (calt rallumé).
+    const rules =
+      css.match(
+        /font-feature-settings|font-variant(?:-ligatures)?\s*:|[^-]font\s*:/g,
+      ) ?? [];
+
+    expect(rules).toEqual(["font-variant-ligatures:"]);
+  });
+
+  it("aucun composant ne réactive calt par une classe arbitraire ou un style en ligne", () => {
+    const pattern =
+      /\[font-feature-settings|\[font-variant|\bfontFeatureSettings\b|\bfontVariant(?:Ligatures)?\b\s*:/;
+    const files = readdirSync(join(process.cwd(), "src"), {
+      recursive: true,
+      encoding: "utf8",
+    }).filter((file) => file.endsWith(".tsx") && !file.includes(".test."));
+
+    const offenders = files.filter((file) =>
+      pattern.test(readFileSync(join(process.cwd(), "src", file), "utf8")),
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+    expect(offenders).toEqual([]);
+  });
+
+  it("DESIGN.md documente le réglage", () => {
+    expect(design).toMatch(/no-contextual/);
   });
 });

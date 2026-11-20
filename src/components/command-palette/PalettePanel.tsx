@@ -2,15 +2,22 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, coque) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Contenu de la palette : recherche (Autocomplete de Base UI en ligne, motif « command palette » de sa
-// documentation ; aucune dépendance ajoutée), groupes « Aller à » (raccourcis de navigation, hors registre)
-// et « Actions » (actions du registre, lancées par la Server Action unique runAction). Entrée lance la
-// commande en surbrillance. Focus visible (DESIGN.md § 11), un seul anneau à la fois : la rangée de recherche
-// porte le focus par sa bordure basse (`ring`), le champ n'a pas d'outline ; l'option en surbrillance porte un
-// anneau intérieur `ring` au clavier (la piste `pill-track` seule reste sous 3:1 sur `popover`), retiré au
-// doigt (`pointer-coarse`) où la piste suffit. La page courante reste listée, marquée `aria-current` et d'une
-// pastille « Ici » (masquée aux lecteurs d'écran, qui annoncent déjà `aria-current`). Pas de bouton Fermer : Échap et clic dehors ferment
-// (Dialog de Base UI). Pendant une action : commandes désactivées, état annoncé ; échec : message,
-// la palette reste ouverte.
+// documentation ; aucune dépendance ajoutée) et trois groupes :
+// - « Tâches » : saisie libre → « Ajouter la tâche « … » » (`tasks.create`, côté et espace courants), en
+//   premier si aucune commande ne correspond, sinon après la dernière correspondante (`arrangeAddTask`) ;
+//   « Nouvelle tâche » ouvre l'ajout rapide ; liste et corbeille ;
+// - « Aller à » : raccourcis de navigation, hors registre ;
+// - « Actions » : actions du registre, lancées par la Server Action unique runAction (origine `palette`).
+// Entrée lance la commande en surbrillance (la première au départ). Pas d'optimiste : la palette se ferme au
+// succès. Une saisie propose toujours l'ajout de la tâche, sauf au-delà de `TASK_TITLE_MAX` : sans autre
+// commande correspondante, la liste vide le dit (« titre trop long »).
+// Focus visible (DESIGN.md § 11), un seul anneau à la fois : la rangée de recherche porte le focus par sa
+// bordure basse (`ring`), le champ n'a pas d'outline ; l'option en surbrillance porte un anneau intérieur
+// `ring` au clavier (la piste `pill-track` seule reste sous 3:1 sur `popover`), retiré au doigt
+// (`pointer-coarse`) où la piste suffit. La page courante reste listée, marquée `aria-current` et d'une
+// pastille « Ici » (masquée aux lecteurs d'écran, qui annoncent déjà `aria-current`).
+// Pas de bouton Fermer : Échap et clic dehors ferment (Dialog de Base UI). Pendant une action : commandes
+// désactivées, état annoncé ; échec : message, la palette reste ouverte.
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -18,64 +25,85 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
 
 import { runAction } from "@/app/(app)/actions";
+import { useOpenQuickAdd } from "@/components/quick-add/quick-add-context";
 import { isActivePath } from "@/components/shell/nav-items";
 import { defaultLocale, isLocale } from "@/i18n/locales";
 import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
+import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 import {
+  arrangeAddTask,
   matchesCommand,
   type PaletteCommand,
-  paletteCommands,
+  type PaletteGroupKey,
+  type PaletteScope,
+  paletteGroups,
 } from "./commands";
 
 type PaletteItem = PaletteCommand & {
   label: string;
   keywords: string;
-  /** Vrai pour l'entrée « Aller à » de la page affichée. */
+  /** Vrai pour l'entrée de navigation de la page affichée. */
   current: boolean;
 };
-type PaletteGroup = { value: "navigation" | "actions"; items: PaletteItem[] };
+type PaletteGroup = { value: PaletteGroupKey; items: PaletteItem[] };
+
+function isAddTask(item: PaletteItem): boolean {
+  return item.kind === "action" && item.action === "tasks.create";
+}
 
 type PalettePanelProps = {
+  /** Côté et espace courants : la tâche ajoutée depuis la palette les prend. */
+  scope: PaletteScope;
   /** Ferme la palette (commande lancée avec succès). */
   onDone: () => void;
 };
 
-export function PalettePanel({ onDone }: PalettePanelProps) {
+export function PalettePanel({ scope, onDone }: PalettePanelProps) {
   const t = useTranslations("palette");
   const tShell = useTranslations("shell");
   const currentLocale = useLocale();
   const router = useRouter();
+  const openQuickAdd = useOpenQuickAdd();
   const pathname = usePathname();
   const hintId = useId();
   const [pending, startTransition] = useTransition();
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
 
-  const { navigation, actions } = paletteCommands(
-    isLocale(currentLocale) ? currentLocale : defaultLocale,
-  );
-  const groups: PaletteGroup[] = [
-    {
-      value: "navigation" as const,
-      items: navigation.map((command) => ({
+  function toItem(command: PaletteCommand): PaletteItem {
+    if (command.kind === "action" && command.action === "tasks.create")
+      return {
+        ...command,
+        // Saisie de l'utilisateur : affichée telle quelle, jamais traduite.
+        label: t("commands.addTask", { title: command.title }),
+        keywords: "",
+        current: false,
+      };
+    if (command.kind === "navigate" && command.keywordsKey === undefined)
+      return {
         ...command,
         label: tShell(command.labelKey),
         keywords: t("navigationKeywords"),
         current: isActivePath(pathname, command.href),
-      })),
-    },
-    {
-      value: "actions" as const,
-      items: actions.map((command) => ({
-        ...command,
-        label: t(`commands.${command.labelKey}`),
-        keywords: t(`commands.${command.keywordsKey}`),
-        current: false,
-      })),
-    },
-  ].filter((group) => group.items.length > 0);
+      };
+    return {
+      ...command,
+      label: t(`commands.${command.labelKey}`),
+      keywords: t(`commands.${command.keywordsKey}`),
+      current: command.kind === "navigate" && pathname === command.href,
+    };
+  }
+
+  const groups: PaletteGroup[] = arrangeAddTask(
+    paletteGroups(isLocale(currentLocale) ? currentLocale : defaultLocale, {
+      query,
+      scope,
+    }).map(({ value, commands }) => ({ value, items: commands.map(toItem) })),
+    query,
+    isAddTask,
+  ).filter((group) => group.items.length > 0);
 
   function launch(item: PaletteItem) {
     if (pending) return;
@@ -83,6 +111,11 @@ export function PalettePanel({ onDone }: PalettePanelProps) {
     if (item.kind === "navigate") {
       onDone();
       router.push(item.href);
+      return;
+    }
+    if (item.kind === "quickAdd") {
+      onDone();
+      openQuickAdd();
       return;
     }
     startTransition(async () => {
@@ -102,7 +135,10 @@ export function PalettePanel({ onDone }: PalettePanelProps) {
       items={groups}
       value={query}
       onValueChange={setQuery}
-      filter={(item: PaletteItem, query) => matchesCommand(item, query)}
+      // L'ajout de la tâche reprend la saisie : toujours retenu.
+      filter={(item: PaletteItem, query) =>
+        isAddTask(item) || matchesCommand(item, query)
+      }
       itemToStringValue={(item: PaletteItem) => item.label}
       autoHighlight="always"
       keepHighlight
@@ -125,9 +161,10 @@ export function PalettePanel({ onDone }: PalettePanelProps) {
         aria-busy={pending}
         className="max-h-80 overflow-y-auto overscroll-contain p-2"
       >
+        {/* Seul cas sans résultat : saisie trop longue pour un titre, sans autre commande correspondante. */}
         <Autocomplete.Empty>
           <p className="px-3 py-6 text-small text-muted-foreground">
-            {t("empty", { query: query.trim() })}
+            {t("titleTooLong", { max: TASK_TITLE_MAX })}
           </p>
         </Autocomplete.Empty>
         <Autocomplete.List>

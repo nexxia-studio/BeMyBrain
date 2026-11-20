@@ -24,10 +24,13 @@ const spaceGrotesk = Space_Grotesk({
 // viewportFit "cover" : en standalone iOS, la page s'étend sous la barre d'accueil et, en paysage,
 // sous l'encoche ; la barre d'état reste opaque (statusBarStyle "default", --safe-top = 0 en portrait).
 // La coque (tâche 14) s'en écarte avec --safe-bottom et les côtés (globals.css, DESIGN.md § 9).
+// interactiveWidget "resizes-content" : sur Android, le clavier réduit la page, le tiroir d'ajout rapide
+// remonte avec elle (iOS l'ignore : src/lib/use-keyboard-inset.ts).
 export const viewport: Viewport = {
   themeColor: THEME_COLOR,
   colorScheme: "light",
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export async function generateMetadata(): Promise<Metadata> {

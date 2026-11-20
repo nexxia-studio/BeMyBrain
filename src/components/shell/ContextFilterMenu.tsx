@@ -16,6 +16,7 @@ import { setContextSelection } from "@/lib/preferences-actions";
 import type { Side } from "@/modules/core/schemas";
 
 import { PreferenceStatus } from "./PreferenceStatus";
+import { useShowPreference } from "./shown-preference-context";
 import { useOptimisticPreference } from "./use-optimistic-preference";
 
 // Valeur du choix « tous » dans le groupe radio (jamais un identifiant d'espace, qui est un UUID).
@@ -41,11 +42,13 @@ export function ContextFilterMenu({
   selected,
 }: ContextFilterMenuProps) {
   const t = useTranslations("shell.contexts");
+  const { showSelection } = useShowPreference();
   const allIds = contexts.map((context) => context.id);
   const { shown, pending, failed, update } = useOptimisticPreference(
     selected,
     (ids: string[]) =>
       setContextSelection(side, ids.length === allIds.length ? null : ids),
+    (ids: string[]) => showSelection(side, ids),
   );
   const all = shown.length === contexts.length;
   const value = all ? ALL : shown[0];

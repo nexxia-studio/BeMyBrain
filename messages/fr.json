@@ -40,11 +40,16 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
-    "workspace": "Espace de travail : <name></name>",
+    "loading": "Chargement du tableau de bord…",
     "today": {
       "greeting": "Bonjour.",
-      "intro": "Rien de prévu aujourd'hui dans {spaces}. Ce qui compte s'affichera ici.",
-      "introNoSpace": "Aucun espace de ce côté pour l'instant. Les tuiles apparaîtront avec le premier espace."
+      "introNoSpace": "Aucun espace de ce côté pour l'instant. Les tuiles apparaîtront avec le premier espace.",
+      "introClear": "Rien en retard, rien de prévu aujourd'hui.",
+      "overdue": "En retard",
+      "dueToday": "Aujourd'hui",
+      "list": "Tâches du jour",
+      "seeAll": "Voir la to-do",
+      "error": "Tâches du jour indisponibles. Recharge la page dans un instant."
     },
     "tiles": {
       "spaces": "Espaces couverts",
@@ -92,7 +97,10 @@
         "eyebrow": "Réseaux",
         "title": "Contenu à publier",
         "body": "Le calendrier des publications s'affichera ici."
-      }
+      },
+      "seeAll": "Tout voir",
+      "upcoming": "Prochaines tâches",
+      "tasksError": "Tâches indisponibles. Recharge la page dans un instant."
     }
   },
   "noWorkspace": {
@@ -120,6 +128,7 @@
     "searchShortcut": "⌘K",
     "openPalette": "Ouvrir la palette de commandes",
     "preferenceError": "Choix non enregistré. Réessaie.",
+    "tasks": "To-do",
     "settings": "Réglages"
   },
   "settings": {
@@ -156,13 +165,21 @@
   "palette": {
     "title": "Palette de commandes",
     "search": "Chercher une commande",
-    "placeholder": "Chercher une page ou une action…",
-    "empty": "Rien pour « {query} ». Essaie « langue » ou « réglages ».",
+    "placeholder": "Chercher ou ajouter une tâche…",
+    "titleTooLong": "Trop long pour un titre de tâche ({max} caractères au plus).",
     "groups": {
+      "tasks": "Tâches",
       "navigation": "Aller à",
       "actions": "Actions"
     },
     "commands": {
+      "addTask": "Ajouter la tâche « {title} »",
+      "newTask": "Nouvelle tâche",
+      "newTaskKeywords": "ajouter créer tâche to-do todo",
+      "openTodo": "Ouvrir la to-do",
+      "openTodoKeywords": "tâches liste to-do todo",
+      "openTrash": "Corbeille",
+      "openTrashKeywords": "tâches supprimées restaurer",
       "switchLocale": {
         "fr": "Passer en français",
         "en": "Passer en anglais"
@@ -175,6 +192,17 @@
     "error": "Action non lancée. Réessaie.",
     "hint": "<kbd>↑↓</kbd> pour choisir, <kbd>Entrée</kbd> pour lancer, <kbd>Échap</kbd> pour fermer"
   },
+  "quickAdd": {
+    "open": "Ajouter rapidement",
+    "close": "Fermer",
+    "typesLabel": "Type d'ajout",
+    "types": {
+      "task": {
+        "label": "Tâche",
+        "title": "Ajouter une tâche"
+      }
+    }
+  },
   "tasks": {
     "errors": {
       "invalid_params": "Données refusées. Vérifie la saisie.",
@@ -183,6 +211,144 @@
       "subtask_depth": "Une sous-tâche ne peut pas avoir de sous-tâches.",
       "subtask_follows_parent": "Le côté et l'espace d'une sous-tâche suivent ceux de sa tâche parente.",
       "parent_in_trash": "La tâche parente est à la corbeille. Restaure-la d'abord."
+    },
+    "quickAdd": {
+      "title": "Tâche",
+      "submit": "Ajouter",
+      "submitting": "Ajout…",
+      "added": "Tâche ajoutée",
+      "open": "Ouvrir",
+      "failed": "Tâche non ajoutée. Réessaie.",
+      "context": {
+        "label": "Espace",
+        "none": "Aucun",
+        "menuLabel": "Espace : {current}"
+      },
+      "date": {
+        "label": "Date",
+        "menuLabel": "Échéance : {current}",
+        "quickMenuLabel": "Date : {current}",
+        "none": "Sans date",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain",
+        "weekend": "Ce week-end",
+        "nextWeek": "Semaine prochaine",
+        "pick": "Choisir…",
+        "addTime": "Ajouter une heure",
+        "time": "Heure",
+        "clear": "Retirer la date"
+      },
+      "tags": {
+        "label": "Tags",
+        "menuLabel": "Tags : {current}",
+        "none": "Aucun",
+        "search": "Chercher ou créer un tag",
+        "create": "Créer « {name} »",
+        "loading": "Chargement des tags…",
+        "loadFailed": "Tags non chargés. Tu peux en créer.",
+        "limit": "{max} tags au plus."
+      }
+    },
+    "list": {
+      "title": "To-do",
+      "completedToggle": "Terminées",
+      "sections": {
+        "overdue": "En retard",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain",
+        "later": "Plus tard",
+        "none": "Sans échéance",
+        "completed": "Terminées"
+      },
+      "complete": "Terminer « {title} »",
+      "reopen": "Rouvrir « {title} »",
+      "reopenCanceled": "Rouvrir « {title} », annulée",
+      "canceled": "Annulée",
+      "updateFailed": "Tâche non mise à jour. Réessaie.",
+      "priority": {
+        "1": "Priorité urgente",
+        "2": "Priorité haute",
+        "3": "Priorité moyenne",
+        "4": "Priorité basse"
+      },
+      "subtasks": "{done, plural, one {# sous-tâche terminée} other {# sous-tâches terminées}} sur {total}",
+      "parent": "Sous-tâche de",
+      "tags": "Tags",
+      "empty": "Rien à faire de ce côté. Note ici ce qui te passe par la tête, pour ne plus y penser.",
+      "add": "Ajouter une tâche",
+      "emptyFiltered": "Rien dans cet espace",
+      "showAllSpaces": "Voir tous les espaces",
+      "showAllFailed": "Filtre non retiré. Réessaie.",
+      "truncated": "Seules les {count} premières tâches sont affichées.",
+      "trash": "Corbeille",
+      "loading": "Chargement des tâches…",
+      "error": {
+        "title": "Tâches indisponibles",
+        "body": "La liste n'a pas pu être chargée. Réessaie dans un instant.",
+        "retry": "Réessayer"
+      }
+    },
+    "detail": {
+      "label": "Détail de la tâche",
+      "close": "Fermer",
+      "parent": "Sous-tâche de",
+      "title": "Titre",
+      "titleRequired": "Le titre ne peut pas être vide.",
+      "notes": "Notes",
+      "menuLabel": "{field} : {current}",
+      "status": {
+        "label": "Statut",
+        "backlog": "À planifier",
+        "unstarted": "À faire",
+        "started": "En cours",
+        "completed": "Terminée",
+        "canceled": "Annulée"
+      },
+      "priority": {
+        "label": "Priorité",
+        "0": "Aucune",
+        "1": "Urgente",
+        "2": "Haute",
+        "3": "Moyenne",
+        "4": "Basse"
+      },
+      "placement": "Côté et espace",
+      "side": "Côté",
+      "followsParent": "Comme la tâche parente",
+      "due": "Échéance",
+      "tags": "Tags",
+      "updateFailed": "Modification non enregistrée. Réessaie.",
+      "subtasks": {
+        "title": "Sous-tâches",
+        "add": "Ajouter une sous-tâche",
+        "addFailed": "Sous-tâche non ajoutée. Réessaie."
+      },
+      "trash": "Mettre à la corbeille",
+      "trashing": "Mise à la corbeille…",
+      "trashed": "Tâche mise à la corbeille",
+      "undo": "Annuler",
+      "restored": "Tâche restaurée",
+      "trashFailed": "Tâche non mise à la corbeille. Réessaie.",
+      "restoreFailed": "Tâche non restaurée. Réessaie."
+    },
+    "trash": {
+      "side": "Côté :",
+      "context": "Espace :",
+      "subtasks": "+ {count, plural, one {# sous-tâche} other {# sous-tâches}}"
+    }
+  },
+  "trash": {
+    "title": "Corbeille",
+    "empty": "La corbeille est vide",
+    "loading": "Chargement de la corbeille…",
+    "trashedOn": "Mise à la corbeille le {date}",
+    "restore": "Restaurer",
+    "restoring": "Restauration…",
+    "restoreFailed": "Non restauré. Réessaie.",
+    "error": {
+      "title": "Corbeille indisponible",
+      "body": "La corbeille n'a pas pu être chargée. Réessaie dans un instant.",
+      "retry": "Réessayer"
     }
   }
 }

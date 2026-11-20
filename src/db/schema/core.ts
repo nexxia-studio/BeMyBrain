@@ -101,6 +101,8 @@ export const contexts = pgTable(
     name: text("name").notNull(),
     kind: text("kind").notNull(),
     position: integer("position"),
+    // Pastille de l'espace (DESIGN.md § 2) : lue par app_backend, jamais modifiée par lui (drizzle/0007).
+    color: text("color").notNull().default("neutral"),
     ...timestamps,
   },
   (t) => [
@@ -112,6 +114,10 @@ export const contexts = pgTable(
     // et du même côté (drizzle/0006).
     unique("contexts_workspace_id_kind_unique").on(t.workspaceId, t.id, t.kind),
     check("contexts_kind_check", sql`${t.kind} in ('private', 'pro')`),
+    check(
+      "contexts_color_check",
+      sql`${t.color} in ('neutral', 'warm', 'indigo')`,
+    ),
     pgPolicy("contexts_select", {
       for: "select",
       to: appBackend,

@@ -22,7 +22,9 @@ import {
   listTags,
   listTasks,
   listTrashedTasks,
+  listUpcomingTasks,
 } from "./queries";
+import { compareTasks } from "./view";
 
 // Lectures du module tasks contre la branche Neon test : withUserDb réel en rôle app_backend, fixture
 // préparée par le propriétaire. Chaque lecture est vérifiée avec des tâches à la corbeille dans la fixture.
@@ -86,6 +88,7 @@ beforeAll(async () => {
     "Fait aujourd'hui",
     "Annulée aujourd'hui",
     "Compteur",
+    "Relance pro jetée",
   ];
   const inserted = await insertTasks(owner, f.workspaceA, f.userA, [
     {
@@ -154,6 +157,11 @@ beforeAll(async () => {
       dueDate: TODAY,
     },
     { side: "private", title: "Compteur" },
+    {
+      side: "pro",
+      title: "Relance pro jetée",
+      deletedAt: "2026-11-18T12:00:00Z",
+    },
   ]);
   ids = Object.fromEntries(titles.map((title, i) => [title, inserted[i]]));
   // Sous-tâches de « Compteur » : ouverte, terminée, annulée, à la corbeille.
@@ -183,6 +191,7 @@ beforeAll(async () => {
     ids["Devis corbeille"],
     ids["Sous-tâche jetée"],
     counterSubtasks[3],
+    ids["Relance pro jetée"],
   ];
   [dueTodayB] = await insertTasks(owner, f.workspaceB, f.userB, [
     { side: "pro", title: "Devis de B du jour", dueDate: TODAY },
@@ -241,6 +250,16 @@ describe("corbeille", () => {
       parentId: t.taskA,
       parentTitle: "Payer la crèche",
     });
+  });
+
+  it("la corbeille montre les tâches des deux côtés, Privé et Pro, sans filtre", async () => {
+    const trash = await db.asUser(f.userA, (tx) =>
+      listTrashedTasks(f.workspaceA, tx),
+    );
+
+    expect(new Set(trash.map((x) => x.side))).toEqual(
+      new Set(["private", "pro"]),
+    );
   });
 });
 
@@ -418,6 +437,20 @@ describe("listTasks : filtres", () => {
     });
   });
 
+  it("une tâche porte la couleur de son espace (contextColor), null sans espace", async () => {
+    await owner.query("update contexts set color = 'indigo' where id = $1", [
+      f.contextA,
+    ]);
+
+    const r = await db.asUser(f.userA, async (tx) => ({
+      inContext: await getTask(f.workspaceA, t.taskA, tx),
+      noContext: await listTasks(f.workspaceA, { query: "100% payé" }, tx),
+    }));
+
+    expect(r.inContext).toMatchObject({ contextColor: "indigo" });
+    expect(r.noContext.tasks[0]).toMatchObject({ contextColor: null });
+  });
+
   it("tri : échéance (sans échéance en dernier), puis priorité (aucune en dernier), puis création", async () => {
     const r = await db.asUser(f.userA, (tx) =>
       listTasks(f.workspaceA, { side: "pro" }, tx),
@@ -434,7 +467,7 @@ describe("listTasks : filtres", () => {
 });
 
 describe("isolation : lecture filtrée sur le workspace passé", () => {
-  it("un membre de A et de B qui lit A ne voit rien de B", async () => {
+  it("un membre de A et de B qui lit A ne voit rien de B (tuile To-do comprise)", async () => {
     const r = await db.asUser(f.userAB, async (tx) => ({
       list: await listTasks(
         f.workspaceA,
@@ -446,16 +479,27 @@ describe("isolation : lecture filtrée sur le workspace passé", () => {
       trash: await listTrashedTasks(f.workspaceA, tx),
       tags: await listTags(f.workspaceA, tx),
       taskB: await getTask(f.workspaceA, t.taskB, tx),
+      // Tuile To-do : côté Pro de A, alors que les tâches de B sont toutes Pro.
+      upcoming: await listUpcomingTasks(
+        f.workspaceA,
+        { side: "pro", limit: 200 },
+        tx,
+      ),
     }));
 
     const bIds = [t.taskB, t.subtaskB, dueTodayB];
-    const seen = [...r.list.tasks, ...r.search.tasks, ...r.due, ...r.trash].map(
-      (x) => x.id,
-    );
+    const seen = [
+      ...r.list.tasks,
+      ...r.search.tasks,
+      ...r.due,
+      ...r.trash,
+      ...r.upcoming,
+    ].map((x) => x.id);
     for (const id of bIds) expect(seen).not.toContain(id);
     expect(titlesOf(r.search.tasks)).toEqual(["Relancer le Devis"]);
     expect(r.tags.map((x) => x.id)).not.toContain(t.tagB);
     expect(r.taskB).toBeNull();
+    expect(r.upcoming.map((x) => x.id)).toContain(ids["Relancer le Devis"]);
   });
 
   it("un utilisateur de A qui passe le workspace B ne lit rien (RLS)", async () => {
@@ -549,6 +593,43 @@ describe("listTags", () => {
     ]);
     expect(tags.find((x) => x.name === "maison")?.id).toEqual(
       expect.any(String),
+    );
+  });
+});
+
+// En dernier : ces tâches ne doivent fausser aucune lecture des blocs précédents.
+describe("ordre : listOrder (base) = compareTasks (view.ts)", () => {
+  it("le même jeu de tâches sort dans le même ordre des deux côtés", async () => {
+    const tie = "2026-11-03T08:00:00Z";
+    const rows = [
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 4 },
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 0 },
+      { dueDate: "2026-11-25", dueTime: "09:00", priority: 0 },
+      { dueDate: "2026-11-25", priority: 1 },
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 2 },
+      { dueDate: "2026-11-12", priority: 3 },
+      { dueDate: "2026-11-12", priority: 3, createdAt: "2026-11-01T08:00:00Z" },
+      { priority: 0 },
+      { priority: 2, createdAt: tie },
+      { priority: 2, createdAt: tie },
+      { priority: 2, createdAt: tie },
+      { priority: 4 },
+      { dueDate: "2026-12-10", priority: 1 },
+      { dueDate: "2026-11-25", dueTime: "14:00", priority: 4, createdAt: tie },
+    ].map((row, i) => ({
+      ...row,
+      side: "private" as const,
+      title: `Ordre-${f.run}-${i}`,
+    }));
+    await insertTasks(owner, f.workspaceA, f.userA, rows);
+
+    const r = await db.asUser(f.userA, (tx) =>
+      listTasks(f.workspaceA, { query: `Ordre-${f.run}-` }, tx),
+    );
+
+    expect(r.tasks).toHaveLength(rows.length);
+    expect(titlesOf(r.tasks)).toEqual(
+      titlesOf([...r.tasks].sort(compareTasks)),
     );
   });
 });

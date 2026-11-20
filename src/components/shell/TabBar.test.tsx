@@ -8,15 +8,15 @@ const pathname = vi.hoisted(() => ({ current: "/dashboard" }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 
-import { OpenPaletteContext } from "../command-palette/palette-context";
+import { OpenQuickAddContext } from "../quick-add/quick-add-context";
 import { TabBar } from "./TabBar";
 
-function renderTabBar(openPalette = vi.fn()) {
+function renderTabBar(openQuickAdd = vi.fn()) {
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
-      <OpenPaletteContext value={openPalette}>
+      <OpenQuickAddContext value={openQuickAdd}>
         <TabBar />
-      </OpenPaletteContext>
+      </OpenQuickAddContext>
     </NextIntlClientProvider>,
   );
 }
@@ -52,7 +52,7 @@ describe("barre d'onglets mobile", () => {
     renderTabBar();
 
     const settings = screen.getByRole("link", { name: "Réglages" });
-    const add = screen.getByRole("button", { name: "Ouvrir la palette de commandes" });
+    const add = screen.getByRole("button", { name: messages.quickAdd.open });
     expect(settings.getAttribute("href")).toBe("/settings");
     expect(settings.getAttribute("aria-current")).toBe("page");
     expect(
@@ -60,15 +60,15 @@ describe("barre d'onglets mobile", () => {
     ).toBeTruthy();
   });
 
-  it("le bouton d'ajout, actif, ouvre la palette de commandes", () => {
+  it("le + ouvre l'ajout rapide", () => {
     pathname.current = "/dashboard";
-    const openPalette = vi.fn();
-    renderTabBar(openPalette);
+    const openQuickAdd = vi.fn();
+    renderTabBar(openQuickAdd);
 
-    const add = screen.getByRole("button", { name: "Ouvrir la palette de commandes" });
+    const add = screen.getByRole("button", { name: messages.quickAdd.open });
     fireEvent.click(add);
 
     expect((add as HTMLButtonElement).disabled).toBe(false);
-    expect(openPalette).toHaveBeenCalledOnce();
+    expect(openQuickAdd).toHaveBeenCalledOnce();
   });
 });
