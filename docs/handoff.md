@@ -1,29 +1,30 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-19 — session : `/feature todo-unifiee` (spec et plan)
+**Dernière mise à jour** : 2026-11-20 — session : `/handoff` après fusion de la to-do
 
 ## Où on en est
-- Feature en cours : `todo-unifiee`, branche `feat/todo-unifiee` (partie de `feat/socle`, embarque le secret `SEED_OWNER_USER_ID`). Poussée.
-- Spec validée le 2026-11-19 : `docs/features/todo-unifiee/spec.md`. Plan : `docs/features/todo-unifiee/plan.md`, 18 tâches, aucune cochée.
-- DESIGN.md § 5 : tuile « Aujourd'hui » avec 3 lignes de tâches (validé). Roadmap : « Privé », calendrier en module à part, BRAIN-33 après la to-do.
-- Tests rouges : aucun (rien codé).
+- To-do unifiée fusionnée : PR #8 et #9 dans `main` (fusion `19f32a5`). Branche `feat/todo-unifiee` locale, non poussée.
+- Plan : 18 tâches cochées, déplacées dans « Terminé ». QA 7/7 (`docs/features/todo-unifiee/qa-report.md`). 1745 Vitest, lint et types verts.
+- Production après fusion : « Migrer la production » vert, 8 migrations, en-têtes de sécurité présents, Sentry sans issue nouvelle.
+- Libellés de statut : À planifier, À faire, En cours, Terminée, Annulée. « En attente » réservé à la tranche 2.
+- Tests rouges : aucun.
 
 ## Prochaine étape
-Antoine valide le découpage du plan, puis exécution à partir de la tâche 1 (fuseau en une seule fonction). Tâches 2 à 8 et 10 marquées `[security]` : `security-auditor` après le reviewer.
+`/clear` puis `/feature effets-de-verre` (BRAIN-33). Avant la spec : lire DESIGN.md, ADR-006 et `docs/design/references/`.
 
 ## Suite
-- Essai Android (scénario 5) avant le multi-comptes (BRAIN-26) ; rôle owner/member et choix du workspace au même ticket.
-- BRAIN-37 : ordre migration / mise en ligne, avant le premier module sensible (avec BRAIN-34, staging). Aucun Deployment Check actif ; parade = migrations rétrocompatibles.
-- BRAIN-35 : source maps Sentry. BRAIN-36 : deux GET `/settings` par clic (faible priorité). BRAIN-33 : effets de verre.
-- Limites QA-1 : lien profond avec session expirée → `/login` puis tableau de bord (retour seulement pour les actions) ; un `console.warn` par session expirée, volume à surveiller.
+- Ticket à créer, proposé à Antoine : erreur du détail affichée par `tasks/error.tsx` sous la liste. Correction : `error.tsx` dans `@detail`.
+- Faible priorité : BRAIN-43 (relais iOS, libéré à la fin de l'ouverture du tiroir), BRAIN-44 (contrôles désactivés après un ajout), BRAIN-45 (pagination de la corbeille).
+- Design à trancher (plan, tâche 18) : menus Date et Tags sur mobile, Notes trop haut, « Demain » = « Ce week-end » le vendredi, place vide à 1440 px, survol, icônes de priorité (ticket proposé).
+- BRAIN-26 : essai Android, owner/member, choix du workspace. BRAIN-37 : ordre migration / mise en ligne. BRAIN-35 : source maps Sentry. BRAIN-36 : deux GET `/settings` par clic.
+- QA-1 : lien profond avec session expirée → `/login` puis tableau de bord.
 
 ## Questions ouvertes
-- `SEED_OWNER_USER_ID` passé en secret (2026-11-19, part avec la première PR de la to-do) ; Antoine supprime la variable GitHub après la fusion et un passage vert de « Migrer la production ».
-- Jose non joué sur le vrai JWKS distant : kid inconnu sous 30 s avec réseau coupé ; cache périmé avec réseau coupé.
-- E-mails Neon Auth : tutoient-ils ? Une preview hérite-t-elle des comptes de `production` ? (tâche 9)
-- Règle Seer de la PR 1135934 laissée (organisation) ; issue de test BEMYBRAIN-1 encore ouverte dans Sentry.
-- Jeton Vercel CI à renouveler avant le 2027-02-08 (échéance 2027-02-15).
-- MCP Vercel sans accès au pare-feu (404) ; reconnecter l'intégration pour agir depuis Claude.
+- `SEED_OWNER_USER_ID` : secret GitHub en place, migration verte. Antoine supprime la variable GitHub.
+- jose : JWKS distant non joué (kid inconnu sous 30 s, réseau coupé ; cache périmé).
+- E-mails Neon Auth : tutoient-ils ? Une preview hérite-t-elle des comptes de `production` ?
+- Sentry : règle Seer de la PR 1135934 laissée ; BEMYBRAIN-1 ouverte.
+- Jeton Vercel CI à renouveler avant le 2027-02-08. MCP Vercel sans accès au pare-feu (404).
 
 Commande de reprise :
-`Exécute docs/features/todo-unifiee/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer pour chaque review.`
+`/clear` puis `/feature effets-de-verre`

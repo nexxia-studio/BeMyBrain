@@ -12,7 +12,7 @@ Chaque module métier vit dans `src/modules/<module>/` et expose ses lectures et
 | Module | Dossier | Rôle | Dépend de | État |
 | --- | --- | --- | --- | --- |
 | socle | `src/app`, `src/db`, `src/modules/core` | login, workspace, contextes Privé/Pro, coque bento | Neon, auth | clos 2026-11-18 |
-| tasks | `src/modules/tasks` | to-do unifiée Privé / Trustup / Nexxia, tags | socle | à spécifier |
+| tasks | `src/modules/tasks` | to-do unifiée Privé / Trustup / Nexxia, tags | socle | tranche 1 livrée 2026-11-20 |
 | lists | `src/modules/lists` | bucket lists, liste de courses partagée par lien | socle | à spécifier |
 | finance | `src/modules/finance` | budget, transactions, investissements, assurances, mobilier | socle | plus tard |
 
@@ -23,7 +23,10 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 | --- | --- | --- | --- |
 | `workspaces` | — | un compte | |
 | `workspace_members` | `workspace_id` | lien utilisateur ↔ workspace, rôle, langue | `role` et `locale` en `text` + CHECK (ADR-007) |
-| `contexts` | `workspace_id` | Privé, Trustup, Nexxia… | `kind` : `private` ou `pro` ; l'utilisateur crée les siens |
+| `contexts` | `workspace_id` | Privé, Trustup, Nexxia… | `kind` : `private` ou `pro` ; `color` : `neutral`, `warm` ou `indigo` (CHECK) ; l'utilisateur crée les siens |
+| `tasks` | `workspace_id` | tâches, sous-tâches (`parent_id`), côté, espace, corbeille (`deleted_at`) | pas de DELETE (RLS) ; `origin` non modifiable |
+| `tags` | `workspace_id` | étiquettes de tâches | pas de DELETE (RLS) |
+| `task_tags` | `workspace_id` | lien tâche ↔ tag | |
 
 ## Flux critiques
 1. Connexion : écran login → auth → session serveur → `workspaceId` résolu → coque. Session expirée pendant une action → `/login?next=<chemin interne>` → retour sur la page.
