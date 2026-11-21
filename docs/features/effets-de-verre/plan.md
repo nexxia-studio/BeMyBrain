@@ -147,7 +147,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
 <!-- Alimenté par l'essai iPhone (tâche 8) et /qa. Même format que les tâches. -->
 Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défauts.
 
-- [ ] **QA-1. Givre plus marqué, réglage d'intensité dans la démo**
+- [x] **QA-1. Givre plus marqué, réglage d'intensité dans la démo**
   - Constat : le voile se voit à peine. Les halos (`#afc0f4`, `#d6c6f2`) mêlés à 75 % de blanc, sur un verre déjà teinté par les mêmes halos, donnent presque rien.
   - Trois crans, tous tirés des tokens de la charte (aucune couleur nouvelle), départ toujours à 1 :
     - discret : halos purs (sans `--popover`), repos 0,55 ;
@@ -158,7 +158,7 @@ Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défau
   - Retiré avec la démo à la tâche 9 (cookie compris).
   - Fini quand : tests verts (`tests/design/frost.test.ts` mis à jour), parité des messages, givre visible en capture locale.
 
-- [ ] **QA-2. Tableau de bord : hauteurs fixes par tuile, givre à la géométrie exacte**
+- [x] **QA-2. Tableau de bord : hauteurs fixes par tuile, givre à la géométrie exacte**
   - Pourquoi : largeurs et nombre de tuiles venaient bien de la grille, mais les hauteurs du givre étaient posées au jugé. La hauteur réelle d'une tuile dépendait de son contenu, et l'e2e ne mesurait que le titre et le bord haut de la première tuile. Décision d'Antoine du 2026-11-21 : hauteurs fixes par tuile.
   - Règles d'Antoine :
     - hauteur fixe par taille de tuile (`wide`, `standard`, `figure`) et par tuile pleine « Aujourd'hui », définie **une seule fois**, à côté de `TILE_SIZE_CLASSES` (`src/components/bento/tile-sizes.ts`). Les vraies tuiles et `dashboard/loading.tsx` lisent les mêmes constantes, aucune valeur recopiée (`MOBILE_MIN_HEIGHT` disparaît) ;
@@ -173,7 +173,7 @@ Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défau
     - e2e : boîte (`x`, `y`, `width`, `height`) de **chaque** tuile identique avant (givre) et après (contenu), au pixel, desktop et mobile. Données réalistes : plusieurs tâches, titres longs, tuiles vides et pleines, To-do à 0, 2 et 5 tâches.
   - Fini quand : tests verts, e2e sans écart, suite e2e complète sans régression, captures 390 et 1440 px.
 
-- [ ] **QA-3. Liste et corbeille : givre générique, haut de page immobile**
+- [x] **QA-3. Liste et corbeille : givre générique, haut de page immobile**
   - Décision d'Antoine du 2026-11-21 : squelette générique, sans mémorisation, charte de la liste inchangée (titres sur deux lignes).
   - Givre : un en-tête de section, puis six lignes à la hauteur standard d'une ligne dont le titre tient sur une ligne. Toujours les mêmes, aux dimensions de `TaskRow` et de l'en-tête de section de `TaskList`, lues depuis des constantes partagées, sans recopie.
   - En-tête de page, filtre d'espace et interrupteur « Terminées » sont à leur place définitive.
