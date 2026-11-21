@@ -450,6 +450,206 @@ test.describe("givre du tableau de bord à la géométrie exacte", () => {
   });
 });
 
+// Liste et corbeille : haut de page immobile (QA-3). Le givre est générique (un en-tête de section, six lignes à la
+// hauteur d'une ligne dont le titre tient sur une ligne) ; l'en-tête de page, le filtre d'espace, l'interrupteur
+// « Terminées », le premier en-tête de section et la première ligne gardent leur boîte (x, y, largeur, hauteur)
+// au pixel près. Le bas de la liste peut s'ajuster (titres sur deux lignes) : il n'est pas vérifié.
+// Données réalistes créées par l'ajout rapide, côté Pro (deux espaces : le filtre d'espace est dans l'en-tête sous
+// 1024 px ; le compte e2e y porte parfois d'autres tâches, on ne suppose pas une liste vide) : plusieurs
+// sections, titres longs ; la première ligne est une tâche au titre court, en retard de dix ans (première de « En
+// retard »). Corbeille : les tâches y sont mises, la courte en dernier (première ligne, la plus récente).
+
+type Probe = {
+  what: string;
+  during: (page: Page) => Locator;
+  after: (page: Page) => Locator;
+};
+
+type FullBox = { x: number; y: number; width: number; height: number };
+
+async function fullBox(locator: Locator): Promise<FullBox> {
+  return locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
+}
+
+/** Contenu de la page (premier `<main>` : pendant l'attente, `@detail` en porte une copie, docs/gotchas.md). */
+const mainOf = (page: Page) => page.getByRole("main").first();
+
+const headerProbe: Probe = {
+  what: "en-tête de page",
+  during: (page) => mainOf(page).locator(":scope > header"),
+  after: (page) => mainOf(page).locator(":scope > header"),
+};
+
+const firstSection = (page: Page) => mainOf(page).getByRole("region").first();
+
+const TASKS_PROBES: Probe[] = [
+  headerProbe,
+  {
+    what: "filtre d'espace",
+    during: (page) => mainOf(page).getByTestId("page-header-filter"),
+    after: (page) => mainOf(page).getByTestId("page-header-filter"),
+  },
+  {
+    what: "interrupteur « Terminées »",
+    during: (page) => mainOf(page).getByRole("switch", { includeHidden: true }),
+    after: (page) => mainOf(page).getByRole("switch"),
+  },
+  {
+    what: "premier en-tête de section",
+    during: (page) =>
+      mainOf(page).getByTestId("tasks-frost-section-header").first(),
+    after: (page) =>
+      firstSection(page).getByRole("heading", { level: 2 }).locator(".."),
+  },
+  {
+    what: "première ligne",
+    during: (page) => mainOf(page).getByTestId("tasks-frost-row").first(),
+    after: (page) => firstSection(page).getByRole("listitem").first(),
+  },
+];
+
+const TRASH_PROBES: Probe[] = [
+  headerProbe,
+  {
+    what: "première ligne",
+    during: (page) => mainOf(page).getByTestId("trash-frost-row").first(),
+    after: (page) => mainOf(page).getByRole("listitem").first(),
+  },
+];
+
+/**
+ * Depuis `from`, ouvre `path` avec un chargement ralenti ; relève la boîte de chaque repère pendant le givre puis
+ * une fois le contenu arrivé, et les compare au pixel. `check` vérifie le contenu attendu.
+ */
+async function expectTopStill(
+  page: Page,
+  c: {
+    what: string;
+    from: string;
+    path: string;
+    click: (page: Page) => Locator;
+    frostId: string;
+    probes: Probe[];
+    check: () => Promise<void>;
+  },
+) {
+  await page.goto(c.from);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await slowNavigation(page, c.path);
+
+  await c.click(page).click();
+  await expect(page.getByTestId(c.frostId).first()).toBeVisible();
+  const during = await Promise.all(
+    c.probes.map((p) => fullBox(p.during(page))),
+  );
+  await expect(page.getByTestId(c.frostId)).toHaveCount(0, { timeout: 15_000 });
+  await expect(page).toHaveURL(new RegExp(`${c.path}$`));
+  await c.check();
+  const after = await Promise.all(c.probes.map((p) => fullBox(p.after(page))));
+  await page.unrouteAll({ behavior: "wait" });
+
+  test.info().annotations.push({
+    type: `haut de page : ${c.what}`,
+    description: JSON.stringify(
+      c.probes.map((p, i) => ({
+        what: p.what,
+        during: during[i],
+        after: after[i],
+      })),
+    ),
+  });
+  c.probes.forEach((probe, i) => {
+    for (const key of ["x", "y", "width", "height"] as const) {
+      expect(
+        Math.abs(after[i][key] - during[i][key]),
+        `${c.what}, ${probe.what} : ${key} ${during[i][key]} (givre) → ${after[i][key]} (contenu)`,
+      ).toBeLessThan(GEOMETRY_TOLERANCE_PX);
+    }
+  });
+}
+
+test.describe("liste et corbeille : haut de page immobile", () => {
+  const created: string[] = [];
+
+  test.afterEach(async ({ page }) => {
+    await trashTasks(page, created.splice(0));
+  });
+
+  test("en-tête, filtre, interrupteur, premier en-tête de section et première ligne gardent leur boîte au pixel près", async ({
+    page,
+  }) => {
+    // Sept tâches créées puis mises à la corbeille, deux chargements ralentis.
+    test.setTimeout(180_000);
+    const longTitle = (base: string) =>
+      uniqueTitle(
+        `${base}, avec un intitulé assez long pour passer sur deux lignes dans la liste, au téléphone comme sur ordinateur`,
+      );
+    await signIn(page);
+    await page.goto("/tasks");
+    await switchSide(page, "pro");
+    const short = uniqueTitle("TVA");
+    const shortId = await quickAddTask(page, short, { date: userDay(-3650) });
+    created.push(shortId);
+    const longs = [
+      await quickAddTask(page, longTitle("Relancer le devis de la toiture"), {
+        date: userDay(-2),
+      }),
+      await quickAddTask(page, longTitle("Préparer la réunion de chantier"), {
+        date: userDay(0),
+        time: "18:30",
+      }),
+      await quickAddTask(page, longTitle("Envoyer la facture du jalon 2"), {
+        date: userDay(1),
+      }),
+      await quickAddTask(page, longTitle("Mettre à jour le planning"), {
+        date: userDay(6),
+      }),
+      await quickAddTask(page, longTitle("Classer les notes de frais")),
+    ];
+    created.push(...longs);
+
+    await expectTopStill(page, {
+      what: "liste",
+      from: "/dashboard",
+      path: "/tasks",
+      click: (p) => navLink(p, fr.shell.tasks),
+      frostId: "tasks-frost",
+      probes: TASKS_PROBES,
+      check: async () => {
+        await expect(
+          firstSection(page).getByRole("heading", { level: 2 }),
+        ).toHaveText(fr.tasks.list.sections.overdue);
+        await expect(
+          firstSection(page).getByRole("listitem").first(),
+        ).toContainText(short);
+        await expect(mainOf(page).getByRole("region")).not.toHaveCount(1);
+      },
+    });
+
+    // Corbeille : les longues d'abord, la courte en dernier (la plus récente, première ligne).
+    await trashTasks(page, longs);
+    await trashTasks(page, [shortId]);
+    await expectTopStill(page, {
+      what: "corbeille",
+      from: "/tasks",
+      path: "/trash",
+      click: (p) => mainOf(p).getByRole("link", { name: fr.tasks.list.trash }),
+      frostId: "trash-frost",
+      probes: TRASH_PROBES,
+      check: async () => {
+        await expect(mainOf(page).getByRole("listitem").first()).toContainText(
+          short,
+        );
+        await expect(mainOf(page).getByRole("listitem")).not.toHaveCount(1);
+      },
+    });
+  });
+});
+
 // Reflet (scénarios 1 à 3) : un échantillonneur, posé avant chaque document, relève à chaque image le style en
 // ligne `transform` de chaque calque `[data-sheen]` (seul GSAP en pose un).
 async function watchSheens(page: Page) {

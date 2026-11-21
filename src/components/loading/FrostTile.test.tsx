@@ -71,4 +71,32 @@ describe("FrostTile", () => {
     expect(tile.classList.contains("glass")).toBe(false);
     expect(veilOf(tile)).toBeNull();
   });
+
+  it("la variante ligne : surface de ligne donnée par la classe, voile, sans verre ni rayon de tuile", () => {
+    const { container } = render(
+      <FrostTile variant="row" index={2} className="rounded-lg bg-row" />,
+    );
+    const tile = container.firstElementChild as HTMLElement;
+
+    expect([...tile.classList]).toEqual(
+      expect.arrayContaining(["rounded-lg", "bg-row", "relative", "isolate"]),
+    );
+    expect(tile.classList.contains("glass")).toBe(false);
+    expect(tile.classList.contains("rounded-tile")).toBe(false);
+    expect(veilOf(tile)).not.toBeNull();
+    expect(tile.style.getPropertyValue("--frost-index")).toBe("2");
+  });
+
+  it("rend ses enfants après le voile et pose son data-testid", () => {
+    const { container } = render(
+      <FrostTile testId="frost-row">
+        <span data-testid="cale" />
+      </FrostTile>,
+    );
+    const tile = container.firstElementChild as HTMLElement;
+
+    expect(tile.dataset.testid).toBe("frost-row");
+    expect(tile.firstElementChild?.classList.contains("frost")).toBe(true);
+    expect(tile.lastElementChild?.getAttribute("data-testid")).toBe("cale");
+  });
 });

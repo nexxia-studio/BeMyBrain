@@ -22,6 +22,13 @@ import { dueDateInstant, subtaskCounter, tagList } from "@/modules/tasks/view";
 import { TASKS_PATH } from "../shell/nav-items";
 import { contextChipClass } from "./context-chip-class";
 import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
+import {
+  TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_TEXT,
+  TASK_ROW_LINE_CLASSES,
+  TASK_ROW_TEXT_CLASSES,
+  TASK_ROW_TITLE_TEXT,
+} from "./task-list-layout";
 import { useTaskToggle } from "./use-task-toggle";
 
 const MotionLink = motion.create(Link);
@@ -66,13 +73,8 @@ export function TaskRow({
 
   return (
     // Survol du lien de la ligne : fond `accent` sur toute la ligne (DESIGN.md § 2, états dérivés).
-    <div
-      className={cn(
-        "flex flex-col rounded-lg bg-row has-[a:hover]:bg-accent",
-        className,
-      )}
-    >
-      <div className="flex min-h-11 items-start gap-1 pr-3.5 pl-0.5">
+    <div className={cn(TASK_ROW_CLASSES, "has-[a:hover]:bg-accent", className)}>
+      <div className={TASK_ROW_LINE_CLASSES}>
         <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center has-disabled:cursor-not-allowed">
           <input
             type="checkbox"
@@ -96,13 +98,16 @@ export function TaskRow({
           href={`${TASKS_PATH}/${task.id}${listQuery}`}
           whileTap={{ scale: 0.97 }}
           transition={{ duration: 0.1, ease: "easeOut" }}
-          className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-lg py-2.5 text-foreground no-underline hover:text-foreground"
+          className={cn(
+            TASK_ROW_TEXT_CLASSES,
+            "rounded-lg text-foreground no-underline hover:text-foreground",
+          )}
         >
           {/* Contenu saisi : jamais traduit. */}
           <span
             className={cn(
               oneLine ? "truncate" : "line-clamp-2 break-words",
-              "text-body",
+              TASK_ROW_TITLE_TEXT,
               closed && "text-muted-foreground",
             )}
           >
@@ -110,7 +115,8 @@ export function TaskRow({
           </span>
           <span
             className={cn(
-              "flex items-center gap-x-2.5 text-caption text-muted-foreground empty:hidden",
+              "flex items-center gap-x-2.5 text-muted-foreground empty:hidden",
+              TASK_ROW_LEGEND_TEXT,
               oneLine
                 ? "flex-nowrap overflow-hidden whitespace-nowrap"
                 : "flex-wrap gap-y-1",

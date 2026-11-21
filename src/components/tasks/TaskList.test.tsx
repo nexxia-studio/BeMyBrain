@@ -21,7 +21,25 @@ vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 const setContextSelection = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/preferences-actions", () => ({ setContextSelection }));
 
+import {
+  TASK_LIST_TILE_CLASSES,
+  TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_TEXT,
+  TASK_ROW_LINE_CLASSES,
+  TASK_ROW_TEXT_CLASSES,
+  TASK_ROW_TITLE_TEXT,
+  TASK_ROWS_CLASSES,
+  TASK_SECTION_CLASSES,
+  TASK_SECTION_HEADER_CLASSES,
+  TASK_SECTION_HEADING_TEXT,
+} from "./task-list-layout";
 import { TaskList } from "./TaskList";
+
+function expectClasses(element: HTMLElement, classes: string) {
+  expect(element.className.split(/\s+/)).toEqual(
+    expect.arrayContaining(classes.split(" ")),
+  );
+}
 
 const TODAY = "2026-11-19";
 const PARENT_ID = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
@@ -166,6 +184,33 @@ describe("liste des tâches : sections", () => {
     expect(within(link).getByText("Priorité urgente")).toBeTruthy();
     const due = within(link).getByText("17 nov.");
     expect(due.className).toContain("text-destructive");
+  });
+});
+
+describe("liste des tâches : géométrie partagée avec le givre", () => {
+  it("tuile, section, en-tête et ligne portent les classes de task-list-layout, lues aussi par le givre", () => {
+    renderList([buildTask({ title: "Hier", dueDate: "2026-11-18" })]);
+
+    const section = screen.getByRole("region", { name: "En retard" });
+    const heading = within(section).getByRole("heading", { level: 2 });
+    const item = within(section).getByRole("listitem");
+    const row = item.firstElementChild as HTMLElement;
+    const line = row.firstElementChild as HTMLElement;
+    const text = within(section).getByRole("link");
+    const [title, legend] = Array.from(text.children) as HTMLElement[];
+    expectClasses(section.parentElement as HTMLElement, TASK_LIST_TILE_CLASSES);
+    expectClasses(section, TASK_SECTION_CLASSES);
+    expectClasses(
+      heading.parentElement as HTMLElement,
+      TASK_SECTION_HEADER_CLASSES,
+    );
+    expectClasses(heading, TASK_SECTION_HEADING_TEXT);
+    expectClasses(item.parentElement as HTMLElement, TASK_ROWS_CLASSES);
+    expectClasses(row, TASK_ROW_CLASSES);
+    expectClasses(line, TASK_ROW_LINE_CLASSES);
+    expectClasses(text, TASK_ROW_TEXT_CLASSES);
+    expectClasses(title, TASK_ROW_TITLE_TEXT);
+    expectClasses(legend, TASK_ROW_LEGEND_TEXT);
   });
 });
 

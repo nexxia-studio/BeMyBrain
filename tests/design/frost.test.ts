@@ -111,4 +111,10 @@ describe("givre de chargement (globals.css)", () => {
     expect(utility).not.toMatch(/backdrop-filter/);
     expect(keyframes).not.toMatch(/backdrop-filter/);
   });
+
+  it("tant qu'un voile est affiché, le document n'ancre pas son défilement : le haut de page ne saute pas à l'arrivée du contenu", () => {
+    const anchor = blockAfter(css, "html:has(.frost)");
+
+    expect(anchor).toMatch(/overflow-anchor:\s*none/);
+  });
 });

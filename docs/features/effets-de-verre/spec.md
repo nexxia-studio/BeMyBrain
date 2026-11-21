@@ -51,8 +51,13 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - [ ] La tuile pleine « Aujourd'hui » garde sa couleur primaire, vide, à ses dimensions réelles, sans voile.
 - [ ] « Réduire les animations » actif : voile fixe au niveau de repos, sans mouvement.
 - [ ] Aucun décalage de mise en page entre le givre et le contenu réel, sur mobile (390 px) et ordinateur (1440 px) :
-  - même position et même largeur du titre et de la première tuile ;
+  - tableau de bord : même position et même largeur du titre et de la première tuile ;
   - score de décalage cumulé (CLS) mesuré < 0,01.
+- [ ] Liste des tâches et corbeille (QA-3, décision d'Antoine du 2026-11-21) : givre générique, sans mémorisation, charte de la liste inchangée (titres sur deux lignes au plus) :
+  - liste : un en-tête de section, puis six lignes givrées à la hauteur d'une ligne dont le titre et la légende tiennent sur une ligne ; corbeille : six lignes givrées à la hauteur d'une tâche à la corbeille au titre sur une ligne (pastille de côté, date) ;
+  - dimensions lues dans les classes partagées avec les vrais composants (`task-list-layout.ts`, `trash-list-layout.ts`), jamais recopiées ;
+  - boîte (x, y, largeur, hauteur) identique au pixel près, du givre au contenu, pour l'en-tête de page, le filtre d'espace, l'interrupteur « Terminées », le premier en-tête de section et la première ligne (corbeille : en-tête de page et première ligne) ;
+  - sous la première ligne, un ajustement est accepté (titres sur deux lignes, légende plus haute, nombre de lignes) : le bas de la liste n'est pas vérifié. Pour ces deux pages, ce critère remplace « même position et même largeur du titre et de la première tuile ».
 - [ ] Tableau de bord (QA-2, décision d'Antoine du 2026-11-21) : chaque tuile du givre a la boîte de la vraie tuile (x, y, largeur, hauteur), au pixel près, quel que soit le contenu (To-do à 0, 2 ou 5 tâches, « Aujourd'hui » vide, peu remplie ou pleine, tuiles vides, titres longs), sur mobile et ordinateur :
   - hauteur fixe par tuile (`wide`, `standard`, `figure`, tuile pleine), par palier d'écran, définie une seule fois dans `tile-sizes.ts` et lue par les tuiles et le givre (valeurs : DESIGN.md § 6) ;
   - chaque hauteur est calée sur le contenu maximal de la tuile ;
@@ -79,7 +84,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 2. **Pas de rejeu** : depuis le tableau de bord, Antoine va sur la liste puis revient. La grille s'affiche sans révélation ni reflet. Variante mobile : oui.
 3. **Mouvement réduit** : avec « réduire les animations », Antoine ouvre une session neuve. Grille immédiate, aucun reflet, aucun calque visible ni animé. Variante mobile : oui.
 4. **Givre du tableau de bord** : chargement ralenti (requête retardée dans Playwright). Le givre s'affiche avec le titre, s'éclaircit tuile par tuile, puis le contenu le remplace sans décalage. Variante mobile : oui.
-5. **Givre de la liste et de la corbeille** : même parcours sur `/tasks` et `/trash`. Variante mobile : oui.
+5. **Givre de la liste et de la corbeille** : même parcours sur `/tasks` et `/trash`, avec plusieurs sections, des titres longs et des tâches à la corbeille. En-tête, filtre, interrupteur, premier en-tête de section et première ligne ne bougent pas ; le bas de la liste peut s'ajuster. Variante mobile : oui.
 6. **Givre en mouvement réduit** : le voile s'affiche directement à son niveau de repos, sans transition. Variante mobile : non.
 7. **Démo fermée** : `/demo/effets-de-verre` répond 404 après la dernière tâche, en dev comme en build. Variante mobile : non.
 

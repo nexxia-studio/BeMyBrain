@@ -2,7 +2,26 @@ import { render, screen } from "@testing-library/react";
 import { createTranslator } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  TASK_LIST_TILE_CLASSES,
+  TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_TEXT,
+  TASK_ROW_LINE_CLASSES,
+  TASK_ROW_TEXT_CLASSES,
+  TASK_ROW_TITLE_TEXT,
+  TASK_ROWS_CLASSES,
+  TASK_SECTION_CLASSES,
+  TASK_SECTION_HEADER_CLASSES,
+  TASK_SECTION_HEADING_TEXT,
+} from "@/components/tasks/task-list-layout";
+
 import messages from "../../../../messages/fr.json";
+
+function expectClasses(element: HTMLElement, classes: string) {
+  expect(element.className.split(/\s+/)).toEqual(
+    expect.arrayContaining(classes.split(" ")),
+  );
+}
 
 const pageHeaderProps = vi.hoisted(() => vi.fn());
 const completedToggleProps = vi.hoisted(() => vi.fn());
@@ -48,7 +67,7 @@ describe("chargement de la liste des tâches", () => {
     );
   });
 
-  it("titre par l'en-tête de page, statut, une tuile givrée à la largeur de la liste (max-w-3xl), aucun squelette", async () => {
+  it("titre par l'en-tête de page, statut, une tuile givrée à la géométrie de la liste, aucun squelette", async () => {
     const { container } = render(await TasksLoading());
 
     expect(pageHeaderProps).toHaveBeenCalledWith(
@@ -66,18 +85,41 @@ describe("chargement de la liste des tâches", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "Chargement des tâches…",
     );
-
     const holder = screen.getByTestId("tasks-frost");
     expect(holder.textContent).toBe("");
     expect(holder.getAttribute("aria-hidden")).toBe("true");
     expect(holder.children).toHaveLength(1);
-    const frost = holder.firstElementChild as HTMLElement;
-    expect(frost.classList.contains("glass")).toBe(true);
-    expect(frost.querySelectorAll(".frost")).toHaveLength(1);
-    expect(frost.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["w-full", "max-w-3xl", "min-h-75"]),
-    );
+    const tile = holder.firstElementChild as HTMLElement;
+    expect(tile.classList.contains("glass")).toBe(true);
+    expectClasses(tile, TASK_LIST_TILE_CLASSES);
     expect(container.querySelector(".bg-track")).toBeNull();
+  });
+
+  it("givre : un en-tête de section puis six lignes, aux classes partagées avec TaskList et TaskRow", async () => {
+    render(await TasksLoading());
+
+    const header = screen.getByTestId("tasks-frost-section-header");
+    const rows = screen.getAllByTestId("tasks-frost-row");
+    expectClasses(header.parentElement as HTMLElement, TASK_SECTION_CLASSES);
+    expectClasses(header, TASK_SECTION_HEADER_CLASSES);
+    expectClasses(
+      header.firstElementChild as HTMLElement,
+      `${TASK_SECTION_HEADING_TEXT} h-lh`,
+    );
+    expect(rows).toHaveLength(6);
+    expectClasses(rows[0].parentElement as HTMLElement, TASK_ROWS_CLASSES);
+    rows.forEach((row, i) => {
+      expectClasses(row, TASK_ROW_CLASSES);
+      expect(row.querySelectorAll(".frost")).toHaveLength(1);
+      expect(row.style.getPropertyValue("--frost-index")).toBe(String(i + 1));
+      const line = row.querySelector(":scope > div:not(.frost)") as HTMLElement;
+      expectClasses(line, TASK_ROW_LINE_CLASSES);
+      const text = line.firstElementChild as HTMLElement;
+      expectClasses(text, TASK_ROW_TEXT_CLASSES);
+      const [title, legend] = Array.from(text.children) as HTMLElement[];
+      expectClasses(title, `${TASK_ROW_TITLE_TEXT} h-lh`);
+      expectClasses(legend, `${TASK_ROW_LEGEND_TEXT} h-lh`);
+    });
   });
 
   it("réserve la place de l'interrupteur « Terminées » sans le montrer : l'en-tête ne bouge pas à l'arrivée", async () => {

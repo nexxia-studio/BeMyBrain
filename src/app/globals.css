@@ -387,11 +387,7 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
   --frost-duration: 1.3s;
   --frost-stagger: 0.18s;
   border-radius: inherit;
-  background-image: linear-gradient(
-    135deg,
-    var(--frost-from),
-    var(--frost-to)
-  );
+  background-image: linear-gradient(135deg, var(--frost-from), var(--frost-to));
   opacity: var(--frost-rest);
   animation: frost-clear var(--frost-duration) ease-in-out both;
   animation-delay: calc(var(--frost-index, 0) * var(--frost-stagger));
@@ -409,6 +405,14 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
   to {
     opacity: var(--frost-rest);
   }
+}
+
+/* Pendant un givre, aucun ancrage du défilement (QA-3 d'effets-de-verre). Arrivé d'une page défilée (lien
+   « Corbeille » en bas d'une longue liste), Chromium borne le défilement à la hauteur du givre, puis l'ancrage le
+   rétablit quand le contenu allonge la page (relevé : 107 → 83 → 107 px) et tout le haut de page saute. Coupé
+   seulement tant qu'un voile est affiché : l'ancrage reste actif partout ailleurs. */
+html:has(.frost) {
+  overflow-anchor: none;
 }
 
 /* Reflet (DESIGN.md § 7, ligne « Reflet ») : calque rendu par TileSurface dans chaque tuile de verre de la

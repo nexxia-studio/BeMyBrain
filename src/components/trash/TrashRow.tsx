@@ -13,10 +13,17 @@ import { useId, useState, useTransition } from "react";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
 import { settleAction } from "@/lib/settle-action";
+import { cn } from "@/lib/utils";
 import { getUserTimeZone } from "@/modules/core/time-zone";
 import type { TaskErrorCode } from "@/modules/tasks/errors";
 
 import { type TrashItem, trashDateFormat } from "./trash-item";
+import {
+  TRASH_ROW_CLASSES,
+  TRASH_ROW_CONTENT_CLASSES,
+  TRASH_ROW_DATE_TEXT,
+  TRASH_ROW_LINE_CLASSES,
+} from "./trash-list-layout";
 
 type TrashRowProps = { item: TrashItem };
 
@@ -47,16 +54,13 @@ export function TrashRow({ item }: TrashRowProps) {
   }
 
   return (
-    <div className="flex flex-col rounded-lg bg-row">
-      <div className="flex min-h-11 items-start gap-2 pr-1.5 pl-3.5">
-        <div
-          id={contentId}
-          className="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5"
-        >
+    <div className={TRASH_ROW_CLASSES}>
+      <div className={TRASH_ROW_LINE_CLASSES}>
+        <div id={contentId} className={TRASH_ROW_CONTENT_CLASSES}>
           {item.row}
           <time
             dateTime={item.deletedAt.toISOString()}
-            className="text-caption text-muted-foreground"
+            className={cn(TRASH_ROW_DATE_TEXT, "text-muted-foreground")}
           >
             {t("trashedOn", {
               date: format.dateTime(

@@ -35,6 +35,7 @@ export async function PageHeader({
       <h1 className="min-w-0 font-heading text-page-title">{title}</h1>
       {filter ? (
         <div
+          data-testid="page-header-filter"
           aria-hidden={filterInert || undefined}
           inert={filterInert}
           className={cn("min-w-0 lg:hidden", filterInert && "invisible")}

@@ -19,7 +19,29 @@ const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
 import type { TrashItem } from "./trash-item";
+import {
+  SIDE_CHIP_CLASSES,
+  TASK_ROW_LEGEND_TEXT,
+  TASK_ROW_TITLE_TEXT,
+  TASK_TRASH_LEGEND_CLASSES,
+  TASK_TRASH_ROW_CLASSES,
+} from "@/components/tasks/task-list-layout";
+
+import {
+  TRASH_LIST_TILE_CLASSES,
+  TRASH_ROW_CLASSES,
+  TRASH_ROW_CONTENT_CLASSES,
+  TRASH_ROW_DATE_TEXT,
+  TRASH_ROW_LINE_CLASSES,
+  TRASH_ROWS_CLASSES,
+} from "./trash-list-layout";
 import { TrashList } from "./TrashList";
+
+function expectClasses(element: HTMLElement, classes: string) {
+  expect(element.className.split(/\s+/)).toEqual(
+    expect.arrayContaining(classes.split(" ")),
+  );
+}
 
 const PARENT = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 const DELETED_AT = new Date("2026-11-18T09:00:00Z");
@@ -61,6 +83,35 @@ function renderList(items: TrashItem[]) {
 afterEach(() => vi.clearAllMocks());
 
 describe("TrashList", () => {
+  it("tuile, ligne et tâche portent les classes de trash-list-layout et task-list-layout, lues aussi par le givre", () => {
+    renderList([taskItem({ title: "Vieille tâche", side: "private" })]);
+
+    const item = screen.getByRole("listitem");
+    const row = item.firstElementChild as HTMLElement;
+    const line = row.firstElementChild as HTMLElement;
+    const content = line.firstElementChild as HTMLElement;
+    const [task, date] = Array.from(content.children) as HTMLElement[];
+    const [title, legend] = Array.from(task.children) as HTMLElement[];
+    const chip = screen.getByText(messages.shell.side.private);
+    expectClasses(
+      item.parentElement?.parentElement as HTMLElement,
+      TRASH_LIST_TILE_CLASSES,
+    );
+    expectClasses(item.parentElement as HTMLElement, TRASH_ROWS_CLASSES);
+    expectClasses(row, TRASH_ROW_CLASSES);
+    expectClasses(line, TRASH_ROW_LINE_CLASSES);
+    expectClasses(content, TRASH_ROW_CONTENT_CLASSES);
+    expectClasses(task, TASK_TRASH_ROW_CLASSES);
+    expectClasses(title, TASK_ROW_TITLE_TEXT);
+    expectClasses(
+      legend,
+      `${TASK_TRASH_LEGEND_CLASSES} ${TASK_ROW_LEGEND_TEXT}`,
+    );
+    expectClasses(chip, SIDE_CHIP_CLASSES);
+    expect(date.tagName).toBe("TIME");
+    expectClasses(date, TRASH_ROW_DATE_TEXT);
+  });
+
   it("parente : titre, « + n sous-tâches » et date de mise à la corbeille, sans case à cocher", () => {
     renderList([taskItem({ id: PARENT, title: "Déménager" }, 2)]);
 

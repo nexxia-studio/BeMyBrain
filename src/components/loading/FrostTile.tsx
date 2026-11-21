@@ -1,8 +1,11 @@
 // Curseurs nexxia-design (DESIGN.md § 1, tableau de bord) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Givre de chargement (DESIGN.md § 5 « États de chargement — givre ») : composant serveur, CSS pur,
 // affiché avant tout JavaScript. Tuile de verre + voile teinté (jamais un second verre) ; la tuile
-// pleine « Aujourd'hui » reste vide, sans voile. Le décalage vient de `--frost-index`.
-import type { CSSProperties } from "react";
+// pleine « Aujourd'hui » reste vide, sans voile. Le décalage vient de `--frost-index`. Variante `row` : ligne
+// d'une liste (surface `row` donnée par la classe, posée dans une tuile de verre), voile compris. Les enfants
+// (cales de hauteur des listes) sont posés après le voile, au-dessus de lui. Tant qu'un voile est affiché, le
+// document n'ancre pas son défilement (`html:has(.frost)`, globals.css) : le haut de page ne saute pas.
+import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,18 +14,25 @@ type FrostTileProps = {
   className?: string;
   /** Rang de la tuile : décale son éclaircissement. */
   index?: number;
-  variant?: "glass" | "solid";
+  /** `glass` : tuile de verre ; `row` : ligne d'une liste (surface dans `className`) ; `solid` : tuile pleine. */
+  variant?: "glass" | "row" | "solid";
+  /** Cales de hauteur, posées au-dessus du voile. */
+  children?: ReactNode;
+  testId?: string;
 };
 
 export function FrostTile({
   className,
   index = 0,
   variant = "glass",
+  children,
+  testId,
 }: FrostTileProps) {
   if (variant === "solid") {
     return (
       <div
         aria-hidden="true"
+        data-testid={testId}
         className={cn("rounded-tile bg-primary shadow-today", className)}
       />
     );
@@ -31,13 +41,16 @@ export function FrostTile({
   return (
     <div
       aria-hidden="true"
+      data-testid={testId}
       className={cn(
-        "glass relative isolate overflow-hidden rounded-tile",
+        "relative isolate overflow-hidden",
+        variant === "glass" && "glass rounded-tile",
         className,
       )}
       style={{ "--frost-index": index } as CSSProperties}
     >
       <div className="frost pointer-events-none absolute inset-0 -z-1" />
+      {children}
     </div>
   );
 }
