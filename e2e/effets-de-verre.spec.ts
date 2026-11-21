@@ -242,7 +242,7 @@ test.describe("givre de chargement", () => {
       await navLink(page, fr.shell.home).click();
       const veils = frostVeils(page, "dashboard-frost");
       await expect(veils.first()).toBeAttached();
-      // Lu d'un coup dès l'affichage : une animation en cours donnerait une opacité entre 1 et 0,45.
+      // Lu d'un coup dès l'affichage : une animation en cours donnerait une opacité entre 1 et le repos (0,6, cran moyen par défaut).
       const states = await veils.evaluateAll((elements) =>
         elements.map((element) => ({
           opacity: getComputedStyle(element).opacity,
@@ -252,7 +252,7 @@ test.describe("givre de chargement", () => {
 
       expect(states.length).toBeGreaterThan(0);
       for (const state of states) {
-        expect(state).toEqual({ opacity: "0.45", animations: 0 });
+        expect(state).toEqual({ opacity: "0.6", animations: 0 });
       }
     });
   });

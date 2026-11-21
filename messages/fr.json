@@ -356,6 +356,10 @@
     "intro": "Pour l'essai sur iPhone. « Revoir le reflet » remet à zéro les moments de la session et rouvre le tableau de bord. Les chargements ralentis attendent 3 s pour montrer le givre.",
     "replaySheen": "Revoir le reflet",
     "slowDashboard": "Tableau de bord, chargement ralenti",
-    "slowTasks": "Liste des tâches, chargement ralenti"
+    "slowTasks": "Liste des tâches, chargement ralenti",
+    "frostLevel": "Intensité du givre",
+    "frostSubtle": "Discret",
+    "frostMedium": "Moyen",
+    "frostStrong": "Marqué"
   }
 }

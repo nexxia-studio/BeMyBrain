@@ -356,6 +356,10 @@
     "intro": "For the iPhone test. \"Replay the sheen\" resets this session's moments and reopens the dashboard. Slowed loads wait 3 s to show the frost.",
     "replaySheen": "Replay the sheen",
     "slowDashboard": "Dashboard, slowed load",
-    "slowTasks": "Task list, slowed load"
+    "slowTasks": "Task list, slowed load",
+    "frostLevel": "Frost intensity",
+    "frostSubtle": "Subtle",
+    "frostMedium": "Medium",
+    "frostStrong": "Strong"
   }
 }

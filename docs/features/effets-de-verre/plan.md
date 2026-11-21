@@ -15,8 +15,8 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
   - départ 0,1 s après la fin du mouvement de la dernière tuile ;
   - dégradé à 105° : transparent 30 %, `--halo-blue` 55 % à 45 %, `--halo-lilac` 55 % à 55 %, transparent 70 %.
 - **Givre** :
-  - dégradé à 135°, `color-mix` à 75 % de `--halo-blue` puis `--halo-lilac` avec `--popover` ;
-  - opacité de 1 vers 0,45 (repos), 1,3 s par tuile, 0,18 s de décalage, aucune boucle.
+  - dégradé à 135°, de `--halo-blue` à `--halo-lilac`, au cran choisi (QA-1) : discret = halos purs, repos 0,55 ; moyen (défaut) = mêlés à 15 % de `--primary`, repos 0,6 ; marqué = à 30 %, repos 0,65 ;
+  - opacité de 1 vers le repos du cran, 1,3 s par tuile, 0,18 s de décalage, aucune boucle.
 
 ## Tâches
 - [x] **1. Amender DESIGN.md pour le reflet et le givre**
@@ -145,6 +145,23 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
 
 ## Corrections QA
 <!-- Alimenté par l'essai iPhone (tâche 8) et /qa. Même format que les tâches. -->
+Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défauts.
+
+- [ ] **QA-1. Givre plus marqué, réglage d'intensité dans la démo**
+  - Constat : le voile se voit à peine. Les halos (`#afc0f4`, `#d6c6f2`) mêlés à 75 % de blanc, sur un verre déjà teinté par les mêmes halos, donnent presque rien.
+  - Trois crans, tous tirés des tokens de la charte (aucune couleur nouvelle), départ toujours à 1 :
+    - discret : halos purs (sans `--popover`), repos 0,55 ;
+    - moyen : halos mêlés à 15 % de `--primary`, repos 0,6 ;
+    - marqué : halos mêlés à 30 % de `--primary`, repos 0,65.
+  - Valeurs portées par des variables CSS (défauts sur `:root`, que `frost` lit sans les redéfinir). Cran par défaut de l'app : moyen, jusqu'au choix d'Antoine.
+  - Démo : réglage à trois crans dans `demo/effets-de-verre/layout.tsx`, donc présent pendant le chargement et après, sur les deux pages lentes, sans décaler la page. Le choix va dans un cookie de démo. Le layout le lit et pose les variables en style en ligne sur une enveloppe. Changer de cran recharge la page, ce qui rejoue le givre.
+  - Retiré avec la démo à la tâche 9 (cookie compris).
+  - Fini quand : tests verts (`tests/design/frost.test.ts` mis à jour), parité des messages, givre visible en capture locale.
+
+- [ ] **QA-2. Géométrie du givre identique à l'écran final** (en attente de la décision d'Antoine)
+  - Constat : largeurs et nombre de tuiles viennent bien de la vraie grille, mais les hauteurs sont inventées. Sur mobile, une tuile prend la hauteur de son contenu ; le givre pose 300 ou 230 px au jugé. Sur ordinateur, ces hauteurs ne sont que des minimums que les tuiles avec des tâches dépassent. La liste n'a qu'un bloc de 300 px, sans lignes ni sections.
+  - L'e2e ne mesurait que le titre et le bord haut de la première tuile, d'où le faux vert.
+  - Test attendu : boîte de chaque tuile et de chaque ligne, avant et après, mobile et ordinateur, données réalistes ; échec au moindre pixel.
 
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->

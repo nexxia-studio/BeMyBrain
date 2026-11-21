@@ -44,7 +44,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - aucune ligne de squelette.
 - [ ] Un seul composant givre réutilisable, rendu par le serveur, sans JavaScript client. Il s'affiche avant le reste du code.
 - [ ] Le givre est un voile teinté posé dans la tuile de verre (jamais un second verre) :
-  - dégradé à 135°, de `--halo-blue` à `--halo-lilac`, chacun mélangé à 75 % avec `--popover` ;
+  - dégradé à 135°, de `--halo-blue` à `--halo-lilac`, à l'un des trois crans (QA-1) : discret = halos purs ; moyen = chaque halo mêlé à 15 % de `--primary` ; marqué = à 30 % ;
   - départ opaque (1), puis éclaircissement tuile par tuile jusqu'à un voile de repos qui reste ;
   - 1,3 s par tuile, 0,18 s de décalage ;
   - aucune boucle.
@@ -98,5 +98,5 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - `prefers-reduced-transparency` : le verre devient opaque, le voile reste.
 
 ## Questions ouvertes
-- [ ] Niveau de repos du givre : je propose une opacité de 0,45. Assez pour lire « en attente », assez clair pour que l'éclaircissement se voie. À valider à l'essai iPhone (tâche 8).
+- [ ] Intensité du givre : 0,45 sur des halos mêlés à 75 % de blanc s'est révélé presque invisible à l'essai iPhone du 2026-11-21. Trois crans à comparer sur la démo (QA-1) : discret (repos 0,55), moyen (0,6, par défaut), marqué (0,65). Cran retenu : à choisir à l'essai iPhone.
 - [x] Bascule Privé / Pro : pas d'effet de verre (Antoine, 2026-11-20).

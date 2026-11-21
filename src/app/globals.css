@@ -198,6 +198,13 @@
   --chart-4: var(--ink-muted);
   --chart-5: var(--ink);
 
+  /* Givre de chargement (DESIGN.md § 5) : cran d'intensité, lu par l'utilitaire `frost` et `frost-clear`, qui
+     ne le redéfinissent pas (une enveloppe peut le surcharger par héritage). Cran moyen : chaque halo mêlé à
+     15 % de la couleur primaire, repos 0,6. Cran retenu : à choisir à l'essai iPhone. */
+  --frost-from: color-mix(in srgb, var(--halo-blue), var(--primary) 15%);
+  --frost-to: color-mix(in srgb, var(--halo-lilac), var(--primary) 15%);
+  --frost-rest: 0.6;
+
   /* Barre latérale : surface en verre de premier niveau (posée sur le fond). */
   --sidebar: var(--glass-bg);
   --sidebar-foreground: var(--ink);
@@ -373,18 +380,17 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
 /* Givre de chargement (DESIGN.md § 5 « États de chargement — givre ») : voile teinté posé dans une tuile
    de verre, jamais un second verre (aucun backdrop-filter). Un seul éclaircissement, de 1 au repos, qui
    reste : pas une boucle (§ 11). CSS pur, affiché avant l'hydratation ; `--frost-index` est posé en style
-   en ligne par FrostTile. Mouvement réduit : voile fixe au repos. */
+   en ligne par FrostTile. Mouvement réduit : voile fixe au repos. Couleurs et repos : variables du cran,
+   posées sur :root. */
 @utility frost {
-  /* Opacité du voile au repos (à confirmer à l'essai iPhone). */
-  --frost-rest: 0.45;
   /* Durée par tuile et décalage entre tuiles. */
   --frost-duration: 1.3s;
   --frost-stagger: 0.18s;
   border-radius: inherit;
   background-image: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--halo-blue) 75%, var(--popover)),
-    color-mix(in srgb, var(--halo-lilac) 75%, var(--popover))
+    var(--frost-from),
+    var(--frost-to)
   );
   opacity: var(--frost-rest);
   animation: frost-clear var(--frost-duration) ease-in-out both;
