@@ -3,7 +3,8 @@
 // liste givrée : un en-tête de section (place réservée) et six lignes givrées, chacune à la hauteur d'une ligne
 // dont le titre et la légende tiennent sur une ligne (QA-3, décision d'Antoine du 2026-11-21 : squelette
 // générique, sans mémorisation). Classes de la tuile, de la section et des lignes lues dans task-list-layout.ts,
-// comme TaskList et TaskRow ; hauteurs de texte par des cales `h-lh` aux mêmes tailles. La première section et
+// comme TaskList et TaskRow ; hauteurs de texte par des cales `h-lh` aux mêmes tailles (légende : la même cale de
+// pastille que TaskRow, présente avec ou sans pastille). La première section et
 // sa première ligne se posent donc là où était le givre ; plus bas, un ajustement est accepté (titres sur deux
 // lignes, légende plus haute, nombre de lignes). L'interrupteur « Terminées » est rendu invisible et inerte : il
 // réserve sa place (sa taille ne dépend pas de son état). Une colonne à toutes les largeurs. CSS pur, aucune
@@ -20,6 +21,8 @@ import { CompletedToggle } from "@/components/tasks/CompletedToggle";
 import {
   TASK_LIST_TILE_CLASSES,
   TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_CLASSES,
+  TASK_ROW_LEGEND_STRUT_CLASSES,
   TASK_ROW_LEGEND_TEXT,
   TASK_ROW_LINE_CLASSES,
   TASK_ROW_TEXT_CLASSES,
@@ -71,7 +74,11 @@ export default async function TasksLoading() {
                   <div className={TASK_ROW_LINE_CLASSES}>
                     <div className={TASK_ROW_TEXT_CLASSES}>
                       <div className={`${TASK_ROW_TITLE_TEXT} h-lh`} />
-                      <div className={`${TASK_ROW_LEGEND_TEXT} h-lh`} />
+                      <div
+                        className={`${TASK_ROW_LEGEND_CLASSES} ${TASK_ROW_LEGEND_TEXT}`}
+                      >
+                        <div className={TASK_ROW_LEGEND_STRUT_CLASSES} />
+                      </div>
                     </div>
                   </div>
                 </FrostTile>

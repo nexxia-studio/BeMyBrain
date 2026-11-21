@@ -24,6 +24,8 @@ vi.mock("@/lib/preferences-actions", () => ({ setContextSelection }));
 import {
   TASK_LIST_TILE_CLASSES,
   TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_CLASSES,
+  TASK_ROW_LEGEND_STRUT_CLASSES,
   TASK_ROW_LEGEND_TEXT,
   TASK_ROW_LINE_CLASSES,
   TASK_ROW_TEXT_CLASSES,
@@ -210,7 +212,44 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
     expectClasses(line, TASK_ROW_LINE_CLASSES);
     expectClasses(text, TASK_ROW_TEXT_CLASSES);
     expectClasses(title, TASK_ROW_TITLE_TEXT);
-    expectClasses(legend, TASK_ROW_LEGEND_TEXT);
+    expectClasses(legend, `${TASK_ROW_LEGEND_CLASSES} ${TASK_ROW_LEGEND_TEXT}`);
+    const strut = legend.firstElementChild as HTMLElement;
+    expectClasses(strut, TASK_ROW_LEGEND_STRUT_CLASSES);
+    expect(strut.getAttribute("aria-hidden")).toBe("true");
+    expect(strut.textContent).toBe("");
+  });
+
+  it("légende à la hauteur d'une pastille, avec ou sans pastille : même cale, même grille", () => {
+    renderList([
+      buildTask({
+        title: "Avec",
+        dueDate: "2026-11-18",
+        contextName: "Nexxia",
+      }),
+      buildTask({ title: "Sans", dueDate: "2026-11-17", contextName: null }),
+    ]);
+
+    const legends = screen
+      .getAllByRole("link")
+      .map((link) => link.children[1] as HTMLElement);
+
+    expect(legends).toHaveLength(2);
+    for (const legend of legends) {
+      expectClasses(legend, TASK_ROW_LEGEND_CLASSES);
+      expectClasses(
+        legend.firstElementChild as HTMLElement,
+        TASK_ROW_LEGEND_STRUT_CLASSES,
+      );
+    }
+    expect(within(legends[1]).getByText("Nexxia")).toBeTruthy();
+  });
+
+  it("ligne sans rien en légende : ni légende ni cale (la ligne garde sa hauteur de 44 px)", () => {
+    renderList([buildTask({ title: "Rien" })], { showContext: false });
+
+    const link = screen.getByRole("link", { name: /Rien/ });
+
+    expect(link.children).toHaveLength(1);
   });
 });
 

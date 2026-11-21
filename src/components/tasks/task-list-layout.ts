@@ -1,7 +1,9 @@
+import { CHIP_SHAPE_CLASSES } from "./context-chip-class";
+
 // Géométrie de la liste `/tasks` et des lignes de tâche de la corbeille (QA-3 d'effets-de-verre) : les classes qui
 // fixent la place et la hauteur de la tuile, des sections et des lignes, définies une seule fois. Lues par les vrais
-// composants (TaskList, TaskRow, TaskTrashRow) et par leur givre de chargement (TaskListFrost, TrashListFrost) :
-// aucune valeur recopiée. Le givre reproduit une ligne « standard » (titre sur une ligne, légende sur une ligne)
+// composants (TaskList, TaskRow, TaskTrashRow) et par leur givre de chargement (`src/app/(app)/tasks/loading.tsx`,
+// `src/app/(app)/trash/loading.tsx`) : aucune valeur recopiée. Le givre reproduit une ligne « standard » (titre sur une ligne, légende sur une ligne)
 // avec des cales `h-lh` dans les mêmes tailles de texte : sa hauteur suit la charte, la langue et la police.
 
 /** Tuile de verre de la liste (sans `glass`, posé par le composant ou par FrostTile). */
@@ -27,12 +29,26 @@ export const TASK_ROW_TEXT_CLASSES =
 export const TASK_ROW_TITLE_TEXT = "text-body";
 /** Taille de la légende d'une ligne (liste et corbeille). */
 export const TASK_ROW_LEGEND_TEXT = "text-caption";
+/**
+ * Légende d'une ligne de la liste : grille d'une case où se superposent la cale et la rangée d'éléments. La cale
+ * donne à la légende la hauteur d'une pastille, qu'elle en affiche une ou non : la ligne a la même hauteur avec ou
+ * sans pastille d'espace (ou « Annulée »), et le givre la reproduit.
+ * raccourci: une légende sans pastille gagne 1,4 px (pastille 19,6 px contre une ligne de légende de 18,2 px) —
+ * à revoir si la charte des lignes change (pastille plus basse ou légende plus haute).
+ */
+export const TASK_ROW_LEGEND_CLASSES = "grid grid-cols-1";
+/** Place de la cale et de la rangée d'éléments dans la grille de la légende (même case). */
+export const TASK_ROW_LEGEND_CELL_CLASSES = "col-start-1 row-start-1";
+/** Cale invisible de la légende : une pastille vide (`box-content h-lh` : une ligne de `text-chip` + padding). */
+export const TASK_ROW_LEGEND_STRUT_CLASSES = `${CHIP_SHAPE_CLASSES} ${TASK_ROW_LEGEND_CELL_CLASSES} invisible box-content h-lh w-0`;
 
 /** Contenu d'une tâche à la corbeille : titre puis légende. */
 export const TASK_TRASH_ROW_CLASSES = "flex min-w-0 flex-col gap-0.5";
 /** Légende d'une tâche à la corbeille (pastilles). */
 export const TASK_TRASH_LEGEND_CLASSES =
   "flex flex-wrap items-center gap-x-2.5 gap-y-1";
-/** Pastille de côté (Privé / Pro), toujours présente : donne la hauteur de la légende. */
-export const SIDE_CHIP_CLASSES =
-  "rounded-full border border-border px-2.5 py-0.5 text-chip";
+/**
+ * Pastille de côté (Privé / Pro), toujours présente : donne la hauteur de la légende. Bordée, elle est plus haute
+ * que la pastille d'espace : une légende de la corbeille a donc la même hauteur avec ou sans pastille d'espace.
+ */
+export const SIDE_CHIP_CLASSES = `${CHIP_SHAPE_CLASSES} border border-border`;

@@ -456,8 +456,10 @@ test.describe("givre du tableau de bord à la géométrie exacte", () => {
 // au pixel près. Le bas de la liste peut s'ajuster (titres sur deux lignes) : il n'est pas vérifié.
 // Données réalistes créées par l'ajout rapide, côté Pro (deux espaces : le filtre d'espace est dans l'en-tête sous
 // 1024 px ; le compte e2e y porte parfois d'autres tâches, on ne suppose pas une liste vide) : plusieurs
-// sections, titres longs ; la première ligne est une tâche au titre court, en retard de dix ans (première de « En
-// retard »). Corbeille : les tâches y sont mises, la courte en dernier (première ligne, la plus récente).
+// sections, titres longs. Première ligne : une tâche au titre court en retard de dix ans (première de « En
+// retard »), d'abord rangée dans un espace (pastille visible), puis une autre hors espace (sans pastille) : la
+// légende a la même hauteur dans les deux cas. Corbeille : les tâches y sont mises, celle rangée dans un espace en
+// dernier (première ligne, la plus récente).
 
 type Probe = {
   what: string;
@@ -579,21 +581,27 @@ test.describe("liste et corbeille : haut de page immobile", () => {
     await trashTasks(page, created.splice(0));
   });
 
-  test("en-tête, filtre, interrupteur, premier en-tête de section et première ligne gardent leur boîte au pixel près", async ({
+  test("en-tête, filtre, interrupteur, premier en-tête de section et première ligne (avec et sans pastille d'espace) gardent leur boîte au pixel près", async ({
     page,
   }) => {
-    // Sept tâches créées puis mises à la corbeille, deux chargements ralentis.
-    test.setTimeout(180_000);
+    // Sept tâches créées puis mises à la corbeille, trois chargements ralentis.
+    test.setTimeout(240_000);
     const longTitle = (base: string) =>
       uniqueTitle(
         `${base}, avec un intitulé assez long pour passer sur deux lignes dans la liste, au téléphone comme sur ordinateur`,
       );
+    const allSpaces = t("shell.contexts.all", { count: 2 });
     await signIn(page);
     await page.goto("/tasks");
     await switchSide(page, "pro");
-    const short = uniqueTitle("TVA");
-    const shortId = await quickAddTask(page, short, { date: userDay(-3650) });
-    created.push(shortId);
+    // Première ligne rangée dans un espace : créée sous le filtre Nexxia, affichée avec sa pastille sous « Les deux ».
+    await filterContext(page, "Nexxia");
+    const withChip = uniqueTitle("TVA");
+    const withChipId = await quickAddTask(page, withChip, {
+      date: userDay(-3650),
+    });
+    created.push(withChipId);
+    await filterContext(page, allSpaces);
     const longs = [
       await quickAddTask(page, longTitle("Relancer le devis de la toiture"), {
         date: userDay(-2),
@@ -611,9 +619,10 @@ test.describe("liste et corbeille : haut de page immobile", () => {
       await quickAddTask(page, longTitle("Classer les notes de frais")),
     ];
     created.push(...longs);
+    const firstRow = () => firstSection(page).getByRole("listitem").first();
 
     await expectTopStill(page, {
-      what: "liste",
+      what: "liste, première ligne avec pastille d'espace",
       from: "/dashboard",
       path: "/tasks",
       click: (p) => navLink(p, fr.shell.tasks),
@@ -623,16 +632,37 @@ test.describe("liste et corbeille : haut de page immobile", () => {
         await expect(
           firstSection(page).getByRole("heading", { level: 2 }),
         ).toHaveText(fr.tasks.list.sections.overdue);
+        await expect(firstRow()).toContainText(withChip);
         await expect(
-          firstSection(page).getByRole("listitem").first(),
-        ).toContainText(short);
+          firstRow().getByText("Nexxia", { exact: true }),
+        ).toBeVisible();
         await expect(mainOf(page).getByRole("region")).not.toHaveCount(1);
       },
     });
 
-    // Corbeille : les longues d'abord, la courte en dernier (la plus récente, première ligne).
-    await trashTasks(page, longs);
-    await trashTasks(page, [shortId]);
+    // Première ligne sans pastille : une tâche hors espace, plus en retard encore.
+    const withoutChip = uniqueTitle("Loyer");
+    const withoutChipId = await quickAddTask(page, withoutChip, {
+      date: userDay(-3651),
+    });
+    created.push(withoutChipId);
+    await expectTopStill(page, {
+      what: "liste, première ligne sans pastille",
+      from: "/dashboard",
+      path: "/tasks",
+      click: (p) => navLink(p, fr.shell.tasks),
+      frostId: "tasks-frost",
+      probes: TASKS_PROBES,
+      check: async () => {
+        await expect(firstRow()).toContainText(withoutChip);
+        await expect(firstRow()).not.toContainText("Nexxia");
+      },
+    });
+
+    // Corbeille : les longues d'abord, la tâche rangée dans un espace en dernier (la plus récente, première ligne,
+    // pastilles de côté et d'espace).
+    await trashTasks(page, [...longs, withoutChipId]);
+    await trashTasks(page, [withChipId]);
     await expectTopStill(page, {
       what: "corbeille",
       from: "/tasks",
@@ -642,7 +672,7 @@ test.describe("liste et corbeille : haut de page immobile", () => {
       probes: TRASH_PROBES,
       check: async () => {
         await expect(mainOf(page).getByRole("listitem").first()).toContainText(
-          short,
+          withChip,
         );
         await expect(mainOf(page).getByRole("listitem")).not.toHaveCount(1);
       },

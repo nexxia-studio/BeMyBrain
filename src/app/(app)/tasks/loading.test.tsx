@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   TASK_LIST_TILE_CLASSES,
   TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_CLASSES,
+  TASK_ROW_LEGEND_STRUT_CLASSES,
   TASK_ROW_LEGEND_TEXT,
   TASK_ROW_LINE_CLASSES,
   TASK_ROW_TEXT_CLASSES,
@@ -118,7 +120,14 @@ describe("chargement de la liste des tâches", () => {
       expectClasses(text, TASK_ROW_TEXT_CLASSES);
       const [title, legend] = Array.from(text.children) as HTMLElement[];
       expectClasses(title, `${TASK_ROW_TITLE_TEXT} h-lh`);
-      expectClasses(legend, `${TASK_ROW_LEGEND_TEXT} h-lh`);
+      expectClasses(
+        legend,
+        `${TASK_ROW_LEGEND_CLASSES} ${TASK_ROW_LEGEND_TEXT}`,
+      );
+      expectClasses(
+        legend.firstElementChild as HTMLElement,
+        TASK_ROW_LEGEND_STRUT_CLASSES,
+      );
     });
   });
 

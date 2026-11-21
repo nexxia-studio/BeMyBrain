@@ -41,7 +41,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - [ ] Le chargement du tableau de bord, de la liste des tâches et de la corbeille affiche :
   - le vrai titre de la page ;
   - des tuiles givrées aux dimensions et positions des vraies tuiles ;
-  - aucune ligne de squelette.
+  - aucune barre de texte simulée (les lignes givrées de la liste et de la corbeille, QA-3, sont des surfaces de ligne voilées, pas des squelettes).
 - [ ] Un seul composant givre réutilisable, rendu par le serveur, sans JavaScript client. Il s'affiche avant le reste du code.
 - [ ] Le givre est un voile teinté posé dans la tuile de verre (jamais un second verre) :
   - dégradé à 135°, de `--halo-blue` à `--halo-lilac`, à l'un des trois crans (QA-1) : discret = halos purs ; moyen = chaque halo mêlé à 15 % de `--primary` ; marqué = à 30 % ;
@@ -54,8 +54,10 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - tableau de bord : même position et même largeur du titre et de la première tuile ;
   - score de décalage cumulé (CLS) mesuré < 0,01.
 - [ ] Liste des tâches et corbeille (QA-3, décision d'Antoine du 2026-11-21) : givre générique, sans mémorisation, charte de la liste inchangée (titres sur deux lignes au plus) :
-  - liste : un en-tête de section, puis six lignes givrées à la hauteur d'une ligne dont le titre et la légende tiennent sur une ligne ; corbeille : six lignes givrées à la hauteur d'une tâche à la corbeille au titre sur une ligne (pastille de côté, date) ;
+  - liste : un en-tête de section réservé (sans voile propre), puis six lignes givrées à la hauteur d'une ligne dont le titre et la légende tiennent sur une ligne ; corbeille : six lignes givrées à la hauteur d'une tâche à la corbeille au titre sur une ligne (pastille de côté, date) ;
   - dimensions lues dans les classes partagées avec les vrais composants (`task-list-layout.ts`, `trash-list-layout.ts`), jamais recopiées ;
+  - deux couches de voile : la tuile, puis chaque ligne (variante `row` de `FrostTile`) ;
+  - la légende d'une ligne de la liste a la hauteur d'une pastille, avec ou sans pastille d'espace (cale invisible) : la première ligne est au pixel dans les deux cas ;
   - boîte (x, y, largeur, hauteur) identique au pixel près, du givre au contenu, pour l'en-tête de page, le filtre d'espace, l'interrupteur « Terminées », le premier en-tête de section et la première ligne (corbeille : en-tête de page et première ligne) ;
   - sous la première ligne, un ajustement est accepté (titres sur deux lignes, légende plus haute, nombre de lignes) : le bas de la liste n'est pas vérifié. Pour ces deux pages, ce critère remplace « même position et même largeur du titre et de la première tuile ».
 - [ ] Tableau de bord (QA-2, décision d'Antoine du 2026-11-21) : chaque tuile du givre a la boîte de la vraie tuile (x, y, largeur, hauteur), au pixel près, quel que soit le contenu (To-do à 0, 2 ou 5 tâches, « Aujourd'hui » vide, peu remplie ou pleine, tuiles vides, titres longs), sur mobile et ordinateur :

@@ -1,5 +1,5 @@
 // Géométrie de la corbeille `/trash` (QA-3 d'effets-de-verre) : classes qui fixent la place et la hauteur de la
-// tuile et des lignes, définies une seule fois, lues par TrashList, TrashRow et leur givre (TrashListFrost).
+// tuile et des lignes, définies une seule fois, lues par TrashList, TrashRow et leur givre (`src/app/(app)/trash/loading.tsx`).
 
 /** Tuile de verre de la corbeille (sans `glass`, posé par le composant ou par FrostTile). */
 export const TRASH_LIST_TILE_CLASSES =
