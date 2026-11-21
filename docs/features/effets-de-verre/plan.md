@@ -158,10 +158,31 @@ Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défau
   - Retiré avec la démo à la tâche 9 (cookie compris).
   - Fini quand : tests verts (`tests/design/frost.test.ts` mis à jour), parité des messages, givre visible en capture locale.
 
-- [ ] **QA-2. Géométrie du givre identique à l'écran final** (en attente de la décision d'Antoine)
-  - Constat : largeurs et nombre de tuiles viennent bien de la vraie grille, mais les hauteurs sont inventées. Sur mobile, une tuile prend la hauteur de son contenu ; le givre pose 300 ou 230 px au jugé. Sur ordinateur, ces hauteurs ne sont que des minimums que les tuiles avec des tâches dépassent. La liste n'a qu'un bloc de 300 px, sans lignes ni sections.
-  - L'e2e ne mesurait que le titre et le bord haut de la première tuile, d'où le faux vert.
-  - Test attendu : boîte de chaque tuile et de chaque ligne, avant et après, mobile et ordinateur, données réalistes ; échec au moindre pixel.
+- [ ] **QA-2. Tableau de bord : hauteurs fixes par tuile, givre à la géométrie exacte**
+  - Pourquoi : largeurs et nombre de tuiles venaient bien de la grille, mais les hauteurs du givre étaient posées au jugé. La hauteur réelle d'une tuile dépendait de son contenu, et l'e2e ne mesurait que le titre et le bord haut de la première tuile. Décision d'Antoine du 2026-11-21 : hauteurs fixes par tuile.
+  - Règles d'Antoine :
+    - hauteur fixe par taille de tuile (`wide`, `standard`, `figure`) et par tuile pleine « Aujourd'hui », définie **une seule fois**, à côté de `TILE_SIZE_CLASSES` (`src/components/bento/tile-sizes.ts`). Les vraies tuiles et `dashboard/loading.tsx` lisent les mêmes constantes, aucune valeur recopiée (`MOBILE_MIN_HEIGHT` disparaît) ;
+    - hauteur calée sur le contenu maximal : Aujourd'hui = 2 pastilles + 3 tâches (`TODAY_TILE_LIMIT`), To-do = 5 tâches (`SIDE_TILE_LIMIT`), tuiles vides = surtitre, titre, espaces, icône et phrase ;
+    - dans les tuiles, titres sur une ligne avec points de suspension. Métadonnées des lignes et pastilles d'espaces sur une ligne aussi, sinon la hauteur fixe déborde. Titre complet dans la liste et le détail, inchangés ;
+    - le vide d'une tuile peu remplie est comblé par un état conçu, jamais par du blanc. Exemple : « Rien d'autre aujourd'hui » sous les tâches d'Aujourd'hui, un équivalent pour la To-do. Textes FR/EN, charte seulement ;
+    - mobile : vérifier que l'écran ne devient pas interminable (hauteur totale à 390 px, avant et après, dans le rapport). Hauteur par largeur d'écran si nécessaire ;
+    - DESIGN.md § 6 amendé : hauteurs fixes, valeurs, règle de la ligne unique dans les tuiles, état de remplissage.
+  - Fichiers probables : `tile-sizes.ts`, `TodayTile.tsx`, `TodayTaskRow.tsx`, `SideTodoTile.tsx`, `TaskRow.tsx` (variante tuile, sans toucher la liste), `EmptyTile.tsx`, `dashboard/loading.tsx`, `messages/{fr,en}.json`, tests, `e2e/effets-de-verre.spec.ts`, DESIGN.md, spec.
+  - Test à écrire d'abord :
+    - unitaires : chaque tuile et son givre portent la même classe de hauteur, lue dans `tile-sizes.ts` ; ligne de tuile tronquée sur une ligne ; état de remplissage affiché sous le maximum, absent au maximum ;
+    - e2e : boîte (`x`, `y`, `width`, `height`) de **chaque** tuile identique avant (givre) et après (contenu), au pixel, desktop et mobile. Données réalistes : plusieurs tâches, titres longs, tuiles vides et pleines, To-do à 0, 2 et 5 tâches.
+  - Fini quand : tests verts, e2e sans écart, suite e2e complète sans régression, captures 390 et 1440 px.
+
+- [ ] **QA-3. Liste et corbeille : givre générique, haut de page immobile**
+  - Décision d'Antoine du 2026-11-21 : squelette générique, sans mémorisation, charte de la liste inchangée (titres sur deux lignes).
+  - Givre : un en-tête de section, puis six lignes à la hauteur standard d'une ligne dont le titre tient sur une ligne. Toujours les mêmes, aux dimensions de `TaskRow` et de l'en-tête de section de `TaskList`, lues depuis des constantes partagées, sans recopie.
+  - En-tête de page, filtre d'espace et interrupteur « Terminées » sont à leur place définitive.
+  - La première section et sa première ligne se posent exactement là où était le givre. Un ajustement plus bas dans la liste est accepté. Même règle pour la corbeille (`TaskTrashRow`).
+  - Spec : écrire cette règle (ajustement accepté sous la première ligne).
+  - Test à écrire d'abord :
+    - unitaires : un en-tête et six lignes givrés ;
+    - e2e desktop et mobile, avec données réalistes : boîtes de l'en-tête, du filtre, de l'interrupteur, du premier en-tête de section et de la première ligne identiques au pixel ; le bas de la liste n'est pas vérifié.
+  - Fini quand : tests verts, suite e2e sans régression.
 
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->
