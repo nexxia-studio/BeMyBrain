@@ -8,6 +8,15 @@ import {
 
 import fr from "../messages/fr.json";
 import { signIn } from "./session";
+import {
+  filterContext,
+  quickAddTask,
+  switchSide,
+  t,
+  trashTasks,
+  uniqueTitle,
+  userDay,
+} from "./todo";
 
 // Spec effets-de-verre, scénarios 1 à 6 : givre de chargement sans décalage (tableau de bord, liste, corbeille),
 // givre au repos sous mouvement réduit, reflet une fois par session. Tourne dans les deux projets (barre latérale
@@ -254,6 +263,189 @@ test.describe("givre de chargement", () => {
       for (const state of states) {
         expect(state).toEqual({ opacity: "0.6", animations: 0 });
       }
+    });
+  });
+});
+
+// Givre du tableau de bord à la géométrie exacte (QA-2) : la boîte (x, y, largeur, hauteur) de chaque tuile du
+// givre est celle de la vraie tuile, au pixel près, quel que soit le contenu. Données réalistes créées par l'ajout
+// rapide (titres longs, échéances, heures), mises à la corbeille à la fin : To-do à 0, 2 puis 5 tâches, tuile
+// « Aujourd'hui » peu remplie puis pleine, tuiles vides, côté Privé (paire de tuiles chiffre) et côté Pro.
+// Précondition : le compte e2e n'a aucune tâche ouverte dans l'espace Trustup (To-do à 0).
+
+/** Écart refusé : un pixel. En dessous, arrondis de sous-pixel (aucun n'a été observé). */
+const GEOMETRY_TOLERANCE_PX = 0.5;
+
+type TileBox = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+/** Boîtes des tuiles du givre (enfants directs du conteneur), dans l'ordre de la grille. */
+async function frostBoxes(page: Page): Promise<Omit<TileBox, "id">[]> {
+  return frostTiles(page, "dashboard-frost").evaluateAll((tiles) =>
+    tiles.map((tile) => {
+      const rect = tile.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    }),
+  );
+}
+
+/** Boîtes des vraies tuiles : enfants directs de la grille qui porte la tuile « Aujourd'hui ». */
+async function contentBoxes(page: Page): Promise<TileBox[]> {
+  return page.getByTestId("tile-today").evaluate((today) =>
+    Array.from(today.parentElement?.children ?? [])
+      .filter(
+        (tile): tile is HTMLElement =>
+          (tile as HTMLElement).dataset.testid?.startsWith("tile-") ?? false,
+      )
+      .map((tile) => {
+        const rect = tile.getBoundingClientRect();
+        return {
+          id: tile.dataset.testid ?? "",
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        };
+      }),
+  );
+}
+
+/** Lignes de la tuile To-do du côté (0 quand la tuile montre son état vide). */
+function sideTodoRows(page: Page, tileId: "privateTodo" | "proTodo"): Locator {
+  return page
+    .getByTestId(`tile-${tileId}`)
+    .getByRole("list", { name: fr.dashboard.tiles.upcoming })
+    .getByRole("listitem");
+}
+
+/**
+ * Depuis la liste, ouvre le tableau de bord avec un chargement ralenti ; relève les boîtes de chaque tuile du givre
+ * puis du contenu et les compare au pixel. `check` vérifie le contenu attendu une fois la page chargée.
+ */
+async function expectFrostGeometry(
+  page: Page,
+  what: string,
+  check: () => Promise<void>,
+) {
+  await page.goto("/tasks");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await slowNavigation(page, "/dashboard");
+
+  await navLink(page, fr.shell.home).click();
+  await expect(page.getByTestId("dashboard-frost")).toBeVisible();
+  const frost = await frostBoxes(page);
+  await expect(page.getByTestId("dashboard-frost")).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("tile-today")).toBeVisible();
+  await check();
+  const content = await contentBoxes(page);
+  await page.unrouteAll({ behavior: "wait" });
+
+  test.info().annotations.push({
+    type: `géométrie : ${what}`,
+    description: JSON.stringify({ frost, content }),
+  });
+  expect(content.length, `${what} : nombre de tuiles`).toBe(frost.length);
+  content.forEach((tile, i) => {
+    for (const key of ["x", "y", "width", "height"] as const) {
+      expect(
+        Math.abs(tile[key] - frost[i][key]),
+        `${what}, ${tile.id} : ${key} ${frost[i][key]} (givre) → ${tile[key]} (contenu)`,
+      ).toBeLessThan(GEOMETRY_TOLERANCE_PX);
+    }
+  });
+}
+
+test.describe("givre du tableau de bord à la géométrie exacte", () => {
+  const created: string[] = [];
+
+  test.afterEach(async ({ page }) => {
+    await trashTasks(page, created.splice(0));
+  });
+
+  test("chaque tuile garde sa boîte au pixel près, du givre au contenu, To-do à 0, 2 et 5 tâches", async ({
+    page,
+  }) => {
+    // Neuf tâches créées par l'ajout rapide et quatre chargements ralentis.
+    test.setTimeout(180_000);
+    const longTitle = (base: string) =>
+      uniqueTitle(
+        `${base}, avec un intitulé assez long pour dépasser la largeur d'une tuile au téléphone`,
+      );
+    await signIn(page);
+    await switchSide(page, "pro");
+    await filterContext(page, "Trustup");
+    await expect(page.getByTestId("tile-proTodo")).toBeVisible();
+
+    // To-do à 0 (espace Trustup vide) : l'état vide de la tuile.
+    await expectFrostGeometry(page, "To-do à 0", async () => {
+      await expect(sideTodoRows(page, "proTodo")).toHaveCount(0);
+    });
+
+    // To-do à 2 (espace Nexxia) et tuile « Aujourd'hui » peu remplie : états de remplissage.
+    await filterContext(page, "Nexxia");
+    created.push(
+      await quickAddTask(page, longTitle("Relancer le devis"), {
+        date: userDay(-1),
+        time: "09:30",
+      }),
+    );
+    created.push(
+      await quickAddTask(page, longTitle("Envoyer la proposition"), {
+        date: userDay(0),
+        time: "14:00",
+      }),
+    );
+    await expectFrostGeometry(page, "To-do à 2", async () => {
+      await expect(sideTodoRows(page, "proTodo")).toHaveCount(2);
+    });
+
+    // To-do à 5 sur les deux espaces (pastilles d'espace sur la tuile et les lignes), « Aujourd'hui » pleine.
+    created.push(
+      await quickAddTask(page, longTitle("Préparer le comité"), {
+        date: userDay(0),
+      }),
+    );
+    for (const day of [1, 2, 3]) {
+      created.push(
+        await quickAddTask(page, longTitle(`Facturer le jalon ${day}`), {
+          date: userDay(day),
+          time: "11:00",
+        }),
+      );
+    }
+    await filterContext(page, t("shell.contexts.all", { count: 2 }));
+    await expectFrostGeometry(page, "To-do à 5", async () => {
+      await expect(sideTodoRows(page, "proTodo")).toHaveCount(5);
+      await expect(
+        page
+          .getByTestId("tile-today")
+          .getByRole("list", { name: fr.dashboard.today.list })
+          .getByRole("listitem"),
+      ).toHaveCount(3);
+    });
+
+    // Côté Privé : paire de tuiles chiffre, To-do à 2.
+    await page.goto("/dashboard");
+    await switchSide(page, "private");
+    for (const name of [
+      "Prendre rendez-vous chez le dentiste",
+      "Réserver le train",
+    ]) {
+      created.push(
+        await quickAddTask(page, longTitle(name), { date: userDay(4) }),
+      );
+    }
+    await expectFrostGeometry(page, "côté Privé", async () => {
+      await expect(page.getByTestId("tile-shopping")).toBeVisible();
+      await expect(sideTodoRows(page, "privateTodo")).not.toHaveCount(0);
     });
   });
 });

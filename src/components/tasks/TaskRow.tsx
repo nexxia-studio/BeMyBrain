@@ -4,7 +4,9 @@
 // Ligne de la liste (spec todo-unifiee, « Liste ») : case à cocher (zone 44 px, libellé sur la case seule),
 // puis un lien vers le détail qui couvre le reste de la ligne : titre (deux lignes au plus), puis légende
 // (parente, espace, échéance, heure, tags, priorité, compteur de sous-tâches). Une seule colonne à toutes les
-// largeurs : la légende passe à la ligne sous 390 px.
+// largeurs : la légende passe à la ligne sous 390 px. Variante `tile` (tuiles To-do du tableau de bord, hauteur
+// fixe, DESIGN.md § 6) : titre tronqué sur une ligne, légende sur une ligne coupée au bord ; la liste et le détail
+// gardent le titre complet.
 // Cocher : `tasks.complete` par le registre (`runAppAction`, origine `app`) ; rouvrir une tâche fermée (terminée
 // ou annulée, case cochée ; l'annulée porte le repère « Annulée ») : `tasks.update` vers « À faire ». Pas d'optimiste : la case garde l'état reçu du serveur et reste désactivée
 // pendant l'appel ; la ligne sort (TaskList) quand le rendu serveur ne la contient plus. Erreur dans la ligne.
@@ -39,6 +41,8 @@ type TaskRowProps = {
   listQuery?: string;
   /** Surface propre à un emplacement (ex. ligne posée sur le `popover` opaque du détail). */
   className?: string;
+  /** `tile` : une seule ligne (tuile à hauteur fixe) ; `list` (défaut) : titre sur deux lignes, légende à la ligne. */
+  layout?: "list" | "tile";
 };
 
 export function TaskRow({
@@ -48,7 +52,9 @@ export function TaskRow({
   showContext,
   listQuery = "",
   className,
+  layout = "list",
 }: TaskRowProps) {
+  const oneLine = layout === "tile";
   const t = useTranslations("tasks");
   const format = useFormatter();
   const locale = useLocale();
@@ -95,13 +101,21 @@ export function TaskRow({
           {/* Contenu saisi : jamais traduit. */}
           <span
             className={cn(
-              "line-clamp-2 text-body break-words",
+              oneLine ? "truncate" : "line-clamp-2 break-words",
+              "text-body",
               closed && "text-muted-foreground",
             )}
           >
             {task.title}
           </span>
-          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-muted-foreground empty:hidden">
+          <span
+            className={cn(
+              "flex items-center gap-x-2.5 text-caption text-muted-foreground empty:hidden",
+              oneLine
+                ? "flex-nowrap overflow-hidden whitespace-nowrap"
+                : "flex-wrap gap-y-1",
+            )}
+          >
             {canceled && (
               <span className="rounded-full bg-chip-neutral px-2.5 py-0.5 text-chip text-chip-neutral-foreground">
                 {t("list.canceled")}

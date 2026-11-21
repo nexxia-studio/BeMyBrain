@@ -49,6 +49,7 @@
       "dueToday": "Today",
       "list": "Today's tasks",
       "seeAll": "Open to-do",
+      "nothingElse": "Nothing else today.",
       "error": "Today's tasks are unavailable. Reload the page in a moment."
     },
     "tiles": {
@@ -100,6 +101,7 @@
       },
       "seeAll": "See all",
       "upcoming": "Upcoming tasks",
+      "nothingElse": "Nothing else coming up.",
       "tasksError": "Tasks are unavailable. Reload the page in a moment."
     }
   },

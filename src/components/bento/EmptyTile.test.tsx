@@ -7,6 +7,7 @@ import { buildDashboard } from "@/modules/dashboard/tiles";
 import messages from "../../../messages/fr.json";
 
 import { EmptyTile } from "./EmptyTile";
+import { tileClasses } from "./tile-sizes";
 
 const TRUSTUP = {
   id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
@@ -57,5 +58,39 @@ describe("tuile vide", () => {
     expect(classes("Nexxia")).toEqual(
       expect.arrayContaining(["bg-chip-indigo", "text-chip-indigo-foreground"]),
     );
+  });
+
+  it.each(["wide", "standard", "figure"] as const)(
+    "hauteur fixe : une tuile %s porte les classes de taille et de hauteur de tile-sizes.ts, les mêmes que son givre",
+    (size) => {
+      render(
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          <EmptyTile tile={{ ...clientsWithLabels(), size }} />
+        </NextIntlClientProvider>,
+      );
+
+      const tile = screen.getByTestId("tile-clients");
+      for (const name of tileClasses(size).split(" ")) {
+        expect(tile.classList.contains(name)).toBe(true);
+      }
+    },
+  );
+
+  it("les espaces tiennent sur une ligne (pastilles tronquées, sans retour à la ligne)", () => {
+    render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <EmptyTile tile={clientsWithLabels()} />
+      </NextIntlClientProvider>,
+    );
+
+    const spaces = within(screen.getByTestId("tile-clients")).getByRole(
+      "list",
+      { name: "Espaces couverts" },
+    );
+    expect(spaces.classList.contains("flex-nowrap")).toBe(true);
+    expect(spaces.classList.contains("overflow-hidden")).toBe(true);
+    expect(
+      within(spaces).getByText("Trustup").classList.contains("truncate"),
+    ).toBe(true);
   });
 });

@@ -4,20 +4,27 @@
 // tuile), espaces couverts, puis les 5 prochaines tâches du côté en lignes `row` (TaskRow : case à cocher,
 // lien vers le détail). Vide : phrase et bouton « Ajouter une tâche ». Lecture en échec : un message, le reste
 // du tableau de bord s'affiche. Une colonne à toutes les largeurs (tuile large, grille BentoGrid).
+// Hauteur fixe (tile-sizes.ts, DESIGN.md § 6) : lignes et espaces sur une seule ligne ; sous 5 tâches, « Rien
+// d'autre à venir » comble la place sous les lignes (TileRest), jamais du blanc.
 // Mouvement : enveloppe animée par GSAP (révélation, bascule), surface par Motion (survol) : jamais le même
 // élément (ADR-006).
 import { ListTodo } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { TILE_SIZE_CLASSES } from "@/components/bento/tile-sizes";
+import { TileRest } from "@/components/bento/TileRest";
+import { tileClasses } from "@/components/bento/tile-sizes";
 import { TileSurface } from "@/components/bento/TileSurface";
 import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { TASKS_PATH } from "@/components/shell/nav-items";
 import { cn } from "@/lib/utils";
 import type { DashboardTile } from "@/modules/dashboard/tiles";
 import type { Task } from "@/modules/tasks/queries";
-import { isOverdue, sideTileItems } from "@/modules/tasks/view";
+import {
+  isOverdue,
+  SIDE_TILE_LIMIT,
+  sideTileItems,
+} from "@/modules/tasks/view";
 
 import { contextChipClass } from "./context-chip-class";
 import { TaskRow } from "./TaskRow";
@@ -49,7 +56,7 @@ export function SideTodoTile({
       data-signature="reveal"
       data-testid={`tile-${tile.id}`}
       data-side={tile.side}
-      className={cn("flex min-w-0", TILE_SIZE_CLASSES[tile.size])}
+      className={cn("flex", tileClasses(tile.size))}
     >
       <TileSurface className="glass flex w-full flex-col gap-4 rounded-tile p-tile">
         <div className="flex items-start justify-between gap-3">
@@ -69,10 +76,19 @@ export function SideTodoTile({
           </Link>
         </div>
         {tile.spaceLabels.length > 0 && (
-          <ul aria-label={t("spaces")} className="flex flex-wrap gap-1.5">
+          <ul
+            aria-label={t("spaces")}
+            className="flex flex-nowrap gap-1.5 overflow-hidden"
+          >
             {tile.spaceLabels.map((space) => (
-              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit ; pastille de sa couleur.
-              <li key={space.name} className={contextChipClass(space.color)}>
+              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit ; pastille de sa couleur, tronquée.
+              <li
+                key={space.name}
+                className={cn(
+                  contextChipClass(space.color),
+                  "min-w-0 truncate",
+                )}
+              >
                 {space.name}
               </li>
             ))}
@@ -108,18 +124,24 @@ export function SideTodoTile({
             </QuickAddTrigger>
           </div>
         ) : (
-          <ul aria-label={t("upcoming")} className="flex flex-col gap-2">
-            {items.map((task) => (
-              <li key={task.id}>
-                <TaskRow
-                  task={task}
-                  overdue={isOverdue(task, today)}
-                  showDate
-                  showContext={showContext}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul aria-label={t("upcoming")} className="flex flex-col gap-2">
+              {items.map((task) => (
+                <li key={task.id}>
+                  <TaskRow
+                    task={task}
+                    overdue={isOverdue(task, today)}
+                    showDate
+                    showContext={showContext}
+                    layout="tile"
+                  />
+                </li>
+              ))}
+            </ul>
+            {items.length < SIDE_TILE_LIMIT && (
+              <TileRest label={t("nothingElse")} tone="glass" />
+            )}
+          </>
         )}
       </TileSurface>
     </div>

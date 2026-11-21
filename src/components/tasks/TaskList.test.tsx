@@ -179,6 +179,20 @@ describe("liste des tâches : focus clavier", () => {
   });
 });
 
+describe("liste des tâches : titre complet", () => {
+  it("le titre passe sur deux lignes et la légende à la ligne (la ligne unique est réservée aux tuiles)", () => {
+    renderList([buildTask({ title: "Payer la crèche", dueTime: "14:00" })]);
+
+    const link = screen.getByRole("link", { name: /Payer la crèche/ });
+    const title = within(link).getByText("Payer la crèche");
+    const legend = within(link).getByText("14:00").parentElement;
+
+    expect(title.classList.contains("line-clamp-2")).toBe(true);
+    expect(title.classList.contains("truncate")).toBe(false);
+    expect(legend?.classList.contains("flex-wrap")).toBe(true);
+  });
+});
+
 describe("liste des tâches : tags", () => {
   it("tags séparés selon la langue (« client, maison et fête »)", () => {
     renderList([

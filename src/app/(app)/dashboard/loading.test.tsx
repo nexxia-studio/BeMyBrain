@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { createTranslator } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TILE_SIZE_CLASSES } from "@/components/bento/tile-sizes";
+import { tileClasses, TODAY_TILE_CLASSES } from "@/components/bento/tile-sizes";
 import { buildDashboard } from "@/modules/dashboard/tiles";
 
 import messages from "../../../../messages/fr.json";
@@ -125,7 +125,7 @@ describe("chargement du tableau de bord", () => {
     ["Privé, avec la paire de tuiles chiffre", PRIVATE_SIDE],
     ["Pro", PRO_SIDE],
   ])(
-    "les tuiles givrées suivent la grille du côté %s, à ses classes de taille",
+    "les tuiles givrées suivent la grille du côté %s, aux classes de taille et de hauteur des vraies tuiles (tile-sizes.ts)",
     async (_, side) => {
       loadSideSpaces.mockResolvedValue(side);
       const expected = buildDashboard(side).tiles.map((tile) => tile.size);
@@ -134,15 +134,28 @@ describe("chargement du tableau de bord", () => {
       const [solid, ...glass] = tiles;
 
       expect(hasClasses(frost, "flex flex-wrap gap-grid")).toBe(true);
-      expect(hasClasses(solid, `min-w-0 ${TILE_SIZE_CLASSES.wide}`)).toBe(true);
+      expect(hasClasses(solid, TODAY_TILE_CLASSES)).toBe(true);
       expect(glass).toHaveLength(expected.length);
       glass.forEach((tile, i) => {
-        expect(
-          hasClasses(tile, `min-w-0 ${TILE_SIZE_CLASSES[expected[i]]}`),
-        ).toBe(true);
+        expect(hasClasses(tile, tileClasses(expected[i]))).toBe(true);
       });
     },
   );
+
+  it("aucune hauteur propre au givre : ses seules classes de hauteur sont celles de tile-sizes.ts", async () => {
+    const sizes = buildDashboard(PRIVATE_SIDE).tiles.map((tile) => tile.size);
+    const heights = (classes: string) =>
+      classes.split(/\s+/).filter((name) => /(^|:)(min-)?h-/.test(name));
+
+    const {
+      tiles: [solid, ...glass],
+    } = await renderLoading();
+
+    expect(heights(solid.className)).toEqual(heights(TODAY_TILE_CLASSES));
+    glass.forEach((tile, i) => {
+      expect(heights(tile.className)).toEqual(heights(tileClasses(sizes[i])));
+    });
+  });
 
   it("sans espace sur le côté, seule la tuile pleine est rendue", async () => {
     loadSideSpaces.mockResolvedValue({

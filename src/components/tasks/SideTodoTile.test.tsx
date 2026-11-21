@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { tileClasses } from "@/components/bento/tile-sizes";
 import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
 import { buildDashboard } from "@/modules/dashboard/tiles";
 import { getUserTimeZone } from "@/modules/core/time-zone";
@@ -142,6 +143,78 @@ describe("tuile « To-do pro »", () => {
       within(spaces).getByText(name).className.split(/\s+/);
     expect(classes("Trustup")).toContain("bg-chip-warm");
     expect(classes("Nexxia")).toContain("bg-chip-indigo");
+  });
+
+  it("hauteur fixe : les classes de taille et de hauteur de tile-sizes.ts, les mêmes que son givre", () => {
+    renderTile([]);
+
+    for (const name of tileClasses("wide").split(" ")) {
+      expect(tile().classList.contains(name)).toBe(true);
+    }
+  });
+
+  it("une ligne de la tuile tient sur une ligne : titre tronqué, légende et espaces sans retour à la ligne", () => {
+    const title =
+      "Préparer la présentation du projet pour le comité de direction";
+    renderTile([
+      buildTask({
+        side: "pro",
+        title,
+        dueDate: "2026-11-20",
+        dueTime: "09:30",
+        contextName: "Nexxia",
+        contextColor: "indigo",
+      }),
+    ]);
+
+    const link = within(tile()).getByRole("link", { name: new RegExp(title) });
+    const titleSpan = within(link).getByText(title);
+    const legend = within(link).getByText("09:30").parentElement;
+    const spaces = within(tile()).getByRole("list", {
+      name: "Espaces couverts",
+    });
+    expect(titleSpan.classList.contains("truncate")).toBe(true);
+    expect(titleSpan.classList.contains("line-clamp-2")).toBe(false);
+    expect(legend?.classList.contains("flex-nowrap")).toBe(true);
+    expect(legend?.classList.contains("overflow-hidden")).toBe(true);
+    expect(spaces.classList.contains("flex-nowrap")).toBe(true);
+    expect(spaces.classList.contains("overflow-hidden")).toBe(true);
+  });
+
+  it.each([1, 2, 4])(
+    "%i tâche(s) sur 5 : « Rien d'autre à venir » comble la place sous les lignes",
+    (count) => {
+      renderTile(
+        Array.from({ length: count }, (_, i) =>
+          buildTask({ side: "pro", title: `Pro ${i}` }),
+        ),
+      );
+
+      const rest = within(tile()).getByTestId("tile-rest");
+      expect(rest.textContent).toBe(messages.dashboard.tiles.nothingElse);
+      const list = within(tile()).getByRole("list", {
+        name: "Prochaines tâches",
+      });
+      expect(
+        list.compareDocumentPosition(rest) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
+
+  it("5 tâches (le maximum) : aucun état de remplissage", () => {
+    renderTile(
+      Array.from({ length: 6 }, (_, i) =>
+        buildTask({ side: "pro", title: `Pro ${i}` }),
+      ),
+    );
+
+    expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+  });
+
+  it("aucune tâche : l'état vide, pas l'état de remplissage", () => {
+    renderTile([]);
+
+    expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
   });
 
   it("vide : dit à quoi sert la tuile et propose d'ajouter une tâche", () => {

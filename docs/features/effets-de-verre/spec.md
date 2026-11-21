@@ -53,6 +53,11 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - [ ] Aucun décalage de mise en page entre le givre et le contenu réel, sur mobile (390 px) et ordinateur (1440 px) :
   - même position et même largeur du titre et de la première tuile ;
   - score de décalage cumulé (CLS) mesuré < 0,01.
+- [ ] Tableau de bord (QA-2, décision d'Antoine du 2026-11-21) : chaque tuile du givre a la boîte de la vraie tuile (x, y, largeur, hauteur), au pixel près, quel que soit le contenu (To-do à 0, 2 ou 5 tâches, « Aujourd'hui » vide, peu remplie ou pleine, tuiles vides, titres longs), sur mobile et ordinateur :
+  - hauteur fixe par tuile (`wide`, `standard`, `figure`, tuile pleine), par palier d'écran, définie une seule fois dans `tile-sizes.ts` et lue par les tuiles et le givre (valeurs : DESIGN.md § 6) ;
+  - chaque hauteur est calée sur le contenu maximal de la tuile ;
+  - dans les tuiles, lignes de tâche et pastilles d'espace sur une ligne (titre tronqué) ; titre complet dans la liste et le détail ;
+  - une tuile peu remplie montre un état de remplissage (« Rien d'autre aujourd'hui. », « Rien d'autre à venir. »), jamais du blanc.
 - [ ] Accessibilité inchangée : `aria-busy` sur `<main>`, message « chargement » en `role="status"`, givre `aria-hidden`.
 - [ ] Les squelettes actuels et leurs `data-testid` sont retirés. Leurs tests sont remplacés.
 

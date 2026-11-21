@@ -49,6 +49,7 @@
       "dueToday": "Aujourd'hui",
       "list": "Tâches du jour",
       "seeAll": "Voir la to-do",
+      "nothingElse": "Rien d'autre aujourd'hui.",
       "error": "Tâches du jour indisponibles. Recharge la page dans un instant."
     },
     "tiles": {
@@ -100,6 +101,7 @@
       },
       "seeAll": "Tout voir",
       "upcoming": "Prochaines tâches",
+      "nothingElse": "Rien d'autre à venir.",
       "tasksError": "Tâches indisponibles. Recharge la page dans un instant."
     }
   },
