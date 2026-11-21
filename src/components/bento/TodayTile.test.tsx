@@ -18,6 +18,7 @@ import { buildTask } from "../../../tests/factories/build-task";
 const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
+import { TODAY_TILE_CLASSES } from "./tile-sizes";
 import { TodayTile } from "./TodayTile";
 
 const TODAY = "2026-11-19";
@@ -42,6 +43,13 @@ function renderTile(props: Partial<TodayTileProps> = {}) {
 }
 
 const tile = () => screen.getByTestId("tile-today");
+const dueOn = (count: number) =>
+  todayTileItems(
+    Array.from({ length: count }, (_, i) =>
+      buildTask({ title: `Tâche ${i}`, side: "private", dueDate: TODAY }),
+    ),
+    TODAY,
+  );
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -138,6 +146,64 @@ describe("tuile « Aujourd'hui »", () => {
       within(tile()).getByText("Tâche introuvable ou à la corbeille."),
     ).toBeTruthy();
     expect(box.disabled).toBe(false);
+  });
+
+  it("hauteur fixe : les classes de taille et de hauteur de tile-sizes.ts, les mêmes que son givre", () => {
+    renderTile({ due: dueOn(3) });
+
+    for (const name of TODAY_TILE_CLASSES.split(" ")) {
+      expect(tile().classList.contains(name)).toBe(true);
+    }
+  });
+
+  it("une ligne de la tuile tient sur une ligne : titre tronqué, légende sans retour à la ligne", () => {
+    const title =
+      "Renouveler l'assurance de la voiture avant la fin du mois prochain";
+    renderTile({
+      due: todayTileItems(
+        [buildTask({ title, dueDate: TODAY, dueTime: "14:00" })],
+        TODAY,
+      ),
+    });
+
+    const link = within(tile()).getByRole("link", { name: new RegExp(title) });
+    const titleSpan = within(link).getByText(title);
+    const legend = within(link).getByText("14:00").parentElement;
+    expect(titleSpan.classList.contains("truncate")).toBe(true);
+    expect(titleSpan.classList.contains("line-clamp-2")).toBe(false);
+    expect(legend?.classList.contains("flex-nowrap")).toBe(true);
+    expect(legend?.classList.contains("overflow-hidden")).toBe(true);
+  });
+
+  it.each([1, 2])(
+    "%i tâche(s) sur 3 : « Rien d'autre aujourd'hui » comble la place sous les lignes",
+    (count) => {
+      renderTile({ due: dueOn(count) });
+
+      const rest = within(tile()).getByTestId("tile-rest");
+      expect(rest.textContent).toBe(messages.dashboard.today.nothingElse);
+      const list = within(tile()).getByRole("list", { name: "Tâches du jour" });
+      expect(
+        list.compareDocumentPosition(rest) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
+
+  it("3 tâches (le maximum) : aucun état de remplissage", () => {
+    renderTile({ due: dueOn(4) });
+
+    expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+  });
+
+  it("rien de dû : la phrase « rien en retard » occupe la place des lignes, sans « Rien d'autre »", () => {
+    renderTile();
+
+    expect(within(tile()).getByTestId("tile-rest").textContent).toBe(
+      messages.dashboard.today.introClear,
+    );
+    expect(tile().textContent).not.toContain(
+      messages.dashboard.today.nothingElse,
+    );
   });
 
   it("rien en retard ni aujourd'hui : une phrase le dit, ni compteur ni ligne", () => {

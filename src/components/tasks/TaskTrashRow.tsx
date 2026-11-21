@@ -10,9 +10,17 @@
 import { CornerDownRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { cn } from "@/lib/utils";
 import type { TrashEntry } from "@/modules/tasks/view";
 
 import { contextChipClass } from "./context-chip-class";
+import {
+  SIDE_CHIP_CLASSES,
+  TASK_ROW_LEGEND_TEXT,
+  TASK_ROW_TITLE_TEXT,
+  TASK_TRASH_LEGEND_CLASSES,
+  TASK_TRASH_ROW_CLASSES,
+} from "./task-list-layout";
 
 type TaskTrashRowProps = { item: TrashEntry };
 
@@ -23,14 +31,25 @@ export function TaskTrashRow({
   const tSide = useTranslations("shell.side");
 
   return (
-    <span className="flex min-w-0 flex-col gap-0.5">
+    <span className={TASK_TRASH_ROW_CLASSES}>
       {/* Contenu saisi : jamais traduit. */}
-      <span className="line-clamp-2 text-body break-words text-foreground">
+      <span
+        className={cn(
+          TASK_ROW_TITLE_TEXT,
+          "line-clamp-2 break-words text-foreground",
+        )}
+      >
         {task.title}
       </span>
-      <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-muted-foreground">
+      <span
+        className={cn(
+          TASK_TRASH_LEGEND_CLASSES,
+          TASK_ROW_LEGEND_TEXT,
+          "text-muted-foreground",
+        )}
+      >
         <span className="sr-only">{t("trash.side")}</span>
-        <span className="rounded-full border border-border px-2.5 py-0.5 text-chip text-foreground">
+        <span className={cn(SIDE_CHIP_CLASSES, "text-foreground")}>
           {tSide(task.side)}
         </span>
         {task.parentTitle !== null && (

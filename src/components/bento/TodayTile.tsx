@@ -2,7 +2,9 @@
 // Tuile « Aujourd'hui » (DESIGN.md § 5) : la seule tuile pleine de l'app. Date du jour selon la langue,
 // salutation, puis la to-do du jour des deux côtés (spec todo-unifiee) : pastilles de chiffres « En retard » et
 // « Aujourd'hui », les 3 premières tâches (côté en légende) et le lien « Voir la to-do » (la liste
-// montre le côté actif seulement, pas « tout »). Rien de dû : une phrase.
+// montre le côté actif seulement, pas « tout »). Hauteur fixe (tile-sizes.ts, DESIGN.md § 6) : sous 3 tâches,
+// « Rien d'autre aujourd'hui » comble la place sous les lignes ; rien de dû, la phrase « rien en retard » prend
+// cette place (TileRest), jamais du blanc.
 // Lecture en échec : un message à la place, la tuile et le reste du tableau de bord s'affichent quand même.
 // Une colonne à toutes les largeurs ; les deux pastilles restent côte à côte, même à 390 px.
 // Animée par GSAP seul (entrée du tableau de bord) : aucun survol Motion sur la tuile.
@@ -12,8 +14,14 @@ import Link from "next/link";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 
 import { TASKS_PATH } from "@/components/shell/nav-items";
-import type { TodayTile as TodayTileData } from "@/modules/tasks/view";
+import { cn } from "@/lib/utils";
+import {
+  TODAY_TILE_LIMIT,
+  type TodayTile as TodayTileData,
+} from "@/modules/tasks/view";
 
+import { TileRest } from "./TileRest";
+import { TODAY_TILE_CLASSES } from "./tile-sizes";
 import { TodayTaskRow } from "./TodayTaskRow";
 
 type TodayTileProps = {
@@ -30,17 +38,17 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
   const format = useFormatter();
   const now = useNow();
   const hasDue = due !== null && due.items.length > 0;
-  const intro = !hasSpaces
-    ? t("today.introNoSpace")
-    : due !== null && !hasDue
-      ? t("today.introClear")
-      : null;
+  const intro = !hasSpaces ? t("today.introNoSpace") : null;
+  const clear = hasSpaces && due !== null && !hasDue;
 
   return (
     <section
       data-signature="intro"
       data-testid="tile-today"
-      className="flex min-w-0 grow-2 basis-100 flex-col justify-between gap-5.5 rounded-tile bg-primary p-today text-primary-foreground shadow-today lg:min-h-75"
+      className={cn(
+        "flex flex-col justify-between gap-5.5 rounded-tile bg-primary p-today text-primary-foreground shadow-today",
+        TODAY_TILE_CLASSES,
+      )}
     >
       <div className="flex flex-col gap-2.5">
         <p
@@ -66,6 +74,11 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
           </p>
         )}
       </div>
+      {clear && (
+        <div data-signature-item className="flex flex-1 flex-col">
+          <TileRest label={t("today.introClear")} tone="primary" />
+        </div>
+      )}
       {due === null && (
         <p
           data-signature-item
@@ -76,7 +89,7 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
         </p>
       )}
       {due !== null && hasDue && (
-        <div data-signature-item className="flex flex-col gap-3">
+        <div data-signature-item className="flex flex-1 flex-col gap-3">
           {/* Pastilles de chiffres : chiffre en `text-stat`, libellé `text-small` en blanc plein. */}
           <div className="flex gap-2.5">
             {(
@@ -101,6 +114,9 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
               <TodayTaskRow key={task.id} task={task} today={today} />
             ))}
           </ul>
+          {due.items.length < TODAY_TILE_LIMIT && (
+            <TileRest label={t("today.nothingElse")} tone="primary" />
+          )}
           <Link
             href={TASKS_PATH}
             className="flex min-h-11 items-center self-start text-small font-semibold text-primary-foreground no-underline hover:text-primary-foreground hover:underline focus-visible:outline-ring-on-primary"

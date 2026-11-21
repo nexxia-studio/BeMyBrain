@@ -21,7 +21,27 @@ vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 const setContextSelection = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/preferences-actions", () => ({ setContextSelection }));
 
+import {
+  TASK_LIST_TILE_CLASSES,
+  TASK_ROW_CLASSES,
+  TASK_ROW_LEGEND_CLASSES,
+  TASK_ROW_LEGEND_STRUT_CLASSES,
+  TASK_ROW_LEGEND_TEXT,
+  TASK_ROW_LINE_CLASSES,
+  TASK_ROW_TEXT_CLASSES,
+  TASK_ROW_TITLE_TEXT,
+  TASK_ROWS_CLASSES,
+  TASK_SECTION_CLASSES,
+  TASK_SECTION_HEADER_CLASSES,
+  TASK_SECTION_HEADING_TEXT,
+} from "./task-list-layout";
 import { TaskList } from "./TaskList";
+
+function expectClasses(element: HTMLElement, classes: string) {
+  expect(element.className.split(/\s+/)).toEqual(
+    expect.arrayContaining(classes.split(" ")),
+  );
+}
 
 const TODAY = "2026-11-19";
 const PARENT_ID = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
@@ -169,6 +189,70 @@ describe("liste des tâches : sections", () => {
   });
 });
 
+describe("liste des tâches : géométrie partagée avec le givre", () => {
+  it("tuile, section, en-tête et ligne portent les classes de task-list-layout, lues aussi par le givre", () => {
+    renderList([buildTask({ title: "Hier", dueDate: "2026-11-18" })]);
+
+    const section = screen.getByRole("region", { name: "En retard" });
+    const heading = within(section).getByRole("heading", { level: 2 });
+    const item = within(section).getByRole("listitem");
+    const row = item.firstElementChild as HTMLElement;
+    const line = row.firstElementChild as HTMLElement;
+    const text = within(section).getByRole("link");
+    const [title, legend] = Array.from(text.children) as HTMLElement[];
+    expectClasses(section.parentElement as HTMLElement, TASK_LIST_TILE_CLASSES);
+    expectClasses(section, TASK_SECTION_CLASSES);
+    expectClasses(
+      heading.parentElement as HTMLElement,
+      TASK_SECTION_HEADER_CLASSES,
+    );
+    expectClasses(heading, TASK_SECTION_HEADING_TEXT);
+    expectClasses(item.parentElement as HTMLElement, TASK_ROWS_CLASSES);
+    expectClasses(row, TASK_ROW_CLASSES);
+    expectClasses(line, TASK_ROW_LINE_CLASSES);
+    expectClasses(text, TASK_ROW_TEXT_CLASSES);
+    expectClasses(title, TASK_ROW_TITLE_TEXT);
+    expectClasses(legend, `${TASK_ROW_LEGEND_CLASSES} ${TASK_ROW_LEGEND_TEXT}`);
+    const strut = legend.firstElementChild as HTMLElement;
+    expectClasses(strut, TASK_ROW_LEGEND_STRUT_CLASSES);
+    expect(strut.getAttribute("aria-hidden")).toBe("true");
+    expect(strut.textContent).toBe("");
+  });
+
+  it("légende à la hauteur d'une pastille, avec ou sans pastille : même cale, même grille", () => {
+    renderList([
+      buildTask({
+        title: "Avec",
+        dueDate: "2026-11-18",
+        contextName: "Nexxia",
+      }),
+      buildTask({ title: "Sans", dueDate: "2026-11-17", contextName: null }),
+    ]);
+
+    const legends = screen
+      .getAllByRole("link")
+      .map((link) => link.children[1] as HTMLElement);
+
+    expect(legends).toHaveLength(2);
+    for (const legend of legends) {
+      expectClasses(legend, TASK_ROW_LEGEND_CLASSES);
+      expectClasses(
+        legend.firstElementChild as HTMLElement,
+        TASK_ROW_LEGEND_STRUT_CLASSES,
+      );
+    }
+    expect(within(legends[1]).getByText("Nexxia")).toBeTruthy();
+  });
+
+  it("ligne sans rien en légende : ni légende ni cale (la ligne garde sa hauteur de 44 px)", () => {
+    renderList([buildTask({ title: "Rien" })], { showContext: false });
+
+    const link = screen.getByRole("link", { name: /Rien/ });
+
+    expect(link.children).toHaveLength(1);
+  });
+});
+
 describe("liste des tâches : focus clavier", () => {
   it("le lien de la ligne suit le rayon de la ligne (rounded-lg), anneau de focus arrondi", () => {
     renderList([buildTask({ title: "Payer la crèche" })]);
@@ -176,6 +260,20 @@ describe("liste des tâches : focus clavier", () => {
     const link = screen.getByRole("link", { name: /Payer la crèche/ });
 
     expect(link.className.split(/\s+/)).toContain("rounded-lg");
+  });
+});
+
+describe("liste des tâches : titre complet", () => {
+  it("le titre passe sur deux lignes et la légende à la ligne (la ligne unique est réservée aux tuiles)", () => {
+    renderList([buildTask({ title: "Payer la crèche", dueTime: "14:00" })]);
+
+    const link = screen.getByRole("link", { name: /Payer la crèche/ });
+    const title = within(link).getByText("Payer la crèche");
+    const legend = within(link).getByText("14:00").parentElement;
+
+    expect(title.classList.contains("line-clamp-2")).toBe(true);
+    expect(title.classList.contains("truncate")).toBe(false);
+    expect(legend?.classList.contains("flex-wrap")).toBe(true);
   });
 });
 
