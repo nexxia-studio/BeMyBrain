@@ -206,7 +206,7 @@ Essai iPhone du tableau de bord ralenti (2026-11-23) : hauteurs fixes refusées 
   - Fini quand : tests verts, e2e sans régression.
   - Fait (2026-11-23) : `24617d1`, reviewer approuvé (grille `items-start` : rangées non alignées en bas, à montrer à Antoine). e2e `todo-aujourdhui` rouge avant et après QA-5, défaut d'isolation du test : BRAIN-52.
 
-- [ ] **QA-6. Hauteurs des tuiles mémorisées dans un cookie, réservées par le givre** `[security]`
+- [x] **QA-6. Hauteurs des tuiles mémorisées dans un cookie, réservées par le givre** `[security]`
   - Mesure : après chaque affichage du tableau de bord, un petit composant client mesure la hauteur de chaque tuile et l'écrit dans le cookie `bmb-dashboard-tiles`. Un relevé par côté (Privé / Pro) et par palier d'écran (mobile < 640, tablette, ordinateur ≥ 1024, mêmes paliers que la grille). Le filtre d'espace n'est pas une clé : il est persistant, donc le dernier relevé correspond au filtre courant ; un changement de filtre relève de la limite « données changées ».
   - Attributs : `Secure`, `SameSite=Strict`, `Path=/dashboard`, `Max-Age` 30 jours, sans `HttpOnly` (écrit par le navigateur). Pour la démo ralentie (supprimée à la tâche 9), le chemin du cookie est celui de la route lente : le chemin est passé par la page, jamais calculé depuis l'adresse.
   - Lecture : `dashboard/loading.tsx` lit le cookie (`cookies()`), le côté courant et pose sur chaque tuile givrée les trois hauteurs du côté en variables CSS (`--tile-h-sm`, `--tile-h-md`, `--tile-h-lg`, via `style`, permis par la CSP `style-src-attr`) ; le CSS applique celle du palier. Sans relevé : hauteur de l'état vide compact (QA-5).
@@ -222,6 +222,7 @@ Essai iPhone du tableau de bord ralenti (2026-11-23) : hauteurs fixes refusées 
     - Le relevé du cookie mémorise la hauteur affichée, étirement compris ; l'e2e « données inchangées » le prouve au pixel sur une rangée où une tuile est étirée.
     - Titres de tuile : deux lignes au plus, inchangés.
   - Fini quand : tests verts, reviewer OK, `security-auditor` sans faille.
+  - Fait (2026-11-23) : `53e0f02`, `67a559c` (relevé lu sous le côté affiché après une bascule). Reviewer approuvé, audit sans faille ; durcissements : BRAIN-53. Spec : action du bas précisée, troisième limite (largeur dans un palier).
 
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->
