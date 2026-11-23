@@ -8,15 +8,6 @@ export const DASHBOARD_INTRO_SIGNATURE_KEY = "bmb_signature_dashboard_intro";
 export const BENTO_REVEAL_SIGNATURE_KEY = "bmb_signature_bento_reveal";
 export const EMPTY_STATE_SIGNATURE_KEY = "bmb_signature_empty_state";
 
-/** Tous les marqueurs de moments (remise à zéro de la démo : seules ces clés sont effacées). */
-export const SIGNATURE_KEYS: readonly string[] = [
-  SIDE_SWITCH_SIGNATURE_KEY,
-  SIDE_SWITCH_TILES_SIGNATURE_KEY,
-  DASHBOARD_INTRO_SIGNATURE_KEY,
-  BENTO_REVEAL_SIGNATURE_KEY,
-  EMPTY_STATE_SIGNATURE_KEY,
-];
-
 // Seul accès au stockage de session des moments. Stockage illisible (navigation privée stricte,
 // cookies bloqués : SecurityError) → le moment compte comme déjà joué : rien n'est masqué ni animé.
 

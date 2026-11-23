@@ -26,8 +26,6 @@ import { tileIdsOf } from "@/modules/dashboard/tiles";
 type TileHeightRecorderProps = {
   /** Grille dont les enfants directs `[data-tile]` sont relevés ; porte le côté rendu (`data-side`). */
   rootRef: RefObject<HTMLElement | null>;
-  /** Chemin du cookie : celui de la route du tableau de bord, passé par la page. */
-  path: string;
 };
 
 function currentCookie(): string | undefined {
@@ -45,7 +43,7 @@ function sideOf(root: HTMLElement): Side | null {
     : null;
 }
 
-export function TileHeightRecorder({ rootRef, path }: TileHeightRecorderProps) {
+export function TileHeightRecorder({ rootRef }: TileHeightRecorderProps) {
   useEffect(() => {
     const root = rootRef.current;
     if (root === null || typeof ResizeObserver !== "function") return;
@@ -71,7 +69,7 @@ export function TileHeightRecorder({ rootRef, path }: TileHeightRecorderProps) {
       const previous = currentCookie();
       const value = recordTileHeights(previous, side, tier, measured);
       if (value !== null && value !== previous) {
-        document.cookie = tileHeightsCookie(value, path);
+        document.cookie = tileHeightsCookie(value);
       }
     };
 
@@ -80,7 +78,7 @@ export function TileHeightRecorder({ rootRef, path }: TileHeightRecorderProps) {
     for (const tile of tiles()) observer.observe(tile);
     record();
     return () => observer.disconnect();
-  }, [rootRef, path]);
+  }, [rootRef]);
 
   return null;
 }

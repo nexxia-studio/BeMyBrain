@@ -199,8 +199,8 @@
   --chart-5: var(--ink);
 
   /* Givre de chargement (DESIGN.md § 5) : cran d'intensité, lu par l'utilitaire `frost` et `frost-clear`, qui
-     ne le redéfinissent pas (une enveloppe peut le surcharger par héritage). Cran discret, retenu pour toute
-     l'app aux essais iPhone du 2026-11-23 : halos purs, repos 0,55. */
+     ne le redéfinissent pas. Cran discret, retenu pour toute l'app aux essais iPhone du 2026-11-23 : halos
+     purs, repos 0,55. */
   --frost-from: var(--halo-blue);
   --frost-to: var(--halo-lilac);
   --frost-rest: 0.55;

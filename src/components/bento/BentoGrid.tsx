@@ -82,12 +82,10 @@ const nothingOnServer = () => false;
 type BentoGridProps = {
   /** Côté affiché, lu dans le cookie par le serveur. */
   side: Side;
-  /** Chemin du cookie des hauteurs relevées (route du tableau de bord), passé par la page. */
-  tileHeightsPath: string;
   children: React.ReactNode;
 };
 
-export function BentoGrid({ side, tileHeightsPath, children }: BentoGridProps) {
+export function BentoGrid({ side, children }: BentoGridProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   // Côté au montage : le fondu, chargé après l'hydratation, s'y compare pour voir aussi une bascule
   // arrivée avant son chargement.
@@ -116,7 +114,7 @@ export function BentoGrid({ side, tileHeightsPath, children }: BentoGridProps) {
   return (
     <div ref={rootRef} data-side={side} className={BENTO_GRID_CLASSES}>
       {children}
-      <TileHeightRecorder rootRef={rootRef} path={tileHeightsPath} />
+      <TileHeightRecorder rootRef={rootRef} />
       {/* Une barrière par moment : un morceau introuvable démasque ses cibles, sans page d'erreur. */}
       {entrance ? (
         <>

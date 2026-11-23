@@ -1,3 +1,4 @@
+import { HOME_PATH } from "@/lib/auth/routes";
 import { sides, type Side } from "@/modules/core/sides";
 
 import { tileIdsOf } from "./tiles";
@@ -150,13 +151,13 @@ export function tileHeightVars(
 }
 
 /**
- * Chaîne à affecter à `document.cookie`. Sans HttpOnly : écrit par le navigateur. `path` vient de la page (jamais
- * de l'adresse) : le cookie n'est envoyé qu'aux requêtes de cette route.
+ * Chaîne à affecter à `document.cookie`. Sans HttpOnly : écrit par le navigateur. Chemin fixe, celui du tableau de
+ * bord (jamais déduit de l'adresse) : le cookie n'est envoyé qu'aux requêtes de cette route.
  */
-export function tileHeightsCookie(value: string, path: string): string {
+export function tileHeightsCookie(value: string): string {
   return [
     `${TILE_HEIGHTS_COOKIE}=${value}`,
-    `Path=${path}`,
+    `Path=${HOME_PATH}`,
     `Max-Age=${THIRTY_DAYS_SECONDS}`,
     "SameSite=Strict",
     "Secure",

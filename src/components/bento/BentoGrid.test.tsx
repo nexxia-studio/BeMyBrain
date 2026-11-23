@@ -55,7 +55,7 @@ async function renderGrid() {
   vi.resetModules();
   const { BentoGrid } = await import("./BentoGrid");
   return render(
-    <BentoGrid side="private" tileHeightsPath="/dashboard">
+    <BentoGrid side="private">
       <div data-signature="reveal" />
     </BentoGrid>,
   );
@@ -85,12 +85,10 @@ describe("grille bento", () => {
     expect(root.classList.contains("items-start")).toBe(false);
   });
 
-  it("relève la hauteur de ses tuiles pour le givre : chemin du cookie passé au relevé, grille comme racine, côté rendu dans le DOM", async () => {
+  it("relève la hauteur de ses tuiles pour le givre : grille comme racine, côté rendu dans le DOM", async () => {
     const { container } = await renderGrid();
 
-    expect(recorderProps).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "/dashboard" }),
-    );
+    expect(recorderProps).toHaveBeenCalled();
     const { rootRef } = recorderProps.mock.calls.at(-1)?.[0] as {
       rootRef: { current: HTMLElement | null };
     };

@@ -239,8 +239,8 @@ describe("écriture d'un relevé", () => {
     ).toHaveLength(6);
   });
 
-  it("pose le cookie avec Path, Max-Age 30 jours, SameSite=Strict et Secure, sans HttpOnly", () => {
-    const cookie = tileHeightsCookie("private.sm:today-31240", "/dashboard");
+  it("pose le cookie au chemin du tableau de bord, Max-Age 30 jours, SameSite=Strict et Secure, sans HttpOnly", () => {
+    const cookie = tileHeightsCookie("private.sm:today-31240");
 
     expect(cookie.split("; ")).toEqual([
       `${TILE_HEIGHTS_COOKIE}=private.sm:today-31240`,

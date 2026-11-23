@@ -132,7 +132,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
     - les deux avec « réduire les animations » activé dans iOS.
   - Fini quand : Antoine valide. Chaque retour devient une tâche dans « Corrections QA ».
 
-- [ ] **9. Supprimer la page de démo**
+- [x] **9. Supprimer la page de démo**
   - Fichiers supprimés :
     - le dossier `src/app/(app)/demo/` entier, tests compris ;
     - la section `glassDemo` de `messages/{fr,en}.json`.
@@ -142,6 +142,7 @@ Valeurs de référence (spec, issues de la démo jouée sur iPhone) :
     - « aucune clé glassDemo » ;
     - « aucune référence à isGlassDemoEnabled ni glass-demo dans src/ ».
   - Fini quand : test vert, lint, types et `pnpm test` verts, `/demo/effets-de-verre` en 404 en local. Ensuite `/qa effets-de-verre`.
+  - Fait (2026-11-23) : démo retirée en entier, ajouts de QA-1, QA-5 et QA-6 compris (routes `lent/`, réglage d'intensité et son cookie, `SIGNATURE_KEYS`, chemin de cookie passé par la page : `render-dashboard.tsx` refondu dans `page.tsx`, cookie des hauteurs toujours à `Path=/dashboard`). e2e scénario 7 : 404 en dev et sous `next start`.
 
 ## Corrections QA
 <!-- Alimenté par l'essai iPhone (tâche 8) et /qa. Même format que les tâches. -->

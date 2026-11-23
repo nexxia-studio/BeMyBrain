@@ -27,7 +27,7 @@ vi.mock("next-intl/server", () => ({
     createTranslator({ locale: "fr", messages, namespace }),
 }));
 
-// Relevé des hauteurs : testé à part (TileHeightRecorder.test.tsx) ; ici, le côté et le chemin qu'il reçoit.
+// Relevé des hauteurs : testé à part (TileHeightRecorder.test.tsx) ; ici, le côté qu'il relève.
 const recorderProps = vi.hoisted(() => vi.fn());
 vi.mock("@/components/bento/TileHeightRecorder", () => ({
   TileHeightRecorder: (props: object) => {
@@ -302,15 +302,13 @@ describe("tableau de bord", () => {
     ["Privé", PRIVATE_SIDE, "private"],
     ["Pro", PRO_SIDE, "pro"],
   ])(
-    "côté %s : relève la hauteur des tuiles du côté affiché, cookie au chemin du tableau de bord",
+    "côté %s : relève la hauteur des tuiles du côté affiché",
     async (_, spaces, side) => {
       useSide(spaces);
 
       await renderPage();
 
-      expect(recorderProps).toHaveBeenLastCalledWith(
-        expect.objectContaining({ path: "/dashboard" }),
-      );
+      expect(recorderProps).toHaveBeenCalled();
       const { rootRef } = recorderProps.mock.calls.at(-1)?.[0] as {
         rootRef: { current: HTMLElement | null };
       };

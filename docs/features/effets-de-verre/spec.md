@@ -81,9 +81,11 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - [ ] Avant l'essai iPhone, la démo offre :
   - un bouton qui efface les marqueurs de session des moments, puis ouvre le tableau de bord ;
   - des liens vers le tableau de bord et la liste des tâches avec un chargement ralenti de 3 s, sur les vraies pages et les vrais composants de chargement.
-- [ ] À la dernière tâche, plus rien ne reste de la démo :
-  - ni la route, ni `glassDemo` dans les messages ;
-  - ni `glass-demo-stage.tsx`, ni `demo-access.ts`.
+- [x] À la dernière tâche, plus rien ne reste de la démo (tâche 9, verrou `tests/build/no-demo.test.ts`) :
+  - ni la route (routes lentes `lent/` comprises), ni `glassDemo` dans les messages ;
+  - ni `glass-demo-stage.tsx`, ni `demo-access.ts` ;
+  - ni le réglage d'intensité du givre (crans moyen et marqué, `frost-levels.ts`, `FrostLevelPicker.tsx`, son cookie) ;
+  - ni le chemin de cookie des hauteurs passé par la page : un seul chemin, celui du tableau de bord.
 
 ## Scénarios utilisateur (joués par /qa)
 1. **Reflet à l'ouverture** : Antoine ouvre l'app sur le tableau de bord, avec une session neuve. La grille se révèle, puis le reflet balaie les tuiles de verre et disparaît. Variante mobile : oui.
@@ -98,14 +100,13 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
 - Tables touchées : aucune. Ni migration, ni lecture, ni écriture nouvelles.
 - RLS : sans objet.
 - Argent / paiement : non.
-- Pages de démo : fermées en production (`isGlassDemoEnabled`, tests existants). Les routes de chargement ralenti suivent la même garde et appellent `requireSessionWithToken` comme les vraies pages.
+- Pages de démo : retirées à la tâche 9 (elles étaient fermées en production par une garde d'environnement).
 - Rappel ADR-010 : la preview est une copie de la production. Antoine s'y connecte avec son compte de production.
 
 ## UI
 - Écrans concernés :
   - tableau de bord (moment d'ouverture, chargement) ;
-  - `/tasks` et `/trash` (chargement) ;
-  - démo temporaire.
+  - `/tasks` et `/trash` (chargement).
 - Maquette : la démo de la PR #11 (directions C et B).
 - Contraintes DESIGN.md :
   - § 7 : `transform` et `opacity` seulement, une bibliothèque par élément, une fois par session ;
@@ -114,5 +115,5 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - `prefers-reduced-transparency` : le verre devient opaque, le voile reste.
 
 ## Questions ouvertes
-- [x] Intensité du givre : « discret » (repos 0,55, halos purs) pour toute l'app, choisi aux essais iPhone d'Antoine du 2026-11-23 (liste, puis tableau de bord). Les crans moyen et marqué disparaissent avec la démo.
+- [x] Intensité du givre : « discret » (repos 0,55, halos purs) pour toute l'app, choisi aux essais iPhone d'Antoine du 2026-11-23 (liste, puis tableau de bord). Les crans moyen et marqué ont disparu avec la démo (tâche 9).
 - [x] Bascule Privé / Pro : pas d'effet de verre (Antoine, 2026-11-20).

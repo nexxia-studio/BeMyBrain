@@ -18,11 +18,12 @@ import {
   userDay,
 } from "./todo";
 
-// Spec effets-de-verre, scénarios 1 à 6 : givre de chargement sans décalage (tableau de bord, liste, corbeille),
-// givre au repos sous mouvement réduit, reflet une fois par session. Tourne dans les deux projets (barre latérale
-// sur ordinateur, barre d'onglets sur mobile), sauf le scénario 6 (sans variante mobile, tag @desktop).
+// Spec effets-de-verre, scénarios 1 à 7 : givre de chargement sans décalage (tableau de bord, liste, corbeille),
+// givre au repos sous mouvement réduit, reflet une fois par session, démo retirée. Tourne dans les deux projets
+// (barre latérale sur ordinateur, barre d'onglets sur mobile), sauf les scénarios 6 et 7 (sans variante mobile,
+// tag @desktop).
 //
-// Chargement ralenti sans la démo (fermée sous `next start`) : la requête RSC de la navigation côté client est
+// Chargement ralenti : la requête RSC de la navigation côté client est
 // retenue 2 s par `page.route`. Les préchargements (en-tête `next-router-prefetch`) passent tout de suite : Next
 // a déjà en cache le `loading.tsx` de la route et l'affiche au clic, pendant que la vraie page attend.
 test.use({ locale: "fr-FR" });
@@ -1024,4 +1025,22 @@ test.describe("reflet à l'ouverture du tableau de bord", () => {
       expect(await sheenMoves(page)).toEqual([]);
     });
   });
+});
+
+// Scénario 7 : la démo de l'essai iPhone est retirée (tâche 9) ; connecté, son adresse et ses routes lentes
+// n'existent plus.
+test.describe("démo fermée", () => {
+  for (const path of [
+    "/demo/effets-de-verre",
+    "/demo/effets-de-verre/lent/tableau-de-bord",
+    "/demo/effets-de-verre/lent/taches",
+  ]) {
+    test(`${path} répond 404 @desktop`, async ({ page }) => {
+      await signIn(page);
+
+      const response = await page.goto(path);
+
+      expect(response?.status()).toBe(404);
+    });
+  }
 });

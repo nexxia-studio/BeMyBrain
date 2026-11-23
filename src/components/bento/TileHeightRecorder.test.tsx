@@ -43,22 +43,14 @@ function setHeight(element: Element, height: number) {
     ({ height, width: 300, x: 0, y: 0, top: 0, left: 0 }) as DOMRect;
 }
 
-function Grid({
-  side,
-  path,
-  tiles,
-}: {
-  side: Side;
-  path: string;
-  tiles: string[];
-}) {
+function Grid({ side, tiles }: { side: Side; tiles: string[] }) {
   const rootRef = useRef<HTMLDivElement>(null);
   return (
     <div ref={rootRef} data-testid="grid" data-side={side}>
       {tiles.map((id) => (
         <section key={id} data-tile={id} />
       ))}
-      <TileHeightRecorder rootRef={rootRef} path={path} />
+      <TileHeightRecorder rootRef={rootRef} />
     </div>
   );
 }
@@ -66,12 +58,9 @@ function Grid({
 /** Rend la grille ; les hauteurs sont posées avant le montage du relevé par `heights`. */
 function renderGrid(
   heights: Record<string, number>,
-  {
-    side = "private",
-    path = "/dashboard",
-  }: { side?: Side; path?: string } = {},
+  { side = "private" }: { side?: Side } = {},
 ) {
-  return render(<Grid side={side} path={path} tiles={Object.keys(heights)} />);
+  return render(<Grid side={side} tiles={Object.keys(heights)} />);
 }
 
 function tilesOf(container: HTMLElement) {
@@ -117,12 +106,13 @@ afterEach(() => {
   vi.restoreAllMocks();
   // @ts-expect-error -- retire la surcharge : jsdom reprend son accesseur de Document.prototype.
   delete document.cookie;
+  window.history.pushState({}, "", "/");
 });
 
 /** Monte la grille, pose les hauteurs, puis laisse l'observateur relever (premier rappel, comme le navigateur). */
 function mountAndMeasure(
   heights: Record<string, number>,
-  options?: { side?: Side; path?: string },
+  options?: { side?: Side },
 ) {
   const result = renderGrid(heights, options);
   const tiles = tilesOf(result.container);
@@ -181,15 +171,12 @@ describe("relevé des hauteurs de tuiles", () => {
     });
   });
 
-  it("écrit au chemin passé par la page (route lente de la démo), jamais déduit de l'adresse", () => {
-    mountAndMeasure(
-      { today: 300 },
-      { path: "/demo/effets-de-verre/lent/tableau-de-bord" },
-    );
+  it("écrit au chemin du tableau de bord, jamais déduit de l'adresse", () => {
+    window.history.pushState({}, "", "/tasks");
 
-    expect(lastWrite()).toContain(
-      "; Path=/demo/effets-de-verre/lent/tableau-de-bord;",
-    );
+    mountAndMeasure({ today: 300 });
+
+    expect(lastWrite()).toContain("; Path=/dashboard;");
   });
 
   it("relève le côté passé par la grille", () => {
@@ -230,9 +217,7 @@ describe("relevé des hauteurs de tuiles", () => {
     const oldObserver = FakeResizeObserver.instances.at(-1);
 
     // Nouveau DOM (côté Pro) mis en place ; l'ancien observateur se déclenche avant que les effets ne repartent.
-    rerender(
-      <Grid side="pro" path="/dashboard" tiles={["today", "proTodo"]} />,
-    );
+    rerender(<Grid side="pro" tiles={["today", "proTodo"]} />);
     for (const tile of tilesOf(document.body)) setHeight(tile, 200);
     cookieJar.writes = [];
     act(() => oldObserver?.fire());
