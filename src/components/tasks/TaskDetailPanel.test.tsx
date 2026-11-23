@@ -21,7 +21,7 @@ const TASK = "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
 afterEach(() => vi.clearAllMocks());
 
 describe("détail d'une tâche : lecture en échec", () => {
-  it("l'erreur de lecture remonte telle quelle à error.tsx de /tasks (ni 404, ni détail vide)", async () => {
+  it("l'erreur de lecture remonte telle quelle à error.tsx de @detail (ni 404, ni détail vide)", async () => {
     requireSessionWithToken.mockResolvedValue({
       session: { workspaceId: "ws-a" },
       token: "jwt",
