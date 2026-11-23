@@ -29,6 +29,9 @@ export function createTestUserDb(backendUrl: string): TestUserDb {
   const withUserDb = createWithUserDb({
     verify: async (userId) => ({ sub: userId, role: "authenticated" }),
     db: drizzle({ client: pool }),
+    // Pas de purge : ces tests ne gèlent aucun pool (nouvelle tentative testée par tests/db/pool-dead-after-freeze).
+    evictIdle: async () => undefined,
+    poolName: "test",
   });
   return {
     asUser: (userId, fn) => withUserDb(userId, fn),

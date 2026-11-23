@@ -154,14 +154,14 @@ async function freezeAndWake(options: { terminate: boolean }) {
 
   const result = await next();
   if (result.type !== "result") throw new Error("Message « result » attendu.");
-  return result;
+  return { result, warmPids: ready.pids };
 }
 
 describe("pool gelé puis réveillé (BRAIN-50)", () => {
   it(
-    "témoin : sans coupure pendant le gel, les 4 lectures du réveil réussissent",
+    "témoin : sans coupure pendant le gel, les 4 lectures du réveil réussissent sur les connexions chauffées",
     async () => {
-      const result = await freezeAndWake({ terminate: false });
+      const { result, warmPids } = await freezeAndWake({ terminate: false });
 
       expect(result.outcomes).toEqual([
         { ok: true },
@@ -173,34 +173,40 @@ describe("pool gelé puis réveillé (BRAIN-50)", () => {
         attempts: 4,
         rawErrors: [],
         warnCount: 0,
+        poolTotal: 4,
       });
+      for (const pid of result.readPids) expect(warmPids).toContain(pid);
     },
     TIMEOUT,
   );
 
-  // Signature actuelle du bug (constatée le 2026-11-23) : le pool, réveillé, prête les 4 connexions mortes
-  // avant de traiter leur fermeture → 4 DatabaseError. pg_terminate_backend envoie un FATAL 57P01 avant de
-  // fermer ; la veille Neon ferme sans message (« Connection terminated unexpectedly », sans SQLSTATE) : deux
-  // erreurs de connexion au sens de la spec. Un enfant mort, un terminate refusé ou un délai dépassé font
-  // échouer ce test.
-  // La tâche 3 inverse cette attente : outcomes 4 × { ok: true }, attempts 8, rawErrors inchangés (4 erreurs
-  // de connexion, vues aux premières tentatives), warnCount 4.
+  // Avant le correctif (constaté le 2026-11-23) : le pool, réveillé, prêtait les 4 connexions mortes avant de
+  // traiter leur fermeture → 4 DatabaseError. pg_terminate_backend envoie un FATAL 57P01 avant de fermer ; la
+  // veille Neon ferme sans message (« Connection terminated unexpectedly », sans SQLSTATE) : deux erreurs de
+  // connexion au sens de la spec. Preuves exigées (un vert seul ne prouve rien, l'ordre de la boucle
+  // d'événements peut varier) : chaque lecture a échoué une fois sur une connexion morte (4 erreurs brutes de
+  // connexion), a été rejouée une fois (8 essais, 4 traces), a réussi sur un backend neuf, et les connexions
+  // mortes sont sorties du pool (4 connexions restantes, pas 8).
   it(
-    "connexions tuées pendant le gel : les 4 lectures du réveil échouent sur des connexions mortes (bug actuel)",
+    "connexions tuées pendant le gel : chaque lecture du réveil est rejouée une fois sur une connexion neuve et réussit",
     async () => {
-      const result = await freezeAndWake({ terminate: true });
+      const { result, warmPids } = await freezeAndWake({ terminate: true });
 
-      expect(result.outcomes).toEqual(
-        Array.from({ length: 4 }, () =>
-          expect.objectContaining({ ok: false, name: "DatabaseError" }),
-        ),
-      );
-      expect(result.attempts).toBe(4);
+      expect(result.outcomes).toEqual([
+        { ok: true },
+        { ok: true },
+        { ok: true },
+        { ok: true },
+      ]);
+      expect(result.attempts).toBe(8);
       expect(result.rawErrors).toHaveLength(4);
       for (const raw of result.rawErrors) {
         expect(raw.code === "57P01" || raw.connectionTerminated).toBe(true);
       }
-      expect(result.warnCount).toBe(0);
+      expect(result.warnCount).toBe(4);
+      expect(result.readPids).toHaveLength(4);
+      for (const pid of result.readPids) expect(warmPids).not.toContain(pid);
+      expect(result.poolTotal).toBeLessThanOrEqual(4);
     },
     TIMEOUT,
   );

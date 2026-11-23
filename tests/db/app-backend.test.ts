@@ -40,6 +40,9 @@ function withUserDbOn(pool: Pool) {
   return createWithUserDb({
     verify: async () => claims,
     db: drizzle({ client: pool }),
+    // Pool à une connexion, jamais gelé : la nouvelle tentative est testée par pool-dead-after-freeze.
+    evictIdle: async () => undefined,
+    poolName: "test",
   });
 }
 
