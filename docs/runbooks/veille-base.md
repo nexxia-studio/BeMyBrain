@@ -30,7 +30,7 @@ Dernière vérification : 2026-11-23 (tâche 5 du plan `docs/features/brain-50-v
 ## Reproduction locale
 - Script : `node --import tsx scripts/repro/veille-base.mts [--terminate|--suspend] [--branch test|dev]`.
 - Défaut : `--terminate --branch test`.
-- Le script lit `.env`. Il exige `NEON_PRODUCTION_HOST` et refuse une URL qui vise la production.
+- Le script lit `.env`. Il exige `NEON_PRODUCTION_HOST` et refuse une URL qui vise la production : même hôte, ou même id d'endpoint (`ep-…`) écrit autrement.
 - Refusé sur GitHub Actions et Vercel : poste local seulement.
 - Rien de secret n'est affiché : ni URL, ni hôte, ni clé, ni message du pilote.
 - L'enfant est celui du test automatisé (`tests/factories/frozen-pool-child.mts`) : vrai pool, vrai `withUserDb`.
@@ -43,23 +43,26 @@ Dernière vérification : 2026-11-23 (tâche 5 du plan `docs/features/brain-50-v
 
 ### `--suspend`
 - Coupure par l'API Neon : `POST /projects/{id}/endpoints/{ep}/suspend`, puis attente de l'état `idle`.
-- C'est la vraie veille : erreur attendue au premier essai « Connection terminated » (sans SQLSTATE).
+- C'est la vraie veille : erreur attendue au premier essai « Connection terminated unexpectedly » (sans SQLSTATE).
+- Signature mesurée à la main le 2026-11-23 (spec, section Reproduction). Mode `--suspend` du script pas encore joué.
 - Variables à poser dans l'environnement du terminal, jamais dans un fichier versionné : `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_ENDPOINT_ID`.
 - `NEON_ENDPOINT_ID` doit être l'endpoint de la branche visée par `--branch`, sinon refus.
+- `NEON_ENDPOINT_ID` égal à l'endpoint de `NEON_PRODUCTION_HOST` : refus.
 - Coupe toutes les connexions de la branche : ne pas lancer pendant une suite de tests sur la même branche.
 
 ### Lire le verdict
 - Correctif en place : 4/4 lectures OK, 4 nouvelles tentatives, 8 essais, 4 erreurs brutes, backends neufs, 4 connexions gardées.
 - Sans correctif (avant le 2026-11-23) : 0/4 lectures OK en quelques millisecondes.
-- Code de sortie : 0 si les 4 lectures réussissent, 1 sinon, 2 pour une erreur du script.
+- Code de sortie : 0 si les 4 lectures réussissent, 1 sinon, 2 pour une erreur ou une interruption du script.
+- Interrompu (Ctrl-C, erreur) : le script tue l'enfant et supprime son dossier temporaire. Vérifier quand même qu'aucun enfant ne reste : `ps aux | grep frozen-pool-child`.
 - Sortie du 2026-11-23, `--terminate` sur `test` : 4/4 lectures OK en 309 ms, 4 nouvelles tentatives, 4 × `57P01`.
 
 ## Vérification sur une preview
 1. Pousser la branche, ouvrir la PR, attendre le déploiement de la preview Vercel.
-2. Dans la console Neon, ouvrir la branche `preview/…` de la PR (créée par `preview-database.yml`).
+2. Dans la console Neon, ouvrir la branche `preview/<branche-git>` de la PR (créée par `preview-database.yml`), ici `preview/fix/brain-50-veille-base`.
 3. Ouvrir la preview une première fois (`/dashboard`) : le pool de la fonction garde ses connexions.
 4. Attendre quelques minutes sans requête, pour que Vercel mette la fonction en pause.
-5. Mettre en veille le compute de la branche : console Neon, onglet Computes, « Suspend compute ». Ou l'API : même appel que `--suspend`.
+5. Mettre en veille le compute de la branche : console Neon, onglet Computes, « Suspend compute ».
 6. Vérifier dans la console que le compute est à l'arrêt (Idle).
 7. Ouvrir `/dashboard` sur la preview : le tableau de bord doit s'afficher, sans écran d'erreur.
 8. Journaux Vercel de la preview : chercher « Nouvelle tentative sur le pool ». Une ligne par lecture rejouée.

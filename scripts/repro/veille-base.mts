@@ -96,7 +96,8 @@ export function resolveTarget(env: Env, branch: Branch): string {
   }
   const production = parseHostVariable(productionHost, "NEON_PRODUCTION_HOST");
   const host = hostOfUrl(url, name);
-  if (host === production) {
+  // Hôte complet ou seul id d'endpoint (ep-…) : un hôte écrit autrement (segment c-N, région) vise le même compute.
+  if (host === production || endpointOf(host) === endpointOf(production)) {
     throw new ReproError(
       `${name} vise NEON_PRODUCTION_HOST : reproduction sur la production refusée.`,
     );
@@ -104,6 +105,11 @@ export function resolveTarget(env: Env, branch: Branch): string {
   const direct = new URL(url);
   direct.hostname = host;
   return direct.toString();
+}
+
+/** Id d'endpoint Neon (ep-…) d'un hôte normalisé : son premier segment, -pooler déjà retiré. */
+function endpointOf(host: string): string {
+  return host.split(".")[0] ?? host;
 }
 
 /**
@@ -122,8 +128,19 @@ export function resolveSuspendConfig(
     );
   }
   const endpointId = env.NEON_ENDPOINT_ID!.trim().toLowerCase();
-  const targetEndpoint = hostOfUrl(targetUrl, "cible").split(".")[0];
-  if (endpointId !== targetEndpoint) {
+  const productionHost = env.NEON_PRODUCTION_HOST;
+  if (!productionHost) {
+    throw new ReproError(
+      "NEON_PRODUCTION_HOST manquante : obligatoire pour empêcher une mise en veille de la production. Voir .env.example.",
+    );
+  }
+  const production = parseHostVariable(productionHost, "NEON_PRODUCTION_HOST");
+  if (endpointId === endpointOf(production)) {
+    throw new ReproError(
+      "NEON_ENDPOINT_ID est l'endpoint de NEON_PRODUCTION_HOST : mise en veille de la production refusée.",
+    );
+  }
+  if (endpointId !== endpointOf(hostOfUrl(targetUrl, "cible"))) {
     throw new ReproError(
       "NEON_ENDPOINT_ID n'est pas l'endpoint de la branche visée par --branch : mise en veille refusée.",
     );
@@ -135,14 +152,33 @@ export function resolveSuspendConfig(
   };
 }
 
+/** SQLSTATE seul (5 caractères), sinon rien : un autre `code` pourrait porter n'importe quel texte. */
+function sqlState(code: unknown): string | undefined {
+  return typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)
+    ? code
+    : undefined;
+}
+
 /** Erreur réduite à ce qui peut s'afficher : message du script, ou nom + SQLSTATE d'une erreur tierce. */
 function describe(error: unknown): string {
   if (error instanceof ReproError) return error.message;
   const { name, code } = (error ?? {}) as { name?: unknown; code?: unknown };
   const label = typeof name === "string" ? name : "Erreur";
-  return typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)
-    ? `${label} (${code})`
-    : label;
+  const state = sqlState(code);
+  return state ? `${label} (${state})` : label;
+}
+
+// Nettoyage garanti à toute sortie (fin normale, erreur, Ctrl-C, SIGTERM) : un enfant gelé par SIGSTOP
+// survivrait au script et garderait ses connexions. SIGKILL agit aussi sur un processus gelé.
+const running: { child?: ChildProcess; dir?: string } = {};
+function cleanUp(): void {
+  const { child, dir } = running;
+  if (child && child.exitCode === null && child.signalCode === null) {
+    child.kill("SIGKILL");
+  }
+  if (dir) rmSync(dir, { recursive: true, force: true });
+  running.child = undefined;
+  running.dir = undefined;
 }
 
 const ROOT = join(import.meta.dirname, "../..");
@@ -150,7 +186,8 @@ const CHILD = join(ROOT, "tests/factories/frozen-pool-child.mts");
 const LIMIT_MS = 30_000;
 const NEON_API = "https://console.neon.tech/api/v2";
 
-const elapsed = (since: number) => `${Math.round(performance.now() - since)} ms`;
+const elapsed = (since: number) =>
+  `${Math.round(performance.now() - since)} ms`;
 
 async function neonCall(
   config: SuspendConfig,
@@ -259,13 +296,24 @@ function startChild(targetUrl: string, trigger: string) {
       resolve(`code ${code ?? "aucun"}, signal ${signal ?? "aucun"}`),
     ),
   );
-  const lines = createInterface({ input: proc.stdout })[
-    Symbol.asyncIterator
-  ]();
+  const lines = createInterface({ input: proc.stdout })[Symbol.asyncIterator]();
   return {
     proc,
     async next(): Promise<ChildMessage> {
-      const { value, done } = await lines.next();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new ReproError(`L'enfant n'a pas répondu en ${LIMIT_MS} ms.`),
+            ),
+          LIMIT_MS,
+        );
+      });
+      const { value, done } = await Promise.race([
+        lines.next(),
+        timeout,
+      ]).finally(() => clearTimeout(timer));
       if (done) {
         throw new ReproError(
           `L'enfant s'est arrêté sans répondre (${await exited}). Sa sortie d'erreur n'est jamais affichée.`,
@@ -301,20 +349,24 @@ async function main(argv: string[]): Promise<boolean> {
 
   console.log(`BRAIN-50 · coupure : ${mode} · branche Neon : ${branch}`);
   const dir = mkdtempSync(join(tmpdir(), "brain-50-repro-"));
-  let child: ChildProcess | undefined;
+  running.dir = dir;
   try {
     const trigger = join(dir, "reveil");
     const started = startChild(targetUrl, trigger);
-    child = started.proc;
+    const child = started.proc;
+    running.child = child;
     const warmStart = performance.now();
     const ready = await started.next();
-    if (ready.type !== "ready") throw new ReproError("Message « ready » attendu.");
+    if (ready.type !== "ready")
+      throw new ReproError("Message « ready » attendu.");
     console.log(
       `1. Chauffe : ${new Set(ready.pids).size} connexions distinctes au repos (${elapsed(warmStart)}).`,
     );
 
     child.kill("SIGSTOP");
-    console.log("2. Enfant gelé (SIGSTOP), comme une fonction Vercel en pause.");
+    console.log(
+      "2. Enfant gelé (SIGSTOP), comme une fonction Vercel en pause.",
+    );
     const cut = suspend
       ? await suspendCompute(suspend)
       : await terminateBackends(targetUrl, ready.pids);
@@ -325,14 +377,19 @@ async function main(argv: string[]): Promise<boolean> {
     child.kill("SIGCONT");
     const result = await started.next();
     const wakeTime = elapsed(wake);
-    if (result.type !== "result") throw new ReproError("Message « result » attendu.");
+    if (result.type !== "result")
+      throw new ReproError("Message « result » attendu.");
 
     const ok = result.outcomes.filter((o) => o.ok).length;
     const failures = result.outcomes.flatMap((o) =>
-      o.ok ? [] : [`${o.name}${o.code ? ` (${o.code})` : ""}`],
+      o.ok
+        ? []
+        : [`${o.name}${sqlState(o.code) ? ` (${sqlState(o.code)})` : ""}`],
     );
-    const raw = result.rawErrors.map((e) =>
-      e.code ?? (e.connectionTerminated ? "Connection terminated" : "autre"),
+    const raw = result.rawErrors.map(
+      (e) =>
+        sqlState(e.code) ??
+        (e.connectionTerminated ? "Connection terminated" : "autre"),
     );
     const fresh = result.readPids.every((pid) => !ready.pids.includes(pid));
     console.log(
@@ -356,11 +413,7 @@ async function main(argv: string[]): Promise<boolean> {
     );
     return passed;
   } finally {
-    // SIGKILL agit aussi sur un processus gelé par SIGSTOP.
-    if (child && child.exitCode === null && child.signalCode === null) {
-      child.kill("SIGKILL");
-    }
-    rmSync(dir, { recursive: true, force: true });
+    cleanUp();
   }
 }
 
@@ -369,6 +422,16 @@ const isEntryPoint =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isEntryPoint) {
+  // Toute sortie passe par cleanUp ; process.exit déclenche « exit ».
+  process.on("exit", cleanUp);
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => {
+      console.error(
+        `Interrompu (${signal}) : enfant arrêté, dossier temporaire supprimé.`,
+      );
+      process.exit(2);
+    });
+  }
   // Filet : rien ne sort d'ici sans être réduit (jamais l'objet d'erreur du pilote ni sa pile).
   process.on("uncaughtException", (error) => {
     console.error(`Erreur : ${describe(error)}`);

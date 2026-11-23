@@ -100,6 +100,29 @@ describe("cible de la reproduction", () => {
     expect(resolve).not.toThrow(SECRETS);
   });
 
+  it.each([
+    ["avec un segment c-N", "ep-prod-123.c-2.eu-central-1.aws.example.test"],
+    [
+      "dans une autre région écrite",
+      "ep-prod-123-pooler.eu-central-1.example.test",
+    ],
+  ])(
+    "refuse une URL dont l'id d'endpoint est celui de la production, hôte écrit autrement (%s)",
+    (_, host) => {
+      const resolve = () =>
+        resolveTarget(
+          {
+            NEON_PRODUCTION_HOST: PRODUCTION_HOST,
+            DATABASE_TEST_AUTHENTICATED_URL: `postgresql://u:motdepasse@${host}/neondb`,
+          },
+          "test",
+        );
+
+      expect(resolve).toThrow(/NEON_PRODUCTION_HOST/);
+      expect(resolve).not.toThrow(SECRETS);
+    },
+  );
+
   it("refuse de tourner sans NEON_PRODUCTION_HOST", () => {
     const resolve = () =>
       resolveTarget({ DATABASE_TEST_AUTHENTICATED_URL: TEST_URL }, "test");
@@ -146,9 +169,10 @@ describe("configuration de la mise en veille (--suspend)", () => {
     const resolve = () =>
       resolveSuspendConfig(
         {
+          NEON_PRODUCTION_HOST: PRODUCTION_HOST,
           NEON_API_KEY: "cle-secrete",
           NEON_PROJECT_ID: "projet-42",
-          NEON_ENDPOINT_ID: "ep-prod-123",
+          NEON_ENDPOINT_ID: "ep-autre-000",
         },
         target,
       );
@@ -157,9 +181,54 @@ describe("configuration de la mise en veille (--suspend)", () => {
     expect(resolve).not.toThrow(SECRETS);
   });
 
+  it.each([
+    [
+      "sans -pooler ni segment c-N",
+      "ep-prod-123.eu-central-1.aws.example.test",
+    ],
+    ["avec -pooler", "ep-prod-123-pooler.eu-central-1.aws.example.test"],
+    ["avec un segment c-N", "ep-prod-123.c-2.eu-central-1.aws.example.test"],
+    [
+      "avec -pooler et un segment c-N",
+      "ep-prod-123-pooler.c-2.eu-central-1.aws.example.test",
+    ],
+  ])(
+    "refuse de mettre en veille l'endpoint de production même si l'hôte est écrit autrement (%s)",
+    (_, productionTarget) => {
+      const resolve = () =>
+        resolveSuspendConfig(
+          {
+            NEON_PRODUCTION_HOST: PRODUCTION_HOST,
+            NEON_API_KEY: "cle-secrete",
+            NEON_PROJECT_ID: "projet-42",
+            NEON_ENDPOINT_ID: "ep-prod-123",
+          },
+          `postgresql://u:motdepasse@${productionTarget}/neondb`,
+        );
+
+      expect(resolve).toThrow(/NEON_ENDPOINT_ID.*NEON_PRODUCTION_HOST/);
+      expect(resolve).not.toThrow(SECRETS);
+    },
+  );
+
+  it("refuse la mise en veille sans NEON_PRODUCTION_HOST", () => {
+    const resolve = () =>
+      resolveSuspendConfig(
+        {
+          NEON_API_KEY: "cle-secrete",
+          NEON_PROJECT_ID: "projet-42",
+          NEON_ENDPOINT_ID: "ep-test-456",
+        },
+        target,
+      );
+
+    expect(resolve).toThrow(/NEON_PRODUCTION_HOST/);
+  });
+
   it("rend la configuration quand l'endpoint est celui de la branche visée", () => {
     const config = resolveSuspendConfig(
       {
+        NEON_PRODUCTION_HOST: PRODUCTION_HOST,
         NEON_API_KEY: "cle-secrete",
         NEON_PROJECT_ID: "projet-42",
         NEON_ENDPOINT_ID: "EP-test-456",
