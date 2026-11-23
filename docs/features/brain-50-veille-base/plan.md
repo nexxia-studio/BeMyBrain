@@ -26,24 +26,25 @@ Tests base : branche Neon `test` (`DATABASE_TEST_URL`, `DATABASE_TEST_AUTHENTICA
   - `admin.ts` exporte `withAdminTx(fn)` (via `runTransaction`, pool « propriétaire ») et `endAdminPool()` ; plus d'export de `adminDb` nu. `seedWorkspace` reçoit une fonction de transaction au lieu d'un `db`.
   - Tests à écrire d'abord : seed inchangé (rejouable, contextes) ; inventaire : aucun `new Pool(` ni `drizzle(` hors `src/db/{pool,client,admin}.ts` et `tests/`.
   - Fini quand : tests verts, `pnpm db:seed` (ou commande existante) fonctionne sur `dev`.
-- [ ] **5. Runbook et script de reproduction**
+- [x] **5. Runbook et script de reproduction**
   - Fichiers : `docs/runbooks/veille-base.md`, `scripts/repro/veille-base.mts`, `docs/README.md` (ligne d'index)
   - Le script : enfant avec le vrai pool, chauffe, `SIGSTOP`, coupure au choix (`--terminate` : `pg_terminate_backend` ; `--suspend` : API Neon `POST /projects/{id}/endpoints/{ep}/suspend` avec `NEON_API_KEY` de l'environnement), `SIGCONT`, lectures, verdict. Refuse l'hôte de production (`assertNotProductionTarget` / `NEON_PRODUCTION_HOST`). N'affiche ni URL ni hôte.
   - Test à écrire d'abord : `scripts/repro/veille-base.test.ts` (refus de la production, arguments).
   - Fini quand : script joué sur `test` en `--terminate` : 4 OK après correctif ; runbook écrit (procédure manuelle preview incluse).
-- [ ] **6. BRAIN-47 : erreur du détail dans le détail**
+- [x] **6. BRAIN-47 : erreur du détail dans le détail**
   - Fichiers : `src/app/(app)/tasks/@detail/(.)[id]/error.tsx`, `src/app/(app)/tasks/@detail/[id]/error.tsx` (composant partagé `src/components/tasks/TaskDetailError.tsx`), `messages/{fr,en}.json`
   - Tests à écrire d'abord : `TaskDetailError.test.tsx` (message du détail, « Réessayer » appelle `retry`, « Fermer » ramène à `/tasks`, `reportClientError` appelé, ni `<main>` ni `<h1>`).
   - Fini quand : tests verts ; vérification de page (un seul `main` / `h1`, message dans le panneau / tiroir, Réessayer, Fermer) au scénario 3 de `/qa`.
   - Décision du 2026-11-23 (relecture) : pas d'e2e automatisé. Aucun moyen de faire échouer une lecture serveur depuis Playwright, et pas de point d'injection dans le code de production. Le `qa-tester` joue le scénario 3 sur un build local avec un `throw` temporaire après `requireSessionWithToken()` dans `TaskDetailPanel.tsx`, dans un worktree jetable, jamais committé.
-- [ ] **7. BRAIN-54 : chargement du détail séparé de la liste**
+- [x] **7. BRAIN-54 : chargement du détail séparé de la liste**
   - Fichiers : `src/app/(app)/tasks/@detail/(.)[id]/loading.tsx`, `src/app/(app)/tasks/@detail/[id]/loading.tsx` (ou au niveau `@detail`), givre de la fiche de détail par `FrostTile`
   - Écart (2026-11-23, mesuré sur build) : un `loading.tsx` dans `@detail` ne retire pas le doublon, celui de `tasks/` enveloppe l'emplacement quoi qu'il arrive. Fait : liste et chargement déplacés dans le groupe `tasks/(list)/` (adresses inchangées) ; `@detail/[id]/loading.tsx` rend `null` ; aucun givre de détail (la spec admet « ou rien » : une fiche givrée ferait entrer la fenêtre deux fois). Le `null` voisine une page qui appelle `notFound()` : statut 200 déjà connu (`e2e/todo.ts`), pas une régression.
   - Tests à écrire d'abord : test unitaire du chargement du détail ; e2e : pendant le chargement de `/tasks`, un seul titre « To-do » et un seul `data-testid="tasks-frost"`.
   - Fini quand : tests verts, desktop et mobile.
-- [ ] **8. Vérification sur preview** (session principale)
+- [x] **8. Vérification sur preview** (session principale)
   - Pousser la branche, attendre la preview, mettre en veille le compute de sa branche Neon, ouvrir `/dashboard`.
   - Fini quand : tableau de bord affiché, ligne de journal « nouvelle tentative » visible dans les journaux Vercel, aucune nouvelle occurrence de BEMYBRAIN-3.
+  - Fait le 2026-11-23 : tableau de bord affiché après veille (2 essais), aucune erreur Sentry. Écart : nouvelle tentative non déclenchée sur la preview (voir `qa-report.md`), prouvée en local.
 
 ## Corrections QA
 
