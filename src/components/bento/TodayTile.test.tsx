@@ -18,6 +18,8 @@ import { buildTask } from "../../../tests/factories/build-task";
 const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
+import { TODAY_TILE_CLASSES } from "./tile-sizes";
+import { TodayHead } from "./TodayHead";
 import { TodayTile } from "./TodayTile";
 
 const TODAY = "2026-11-19";
@@ -42,6 +44,13 @@ function renderTile(props: Partial<TodayTileProps> = {}) {
 }
 
 const tile = () => screen.getByTestId("tile-today");
+const dueOn = (count: number) =>
+  todayTileItems(
+    Array.from({ length: count }, (_, i) =>
+      buildTask({ title: `Tâche ${i}`, side: "private", dueDate: TODAY }),
+    ),
+    TODAY,
+  );
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -138,6 +147,120 @@ describe("tuile « Aujourd'hui »", () => {
       within(tile()).getByText("Tâche introuvable ou à la corbeille."),
     ).toBeTruthy();
     expect(box.disabled).toBe(false);
+  });
+
+  it("à la hauteur de son contenu : classes de place de tile-sizes.ts, aucune classe de hauteur, rien d'étiré", () => {
+    renderTile({ due: dueOn(3) });
+
+    for (const name of TODAY_TILE_CLASSES.split(" ")) {
+      expect(tile().classList.contains(name)).toBe(true);
+    }
+    const classes = [tile(), ...tile().querySelectorAll("*")].flatMap(
+      (element) => Array.from(element.classList),
+    );
+    // `min-h-11` : zone tactile de 44 px des lignes et du lien, pas une hauteur de tuile.
+    expect(
+      classes.filter(
+        (name) => /(^|:)(min-|max-)?h-/.test(name) && name !== "min-h-11",
+      ),
+    ).toEqual([]);
+    expect(classes).not.toContain("justify-between");
+  });
+
+  it("étirée par sa rangée : contenu en haut, lien « Voir la to-do » poussé en bas", () => {
+    renderTile({ due: dueOn(3) });
+
+    const seeAll = within(tile()).getByRole("link", { name: "Voir la to-do" });
+    const body = seeAll.parentElement as HTMLElement;
+    expect(seeAll.classList.contains("mt-auto")).toBe(true);
+    expect(body.parentElement).toBe(tile());
+    expect(body.classList.contains("grow")).toBe(true);
+    expect(tile().classList.contains("flex-col")).toBe(true);
+  });
+
+  it("porte son identifiant de tuile pour le relevé des hauteurs du givre", () => {
+    renderTile();
+
+    expect(tile().dataset.tile).toBe("today");
+  });
+
+  it("une ligne de la tuile tient sur une ligne : titre tronqué, légende sans retour à la ligne", () => {
+    const title =
+      "Renouveler l'assurance de la voiture avant la fin du mois prochain";
+    renderTile({
+      due: todayTileItems(
+        [buildTask({ title, dueDate: TODAY, dueTime: "14:00" })],
+        TODAY,
+      ),
+    });
+
+    const link = within(tile()).getByRole("link", { name: new RegExp(title) });
+    const titleSpan = within(link).getByText(title);
+    const legend = within(link).getByText("14:00").parentElement;
+    expect(titleSpan.classList.contains("truncate")).toBe(true);
+    expect(titleSpan.classList.contains("line-clamp-2")).toBe(false);
+    expect(legend?.classList.contains("flex-nowrap")).toBe(true);
+    expect(legend?.classList.contains("overflow-hidden")).toBe(true);
+  });
+
+  it.each([1, 2])(
+    "%i tâche(s) sur 3 : aucun état de remplissage sous les lignes",
+    (count) => {
+      renderTile({ due: dueOn(count) });
+
+      expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+      expect(tile().textContent).not.toContain("Rien d'autre aujourd'hui.");
+    },
+  );
+
+  it("rien de dû : l'état vide compact, la phrase « rien en retard » en introduction sous la salutation", () => {
+    renderTile();
+
+    const greeting = within(tile()).getByRole("heading", {
+      name: messages.dashboard.today.greeting,
+    });
+    expect(greeting.nextElementSibling?.textContent).toBe(
+      messages.dashboard.today.introClear,
+    );
+    expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+  });
+
+  it("l'en-tête (date, salutation, introduction) vient de TodayHead, partagé avec le givre de chargement", () => {
+    renderTile();
+    const real = tile().firstElementChild?.outerHTML;
+
+    const shared = render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TodayHead intro={messages.dashboard.today.introClear} />
+      </NextIntlClientProvider>,
+    ).container.firstElementChild?.outerHTML;
+
+    expect(real).toBe(shared);
+  });
+
+  it("cale du givre : TodayHead sans repère de test ni cible d'animation, la vraie tuile les garde", () => {
+    renderTile();
+    const real = tile().firstElementChild as HTMLElement;
+
+    const strut = render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TodayHead intro={messages.dashboard.today.introClear} strut />
+      </NextIntlClientProvider>,
+    ).container.firstElementChild as HTMLElement;
+
+    expect(real.querySelector('[data-testid="today-date"]')).not.toBeNull();
+    expect(real.querySelectorAll("[data-signature-item]")).toHaveLength(3);
+    expect(strut.querySelector("[data-testid]")).toBeNull();
+    expect(strut.querySelector("[data-signature-item]")).toBeNull();
+    expect(strut.textContent).toBe(real.textContent);
   });
 
   it("rien en retard ni aujourd'hui : une phrase le dit, ni compteur ni ligne", () => {

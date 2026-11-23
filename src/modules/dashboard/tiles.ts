@@ -153,3 +153,14 @@ export function buildDashboard(input: {
     })),
   };
 }
+
+/** Tuile pleine « Aujourd'hui » : présente des deux côtés, hors du catalogue (elle n'appartient à aucun côté). */
+export const TODAY_TILE_ID = "today";
+
+/** Identifiants des tuiles qu'un côté peut afficher : « Aujourd'hui », puis celles du catalogue du côté. */
+export function tileIdsOf(side: Side): readonly string[] {
+  return [
+    TODAY_TILE_ID,
+    ...CATALOG.filter((tile) => tile.side === side).map((tile) => tile.id),
+  ];
+}

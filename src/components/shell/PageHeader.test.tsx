@@ -69,6 +69,48 @@ describe("en-tête de page", () => {
     ).toContain("Trustup");
   });
 
+  it("pendant un chargement, la pastille garde sa place mais est invisible, inerte et masquée aux lecteurs d'écran", async () => {
+    loadContextFilter.mockResolvedValue({
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      selected: [TRUSTUP.id],
+    });
+    const element = await PageHeader({
+      title: "Tableau de bord",
+      filterInert: true,
+    });
+
+    const { container } = render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        {element}
+      </NextIntlClientProvider>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Espaces affichés/ }),
+    ).toBeNull();
+    const trigger = container.querySelector("button");
+    expect(trigger?.textContent).toContain("Trustup");
+    const holder = trigger?.closest("[inert]");
+    expect(holder).not.toBeNull();
+    expect(holder?.getAttribute("aria-hidden")).toBe("true");
+    expect(holder?.classList.contains("invisible")).toBe(true);
+  });
+
+  it("hors chargement, la pastille reste utilisable", async () => {
+    loadContextFilter.mockResolvedValue({
+      side: "pro",
+      contexts: [TRUSTUP, NEXXIA],
+      selected: [TRUSTUP.id],
+    });
+
+    await renderHeader();
+
+    const trigger = screen.getByRole("button", { name: /Espaces affichés/ });
+    expect(trigger.closest("[inert]")).toBeNull();
+    expect(trigger.closest("[aria-hidden]")).toBeNull();
+  });
+
   it("n'affiche aucune pastille quand le côté a moins de deux espaces", async () => {
     loadContextFilter.mockResolvedValue(null);
 

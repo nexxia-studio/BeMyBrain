@@ -34,6 +34,15 @@ vi.mock("next/dynamic", async () => {
   };
 });
 
+// Relevé des hauteurs : testé à part (TileHeightRecorder.test.tsx) ; ici, ce que la grille lui passe.
+const recorderProps = vi.hoisted(() => vi.fn());
+vi.mock("./TileHeightRecorder", () => ({
+  TileHeightRecorder: (props: object) => {
+    recorderProps(props);
+    return null;
+  },
+}));
+
 function stubReducedMotion(reduce: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: reduce ? query.includes(": reduce") : false,
@@ -67,6 +76,26 @@ afterEach(() => {
 });
 
 describe("grille bento", () => {
+  it("rangées aux classes de tile-sizes.ts (celles du givre) : tuiles d'une rangée étirées à la plus haute (pas d'items-start)", async () => {
+    const { container } = await renderGrid();
+
+    const { BENTO_GRID_CLASSES } = await import("./tile-sizes");
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toBe(BENTO_GRID_CLASSES);
+    expect(root.classList.contains("items-start")).toBe(false);
+  });
+
+  it("relève la hauteur de ses tuiles pour le givre : grille comme racine, côté rendu dans le DOM", async () => {
+    const { container } = await renderGrid();
+
+    expect(recorderProps).toHaveBeenCalled();
+    const { rootRef } = recorderProps.mock.calls.at(-1)?.[0] as {
+      rootRef: { current: HTMLElement | null };
+    };
+    expect(rootRef.current).toBe(container.firstElementChild);
+    expect(rootRef.current?.dataset.side).toBe("private");
+  });
+
   it("masque les cibles des moments en attente dès le montage (arrivée par navigation côté client)", async () => {
     await renderGrid();
 
@@ -109,16 +138,16 @@ describe("grille bento", () => {
     await waitFor(() =>
       expect(html().hasAttribute(SIGNATURE_PENDING_ATTRIBUTE)).toBe(false),
     );
-    expect(container.querySelectorAll('[data-signature="reveal"]')).toHaveLength(
-      1,
-    );
+    expect(
+      container.querySelectorAll('[data-signature="reveal"]'),
+    ).toHaveLength(1);
   });
 
   it("rend ses tuiles", async () => {
     const { container } = await renderGrid();
 
-    expect(container.querySelectorAll('[data-signature="reveal"]')).toHaveLength(
-      1,
-    );
+    expect(
+      container.querySelectorAll('[data-signature="reveal"]'),
+    ).toHaveLength(1);
   });
 });

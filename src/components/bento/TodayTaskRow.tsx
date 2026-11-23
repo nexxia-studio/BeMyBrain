@@ -5,7 +5,8 @@
 // titre `text-body` et légende `text-caption` en blanc plein (le blanc atténué tomberait sous 4,5:1 sur cette
 // surface). Case à cocher blanche (zone 44 px), puis lien vers le détail sur le reste de la ligne. Légende :
 // côté (jamais de pastille colorée dans la tuile pleine), parente, échéance passée, heure. Une colonne à toutes
-// les largeurs. Cocher : même règle que la liste (useTaskToggle), pas d'optimiste, erreur dans la ligne.
+// les largeurs ; titre et légende sur une seule ligne (titre tronqué, légende coupée au bord, DESIGN.md § 6) :
+// le titre complet est dans la liste et le détail. Cocher : même règle que la liste (useTaskToggle), pas d'optimiste, erreur dans la ligne.
 // Mouvement : pression du lien seulement (Motion, scale 0,97) ; la tuile entière est animée par GSAP, pas la ligne.
 import { CornerDownRight } from "lucide-react";
 import { motion } from "motion/react";
@@ -53,11 +54,9 @@ export function TodayTaskRow({ task, today }: TodayTaskRowProps) {
           className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 py-2.5 text-primary-foreground no-underline hover:text-primary-foreground focus-visible:outline-ring-on-primary"
         >
           {/* Contenu saisi : jamais traduit. */}
-          <span className="line-clamp-2 text-body break-words">
-            {task.title}
-          </span>
-          <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption">
-            <span className="font-semibold">{tSide(task.side)}</span>
+          <span className="truncate text-body">{task.title}</span>
+          <span className="flex flex-nowrap items-center gap-x-2.5 overflow-hidden text-caption whitespace-nowrap">
+            <span className="shrink-0 font-semibold">{tSide(task.side)}</span>
             {task.parentTitle !== null && (
               <span className="flex min-w-0 items-center gap-1">
                 <CornerDownRight

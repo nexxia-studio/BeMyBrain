@@ -14,11 +14,19 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 
 import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
+import { cn } from "@/lib/utils";
 import type { Side } from "@/modules/core/sides";
 import type { Task } from "@/modules/tasks/queries";
 import { groupBySection, type SectionKey } from "@/modules/tasks/view";
 
 import { ShowAllSpacesButton } from "./ShowAllSpacesButton";
+import {
+  TASK_LIST_TILE_CLASSES,
+  TASK_ROWS_CLASSES,
+  TASK_SECTION_CLASSES,
+  TASK_SECTION_HEADER_CLASSES,
+  TASK_SECTION_HEADING_TEXT,
+} from "./task-list-layout";
 import { TaskRow } from "./TaskRow";
 
 const LEAVE = { opacity: 0, y: 8 };
@@ -81,7 +89,7 @@ export function TaskList({
   }
 
   return (
-    <div className="glass flex w-full max-w-3xl flex-col gap-6 rounded-tile p-tile">
+    <div className={cn("glass", TASK_LIST_TILE_CLASSES)}>
       <AnimatePresence initial={false}>
         {sections.map((section) => {
           const headingId = `tasks-section-${section.key}`;
@@ -91,23 +99,29 @@ export function TaskList({
               aria-labelledby={headingId}
               exit={LEAVE}
               transition={SPRING}
-              className="flex flex-col gap-3"
+              className={TASK_SECTION_CLASSES}
             >
-              <div className="flex items-baseline gap-2 px-1">
+              <div className={TASK_SECTION_HEADER_CLASSES}>
                 <h2
                   id={headingId}
-                  className="text-eyebrow text-muted-foreground uppercase"
+                  className={cn(
+                    TASK_SECTION_HEADING_TEXT,
+                    "text-muted-foreground uppercase",
+                  )}
                 >
                   {t(`sections.${section.key}`)}
                 </h2>
                 <span
                   aria-hidden="true"
-                  className="font-heading text-eyebrow text-muted-foreground"
+                  className={cn(
+                    TASK_SECTION_HEADING_TEXT,
+                    "font-heading text-muted-foreground",
+                  )}
                 >
                   {section.tasks.length}
                 </span>
               </div>
-              <ul className="flex flex-col gap-2">
+              <ul className={TASK_ROWS_CLASSES}>
                 <AnimatePresence initial={false}>
                   {section.tasks.map((task) => (
                     <motion.li

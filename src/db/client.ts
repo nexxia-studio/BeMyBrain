@@ -1,12 +1,12 @@
 // Défense en plus : accès base, jamais dans un bundle client.
 import "server-only";
 
-import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { createRemoteJWKSet } from "jose";
 
 import { getAppEnv } from "@/env";
 
+import { createPool } from "./pool";
 import {
   createTokenVerifier,
   createWithUserDb,
@@ -28,11 +28,7 @@ function getInstance() {
   if (instance) return instance;
   const env = getAppEnv();
   // Rôle app_backend : LOGIN, sans BYPASSRLS, soumis à la RLS.
-  const pool = new Pool({ connectionString: env.DATABASE_AUTHENTICATED_URL });
-  // Message générique : ni URL, ni claims, ni détail de l'erreur du pilote.
-  pool.on("error", () => {
-    console.error("Erreur sur une connexion inactive du pool app_backend.");
-  });
+  const pool = createPool(env.DATABASE_AUTHENTICATED_URL, "app_backend");
   const db = drizzle({ client: pool });
   const verify = createTokenVerifier(
     createRemoteJWKSet(new URL(env.NEON_AUTH_JWKS_URL)),

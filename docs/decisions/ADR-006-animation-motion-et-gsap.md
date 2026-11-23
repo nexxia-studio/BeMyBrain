@@ -8,6 +8,7 @@ La spec du socle imposait GSAP seul. Le § 5 de `nexxia-design` prévoit Motion 
 ## Décision
 - **Motion** (`motion/react`) : interactions et changements d'état (survol, ouverture, apparition d'un élément, transitions de liste).
 - **GSAP** : moments signature seulement — entrée du tableau de bord, révélation de la grille bento, effets de verre, bascule Privé / Pro, écrans vides. Dans des composants dédiés (`src/components/signature/`), chargés à la demande (`next/dynamic`).
+- États de chargement (givre, BRAIN-33, 2026-11-20) : keyframes CSS seulement, ni Motion ni GSAP, pour s'afficher avant le JavaScript.
 - Un élément n'est jamais animé par les deux bibliothèques.
 - `prefers-reduced-motion` toujours respecté (Motion : `useReducedMotion` ; GSAP : `gsap.matchMedia`). Les gestes répétés (bascule, filtre, navigation) restent instantanés : seule la première occurrence d'un moment signature est animée.
 

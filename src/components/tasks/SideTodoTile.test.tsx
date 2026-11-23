@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { TileCompactEmpty } from "@/components/bento/TileCompactEmpty";
+import { tileClasses } from "@/components/bento/tile-sizes";
 import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
 import { buildDashboard } from "@/modules/dashboard/tiles";
 import { getUserTimeZone } from "@/modules/core/time-zone";
@@ -142,6 +144,109 @@ describe("tuile « To-do pro »", () => {
       within(spaces).getByText(name).className.split(/\s+/);
     expect(classes("Trustup")).toContain("bg-chip-warm");
     expect(classes("Nexxia")).toContain("bg-chip-indigo");
+  });
+
+  it("vide, étirée par sa rangée : contenu en haut, bouton « Ajouter une tâche » poussé en bas", () => {
+    renderTile([]);
+
+    const add = within(tile()).getByRole("button", {
+      name: messages.tasks.list.add,
+    });
+    const bottom = add.closest(".mt-auto");
+    expect(bottom).not.toBeNull();
+    expect(bottom?.parentElement?.classList.contains("grow")).toBe(true);
+    expect(tile().dataset.tile).toBe("proTodo");
+  });
+
+  it.each([0, 2])(
+    "%i tâche(s) : à la hauteur de son contenu, aucune classe de hauteur",
+    (count) => {
+      renderTile(
+        Array.from({ length: count }, (_, i) =>
+          buildTask({ side: "pro", title: `Pro ${i}` }),
+        ),
+      );
+
+      for (const name of tileClasses("wide").split(" ")) {
+        expect(tile().classList.contains(name)).toBe(true);
+      }
+      const classes = [tile(), ...tile().querySelectorAll("*")].flatMap(
+        (element) => Array.from(element.classList),
+      );
+      expect(
+        classes.filter(
+          (name) => /(^|:)(min-|max-)?h-/.test(name) && name !== "min-h-11",
+        ),
+      ).toEqual([]);
+    },
+  );
+
+  it("2 tâches : l'action est le lien « Tout voir » de l'en-tête, rien n'est poussé en bas", () => {
+    renderTile(
+      Array.from({ length: 2 }, (_, i) =>
+        buildTask({ side: "pro", title: `Pro ${i}` }),
+      ),
+    );
+
+    const classes = [tile(), ...tile().querySelectorAll("*")].flatMap(
+      (element) => Array.from(element.classList),
+    );
+    expect(classes).not.toContain("mt-auto");
+  });
+
+  it("une ligne de la tuile tient sur une ligne : titre tronqué, légende et espaces sans retour à la ligne", () => {
+    const title =
+      "Préparer la présentation du projet pour le comité de direction";
+    renderTile([
+      buildTask({
+        side: "pro",
+        title,
+        dueDate: "2026-11-20",
+        dueTime: "09:30",
+        contextName: "Nexxia",
+        contextColor: "indigo",
+      }),
+    ]);
+
+    const link = within(tile()).getByRole("link", { name: new RegExp(title) });
+    const titleSpan = within(link).getByText(title);
+    const legend = within(link).getByText("09:30").parentElement;
+    const spaces = within(tile()).getByRole("list", {
+      name: "Espaces couverts",
+    });
+    expect(titleSpan.classList.contains("truncate")).toBe(true);
+    expect(titleSpan.classList.contains("line-clamp-2")).toBe(false);
+    expect(legend?.classList.contains("flex-nowrap")).toBe(true);
+    expect(legend?.classList.contains("overflow-hidden")).toBe(true);
+    expect(spaces.classList.contains("flex-nowrap")).toBe(true);
+    expect(spaces.classList.contains("overflow-hidden")).toBe(true);
+  });
+
+  it.each([1, 2, 4])(
+    "%i tâche(s) sur 5 : aucun état de remplissage sous les lignes",
+    (count) => {
+      renderTile(
+        Array.from({ length: count }, (_, i) =>
+          buildTask({ side: "pro", title: `Pro ${i}` }),
+        ),
+      );
+
+      expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+      expect(tile().textContent).not.toContain("Rien d'autre à venir.");
+    },
+  );
+
+  it("vide : l'état vide compact de TileCompactEmpty, le même texte que le givre de chargement", () => {
+    renderTile([]);
+    const real = tile().querySelector("section")?.textContent;
+
+    const shared = render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <TileCompactEmpty tile={proTodo()} />
+      </NextIntlClientProvider>,
+    ).container.textContent;
+
+    expect(real).toBe(shared);
   });
 
   it("vide : dit à quoi sert la tuile et propose d'ajouter une tâche", () => {

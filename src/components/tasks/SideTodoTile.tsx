@@ -4,13 +4,22 @@
 // tuile), espaces couverts, puis les 5 prochaines tâches du côté en lignes `row` (TaskRow : case à cocher,
 // lien vers le détail). Vide : phrase et bouton « Ajouter une tâche ». Lecture en échec : un message, le reste
 // du tableau de bord s'affiche. Une colonne à toutes les largeurs (tuile large, grille BentoGrid).
+// À la hauteur de son contenu (DESIGN.md § 6, QA-5 d'effets-de-verre) : lignes et espaces sur une seule ligne,
+// aucun état de remplissage ; vide, l'état vide compact (TileCompactEmpty), que le givre de chargement rend aussi.
 // Mouvement : enveloppe animée par GSAP (révélation, bascule), surface par Motion (survol) : jamais le même
 // élément (ADR-006).
-import { ListTodo } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { TILE_SIZE_CLASSES } from "@/components/bento/tile-sizes";
+import { TileCompactEmpty } from "@/components/bento/TileCompactEmpty";
+import { TileHeading } from "@/components/bento/TileHeading";
+import {
+  GLASS_TILE_BODY_CLASSES,
+  TILE_ADD_CLASSES,
+  TILE_LINK_CLASSES,
+  tileClasses,
+} from "@/components/bento/tile-sizes";
+import { TileSpaces } from "@/components/bento/TileSpaces";
 import { TileSurface } from "@/components/bento/TileSurface";
 import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { TASKS_PATH } from "@/components/shell/nav-items";
@@ -19,7 +28,6 @@ import type { DashboardTile } from "@/modules/dashboard/tiles";
 import type { Task } from "@/modules/tasks/queries";
 import { isOverdue, sideTileItems } from "@/modules/tasks/view";
 
-import { contextChipClass } from "./context-chip-class";
 import { TaskRow } from "./TaskRow";
 
 type SideTodoTileProps = {
@@ -42,84 +50,64 @@ export function SideTodoTile({
   const t = useTranslations("dashboard.tiles");
   const tList = useTranslations("tasks.list");
   const items = tasks === null ? null : sideTileItems(tasks, tile.side);
+  const seeAll = (
+    <Link
+      href={TASKS_PATH}
+      className={cn(TILE_LINK_CLASSES, "hover:text-link-hover")}
+    >
+      {t("seeAll")}
+    </Link>
+  );
 
   return (
     // Enveloppe : animée par GSAP (révélation, bascule) ; la surface dedans l'est par Motion.
     <div
       data-signature="reveal"
       data-testid={`tile-${tile.id}`}
+      data-tile={tile.id}
       data-side={tile.side}
-      className={cn("flex min-w-0", TILE_SIZE_CLASSES[tile.size])}
+      className={cn("flex", tileClasses(tile.size))}
     >
-      <TileSurface className="glass flex w-full flex-col gap-4 rounded-tile p-tile">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <p className="text-eyebrow text-muted-foreground uppercase">
-              {t(`${tile.id}.eyebrow`)}
-            </p>
-            <h3 className="font-heading text-title text-foreground">
-              {t(`${tile.id}.title`)}
-            </h3>
-          </div>
-          <Link
-            href={TASKS_PATH}
-            className="-my-2.5 flex min-h-11 shrink-0 items-center text-small font-semibold text-link no-underline hover:text-link-hover"
-          >
-            {t("seeAll")}
-          </Link>
-        </div>
-        {tile.spaceLabels.length > 0 && (
-          <ul aria-label={t("spaces")} className="flex flex-wrap gap-1.5">
-            {tile.spaceLabels.map((space) => (
-              // Nom saisi par l'utilisateur : affiché tel quel, jamais traduit ; pastille de sa couleur.
-              <li key={space.name} className={contextChipClass(space.color)}>
-                {space.name}
-              </li>
-            ))}
-          </ul>
-        )}
-        {items === null ? (
-          <p role="status" className="text-small text-foreground">
-            {t("tasksError")}
-          </p>
-        ) : items.length === 0 ? (
-          <div className="mt-auto flex flex-col items-start gap-3">
-            <span
-              data-signature="empty"
-              className="flex size-11 items-center justify-center rounded-lg bg-row text-link"
-            >
-              <ListTodo
-                aria-hidden="true"
-                className="size-5.5"
-                strokeWidth={2}
-              />
-            </span>
-            <p
-              data-signature="empty"
-              className="max-w-prose text-small text-muted-foreground"
-            >
-              {t(`${tile.id}.body`)}
-            </p>
-            <QuickAddTrigger
-              label={tList("add")}
-              className="min-h-11 rounded-full bg-primary px-5 text-body font-semibold text-primary-foreground hover:bg-primary-hover"
-            >
-              {tList("add")}
-            </QuickAddTrigger>
-          </div>
+      <TileSurface
+        className={cn("glass rounded-tile", GLASS_TILE_BODY_CLASSES)}
+      >
+        {items !== null && items.length === 0 ? (
+          <TileCompactEmpty
+            tile={tile}
+            seeAll={seeAll}
+            add={
+              <QuickAddTrigger
+                label={tList("add")}
+                className={cn(TILE_ADD_CLASSES, "hover:bg-primary-hover")}
+              >
+                {tList("add")}
+              </QuickAddTrigger>
+            }
+          />
         ) : (
-          <ul aria-label={t("upcoming")} className="flex flex-col gap-2">
-            {items.map((task) => (
-              <li key={task.id}>
-                <TaskRow
-                  task={task}
-                  overdue={isOverdue(task, today)}
-                  showDate
-                  showContext={showContext}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <TileHeading tile={tile} action={seeAll} />
+            <TileSpaces tile={tile} />
+            {items === null ? (
+              <p role="status" className="text-small text-foreground">
+                {t("tasksError")}
+              </p>
+            ) : (
+              <ul aria-label={t("upcoming")} className="flex flex-col gap-2">
+                {items.map((task) => (
+                  <li key={task.id}>
+                    <TaskRow
+                      task={task}
+                      overdue={isOverdue(task, today)}
+                      showDate
+                      showContext={showContext}
+                      layout="tile"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </TileSurface>
     </div>

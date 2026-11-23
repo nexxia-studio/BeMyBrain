@@ -8,7 +8,10 @@ export const contextColorClass: Record<ContextColor, string> = {
   indigo: "bg-chip-indigo text-chip-indigo-foreground",
 };
 
+/** Forme et taille de texte d'une pastille (espace, « Annulée », côté) : donne sa hauteur. */
+export const CHIP_SHAPE_CLASSES = "rounded-full px-2.5 py-0.5 text-chip";
+
 /** Pastille de contexte complète : forme, taille de texte, couleur. */
 export function contextChipClass(color: ContextColor): string {
-  return `rounded-full px-2.5 py-0.5 text-chip ${contextColorClass[color]}`;
+  return `${CHIP_SHAPE_CLASSES} ${contextColorClass[color]}`;
 }

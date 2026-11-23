@@ -10,7 +10,13 @@ import { Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 
+import { cn } from "@/lib/utils";
+
 import type { TrashItem } from "./trash-item";
+import {
+  TRASH_LIST_TILE_CLASSES,
+  TRASH_ROWS_CLASSES,
+} from "./trash-list-layout";
 import { TrashRow } from "./TrashRow";
 
 const LEAVE = { opacity: 0, y: 8 };
@@ -33,8 +39,8 @@ export function TrashList({ items }: TrashListProps) {
   }
 
   return (
-    <section className="glass flex flex-col gap-3 rounded-tile p-tile">
-      <ul className="flex flex-col gap-2">
+    <section className={cn("glass", TRASH_LIST_TILE_CLASSES)}>
+      <ul className={TRASH_ROWS_CLASSES}>
         <AnimatePresence initial={false}>
           {items.map((item) => (
             <motion.li

@@ -2,18 +2,25 @@
 // Tuile « Aujourd'hui » (DESIGN.md § 5) : la seule tuile pleine de l'app. Date du jour selon la langue,
 // salutation, puis la to-do du jour des deux côtés (spec todo-unifiee) : pastilles de chiffres « En retard » et
 // « Aujourd'hui », les 3 premières tâches (côté en légende) et le lien « Voir la to-do » (la liste
-// montre le côté actif seulement, pas « tout »). Rien de dû : une phrase.
+// montre le côté actif seulement, pas « tout »). À la hauteur de son contenu (DESIGN.md § 6, QA-5
+// d'effets-de-verre) : rien de dû, l'état vide compact (TodayHead avec « Rien en retard… »), que le givre de
+// chargement rend aussi ; aucun état de remplissage sous des lignes peu nombreuses. Étirée par sa rangée
+// (QA-6) : contenu en haut, « Voir la to-do » poussé en bas.
 // Lecture en échec : un message à la place, la tuile et le reste du tableau de bord s'affichent quand même.
 // Une colonne à toutes les largeurs ; les deux pastilles restent côte à côte, même à 390 px.
 // Animée par GSAP seul (entrée du tableau de bord) : aucun survol Motion sur la tuile.
 // raccourci: salutation sans prénom, la session ne porte pas le nom de l'utilisateur — à ajouter avec
 // l'onboarding (BRAIN-31).
 import Link from "next/link";
-import { useFormatter, useNow, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
 import { TASKS_PATH } from "@/components/shell/nav-items";
+import { cn } from "@/lib/utils";
+import { TODAY_TILE_ID } from "@/modules/dashboard/tiles";
 import type { TodayTile as TodayTileData } from "@/modules/tasks/view";
 
+import { TODAY_TILE_BODY_CLASSES, TODAY_TILE_CLASSES } from "./tile-sizes";
+import { TodayHead } from "./TodayHead";
 import { TodayTaskRow } from "./TodayTaskRow";
 
 type TodayTileProps = {
@@ -27,8 +34,6 @@ type TodayTileProps = {
 
 export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
   const t = useTranslations("dashboard");
-  const format = useFormatter();
-  const now = useNow();
   const hasDue = due !== null && due.items.length > 0;
   const intro = !hasSpaces
     ? t("today.introNoSpace")
@@ -40,32 +45,14 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
     <section
       data-signature="intro"
       data-testid="tile-today"
-      className="flex min-w-0 grow-2 basis-100 flex-col justify-between gap-5.5 rounded-tile bg-primary p-today text-primary-foreground shadow-today lg:min-h-75"
+      data-tile={TODAY_TILE_ID}
+      className={cn(
+        "rounded-tile bg-primary text-primary-foreground shadow-today",
+        TODAY_TILE_BODY_CLASSES,
+        TODAY_TILE_CLASSES,
+      )}
     >
-      <div className="flex flex-col gap-2.5">
-        <p
-          data-signature-item
-          data-testid="today-date"
-          className="text-eyebrow text-on-primary-muted uppercase"
-        >
-          {format.dateTime(now, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
-        <h2 data-signature-item className="font-heading text-display">
-          {t("today.greeting")}
-        </h2>
-        {intro !== null && (
-          <p
-            data-signature-item
-            className="max-w-105 text-lead text-on-primary-lead"
-          >
-            {intro}
-          </p>
-        )}
-      </div>
+      <TodayHead intro={intro} />
       {due === null && (
         <p
           data-signature-item
@@ -76,7 +63,7 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
         </p>
       )}
       {due !== null && hasDue && (
-        <div data-signature-item className="flex flex-col gap-3">
+        <div data-signature-item className="flex grow flex-col gap-3">
           {/* Pastilles de chiffres : chiffre en `text-stat`, libellé `text-small` en blanc plein. */}
           <div className="flex gap-2.5">
             {(
@@ -103,7 +90,7 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
           </ul>
           <Link
             href={TASKS_PATH}
-            className="flex min-h-11 items-center self-start text-small font-semibold text-primary-foreground no-underline hover:text-primary-foreground hover:underline focus-visible:outline-ring-on-primary"
+            className="mt-auto flex min-h-11 items-center self-start text-small font-semibold text-primary-foreground no-underline hover:text-primary-foreground hover:underline focus-visible:outline-ring-on-primary"
           >
             {t("today.seeAll")}
           </Link>

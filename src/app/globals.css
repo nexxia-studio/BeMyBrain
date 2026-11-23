@@ -198,6 +198,13 @@
   --chart-4: var(--ink-muted);
   --chart-5: var(--ink);
 
+  /* Givre de chargement (DESIGN.md § 5) : cran d'intensité, lu par l'utilitaire `frost` et `frost-clear`, qui
+     ne le redéfinissent pas. Cran discret, retenu pour toute l'app aux essais iPhone du 2026-11-23 : halos
+     purs, repos 0,55. */
+  --frost-from: var(--halo-blue);
+  --frost-to: var(--halo-lilac);
+  --frost-rest: 0.55;
+
   /* Barre latérale : surface en verre de premier niveau (posée sur le fond). */
   --sidebar: var(--glass-bg);
   --sidebar-foreground: var(--ink);
@@ -238,6 +245,8 @@
   /* Rayons et espacements responsives. */
   --tile-radius: 24px;
   --space-grid: 14px;
+  /* Palier d'écran de la grille, lu par le relevé des hauteurs de tuiles (TileHeightRecorder, QA-6). */
+  --tile-tier: sm;
   --space-tile: 18px;
   --space-today: 22px;
   --space-page: 16px;
@@ -291,11 +300,27 @@
     );
 }
 
+/*
+ * Tuile givrée du tableau de bord (QA-6 d'effets-de-verre) : hauteur relevée au dernier affichage, posée par
+ * `dashboard/loading.tsx` en variables `--tile-h-sm|md|lg` (lues dans le cookie, validées et reformées par
+ * `src/modules/dashboard/tile-heights.ts`). Sans relevé du palier : hauteur du contenu (la cale de l'état vide
+ * compact). Les paliers suivent les blocs de la grille ci-dessous, seule source des seuils.
+ */
+.tile-reserve {
+  height: var(--tile-h-sm, auto);
+  overflow: hidden;
+}
+
 /* Tablette. */
 @media (min-width: 640px) {
   :root {
     --space-grid: 16px;
     --space-page: 24px;
+    --tile-tier: md;
+  }
+
+  .tile-reserve {
+    height: var(--tile-h-md, auto);
   }
 }
 
@@ -308,6 +333,7 @@
     --today-shadow: 0 18px 44px rgb(61 79 214 / 0.28);
     --tile-radius: 28px;
     --space-grid: 20px;
+    --tile-tier: lg;
     --space-tile: 24px;
     --space-today: 28px;
     --space-page: clamp(14px, 2.4vw, 36px);
@@ -327,6 +353,10 @@
         color-mix(in srgb, var(--halo-aqua) 75%, transparent),
         transparent
       );
+  }
+
+  .tile-reserve {
+    height: var(--tile-h-lg, auto);
   }
 }
 
@@ -370,6 +400,70 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
   box-shadow: var(--glass-shadow);
 }
 
+/* Givre de chargement (DESIGN.md § 5 « États de chargement — givre ») : voile teinté posé dans une tuile
+   de verre, jamais un second verre (aucun backdrop-filter). Un seul éclaircissement, de 1 au repos, qui
+   reste : pas une boucle (§ 11). CSS pur, affiché avant l'hydratation ; `--frost-index` est posé en style
+   en ligne par FrostTile. Mouvement réduit : voile fixe au repos. Couleurs et repos : variables du cran,
+   posées sur :root. */
+@utility frost {
+  /* Durée par tuile et décalage entre tuiles. */
+  --frost-duration: 1.3s;
+  --frost-stagger: 0.18s;
+  border-radius: inherit;
+  background-image: linear-gradient(135deg, var(--frost-from), var(--frost-to));
+  opacity: var(--frost-rest);
+  animation: frost-clear var(--frost-duration) ease-in-out both;
+  animation-delay: calc(var(--frost-index, 0) * var(--frost-stagger));
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: var(--frost-rest);
+  }
+}
+
+@keyframes frost-clear {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: var(--frost-rest);
+  }
+}
+
+/* Pendant un givre, aucun ancrage du défilement (QA-3 d'effets-de-verre). Arrivé d'une page défilée (lien
+   « Corbeille » en bas d'une longue liste), Chromium borne le défilement à la hauteur du givre, puis l'ancrage le
+   rétablit quand le contenu allonge la page (relevé : 107 → 83 → 107 px) et tout le haut de page saute. Coupé
+   seulement tant qu'un voile est affiché : l'ancrage reste actif partout ailleurs. */
+html:has(.frost) {
+  overflow-anchor: none;
+}
+
+/* Reflet (DESIGN.md § 7, ligne « Reflet ») : calque rendu par TileSurface dans chaque tuile de verre de la
+   grille, sous le contenu, hors champ au repos. GSAP le balaie une fois par session, en transform seulement
+   (src/components/signature/bento-reveal.tsx). Couche composée dès sa création (will-change) : pas de
+   promotion au milieu du balayage. Teinte des halos : le blanc ne se voit pas sur un verre déjà blanc.
+   Jamais de backdrop-filter : pas de verre sur du verre. Mouvement réduit : aucun calque. */
+@utility sheen {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  transform: translateX(-110%);
+  will-change: transform;
+  background-image: linear-gradient(
+    105deg,
+    transparent 30%,
+    color-mix(in srgb, var(--halo-blue) 55%, transparent) 45%,
+    color-mix(in srgb, var(--halo-lilac) 55%, transparent) 55%,
+    transparent 70%
+  );
+
+  @media (prefers-reduced-motion: reduce) {
+    display: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring;
@@ -393,10 +487,6 @@ html[data-signature-pending~="empty"] [data-signature="empty"] {
     z-index: var(--z-halo);
     pointer-events: none;
     background-image: var(--halo-layers);
-  }
-  /* Césure selon <html lang> (FR plus long que EN). */
-  p {
-    hyphens: auto;
   }
   h1,
   h2,

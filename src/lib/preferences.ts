@@ -4,6 +4,11 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { sideSchema, type Side } from "@/modules/core/schemas";
+import {
+  parseTileHeights,
+  TILE_HEIGHTS_COOKIE,
+  type TileHeights,
+} from "@/modules/dashboard/tile-heights";
 
 // Préférences d'affichage (plan socle, décision « Choix Privé / Pro ») : cookies lus côté serveur,
 // jamais une donnée métier. Toute valeur inattendue retombe sur un défaut sûr, sans erreur.
@@ -73,4 +78,13 @@ export async function readContextSelection(
     (await cookies()).get(contextsCookie(side))?.value,
     available,
   );
+}
+
+/**
+ * Hauteurs de tuiles relevées au dernier affichage du tableau de bord (QA-6 d'effets-de-verre) : cookie écrit par
+ * le navigateur, donnée non fiable, validée par `parseTileHeights` (entrées inconnues ou hors bornes ignorées).
+ * Seule la route dont le chemin correspond reçoit le cookie (`Path`).
+ */
+export async function readTileHeights(): Promise<TileHeights> {
+  return parseTileHeights((await cookies()).get(TILE_HEIGHTS_COOKIE)?.value);
 }
