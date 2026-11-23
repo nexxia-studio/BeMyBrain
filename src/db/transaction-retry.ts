@@ -6,7 +6,7 @@ import { isConnectionLost } from "./connection-lost";
 // BRAIN-50, solution C (spec, « Règles ») : une transaction n'est rejouée qu'une fois, et seulement si la
 // connexion tombe AVANT la fonction métier : prise de connexion, BEGIN, mise en place (`setup`). Dès que `fn` a
 // commencé (même une lecture), l'erreur remonte telle quelle : une écriture n'est jamais rejouée.
-// Partagé par withUserDb (user-db.ts) et la transaction propriétaire (admin.ts).
+// Partagé par withUserDb (user-db.ts) et withAdminTx (admin.ts, seed).
 
 /** Plafond d'attente de la purge du pool avant la nouvelle tentative. */
 export const EVICT_TIMEOUT_MS = 500;

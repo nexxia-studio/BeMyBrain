@@ -128,24 +128,37 @@ describe("connexion coupée pendant une lecture empruntée", () => {
     expect(next?.pid).not.toBe(cut?.pid);
   });
 
-  it("adminDb (@/db/admin) : la transaction rejette, sans exception non interceptée, et l'appel suivant passe", async () => {
-    const { adminDb } = await import("@/db/admin");
+  it("withAdminTx (@/db/admin) : la transaction rejette, sans exception non interceptée ni nouvelle tentative, et l'appel suivant passe", async () => {
+    const { endAdminPool, withAdminTx } = await import("@/db/admin");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let calls = 0;
 
-    let cut: { pid: number; error: unknown } | undefined;
-    const call = adminDb.transaction(async (tx) => {
-      cut = await readCutByServer((query) => tx.execute(query), killers.owner);
-      throw cut.error;
-    });
+    try {
+      let cut: { pid: number; error: unknown } | undefined;
+      const call = withAdminTx(async (tx) => {
+        calls += 1;
+        cut = await readCutByServer(
+          (query) => tx.execute(query),
+          killers.owner,
+        );
+        throw cut.error;
+      });
 
-    await expect(call).rejects.toBeInstanceOf(Error);
-    await settle();
-    expect(uncaught).toEqual([]);
-    expectGenericLog("propriétaire");
+      await expect(call).rejects.toBeInstanceOf(Error);
+      await settle();
+      expect(uncaught).toEqual([]);
+      expect(calls).toBe(1);
+      expect(warn).not.toHaveBeenCalled();
+      expectGenericLog("propriétaire");
 
-    const next = await adminDb.execute<{ pid: number }>(
-      sql`select pg_backend_pid() as pid`,
-    );
-    expect(next.rows[0]?.pid).not.toBe(cut?.pid);
+      const next = await withAdminTx((tx) =>
+        tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`),
+      );
+      expect(next.rows[0]?.pid).not.toBe(cut?.pid);
+    } finally {
+      warn.mockRestore();
+      await endAdminPool();
+    }
   });
 
   it("createPool : une erreur du socket pendant une requête la fait rejeter, sans exception levée ni non interceptée", async () => {

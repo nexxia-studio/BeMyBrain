@@ -1,6 +1,6 @@
 import { Pool } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
 
+import { createPooledDb } from "../../src/db/transaction-retry";
 import {
   createWithUserDb,
   type UserIdentity,
@@ -28,7 +28,8 @@ export function createTestUserDb(backendUrl: string): TestUserDb {
   const pool = new Pool({ connectionString: backendUrl, max: 2 });
   const withUserDb = createWithUserDb({
     verify: async (userId) => ({ sub: userId, role: "authenticated" }),
-    db: drizzle({ client: pool }),
+    // Comme src/db/client.ts : connexion prise et rendue par transaction.
+    db: createPooledDb(pool),
     // Pas de purge : ces tests ne gèlent aucun pool (nouvelle tentative testée par tests/db/pool-dead-after-freeze).
     evictIdle: async () => undefined,
     poolName: "test",

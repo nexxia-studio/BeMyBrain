@@ -1,24 +1,39 @@
 // @vitest-environment node
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 
-import { Pool } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { parseSeedEnv, seedFailureMessage, seedWorkspace } from "./seed";
+import { createPool } from "@/db/pool";
+import { createPooledDb, runTransaction } from "@/db/transaction-retry";
+
+import {
+  parseSeedEnv,
+  seedFailureMessage,
+  seedWorkspace,
+  type SeedTransaction,
+} from "./seed";
 
 // Seed contre la branche Neon test, connexion propriétaire (comme le vrai seed).
 // Chaque test utilise des propriétaires aléatoires ; tout ce qui leur appartient est supprimé à la fin.
 
 const ownerUrl = process.env.DATABASE_TEST_URL;
-if (!ownerUrl) {
+const backendUrl = process.env.DATABASE_TEST_AUTHENTICATED_URL;
+if (!ownerUrl || !backendUrl) {
   throw new Error(
-    "scripts/seed.test.ts : DATABASE_TEST_URL requise (branche Neon test). Voir .env.example.",
+    "scripts/seed.test.ts : DATABASE_TEST_URL et DATABASE_TEST_AUTHENTICATED_URL requises (branche Neon test). Voir .env.example.",
   );
 }
 
-const pool = new Pool({ connectionString: ownerUrl, max: 3 });
-const db = drizzle({ client: pool });
+// Même mécanisme que withAdminTx (src/db/admin.ts), sur le pool propriétaire de la branche test.
+const pool = createPool(ownerUrl, "test");
+const transaction: SeedTransaction = (fn) =>
+  runTransaction(
+    { db: createPooledDb(pool), evictIdle: pool.evictIdle, poolName: "test" },
+    async () => undefined,
+    fn,
+  );
 const owners: string[] = [];
 
 function newOwner(): string {
@@ -70,8 +85,8 @@ describe("seed rejouable", () => {
   it("lancé deux fois, le seed produit un workspace et trois contextes", async () => {
     const owner = newOwner();
 
-    const first = await seedWorkspace(db, { ownerUserId: owner });
-    const second = await seedWorkspace(db, { ownerUserId: owner });
+    const first = await seedWorkspace(transaction, { ownerUserId: owner });
+    const second = await seedWorkspace(transaction, { ownerUserId: owner });
 
     expect(second.workspaceId).toBe(first.workspaceId);
     expect(await workspacesOf(owner)).toEqual([
@@ -86,13 +101,15 @@ describe("seed rejouable", () => {
 
   it("ne recrée pas un contexte renommé ni ne remet en place un contexte réordonné", async () => {
     const owner = newOwner();
-    const { workspaceId } = await seedWorkspace(db, { ownerUserId: owner });
+    const { workspaceId } = await seedWorkspace(transaction, {
+      ownerUserId: owner,
+    });
     await pool.query(
       "update contexts set name = 'Trustup SA', position = 5 where workspace_id = $1 and name = 'Trustup'",
       [workspaceId],
     );
 
-    await seedWorkspace(db, { ownerUserId: owner });
+    await seedWorkspace(transaction, { ownerUserId: owner });
 
     expect(await contextsOf(workspaceId)).toEqual([
       { name: "Privé", kind: "private", position: 0 },
@@ -104,7 +121,9 @@ describe("seed rejouable", () => {
   it("donne aux espaces par défaut leur couleur : Privé neutral, Trustup warm, Nexxia indigo", async () => {
     const owner = newOwner();
 
-    const { workspaceId } = await seedWorkspace(db, { ownerUserId: owner });
+    const { workspaceId } = await seedWorkspace(transaction, {
+      ownerUserId: owner,
+    });
 
     const { rows } = await pool.query(
       "select name, color from contexts where workspace_id = $1 order by position",
@@ -121,8 +140,8 @@ describe("seed rejouable", () => {
     const owner = newOwner();
 
     const [a, b] = await Promise.all([
-      seedWorkspace(db, { ownerUserId: owner }),
-      seedWorkspace(db, { ownerUserId: owner }),
+      seedWorkspace(transaction, { ownerUserId: owner }),
+      seedWorkspace(transaction, { ownerUserId: owner }),
     ]);
 
     expect(b.workspaceId).toBe(a.workspaceId);
@@ -134,8 +153,8 @@ describe("seed rejouable", () => {
     const ownerA = newOwner();
     const ownerB = newOwner();
 
-    const a = await seedWorkspace(db, { ownerUserId: ownerA });
-    const b = await seedWorkspace(db, { ownerUserId: ownerB });
+    const a = await seedWorkspace(transaction, { ownerUserId: ownerA });
+    const b = await seedWorkspace(transaction, { ownerUserId: ownerB });
 
     expect(b.workspaceId).not.toBe(a.workspaceId);
     expect(await workspacesOf(ownerB)).toEqual([
@@ -143,6 +162,131 @@ describe("seed rejouable", () => {
     ]);
     expect(await contextsOf(b.workspaceId)).toHaveLength(3);
   });
+});
+
+const ROOT = join(import.meta.dirname, "..");
+const CHILD = join(ROOT, "tests/factories/seed-child.mts");
+// tsx à froid, plus le réveil possible du compute Neon de la branche test.
+const TSX_TIMEOUT_MS = 60_000;
+
+/** Lance un script sous tsx, comme `pnpm db:seed`, sur la branche test ; rend son stdout (stderr ignoré : messages du pilote). */
+function runUnderTsx(
+  args: string[],
+  extraEnv: Record<string, string> = {},
+): Promise<{ code: number | null; stdout: string }> {
+  // Garde-fou du seed en local (NEON_PRODUCTION_HOST) ou plateforme de confiance (CI) : recopiés s'ils existent.
+  const guard = Object.fromEntries(
+    ["NEON_PRODUCTION_HOST", "GITHUB_ACTIONS", "VERCEL"].flatMap((name) =>
+      process.env[name] ? [[name, process.env[name]]] : [],
+    ),
+  );
+  const proc = spawn(process.execPath, ["--import", "tsx", ...args], {
+    cwd: ROOT,
+    // DATABASE_URL et DATABASE_AUTHENTICATED_URL posées sur la branche test : `.env`, chargé par le seed,
+    // ne remplace jamais une variable déjà définie.
+    env: {
+      NODE_ENV: "test",
+      PATH: process.env.PATH,
+      DATABASE_URL: ownerUrl,
+      DATABASE_AUTHENTICATED_URL: backendUrl,
+      ...guard,
+      ...extraEnv,
+    },
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  let stdout = "";
+  proc.stdout!.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  return new Promise((resolve) =>
+    proc.once("close", (code) => resolve({ code, stdout })),
+  );
+}
+
+async function runChild(mode: string, owner: string) {
+  const { code, stdout } = await runUnderTsx([CHILD, mode, owner]);
+  return { code, result: JSON.parse(stdout.trim()) as Record<string, unknown> };
+}
+
+// Sous tsx, selon le point d'entrée (.mts ESM ou .ts CommonJS), le Pool de createPool et celui que voit Drizzle
+// peuvent être deux exemplaires : `drizzle({ client: pool }).transaction` n'ouvre alors aucune vraie transaction
+// (témoin ci-dessous). withAdminTx (createPooledDb) en tient une dans tous les cas.
+describe("seed sous tsx, comme pnpm db:seed", () => {
+  it(
+    "via withAdminTx, une erreur après les insertions annule tout : aucune ligne ne reste",
+    async () => {
+      const owner = newOwner();
+
+      const { code, result } = await runChild("rollback", owner);
+
+      expect({ code, result }).toEqual({
+        code: 0,
+        result: { outcome: "annulée" },
+      });
+      expect(await workspacesOf(owner)).toEqual([]);
+    },
+    TSX_TIMEOUT_MS,
+  );
+
+  it(
+    "via withAdminTx, deux lectures simultanées d'une transaction passent par une seule connexion",
+    async () => {
+      const { code, result } = await runChild("backends", "");
+
+      expect({ code, result }).toEqual({ code: 0, result: { backends: 1 } });
+    },
+    TSX_TIMEOUT_MS,
+  );
+
+  it(
+    "témoin : drizzle({ client: pool }) sur createPool, depuis un point d'entrée ESM, répartit une même « transaction » sur deux connexions — si ce test échoue, drizzle et le pilote partagent désormais le même Pool sous tsx",
+    async () => {
+      const { code, result } = await runChild("naive-backends", "");
+
+      expect({ code, result }).toEqual({ code: 0, result: { backends: 2 } });
+    },
+    TSX_TIMEOUT_MS,
+  );
+
+  it(
+    "via withAdminTx, deux seeds simultanés pour le même propriétaire ne créent qu'un workspace",
+    async () => {
+      const owner = newOwner();
+
+      const { code, result } = await runChild("concurrent", owner);
+
+      expect(code).toBe(0);
+      expect(
+        (result.created as boolean[]).toSorted((a, b) => Number(a) - Number(b)),
+      ).toEqual([false, true]);
+      const rows = await workspacesOf(owner);
+      expect(rows).toHaveLength(1);
+      expect(await contextsOf(rows[0].id)).toHaveLength(3);
+    },
+    TSX_TIMEOUT_MS,
+  );
+
+  it(
+    "la commande du seed (scripts/seed.ts) crée le workspace sur la branche visée, puis ne refait rien",
+    async () => {
+      const owner = newOwner();
+      const env = { SEED_OWNER_USER_ID: owner };
+
+      const first = await runUnderTsx(["scripts/seed.ts"], env);
+      const second = await runUnderTsx(["scripts/seed.ts"], env);
+
+      expect(first).toEqual({
+        code: 0,
+        stdout: "Seed : workspace et contextes créés.\n",
+      });
+      expect(second).toEqual({
+        code: 0,
+        stdout: "Seed : workspace déjà présent, rien à faire.\n",
+      });
+      expect(await workspacesOf(owner)).toHaveLength(1);
+    },
+    TSX_TIMEOUT_MS * 2,
+  );
 });
 
 describe("variables du seed", () => {
