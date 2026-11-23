@@ -6,6 +6,10 @@ import { z } from "zod";
 
 import { DomainError } from "@/lib/errors";
 
+import { DatabaseError, sqlStateOf } from "./database-error";
+
+export { DatabaseError };
+
 // Seul point du code qui injecte une identité dans la base (ADR-002, plan socle).
 // Interne à src/db : l'app passe par withUserDb de ./client (garde eslint).
 
@@ -65,19 +69,6 @@ const TOKEN_REFUSAL_CODES = new Set([
 ]);
 
 /**
- * Échec d'une requête dans withUserDb. Message fixe, sans cause chaînée ni `query` / `params`
- * (Drizzle y met les valeurs liées, dont les claims) : on ne garde que le SQLSTATE.
- */
-export class DatabaseError extends Error {
-  readonly code: string | undefined;
-  constructor(code?: string) {
-    super("Erreur de base de données");
-    this.name = "DatabaseError";
-    this.code = code;
-  }
-}
-
-/**
  * Les claims posés ne sont pas ceux que lit la base (app.current_user_id() ≠ sub, ou NULL).
  * Garde-fou si pg_session_jwt change de comportement : jamais d'identité NULL en silence.
  * Message fixe, sans claims.
@@ -92,14 +83,6 @@ export class IdentityNotAppliedError extends Error {
 function codeOf(error: unknown, pattern: RegExp): string | undefined {
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === "string" && pattern.test(code) ? code : undefined;
-}
-
-function sqlStateOf(error: unknown): string | undefined {
-  // Drizzle enveloppe l'erreur du pilote : le SQLSTATE est sur l'erreur ou sur sa cause.
-  return (
-    codeOf(error, /^[0-9A-Z]{5}$/) ??
-    codeOf((error as { cause?: unknown } | null)?.cause, /^[0-9A-Z]{5}$/)
-  );
 }
 
 export function createTokenVerifier(
