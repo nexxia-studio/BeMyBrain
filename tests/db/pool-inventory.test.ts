@@ -145,10 +145,10 @@ function isTypeOnlyClause(clause: string): boolean {
 function driverImports(code: string): string[] {
   const found: string[] = [];
   for (const match of code.matchAll(
-    /\b(?:import|export)\s+(?:([^;"'`]*?)\s+from\s*)?["']([^"']+)["']/g,
+    /\b(?:import|export)\s*(?:([^;"'`]*?)\s*from\s*)?["']([^"']+)["']/g,
   )) {
     const [, clause, specifier] = match;
-    if (clause !== undefined && isTypeOnlyClause(clause)) continue;
+    if (clause !== undefined && isTypeOnlyClause(clause.trim())) continue;
     if (isDriverSpecifier(specifier)) found.push(specifier);
   }
   for (const match of code.matchAll(
@@ -166,6 +166,15 @@ const DRIVER_ALLOWED = new Set([
   "src/db/transaction-retry.ts",
 ]);
 const NEW_CLIENT = /\bnew\s+Client\s*\(/;
+// createRequire : contourne l'analyse des imports (et la frontière eslint) ; aucun usage admis hors tests.
+const CREATE_REQUIRE = /\bcreateRequire\b/;
+const CREATE_POOL_CALL = /\bcreatePool\s*\(/;
+// Seuls fichiers admis à appeler createPool : src/db (pool, client, admin) et la sonde du script de reproduction.
+function mayCreatePool(path: string): boolean {
+  return (
+    /^src\/db\/[^/]+$/.test(path) || path === "scripts/repro/veille-base.mts"
+  );
+}
 const NEON_HTTP_CALL = /(?<![\w.$])neon\s*\(/;
 
 describe("inventaire des pilotes de base (BRAIN-50)", () => {
@@ -182,6 +191,9 @@ describe("inventaire des pilotes de base (BRAIN-50)", () => {
       'import { sql } from "drizzle-orm";',
       'import { pgTable } from "drizzle-orm/pg-core";',
       'import { defineConfig } from "drizzle-kit";',
+      // Sans espace : syntaxe valide, sortie possible d'un minifieur.
+      'import{Client}from"pg/lib/native"',
+      "export{drizzle}from'drizzle-orm/postgres-js'",
     ].join("\n");
 
     const found = driverImports(code);
@@ -194,6 +206,8 @@ describe("inventaire des pilotes de base (BRAIN-50)", () => {
         "postgres",
         "drizzle-orm/neon-http",
         "pg/lib/client",
+        "pg/lib/native",
+        "drizzle-orm/postgres-js",
       ].toSorted(),
     );
     for (const driver of [
@@ -246,5 +260,24 @@ describe("inventaire des pilotes de base (BRAIN-50)", () => {
 
     expect(offenders(NEW_CLIENT, candidates)).toEqual([]);
     expect(offenders(NEON_HTTP_CALL, candidates)).toEqual([]);
+  });
+
+  it("aucun createRequire hors des tests", () => {
+    // eslint.config.mjs le nomme pour l'interdire dans src/.
+    const candidates = productionFiles.filter(
+      (path) => path !== "eslint.config.mjs",
+    );
+
+    expect(offenders(CREATE_REQUIRE, candidates)).toEqual([]);
+  });
+
+  it("aucun appel à createPool hors src/db et scripts/repro/veille-base.mts", () => {
+    const candidates = productionFiles.filter((path) => !mayCreatePool(path));
+
+    expect(offenders(CREATE_POOL_CALL, candidates)).toEqual([]);
+    // Le motif voit bien les appels réels.
+    expect(offenders(CREATE_POOL_CALL, ["src/db/admin.ts"])).toEqual([
+      "src/db/admin.ts",
+    ]);
   });
 });

@@ -20,6 +20,14 @@ import { sql } from "drizzle-orm";
 import { createPool } from "../../src/db/pool";
 import { createPooledDb } from "../../src/db/transaction-retry";
 import { createWithUserDb } from "../../src/db/user-db";
+import { enforceChildTarget } from "./child-guard";
+
+// Avant toute connexion : marqueur du lanceur (test ou scripts/repro/veille-base.mts) exigé, production refusée
+// (hôte ou endpoint de NEON_PRODUCTION_HOST ; sortie code 2).
+enforceChildTarget({
+  marker: "FROZEN_POOL_CHILD",
+  urlVariable: "FROZEN_POOL_URL",
+});
 
 const USER_ID = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 const READS = 4;

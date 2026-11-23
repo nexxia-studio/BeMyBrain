@@ -5,7 +5,8 @@
 // part seule sur le pool (BEGIN, requêtes et COMMIT sur des connexions qui peuvent différer). withAdminTx
 // (createPooledDb) donne une connexion à Drizzle : vraie transaction quel que soit le chargement.
 //
-// Variables : DATABASE_URL et DATABASE_AUTHENTICATED_URL de la branche test, posées par le test parent.
+// Variables : SEED_CHILD=1, DATABASE_URL et DATABASE_AUTHENTICATED_URL de la branche test, NEON_PRODUCTION_HOST
+// (ou plateforme de confiance), posées par le test parent.
 // Arguments : <mode> [uuid du propriétaire].
 // - `rollback` : seedWorkspace via withAdminTx, puis erreur levée dans la même transaction après les insertions ;
 // - `concurrent` : deux seedWorkspace simultanés via withAdminTx ;
@@ -21,6 +22,10 @@ import { endAdminPool, withAdminTx, type AdminTx } from "../../src/db/admin";
 import { getMigrationEnv } from "../../src/db/migration-env";
 import { createPool, type AppPool } from "../../src/db/pool";
 import { seedWorkspace, type SeedTransaction } from "../../scripts/seed";
+import { enforceChildTarget } from "./child-guard";
+
+// Avant toute connexion : marqueur du test parent exigé, production refusée (sortie code 2).
+enforceChildTarget({ marker: "SEED_CHILD", urlVariable: "DATABASE_URL" });
 
 const [mode, ownerUserId = ""] = process.argv.slice(2);
 

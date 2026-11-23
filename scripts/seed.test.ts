@@ -8,6 +8,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createPool } from "@/db/pool";
 import { createPooledDb, runTransaction } from "@/db/transaction-retry";
 
+import { childGuardEnv } from "../tests/factories/child-guard";
+
 import {
   parseSeedEnv,
   seedFailureMessage,
@@ -180,12 +182,8 @@ function runUnderTsx(
   args: string[],
   extraEnv: Record<string, string> = {},
 ): Promise<{ code: number | null; stdout: string }> {
-  // Garde-fou du seed en local (NEON_PRODUCTION_HOST) ou plateforme de confiance (CI) : recopiés s'ils existent.
-  const guard = Object.fromEntries(
-    ["NEON_PRODUCTION_HOST", "GITHUB_ACTIONS", "VERCEL"].flatMap((name) =>
-      process.env[name] ? [[name, process.env[name]]] : [],
-    ),
-  );
+  // Garde-fou du seed et de l'enfant en local (NEON_PRODUCTION_HOST) ou plateforme de confiance (CI).
+  const guard = childGuardEnv();
   const proc = spawn(process.execPath, ["--import", "tsx", ...args], {
     cwd: ROOT,
     // DATABASE_URL et DATABASE_AUTHENTICATED_URL posées sur la branche test : `.env`, chargé par le seed,
@@ -226,7 +224,10 @@ function runUnderTsx(
 }
 
 async function runChild(mode: string, owner: string) {
-  const { code, stdout } = await runUnderTsx([CHILD, mode, owner]);
+  // Marqueur exigé par la garde de l'enfant (tests/factories/child-guard.ts).
+  const { code, stdout } = await runUnderTsx([CHILD, mode, owner], {
+    SEED_CHILD: "1",
+  });
   if (stdout.trim() === "") {
     // stderr n'est jamais affiché (messages du pilote) : relancer à la main pour le voir.
     throw new Error(

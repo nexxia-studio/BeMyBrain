@@ -8,6 +8,7 @@ import { createInterface } from "node:readline";
 import { Pool } from "@neondatabase/serverless";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 
+import { childGuardEnv } from "../factories/child-guard";
 import type { ChildMessage } from "../factories/frozen-pool-child.mts";
 
 // BRAIN-50 : connexions du pool tuées pendant la pause d'une fonction Vercel, prêtées au réveil.
@@ -68,6 +69,9 @@ function startChild(trigger: string) {
       NODE_ENV: "test",
       PATH: process.env.PATH,
       FROZEN_POOL_URL: directBackendUrl,
+      // Garde de l'enfant (tests/factories/child-guard.ts) : marqueur, et de quoi refuser la production.
+      FROZEN_POOL_CHILD: "1",
+      ...childGuardEnv(),
     },
     // stderr ignoré : un message du pilote n'a rien à faire dans les journaux de test.
     stdio: ["ignore", "pipe", "ignore"],

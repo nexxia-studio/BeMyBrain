@@ -287,6 +287,10 @@ function startChild(targetUrl: string, trigger: string) {
       NODE_ENV: "test",
       PATH: process.env.PATH,
       FROZEN_POOL_URL: targetUrl,
+      // Garde de l'enfant (tests/factories/child-guard.ts) : marqueur, et l'hôte de production à refuser
+      // (exigé par resolveTarget, donc présent).
+      FROZEN_POOL_CHILD: "1",
+      NEON_PRODUCTION_HOST: process.env.NEON_PRODUCTION_HOST,
     },
     // stderr ignoré : une erreur non rattrapée du pilote y écrirait son client, mot de passe compris.
     stdio: ["ignore", "pipe", "ignore"],
