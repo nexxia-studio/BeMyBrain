@@ -12,7 +12,7 @@
 //    (SIGSTOP), puis réveille (SIGCONT) : le minuteur en retard part avant le traitement des sockets,
 //    comme une fonction Vercel qui reprend une requête ;
 // 3. 4 lectures withUserDb parallèles → {"type":"result","outcomes":[…],"attempts","rawErrors","warnCount",
-//    "readPids","poolTotal"}.
+//    "readPids","readIdentities","poolTotal"}.
 import { existsSync } from "node:fs";
 
 import { sql } from "drizzle-orm";
@@ -36,7 +36,7 @@ if (!url || !trigger) {
 export type Outcome =
   { ok: true } | { ok: false; name: string; code: string | undefined };
 /** Résultat d'une lecture réussie : le backend qui l'a servie. */
-type Read = { outcome: Outcome; pid?: number };
+type Read = { outcome: Outcome; pid?: number; identity?: boolean };
 /** Erreur brute du pilote vue sous withUserDb (qui la masque en DatabaseError) : classée, jamais recopiée. */
 export type RawError = {
   connectionTerminated: boolean;
@@ -52,6 +52,11 @@ export type WakeTrace = {
   warnCount: number;
   /** Backends qui ont servi les lectures réussies : aucun des backends tués attendu après coupure. */
   readPids: number[];
+  /**
+   * Par lecture réussie : `app.current_user_id()` vaut l'utilisateur attendu, lu par la base dans la transaction
+   * (identité reposée sur la connexion de la nouvelle tentative). Booléen seulement, jamais l'identifiant.
+   */
+  readIdentities: boolean[];
   /** Connexions que le pool garde à la fin (empruntées ou au repos) : les connexions mortes en sont sorties. */
   poolTotal: number;
 };
@@ -110,9 +115,15 @@ const withUserDb = createWithUserDb({
 async function read(): Promise<Read> {
   try {
     const { rows } = await withUserDb("jeton", (tx) =>
-      tx.execute<{ pid: number }>(sql`select pg_backend_pid() as pid`),
+      tx.execute<{ pid: number; identity: boolean | null }>(
+        sql`select pg_backend_pid() as pid, app.current_user_id() = ${USER_ID}::uuid as identity`,
+      ),
     );
-    return { outcome: { ok: true }, pid: Number(rows[0]?.pid) };
+    return {
+      outcome: { ok: true },
+      pid: Number(rows[0]?.pid),
+      identity: rows[0]?.identity === true,
+    };
   } catch (error) {
     const { name, code } = error as { name?: unknown; code?: unknown };
     return {
@@ -149,6 +160,9 @@ const poll = setInterval(() => {
         outcomes: reads.map((r) => r.outcome),
         ...trace,
         readPids: reads.flatMap((r) => (r.pid === undefined ? [] : [r.pid])),
+        readIdentities: reads.flatMap((r) =>
+          r.identity === undefined ? [] : [r.identity],
+        ),
         poolTotal: pool.totalCount,
       });
       await pool.end();

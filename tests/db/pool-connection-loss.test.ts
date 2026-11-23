@@ -13,6 +13,8 @@ import {
 
 import { DatabaseError, type VerifiedClaims } from "@/db/user-db";
 
+import { errorTag } from "../factories/error-tag";
+
 // QA-4 : une connexion coupée pendant qu'une transaction l'emprunte ne doit pas tuer le processus.
 // pg-pool (embarqué par @neondatabase/serverless) retire son écouteur d'erreur à l'emprunt : sans
 // écouteur permanent, `client.emit("error")` devient une uncaughtException.
@@ -113,9 +115,15 @@ describe("connexion coupée pendant une lecture empruntée", () => {
       throw cut.error;
     });
 
-    await expect(call).rejects.toBeInstanceOf(DatabaseError);
+    // Booléen seulement : une erreur brute du pilote ne doit jamais être affichée par Vitest.
+    expect(
+      await call.then(
+        () => false,
+        (e: unknown) => e instanceof DatabaseError,
+      ),
+    ).toBe(true);
     await settle();
-    expect(uncaught).toEqual([]);
+    expect(uncaught.map(errorTag)).toEqual([]);
     expectGenericLog("app_backend");
 
     const next = await withUserDb("jeton", async (tx) => {
@@ -144,9 +152,14 @@ describe("connexion coupée pendant une lecture empruntée", () => {
         throw cut.error;
       });
 
-      await expect(call).rejects.toBeInstanceOf(Error);
+      expect(
+        await call.then(
+          () => "résolue",
+          (e: unknown) => e instanceof Error,
+        ),
+      ).toBe(true);
       await settle();
-      expect(uncaught).toEqual([]);
+      expect(uncaught.map(errorTag)).toEqual([]);
       expect(calls).toBe(1);
       expect(warn).not.toHaveBeenCalled();
       expectGenericLog("propriétaire");
@@ -183,9 +196,9 @@ describe("connexion coupée pendant une lecture empruntée", () => {
       expect(() =>
         stream.emit("error", new Error("socket coupé")),
       ).not.toThrow();
-      expect(await outcome).toBeInstanceOf(Error);
+      expect((await outcome) instanceof Error).toBe(true);
       await settle();
-      expect(uncaught).toEqual([]);
+      expect(uncaught.map(errorTag)).toEqual([]);
       expectGenericLog("app_backend");
     } finally {
       client.release(true);

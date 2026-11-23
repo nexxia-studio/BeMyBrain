@@ -18,6 +18,7 @@ import {
   runTransaction,
   type TransactionDb,
 } from "./transaction-retry";
+import { sqlStateOf } from "./database-error";
 import { IdentityNotAppliedError, InvalidTokenError } from "./user-db";
 
 // BRAIN-50, solution C : une seule nouvelle tentative, seulement si la connexion tombe AVANT la fonction
@@ -314,7 +315,7 @@ describe("runTransaction : purge bornée", () => {
   });
 });
 
-describe("createPooledDb : la connexion est toujours rendue au pool", () => {
+describe("createPooledDb : la connexion est toujours rendue, au repos seulement après un COMMIT", () => {
   function fakePool(query: PoolClient["query"]) {
     const release = vi.fn();
     const client = { query, release } as unknown as PoolClient;
@@ -369,7 +370,7 @@ describe("createPooledDb : la connexion est toujours rendue au pool", () => {
     expect(release).toHaveBeenCalledWith(true);
   });
 
-  it("erreur SQL dans la transaction : la connexion, saine, retourne au repos", async () => {
+  it("erreur SQL dans la transaction : la connexion est retirée du pool, même saine", async () => {
     const query = vi
       .fn()
       .mockResolvedValueOnce({ rows: [], fields: [] })
@@ -383,7 +384,43 @@ describe("createPooledDb : la connexion est toujours rendue au pool", () => {
       .catch(() => undefined);
 
     expect(release).toHaveBeenCalledTimes(1);
-    expect(release).toHaveBeenCalledWith(undefined);
+    expect(release).toHaveBeenCalledWith(true);
+  });
+
+  it("erreur de fn puis ROLLBACK en échec (erreur non-connexion) : la connexion, transaction peut-être ouverte, est retirée", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [], fields: [] })
+      .mockRejectedValueOnce(serverError("XX000"));
+    const { pool, release } = fakePool(query as unknown as PoolClient["query"]);
+    const db = createPooledDb(pool);
+
+    const error = await db
+      .transaction(async () => {
+        throw new Error("échec de fn");
+      })
+      .catch((e: unknown) => e);
+
+    // Erreur du ROLLBACK (enveloppée par Drizzle) : elle remplace celle de fn.
+    expect(sqlStateOf(error)).toBe("XX000");
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledWith(true);
+  });
+
+  it("erreur métier de fn, ROLLBACK réussi : la connexion est retirée quand même", async () => {
+    const query = vi.fn(async () => ({ rows: [], fields: [] }));
+    const { pool, release } = fakePool(query as unknown as PoolClient["query"]);
+    const db = createPooledDb(pool);
+
+    await db
+      .transaction(async () => {
+        throw new TestDomainError("probe_failed");
+      })
+      .catch(() => undefined);
+
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledWith(true);
   });
 
   it("échec de la prise de connexion : rien à rendre, l'erreur remonte", async () => {

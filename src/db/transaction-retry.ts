@@ -78,10 +78,12 @@ type ConnectionSource = { connect(): Promise<PoolClient> };
  * Base Drizzle qui prend elle-même sa connexion pour chaque transaction et la rend toujours.
  * drizzle-orm 0.45 (neon-serverless, NeonSession.transaction) n'exécute le BEGIN qu'en dehors de son
  * try/finally : un BEGIN en échec ne rend jamais la connexion, qui reste empruntée et occupe une place du pool
- * pour toujours (au réveil d'une veille, chaque lecture en échec en garderait une). Et une connexion rendue sans
- * erreur retourne au repos si le pilote ne l'a pas encore marquée non requêtable. Ici : connexion perdue → rendue
- * avec `release(true)`, pg-pool la retire et la ferme ; sinon (y compris erreur SQL, connexion saine) rendue
- * normalement.
+ * pour toujours (au réveil d'une veille, chaque lecture en échec en garderait une). Ici : rendue normalement au
+ * repos seulement après un COMMIT réussi ; toute erreur (connexion perdue, erreur SQL, erreur de fn) la rend avec
+ * `release(true)`, pg-pool la retire et la ferme. Une erreur ne garantit pas que la transaction est close : si le
+ * ROLLBACK de Drizzle échoue à son tour, la connexion reviendrait au repos avec une transaction ouverte (une autre
+ * requête pourrait valider des écritures partielles, ou recevoir 25P02). Coût accepté (audit sécurité des
+ * tâches 2-3) : une connexion neuve après chaque transaction en erreur.
  */
 export function createPooledDb(
   pool: ConnectionSource,
@@ -89,14 +91,13 @@ export function createPooledDb(
   return {
     async transaction(callback) {
       const client = await pool.connect();
-      let lostConnection = false;
+      let committed = false;
       try {
-        return await drizzle({ client }).transaction(callback);
-      } catch (error) {
-        lostConnection = isConnectionLost(error);
-        throw error;
+        const result = await drizzle({ client }).transaction(callback);
+        committed = true;
+        return result;
       } finally {
-        client.release(lostConnection ? true : undefined);
+        client.release(committed ? undefined : true);
       }
     },
   };

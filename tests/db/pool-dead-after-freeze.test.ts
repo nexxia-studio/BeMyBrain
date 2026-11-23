@@ -176,6 +176,7 @@ describe("pool gelé puis réveillé (BRAIN-50)", () => {
         poolTotal: 4,
       });
       for (const pid of result.readPids) expect(warmPids).toContain(pid);
+      expect(result.readIdentities).toEqual([true, true, true, true]);
     },
     TIMEOUT,
   );
@@ -206,6 +207,8 @@ describe("pool gelé puis réveillé (BRAIN-50)", () => {
       expect(result.warnCount).toBe(4);
       expect(result.readPids).toHaveLength(4);
       for (const pid of result.readPids) expect(warmPids).not.toContain(pid);
+      // Identité lue par la base dans chaque transaction rejouée : reposée sur la connexion neuve.
+      expect(result.readIdentities).toEqual([true, true, true, true]);
       expect(result.poolTotal).toBeLessThanOrEqual(4);
     },
     TIMEOUT,

@@ -12,6 +12,8 @@ import {
 
 import { createPool } from "@/db/pool";
 
+import { errorTag } from "../factories/error-tag";
+
 // BRAIN-50, règle 3 de la spec : avant la nouvelle tentative, les connexions au repos du pool (gelées en même
 // temps que la connexion morte, donc suspectes) sont retirées. evictIdle les ferme par l'API publique de
 // pg-pool. Vrai pool sur la branche test, endpoint direct : une connexion = un backend Postgres, visible
@@ -171,7 +173,7 @@ describe("createPool : evictIdle (BRAIN-50)", () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       expect(pool.totalCount).toBe(0);
-      expect(uncaught).toEqual([]);
+      expect(uncaught.map(errorTag)).toEqual([]);
     } finally {
       process.off("uncaughtException", onUncaught);
     }

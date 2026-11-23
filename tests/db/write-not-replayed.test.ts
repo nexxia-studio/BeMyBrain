@@ -145,7 +145,8 @@ describe("écriture dont la connexion tombe pendant la fonction métier (BRAIN-5
     const error = await withUserDb("jeton", fn).catch((e: unknown) => e);
 
     expect(terminated).toBe(true);
-    expect(error).toBeInstanceOf(DatabaseError);
+    // Booléen seulement : une erreur brute du pilote ne doit jamais être affichée par Vitest.
+    expect(error instanceof DatabaseError).toBe(true);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(warn).not.toHaveBeenCalled();
     const { rows } = await safe(
