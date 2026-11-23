@@ -6,7 +6,7 @@ Solution C (choix d'Antoine, 2026-11-23). Aucune nouvelle dépendance.
 Tests base : branche Neon `test` (`DATABASE_TEST_URL`, `DATABASE_TEST_AUTHENTICATED_URL`), procédés de `tests/db/pool-connection-loss.test.ts`.
 
 ## Tâches
-- [ ] **1. Reproduction en test automatisé (rouge)**
+- [x] **1. Reproduction en test automatisé (rouge)**
   - Fichiers : `tests/db/pool-dead-after-freeze.test.ts`, `tests/factories/frozen-pool-child.mts`
   - Test à écrire d'abord : « connexions tuées pendant le gel → 4 lectures parallèles réussissent au réveil ». L'enfant (vrai `createPool` + `createWithUserDb`, vérificateur de jeton remplacé comme dans `pool-connection-loss.test.ts`) chauffe 4 connexions et annonce leurs `pg_backend_pid` ; le test le gèle (`SIGSTOP`), tue ces backends (`pg_terminate_backend`, connexion `app_backend` séparée), attend que les sockets soient fermés côté serveur, puis le réveille (`SIGCONT`) en déclenchant aussitôt les lectures. Témoin : même gel sans coupure → 4 lectures OK. Arrêt de l'enfant garanti en fin de test (`SIGKILL` si besoin).
   - Fini quand : le test échoue sur l'état actuel avec 4 « Connection terminated unexpectedly », le témoin passe. Commit du test marqué `it.fails` ou équivalent documenté, rendu vert à la tâche 3.
