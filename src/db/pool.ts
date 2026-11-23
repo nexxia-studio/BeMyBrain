@@ -13,6 +13,8 @@ export function createPool(connectionString: string, role: string): Pool {
   // coupé pendant une lecture émettrait alors « error » sans écouteur (uncaughtException, processus tué).
   // Écouteur permanent sur chaque connexion : la requête en cours échoue normalement, et la connexion,
   // devenue non requêtable, est retirée du pool à son rendu (QA-4, Sentry BEMYBRAIN-5).
+  // Effet de bord : écouter « connect » passe hasFetchUnsupportedListeners à vrai dans le Pool de Neon, ce qui
+  // désactive neonConfig.poolQueryViaFetch (non utilisé aujourd'hui).
   pool.on("connect", (client: PoolClient) => {
     client.on("error", log);
   });

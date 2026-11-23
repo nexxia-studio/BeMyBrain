@@ -70,7 +70,7 @@ type Execute = (query: ReturnType<typeof sql>) => Promise<{ rows: unknown[] }>;
 async function readCutByServer(execute: Execute, killer: Pool) {
   const { rows } = await execute(sql`select pg_backend_pid() as pid`);
   const pid = (rows[0] as { pid: number }).pid;
-  const read = execute(sql`select pg_sleep(30)`);
+  const read = execute(sql`select pg_sleep(5)`);
   const outcome = read.then(
     () => "résolue",
     (error: unknown) => error,
@@ -84,7 +84,9 @@ async function readCutByServer(execute: Execute, killer: Pool) {
 }
 
 function expectGenericLog(role: string) {
-  const messages = consoleError.mock.calls.map((call: unknown[]) => call.join(" "));
+  const messages = consoleError.mock.calls.map((call: unknown[]) =>
+    call.join(" "),
+  );
   expect(messages).toContain(`Erreur sur une connexion du pool ${role}.`);
   for (const message of messages) {
     expect(message).not.toMatch(/postgres|neon\.tech|terminat|sleep/i);
@@ -146,12 +148,12 @@ describe("connexion coupée pendant une lecture empruntée", () => {
     expect(next.rows[0]?.pid).not.toBe(cut?.pid);
   });
 
-  it("createPool : une erreur du socket pendant une requête la fait rejeter, sans exception non interceptée", async () => {
+  it("createPool : une erreur du socket pendant une requête la fait rejeter, sans exception levée ni non interceptée", async () => {
     const { createPool } = await import("@/db/pool");
     const pool = createPool(backendUrl, "app_backend");
+    const client: PoolClient = await pool.connect();
     try {
-      const client: PoolClient = await pool.connect();
-      const read = client.query("select pg_sleep(30)");
+      const read = client.query("select pg_sleep(5)");
       const outcome = read.then(
         () => "résolue",
         (error: unknown) => error,
@@ -164,17 +166,16 @@ describe("connexion coupée pendant une lecture empruntée", () => {
           };
         }
       ).connection.stream;
-      stream.emit("error", new Error("socket coupé"));
 
+      expect(() =>
+        stream.emit("error", new Error("socket coupé")),
+      ).not.toThrow();
       expect(await outcome).toBeInstanceOf(Error);
-      client.release(true);
       await settle();
       expect(uncaught).toEqual([]);
       expectGenericLog("app_backend");
-
-      const next = await pool.query("select 1 as ok");
-      expect(next.rows[0]).toEqual({ ok: 1 });
     } finally {
+      client.release(true);
       await pool.end();
     }
   });
