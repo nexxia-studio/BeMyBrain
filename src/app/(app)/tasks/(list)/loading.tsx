@@ -1,5 +1,6 @@
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
-// Chargement de `/tasks` (DESIGN.md § 5 « États de chargement — givre ») : le vrai en-tête, puis la tuile de la
+// Chargement de `/tasks` (DESIGN.md § 5 « États de chargement — givre ») : dans le groupe `(list)`, il
+// n'enveloppe que la liste, pas l'emplacement `@detail` (BRAIN-54, voir `../layout.tsx`). Le vrai en-tête, puis la tuile de la
 // liste givrée : un en-tête de section (place réservée) et six lignes givrées, chacune à la hauteur d'une ligne
 // dont le titre et la légende tiennent sur une ligne (QA-3, décision d'Antoine du 2026-11-21 : squelette
 // générique, sans mémorisation). Classes de la tuile, de la section et des lignes lues dans task-list-layout.ts,

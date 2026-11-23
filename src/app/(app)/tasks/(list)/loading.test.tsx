@@ -17,7 +17,7 @@ import {
   TASK_SECTION_HEADING_TEXT,
 } from "@/components/tasks/task-list-layout";
 
-import messages from "../../../../messages/fr.json";
+import messages from "../../../../../messages/fr.json";
 
 function expectClasses(element: HTMLElement, classes: string) {
   expect(element.className.split(/\s+/)).toEqual(

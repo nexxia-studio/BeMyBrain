@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
 import { getUserTimeZone } from "@/modules/core/time-zone";
 
-import messages from "../../../../messages/fr.json";
-import { buildTask } from "../../../../tests/factories/build-task";
+import messages from "../../../../../messages/fr.json";
+import { buildTask } from "../../../../../tests/factories/build-task";
 
 const requireSessionWithToken = vi.hoisted(() => vi.fn());
 const loadCurrentScope = vi.hoisted(() => vi.fn());

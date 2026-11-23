@@ -2,7 +2,7 @@ import { CHIP_SHAPE_CLASSES } from "./context-chip-class";
 
 // Géométrie de la liste `/tasks` et des lignes de tâche de la corbeille (QA-3 d'effets-de-verre) : les classes qui
 // fixent la place et la hauteur de la tuile, des sections et des lignes, définies une seule fois. Lues par les vrais
-// composants (TaskList, TaskRow, TaskTrashRow) et par leur givre de chargement (`src/app/(app)/tasks/loading.tsx`,
+// composants (TaskList, TaskRow, TaskTrashRow) et par leur givre de chargement (`src/app/(app)/tasks/(list)/loading.tsx`,
 // `src/app/(app)/trash/loading.tsx`) : aucune valeur recopiée. Le givre reproduit une ligne « standard » (titre sur une ligne, légende sur une ligne)
 // avec des cales `h-lh` dans les mêmes tailles de texte : sa hauteur suit la charte, la langue et la police.
 

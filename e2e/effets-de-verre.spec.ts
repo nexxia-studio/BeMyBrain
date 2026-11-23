@@ -184,24 +184,14 @@ test.describe("givre de chargement", () => {
       // Préchargement de la route (loading.tsx compris) terminé avant le clic.
       await page.waitForLoadState("networkidle");
       await slowNavigation(page, c.path);
-      // `.first()` : sur /tasks, `tasks/loading.tsx` s'affiche aussi dans l'emplacement `@detail` (Next 16 pose le
-      // chargement d'un dossier autour de chaque emplacement de son layout, docs/gotchas.md) : deux en-têtes et
-      // deux givres pendant l'attente. On mesure la copie de la liste (`children`, rendue la première).
-      // raccourci: doublon toléré ici — retirer les `.first()` quand le ticket `loading.tsx`/`error.tsx` de
-      // `@detail` sera fait.
-      const heading = page
-        .getByRole("heading", { level: 1, name: c.title })
-        .first();
+      const heading = page.getByRole("heading", { level: 1, name: c.title });
 
       const clickedAt = await page.evaluate(() => performance.now());
       await c.click(page).click();
 
       const frost = page.getByTestId(c.frostId);
-      await expect(frost.first()).toBeVisible();
-      await expect(page.getByRole("main").first()).toHaveAttribute(
-        "aria-busy",
-        "true",
-      );
+      await expect(frost).toBeVisible();
+      await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
       await expect(heading).toBeVisible();
       const titleDuringFrost = await box(heading);
       const tileDuringFrost = await box(frostTiles(page, c.frostId).first());
@@ -675,8 +665,8 @@ async function fullBox(locator: Locator): Promise<FullBox> {
   });
 }
 
-/** Contenu de la page (premier `<main>` : pendant l'attente, `@detail` en porte une copie, docs/gotchas.md). */
-const mainOf = (page: Page) => page.getByRole("main").first();
+/** Contenu de la page (un seul `<main>`, chargement compris : BRAIN-54). */
+const mainOf = (page: Page) => page.getByRole("main");
 
 const headerProbe: Probe = {
   what: "en-tête de page",
@@ -743,7 +733,7 @@ async function expectTopStill(
   await slowNavigation(page, c.path);
 
   await c.click(page).click();
-  await expect(page.getByTestId(c.frostId).first()).toBeVisible();
+  await expect(page.getByTestId(c.frostId)).toBeVisible();
   const during = await Promise.all(
     c.probes.map((p) => fullBox(p.during(page))),
   );
