@@ -31,6 +31,10 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 ## Flux critiques
 1. Connexion : écran login → auth → session serveur → `workspaceId` résolu → coque. Session expirée pendant une action → `/login?next=<chemin interne>` → retour sur la page.
 2. Lecture d'un module : page serveur → `queries.ts` (filtre `workspace_id`) → rendu.
+3. Accès base : seul `createPool` (`src/db/pool.ts`) crée un pool ; utilisé par `src/db/client.ts` (app) et `src/db/admin.ts` (scripts, migrations). Écouteur d'erreur posé sur chaque connexion.
+4. Chargement du tableau de bord et des listes : `loading.tsx` affiche le givre (CSS pur, `FrostTile`, `src/components/loading/`) aux tailles réelles de la grille ou de la liste, puis le contenu remplace le givre sans décalage.
+5. Hauteurs des tuiles : après affichage, `TileHeightRecorder` (`src/components/bento/`) écrit le cookie `bmb-dashboard-tiles` (`Path=/dashboard`, 30 jours). `dashboard/loading.tsx` le lit ; `src/modules/dashboard/tile-heights.ts` valide la valeur (taille bornée, identifiants connus, 1 024 caractères au plus).
+6. Reflet : une fois par session, à la fin de la révélation de la grille, un calque par tuile de verre balaie (GSAP, `transform` seul) ; rendu par `TileSurface`, animé par `bento-reveal.tsx`.
 
 ## Intégrations externes
 | Service | Usage | Clé / config |

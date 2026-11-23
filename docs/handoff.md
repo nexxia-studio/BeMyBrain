@@ -1,35 +1,25 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-20 — session : `/feature effets-de-verre` (BRAIN-33)
+**Dernière mise à jour** : 2026-11-23 — session : `/handoff` après fusion de `effets-de-verre` (BRAIN-33)
 
 ## Où on en est
-- Feature en cours : effets de verre, branche `feat/effets-de-verre`, PR #11 en brouillon (preview = copie de la production, ADR-010).
-- Démo jouée sur iPhone :
-  - C · Reflet (lent, 2,2 s) retenu pour l'ouverture du tableau de bord ;
-  - B · Givre (marqué) retenu pour les états de chargement, en CSS pur ;
-  - A · Brume abandonnée.
-- Spec et plan écrits : `docs/features/effets-de-verre/spec.md` (validée) et `plan.md` (9 tâches, la 6 en `[security]` ; bascule Privé / Pro abandonnée).
-- Essai iPhone sur la preview prévu à la tâche 8, avant `/qa`. Démo supprimée à la tâche 9.
-- BRAIN-48 créé : retour à la page demandée après connexion depuis un lien direct (remplace la note QA-1).
-- Tests rouges : aucun.
+- Effets de verre (BRAIN-33) : terminé, fusionné dans `main` le 2026-11-23 (PR #11, commit `171e064`).
+- Tâches 1 à 9 et QA-1 à QA-6 faites. `/qa` : 7 scénarios PASS (`docs/features/effets-de-verre/qa-report.md`). Essais iPhone validés.
+- En production : migration verte, sans nouvelle migration ; build de production en ligne ; aucune erreur BeMyBrain dans Sentry depuis la mise en ligne.
+- Tests rouges : `e2e/todo-aujourdhui.spec.ts`, données restées sur le compte e2e (BRAIN-52). Rien d'autre.
 
 ## Prochaine étape
-Tâche 8 : essai d'Antoine sur iPhone (preview de la PR #11). Tâches 1 à 7 faites, relues, poussées ; audit sécurité de la tâche 6 sans faille (durcissement : BRAIN-49). Retours de l'essai → « Corrections QA » du plan, puis tâche 9 (suppression de la démo) et `/qa effets-de-verre`.
+Reproduire BRAIN-50 (écran d'erreur à l'ouverture après une mise en veille de la base, priorité haute), avec BRAIN-47 et BRAIN-54 (`@detail`, priorité moyenne, même cause).
+Commande de reprise : `Reproduis BRAIN-50 (écran d'erreur à l'ouverture après mise en veille de la base) sur une branche depuis main, puis demande à Antoine correctif direct ou spec courte + plan (pas /feature : c'est un correctif).`
 
-Pièges relevés pendant l'exécution, à verser dans gotchas.md par le scribe :
-- garde `notFound()` dans une page qui a un `loading.tsx` au même niveau → levée après le début du flux (200) → garde dans un `layout.tsx` au-dessus ;
-- `loading.tsx` qui rend le vrai `PageHeader` → filtre d'espace utilisable pendant l'attente, menu démonté à l'arrivée du contenu → `filterInert` ;
-- le `loading.tsx` de `/tasks` s'affiche aussi dans `@detail` (doublon, même cause que le piège `error.tsx`) ;
-- calque déjà décalé par une classe (`translateX(-110%)`) : GSAP ajoute ce décalage en px à `xPercent` → `fromTo` avec `x: 0` ;
-- filet global `prefers-reduced-motion` insuffisant pour une animation CSS décalée en `both` → `animation: none` explicite ;
-- jest-dom non chargé : `getAttribute`/`classList` plutôt que `toHaveAttribute` ;
-- `.next/dev/types/validator.ts` périmé après un checkout d'un commit sans la démo → le supprimer avant le build.
+## Tickets ouverts par la feature
+- BRAIN-50 (haute), BRAIN-51 (durcissements du pool), BRAIN-52 (isolation de l'e2e), BRAIN-53 (cookies de préférences), BRAIN-54 (`@detail`).
 
 ## Suite
-- Ticket à créer, proposé à Antoine : erreur du détail affichée par `tasks/error.tsx` sous la liste. Correction : `error.tsx` dans `@detail`.
-- Faible priorité : BRAIN-43 (relais iOS, libéré à la fin de l'ouverture du tiroir), BRAIN-44 (contrôles désactivés après un ajout), BRAIN-45 (pagination de la corbeille).
+- BRAIN-47 : `error.tsx` et `loading.tsx` dans `tasks/@detail`.
+- Faible priorité : BRAIN-43 (relais iOS), BRAIN-44 (contrôles désactivés après un ajout), BRAIN-45 (pagination de la corbeille).
 - Design à trancher (plan, tâche 18) : menus Date et Tags sur mobile, Notes trop haut, « Demain » = « Ce week-end » le vendredi, place vide à 1440 px, survol, icônes de priorité (ticket proposé).
-- BRAIN-26 : essai Android, owner/member, choix du workspace. BRAIN-37 : ordre migration / mise en ligne. BRAIN-35 : source maps Sentry. BRAIN-36 : deux GET `/settings` par clic.
+- BRAIN-26 : essai Android, owner/member, choix du workspace. BRAIN-37 : ordre migration / mise en ligne. BRAIN-35 : source maps Sentry. BRAIN-36 : deux GET `/settings` par clic. BRAIN-49 : durcissements sécurité (existant).
 
 ## Questions ouvertes
 - `SEED_OWNER_USER_ID` : secret GitHub en place, migration verte. Antoine supprime la variable GitHub.
@@ -37,6 +27,3 @@ Pièges relevés pendant l'exécution, à verser dans gotchas.md par le scribe :
 - E-mails Neon Auth : tutoient-ils ? Une preview hérite-t-elle des comptes de `production` ?
 - Sentry : règle Seer de la PR 1135934 laissée ; BEMYBRAIN-1 ouverte.
 - Jeton Vercel CI à renouveler avant le 2027-02-08. MCP Vercel sans accès au pare-feu (404).
-
-Commande de reprise :
-`Exécute docs/features/effets-de-verre/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer pour chaque review.`
