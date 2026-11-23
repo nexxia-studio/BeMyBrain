@@ -34,7 +34,8 @@ Tests base : branche Neon `test` (`DATABASE_TEST_URL`, `DATABASE_TEST_AUTHENTICA
 - [ ] **6. BRAIN-47 : erreur du détail dans le détail**
   - Fichiers : `src/app/(app)/tasks/@detail/(.)[id]/error.tsx`, `src/app/(app)/tasks/@detail/[id]/error.tsx` (composant partagé `src/components/tasks/TaskDetailError.tsx`), `messages/{fr,en}.json`
   - Tests à écrire d'abord : `TaskDetailError.test.tsx` (message du détail, « Réessayer » appelle `retry`, « Fermer » ramène à `/tasks`, `reportClientError` appelé, ni `<main>` ni `<h1>`).
-  - Fini quand : tests verts ; e2e : lecture du détail en échec → message dans le panneau / tiroir, une seule `main`.
+  - Fini quand : tests verts ; vérification de page (un seul `main` / `h1`, message dans le panneau / tiroir, Réessayer, Fermer) au scénario 3 de `/qa`.
+  - Décision du 2026-11-23 (relecture) : pas d'e2e automatisé. Aucun moyen de faire échouer une lecture serveur depuis Playwright, et pas de point d'injection dans le code de production. Le `qa-tester` joue le scénario 3 sur un build local avec un `throw` temporaire après `requireSessionWithToken()` dans `TaskDetailPanel.tsx`, dans un worktree jetable, jamais committé.
 - [ ] **7. BRAIN-54 : chargement du détail séparé de la liste**
   - Fichiers : `src/app/(app)/tasks/@detail/(.)[id]/loading.tsx`, `src/app/(app)/tasks/@detail/[id]/loading.tsx` (ou au niveau `@detail`), givre de la fiche de détail par `FrostTile`
   - Tests à écrire d'abord : test unitaire du chargement du détail ; e2e : pendant le chargement de `/tasks`, un seul titre « To-do » et un seul `data-testid="tasks-frost"`.
