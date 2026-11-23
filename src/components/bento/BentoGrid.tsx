@@ -2,7 +2,8 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, tableau de bord) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Grille bento (DESIGN.md § 6) : rangées flex-wrap, une colonne à 390 px (sauf la paire de tuiles
-// chiffre), deux tuiles standard par rangée sur tablette, 2 à 3 par rangée sur ordinateur.
+// chiffre), deux tuiles standard par rangée sur tablette, 2 à 3 par rangée sur ordinateur ; les tuiles d'une
+// rangée s'étirent à la plus haute. Relève la hauteur affichée de ses tuiles pour le givre (TileHeightRecorder).
 // Charge à la demande (next/dynamic, sans rendu serveur) les moments signature GSAP du tableau de bord :
 // entrée, révélation de la grille, écrans vides, fondu des tuiles à la première bascule. GSAP reste hors
 // du bundle initial.
@@ -27,6 +28,7 @@ import {
 } from "@/components/signature/signature-keys";
 import type { Side } from "@/modules/core/schemas";
 
+import { TileHeightRecorder } from "./TileHeightRecorder";
 import { BENTO_GRID_CLASSES } from "./tile-sizes";
 
 const DashboardIntroSignature = dynamic(
@@ -80,10 +82,12 @@ const nothingOnServer = () => false;
 type BentoGridProps = {
   /** Côté affiché, lu dans le cookie par le serveur. */
   side: Side;
+  /** Chemin du cookie des hauteurs relevées (route du tableau de bord), passé par la page. */
+  tileHeightsPath: string;
   children: React.ReactNode;
 };
 
-export function BentoGrid({ side, children }: BentoGridProps) {
+export function BentoGrid({ side, tileHeightsPath, children }: BentoGridProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   // Côté au montage : le fondu, chargé après l'hydratation, s'y compare pour voir aussi une bascule
   // arrivée avant son chargement.
@@ -112,6 +116,7 @@ export function BentoGrid({ side, children }: BentoGridProps) {
   return (
     <div ref={rootRef} className={BENTO_GRID_CLASSES}>
       {children}
+      <TileHeightRecorder rootRef={rootRef} side={side} path={tileHeightsPath} />
       {/* Une barrière par moment : un morceau introuvable démasque ses cibles, sans page d'erreur. */}
       {entrance ? (
         <>

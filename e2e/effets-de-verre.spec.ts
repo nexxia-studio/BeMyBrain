@@ -267,10 +267,11 @@ test.describe("givre de chargement", () => {
   });
 });
 
-// Givre du tableau de bord, tuiles à la hauteur du contenu (QA-5) : du givre au contenu, l'ordre des tuiles, leur
-// position horizontale et leur largeur ne changent pas, ni la boîte de la première rangée. Hauteur : le givre
-// prend celle de l'état vide compact de chaque tuile ; elle n'est vérifiée au pixel que pour les tuiles sans données
-// (tuiles vides, To-do à 0). Les tuiles qui ont des données s'ajustent jusqu'aux hauteurs mémorisées (QA-6).
+// Givre du tableau de bord, tuiles à la hauteur du contenu (QA-5), données changées entre deux affichages : du givre
+// au contenu, l'ordre des tuiles, leur position horizontale et leur largeur ne changent pas, ni la position de la
+// première rangée. Hauteur : non vérifiée ici. Les données changent d'un affichage à l'autre (limite acceptée (1)
+// de la spec) et, depuis QA-6, les tuiles d'une rangée s'étirent à la plus haute : une tuile sans données suit la
+// hauteur de sa rangée. Données inchangées → hauteurs au pixel : « hauteurs mémorisées » plus bas.
 // Données réalistes créées par l'ajout rapide (titres longs, échéances, heures), mises à la corbeille à la fin :
 // To-do à 0, 2 puis 5 tâches, côté Privé (paire de tuiles chiffre) et côté Pro.
 // Précondition : le compte e2e n'a aucune tâche ouverte dans l'espace Trustup (To-do à 0).
@@ -334,28 +335,11 @@ function sideTodoRows(page: Page, tileId: "privateTodo" | "proTodo"): Locator {
     .getByRole("listitem");
 }
 
-/** Tuiles sans données du catalogue (vides tant que leur module n'existe pas). */
-const EMPTY_TILE_IDS = [
-  "tile-shopping",
-  "tile-budget",
-  "tile-health",
-  "tile-home",
-  "tile-clients",
-  "tile-proFinances",
-  "tile-social",
-];
-
-/**
- * Depuis la liste, ouvre le tableau de bord avec un chargement ralenti ; relève les boîtes de chaque tuile du givre
- * puis du contenu. Ordre, x et largeur au pixel pour toutes ; y pour la première rangée (celle d'« Aujourd'hui ») ;
- * hauteur pour les tuiles sans données et celles de `alsoCompact` (To-do à 0). `check` vérifie le contenu attendu.
- */
-async function expectFrostLayout(
+/** Depuis la liste, ouvre le tableau de bord avec un chargement ralenti ; boîtes du givre puis du contenu. */
+async function frostThenContent(
   page: Page,
-  what: string,
-  alsoCompact: string[],
   check: () => Promise<void>,
-) {
+): Promise<{ frost: TileBox[]; content: TileBox[] }> {
   await page.goto("/tasks");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.waitForLoadState("networkidle");
@@ -371,6 +355,19 @@ async function expectFrostLayout(
   await check();
   const content = await contentBoxes(page);
   await page.unrouteAll({ behavior: "wait" });
+  return { frost, content };
+}
+
+/**
+ * Ordre, x et largeur au pixel pour toutes les tuiles ; y pour la première rangée (celle d'« Aujourd'hui »).
+ * `check` vérifie le contenu attendu.
+ */
+async function expectFrostLayout(
+  page: Page,
+  what: string,
+  check: () => Promise<void>,
+) {
+  const { frost, content } = await frostThenContent(page, check);
 
   test.info().annotations.push({
     type: `géométrie : ${what}`,
@@ -380,14 +377,12 @@ async function expectFrostLayout(
     content.map((tile) => tile.id),
     `${what} : ordre des tuiles`,
   ).toEqual(frost.map((tile) => tile.id));
-  const compact = new Set([...EMPTY_TILE_IDS, ...alsoCompact]);
   const firstRowY = frost[0].y;
   content.forEach((tile, i) => {
     const keys: (keyof Omit<TileBox, "id">)[] = ["x", "width"];
     if (Math.abs(frost[i].y - firstRowY) < GEOMETRY_TOLERANCE_PX) {
       keys.push("y");
     }
-    if (compact.has(tile.id)) keys.push("height");
     for (const key of keys) {
       expect(
         Math.abs(tile[key] - frost[i][key]),
@@ -404,7 +399,7 @@ test.describe("givre du tableau de bord, tuiles à la hauteur du contenu", () =>
     await trashTasks(page, created.splice(0));
   });
 
-  test("ordre, position horizontale et largeur de chaque tuile inchangés du givre au contenu ; hauteur au pixel pour les tuiles sans données", async ({
+  test("ordre, position horizontale et largeur de chaque tuile inchangés du givre au contenu, données changées", async ({
     page,
   }) => {
     // Neuf tâches créées par l'ajout rapide et quatre chargements ralentis.
@@ -418,8 +413,8 @@ test.describe("givre du tableau de bord, tuiles à la hauteur du contenu", () =>
     await filterContext(page, "Trustup");
     await expect(page.getByTestId("tile-proTodo")).toBeVisible();
 
-    // To-do à 0 (espace Trustup vide) : l'état vide compact de la tuile, à la hauteur du givre.
-    await expectFrostLayout(page, "To-do à 0", ["tile-proTodo"], async () => {
+    // To-do à 0 (espace Trustup vide) : l'état vide compact de la tuile.
+    await expectFrostLayout(page, "To-do à 0", async () => {
       await expect(sideTodoRows(page, "proTodo")).toHaveCount(0);
     });
 
@@ -437,7 +432,7 @@ test.describe("givre du tableau de bord, tuiles à la hauteur du contenu", () =>
         time: "14:00",
       }),
     );
-    await expectFrostLayout(page, "To-do à 2", [], async () => {
+    await expectFrostLayout(page, "To-do à 2", async () => {
       await expect(sideTodoRows(page, "proTodo")).toHaveCount(2);
     });
 
@@ -456,7 +451,7 @@ test.describe("givre du tableau de bord, tuiles à la hauteur du contenu", () =>
       );
     }
     await filterContext(page, t("shell.contexts.all", { count: 2 }));
-    await expectFrostLayout(page, "To-do à 5", [], async () => {
+    await expectFrostLayout(page, "To-do à 5", async () => {
       await expect(sideTodoRows(page, "proTodo")).toHaveCount(5);
       await expect(
         page
@@ -477,10 +472,179 @@ test.describe("givre du tableau de bord, tuiles à la hauteur du contenu", () =>
         await quickAddTask(page, longTitle(name), { date: userDay(4) }),
       );
     }
-    await expectFrostLayout(page, "côté Privé", [], async () => {
+    await expectFrostLayout(page, "côté Privé", async () => {
       await expect(page.getByTestId("tile-shopping")).toBeVisible();
       await expect(sideTodoRows(page, "privateTodo")).not.toHaveCount(0);
     });
+  });
+});
+
+// Hauteurs mémorisées (QA-6) : au premier affichage, le navigateur relève la hauteur affichée de chaque tuile
+// (étirement de la rangée compris) dans le cookie `bmb-dashboard-tiles` ; au chargement suivant, données
+// inchangées, le givre la réserve : boîte de chaque tuile (x, y, largeur, hauteur) identique au pixel, du givre au
+// contenu. Sans cookie : état compact (aucune hauteur réservée, chaque tuile givrée à la hauteur de sa cale, ou de
+// la plus haute de sa rangée). Côté Privé : la paire de tuiles chiffre partage une rangée au téléphone ; sur
+// ordinateur, « Aujourd'hui » et la To-do partagent la première. Aucune donnée créée ni supprimée.
+
+const TILE_HEIGHTS_COOKIE = "bmb-dashboard-tiles";
+
+/** Givre : variables de hauteur posées sur chaque tuile et hauteur de son état compact (cale invisible et bords). */
+async function frostReservations(page: Page) {
+  return frostTiles(page, "dashboard-frost").evaluateAll((tiles) =>
+    tiles.map((tile) => {
+      const strut = tile.querySelector(":scope > [inert]");
+      const style = (tile as HTMLElement).style;
+      return {
+        vars: ["sm", "md", "lg"]
+          .map((tier) => style.getPropertyValue(`--tile-h-${tier}`))
+          .filter((value) => value !== ""),
+        // Hauteur de l'état compact : la cale, plus les bords de la tuile.
+        strutHeight:
+          (strut?.getBoundingClientRect().height ?? 0) +
+          parseFloat(getComputedStyle(tile).borderTopWidth) +
+          parseFloat(getComputedStyle(tile).borderBottomWidth),
+      };
+    }),
+  );
+}
+
+/** Rangées de la grille : indices des tuiles qui partagent le même y. */
+function rowsOf(boxes: TileBox[]): number[][] {
+  const rows: number[][] = [];
+  boxes.forEach((box, i) => {
+    const row = rows.find(
+      (r) => Math.abs(boxes[r[0]].y - box.y) < GEOMETRY_TOLERANCE_PX,
+    );
+    if (row) row.push(i);
+    else rows.push([i]);
+  });
+  return rows;
+}
+
+/** Hauteur de chaque vraie tuile sans l'étirement de sa rangée (alignement remis au début le temps d'une mesure). */
+async function naturalHeights(page: Page): Promise<Record<string, number>> {
+  return page.getByTestId("tile-today").evaluate((today) => {
+    const tiles = Array.from(today.parentElement?.children ?? []).filter(
+      (tile): tile is HTMLElement =>
+        tile instanceof HTMLElement && "tile" in tile.dataset,
+    );
+    for (const tile of tiles)
+      tile.style.setProperty("align-self", "flex-start");
+    const heights = Object.fromEntries(
+      tiles.map((tile) => [
+        `tile-${tile.dataset.tile}`,
+        tile.getBoundingClientRect().height,
+      ]),
+    );
+    for (const tile of tiles) tile.style.removeProperty("align-self");
+    return heights;
+  });
+}
+
+/** Valeur du cookie des hauteurs (null s'il n'existe pas). */
+async function tileHeightsCookie(page: Page): Promise<string | null> {
+  const cookies = await page.context().cookies();
+  return cookies.find((c) => c.name === TILE_HEIGHTS_COOKIE)?.value ?? null;
+}
+
+test.describe("givre du tableau de bord : hauteurs mémorisées", () => {
+  test("sans cookie, état compact ; données inchangées, boîte de chaque tuile identique au pixel du givre au contenu, étirement compris", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await signIn(page);
+    await page.goto("/dashboard");
+    await switchSide(page, "private");
+    // Bascule enregistrée avant de quitter la page (aria-busy levé, côté Privé rendu par le serveur).
+    await expect(page.getByTestId("tile-shopping")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    // Sans cookie : aucune hauteur réservée, chaque tuile givrée a la hauteur de sa cale ou de la plus haute de sa
+    // rangée (état compact). La liste est rechargée après l'effacement : son préchargement du givre (qui lit le
+    // cookie) se refait sans relevé. Le premier affichage qui suit écrit le relevé.
+    await page.goto("/tasks");
+    await page.context().clearCookies({ name: TILE_HEIGHTS_COOKIE });
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(await tileHeightsCookie(page)).toBeNull();
+    await page.waitForLoadState("networkidle");
+    await slowNavigation(page, "/dashboard");
+    await navLink(page, fr.shell.home).click();
+    await expect(page.getByTestId("dashboard-frost")).toBeVisible();
+    const compactBoxes = await frostBoxes(page);
+    const compact = await frostReservations(page);
+    await expect(page.getByTestId("dashboard-frost")).toHaveCount(0, {
+      timeout: 15_000,
+    });
+    await page.unrouteAll({ behavior: "wait" });
+    for (const reservation of compact) expect(reservation.vars).toEqual([]);
+    for (const row of rowsOf(compactBoxes)) {
+      const tallest = Math.max(...row.map((i) => compact[i].strutHeight));
+      for (const i of row) {
+        expect(
+          Math.abs(compactBoxes[i].height - tallest),
+          `sans cookie, ${compactBoxes[i].id} : hauteur ${compactBoxes[i].height}, cale la plus haute de la rangée ${tallest}`,
+        ).toBeLessThan(GEOMETRY_TOLERANCE_PX);
+      }
+    }
+
+    // Premier affichage : le relevé est écrit (côté Privé, palier courant).
+    await expect
+      .poll(() => tileHeightsCookie(page))
+      .toMatch(/^private\.(sm|md|lg):today-\d+/);
+
+    // Rechargement ralenti, données inchangées : le givre réserve la hauteur relevée.
+    const { frost, content } = await frostThenContent(page, async () => {
+      await expect(page.getByTestId("tile-shopping")).toBeVisible();
+    });
+    const cookie = await tileHeightsCookie(page);
+    const natural = await naturalHeights(page);
+
+    test.info().annotations.push({
+      type: "géométrie : hauteurs mémorisées",
+      description: JSON.stringify({ cookie, frost, content, natural }),
+    });
+    expect(content.map((tile) => tile.id)).toEqual(
+      frost.map((tile) => tile.id),
+    );
+    content.forEach((tile, i) => {
+      for (const key of ["x", "y", "width", "height"] as const) {
+        expect(
+          Math.abs(tile[key] - frost[i][key]),
+          `${tile.id} : ${key} ${frost[i][key]} (givre) → ${tile[key]} (contenu)`,
+        ).toBeLessThan(GEOMETRY_TOLERANCE_PX);
+      }
+    });
+    // Largeurs inchangées depuis l'état compact (l'ordre aussi).
+    expect(frost.map((tile) => tile.id)).toEqual(
+      compactBoxes.map((tile) => tile.id),
+    );
+    frost.forEach((tile, i) => {
+      expect(Math.abs(tile.width - compactBoxes[i].width)).toBeLessThan(
+        GEOMETRY_TOLERANCE_PX,
+      );
+    });
+    // Étirement compris dans le relevé. Ordinateur : une rangée réunit plusieurs tuiles dont l'une est étirée
+    // (« Aujourd'hui » et la To-do), au pixel ci-dessus. Téléphone : seule la paire de tuiles chiffre partage une
+    // rangée ; ses deux phrases ont la même hauteur, rien n'y est étiré : on vérifie qu'elle partage sa rangée.
+    const rows = rowsOf(content);
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const stretched = rows.filter(
+        (row) =>
+          row.length > 1 &&
+          row.some((i) => content[i].height - natural[content[i].id] >= 1),
+      );
+      expect(
+        stretched.length,
+        "aucune rangée de plusieurs tuiles avec une tuile étirée",
+      ).toBeGreaterThan(0);
+    } else {
+      const pair = rows.find((row) => row.length > 1);
+      expect(pair?.map((i) => content[i].id)).toEqual([
+        "tile-shopping",
+        "tile-budget",
+      ]);
+    }
   });
 });
 

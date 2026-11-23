@@ -245,6 +245,8 @@
   /* Rayons et espacements responsives. */
   --tile-radius: 24px;
   --space-grid: 14px;
+  /* Palier d'écran de la grille, lu par le relevé des hauteurs de tuiles (TileHeightRecorder, QA-6). */
+  --tile-tier: sm;
   --space-tile: 18px;
   --space-today: 22px;
   --space-page: 16px;
@@ -298,11 +300,27 @@
     );
 }
 
+/*
+ * Tuile givrée du tableau de bord (QA-6 d'effets-de-verre) : hauteur relevée au dernier affichage, posée par
+ * `dashboard/loading.tsx` en variables `--tile-h-sm|md|lg` (lues dans le cookie, validées et reformées par
+ * `src/modules/dashboard/tile-heights.ts`). Sans relevé du palier : hauteur du contenu (la cale de l'état vide
+ * compact). Les paliers suivent les blocs de la grille ci-dessous, seule source des seuils.
+ */
+.tile-reserve {
+  height: var(--tile-h-sm, auto);
+  overflow: hidden;
+}
+
 /* Tablette. */
 @media (min-width: 640px) {
   :root {
     --space-grid: 16px;
     --space-page: 24px;
+    --tile-tier: md;
+  }
+
+  .tile-reserve {
+    height: var(--tile-h-md, auto);
   }
 }
 
@@ -315,6 +333,7 @@
     --today-shadow: 0 18px 44px rgb(61 79 214 / 0.28);
     --tile-radius: 28px;
     --space-grid: 20px;
+    --tile-tier: lg;
     --space-tile: 24px;
     --space-today: 28px;
     --space-page: clamp(14px, 2.4vw, 36px);
@@ -334,6 +353,10 @@
         color-mix(in srgb, var(--halo-aqua) 75%, transparent),
         transparent
       );
+  }
+
+  .tile-reserve {
+    height: var(--tile-h-lg, auto);
   }
 }
 

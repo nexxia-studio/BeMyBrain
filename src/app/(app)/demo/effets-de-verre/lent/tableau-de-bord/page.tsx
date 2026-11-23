@@ -4,11 +4,15 @@
 // raccourci: page temporaire, retirée à la dernière tâche du plan effets-de-verre (demo-access.ts).
 import { notFound } from "next/navigation";
 
-import DashboardPage from "@/app/(app)/dashboard/page";
+import { renderDashboard } from "@/app/(app)/dashboard/render-dashboard";
 import { requireSessionWithToken } from "@/lib/session";
 
 import { isGlassDemoEnabled } from "../../demo-access";
 import { waitSlowLoad } from "../slow-load";
+
+// Cookie des hauteurs relevées (QA-6) au chemin de cette route : le givre de la route lente le relit.
+// raccourci: route temporaire, retirée avec la démo à la dernière tâche du plan effets-de-verre.
+const SLOW_DASHBOARD_PATH = "/demo/effets-de-verre/lent/tableau-de-bord";
 
 export default async function SlowDashboardPage() {
   if (
@@ -23,5 +27,5 @@ export default async function SlowDashboardPage() {
   await requireSessionWithToken();
   await waitSlowLoad();
 
-  return <DashboardPage />;
+  return renderDashboard({ tileHeightsPath: SLOW_DASHBOARD_PATH });
 }

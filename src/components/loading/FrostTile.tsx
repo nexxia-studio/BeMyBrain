@@ -18,6 +18,8 @@ type FrostTileProps = {
   variant?: "glass" | "row" | "solid";
   /** Cales de hauteur, posées au-dessus du voile. */
   children?: ReactNode;
+  /** Variables CSS ajoutées (hauteurs relevées du tableau de bord, `--tile-h-*`). */
+  vars?: Partial<Record<`--${string}`, string>>;
   testId?: string;
 };
 
@@ -27,6 +29,7 @@ export function FrostTile({
   variant = "glass",
   children,
   testId,
+  vars,
 }: FrostTileProps) {
   if (variant === "solid") {
     return (
@@ -34,6 +37,7 @@ export function FrostTile({
         aria-hidden="true"
         data-testid={testId}
         className={cn("rounded-tile bg-primary shadow-today", className)}
+        style={vars as CSSProperties}
       >
         {children}
       </div>
@@ -49,7 +53,7 @@ export function FrostTile({
         variant === "glass" && "glass rounded-tile",
         className,
       )}
-      style={{ "--frost-index": index } as CSSProperties}
+      style={{ ...vars, "--frost-index": index } as CSSProperties}
     >
       <div className="frost pointer-events-none absolute inset-0 -z-1" />
       {children}

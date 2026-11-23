@@ -10,14 +10,15 @@ export const TILE_SIZE_CLASSES: Record<TileSize, string> = {
   figure: "grow basis-35",
 };
 
-// Hauteur du contenu (DESIGN.md § 6, QA-5 d'effets-de-verre, décision d'Antoine du 2026-11-23) : aucune hauteur
-// fixe. Une tuile a la hauteur de son contenu ; les rangées alignent leurs tuiles en haut, sans les étirer à la
-// plus haute (une tuile vide garde la hauteur de son message, sans blanc ajouté). Le givre
-// (`dashboard/loading.tsx`) reprend ces classes, et la hauteur de l'état vide compact de chaque tuile par les
-// composants partagés (`TileCompactEmpty`, `TodayHead`) posés dans les corps ci-dessous.
+// Hauteur du contenu (DESIGN.md § 6, QA-5 et QA-6 d'effets-de-verre, décisions d'Antoine du 2026-11-23) : aucune
+// hauteur fixe. Une rangée a la hauteur de sa tuile la plus haute, et ses tuiles s'y étirent (alignées en bas) ;
+// en une colonne, chaque tuile a la hauteur de son contenu. Dans une tuile étirée, le contenu reste en haut et
+// l'action du bas (bouton d'ajout, « Voir la to-do ») est poussée en bas (`mt-auto`). Le givre
+// (`dashboard/loading.tsx`) reprend ces classes, la hauteur relevée de chaque tuile (cookie, QA-6) et, sans
+// relevé, celle de l'état vide compact par les composants partagés (`TileCompactEmpty`, `TodayHead`).
 
-/** Grille bento : vraie grille (BentoGrid) et givre. */
-export const BENTO_GRID_CLASSES = "flex flex-wrap items-start gap-grid";
+/** Grille bento : vraie grille (BentoGrid) et givre. Sans `items-*` : les tuiles d'une rangée s'étirent. */
+export const BENTO_GRID_CLASSES = "flex flex-wrap gap-grid";
 
 /** Classes de place d'une tuile de verre : largeur seule (vraie tuile et givre). */
 export function tileClasses(size: TileSize): string {

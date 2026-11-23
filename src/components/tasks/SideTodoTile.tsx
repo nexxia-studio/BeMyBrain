@@ -64,6 +64,7 @@ export function SideTodoTile({
     <div
       data-signature="reveal"
       data-testid={`tile-${tile.id}`}
+      data-tile={tile.id}
       data-side={tile.side}
       className={cn("flex", tileClasses(tile.size))}
     >

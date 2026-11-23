@@ -4,7 +4,8 @@
 // « Aujourd'hui », les 3 premières tâches (côté en légende) et le lien « Voir la to-do » (la liste
 // montre le côté actif seulement, pas « tout »). À la hauteur de son contenu (DESIGN.md § 6, QA-5
 // d'effets-de-verre) : rien de dû, l'état vide compact (TodayHead avec « Rien en retard… »), que le givre de
-// chargement rend aussi ; aucun état de remplissage sous des lignes peu nombreuses.
+// chargement rend aussi ; aucun état de remplissage sous des lignes peu nombreuses. Étirée par sa rangée
+// (QA-6) : contenu en haut, « Voir la to-do » poussé en bas.
 // Lecture en échec : un message à la place, la tuile et le reste du tableau de bord s'affichent quand même.
 // Une colonne à toutes les largeurs ; les deux pastilles restent côte à côte, même à 390 px.
 // Animée par GSAP seul (entrée du tableau de bord) : aucun survol Motion sur la tuile.
@@ -15,6 +16,7 @@ import { useTranslations } from "next-intl";
 
 import { TASKS_PATH } from "@/components/shell/nav-items";
 import { cn } from "@/lib/utils";
+import { TODAY_TILE_ID } from "@/modules/dashboard/tiles";
 import type { TodayTile as TodayTileData } from "@/modules/tasks/view";
 
 import { TODAY_TILE_BODY_CLASSES, TODAY_TILE_CLASSES } from "./tile-sizes";
@@ -43,6 +45,7 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
     <section
       data-signature="intro"
       data-testid="tile-today"
+      data-tile={TODAY_TILE_ID}
       className={cn(
         "rounded-tile bg-primary text-primary-foreground shadow-today",
         TODAY_TILE_BODY_CLASSES,
@@ -60,7 +63,7 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
         </p>
       )}
       {due !== null && hasDue && (
-        <div data-signature-item className="flex flex-col gap-3">
+        <div data-signature-item className="flex grow flex-col gap-3">
           {/* Pastilles de chiffres : chiffre en `text-stat`, libellé `text-small` en blanc plein. */}
           <div className="flex gap-2.5">
             {(
@@ -87,7 +90,7 @@ export function TodayTile({ hasSpaces, today, due }: TodayTileProps) {
           </ul>
           <Link
             href={TASKS_PATH}
-            className="flex min-h-11 items-center self-start text-small font-semibold text-primary-foreground no-underline hover:text-primary-foreground hover:underline focus-visible:outline-ring-on-primary"
+            className="mt-auto flex min-h-11 items-center self-start text-small font-semibold text-primary-foreground no-underline hover:text-primary-foreground hover:underline focus-visible:outline-ring-on-primary"
           >
             {t("today.seeAll")}
           </Link>

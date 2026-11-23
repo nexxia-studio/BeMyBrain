@@ -34,6 +34,15 @@ vi.mock("next/dynamic", async () => {
   };
 });
 
+// Relevé des hauteurs : testé à part (TileHeightRecorder.test.tsx) ; ici, ce que la grille lui passe.
+const recorderProps = vi.hoisted(() => vi.fn());
+vi.mock("./TileHeightRecorder", () => ({
+  TileHeightRecorder: (props: object) => {
+    recorderProps(props);
+    return null;
+  },
+}));
+
 function stubReducedMotion(reduce: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: reduce ? query.includes(": reduce") : false,
@@ -46,7 +55,7 @@ async function renderGrid() {
   vi.resetModules();
   const { BentoGrid } = await import("./BentoGrid");
   return render(
-    <BentoGrid side="private">
+    <BentoGrid side="private" tileHeightsPath="/dashboard">
       <div data-signature="reveal" />
     </BentoGrid>,
   );
@@ -67,12 +76,25 @@ afterEach(() => {
 });
 
 describe("grille bento", () => {
-  it("rangées aux classes de tile-sizes.ts (celles du givre) : tuiles alignées en haut, à la hauteur de leur contenu", async () => {
+  it("rangées aux classes de tile-sizes.ts (celles du givre) : tuiles d'une rangée étirées à la plus haute (pas d'items-start)", async () => {
     const { container } = await renderGrid();
 
     const { BENTO_GRID_CLASSES } = await import("./tile-sizes");
     const root = container.firstElementChild as HTMLElement;
     expect(root.className).toBe(BENTO_GRID_CLASSES);
+    expect(root.classList.contains("items-start")).toBe(false);
+  });
+
+  it("relève la hauteur de ses tuiles pour le givre : côté et chemin du cookie passés au relevé, grille comme racine", async () => {
+    const { container } = await renderGrid();
+
+    expect(recorderProps).toHaveBeenCalledWith(
+      expect.objectContaining({ side: "private", path: "/dashboard" }),
+    );
+    const { rootRef } = recorderProps.mock.calls.at(-1)?.[0] as {
+      rootRef: { current: Element | null };
+    };
+    expect(rootRef.current).toBe(container.firstElementChild);
   });
 
   it("masque les cibles des moments en attente dès le montage (arrivée par navigation côté client)", async () => {

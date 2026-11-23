@@ -80,8 +80,10 @@ describe("tuile vide", () => {
       expect(
         classes.filter((name) => /(^|:)(min-|max-)?h-/.test(name)),
       ).toEqual([]);
+      // Aucune action dans une tuile vide hors To-do : rien à pousser en bas.
       expect(classes).not.toContain("mt-auto");
       expect(classes).not.toContain("flex-1");
+      expect(tile.dataset.tile).toBe("clients");
     },
   );
 

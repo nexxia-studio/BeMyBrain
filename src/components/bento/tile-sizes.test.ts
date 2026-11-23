@@ -34,11 +34,14 @@ describe("tailles des tuiles (QA-5 : hauteur du contenu)", () => {
     expect(TODAY_TILE_CLASSES).toBe(`min-w-0 ${TILE_SIZE_CLASSES.wide}`);
   });
 
-  it("grille : rangées flex-wrap, tuiles alignées en haut, jamais étirées à la hauteur de la rangée", () => {
+  it("grille : rangées flex-wrap, tuiles d'une rangée étirées à la plus haute (alignées en bas), sans hauteur fixe", () => {
     const classes = BENTO_GRID_CLASSES.split(" ");
 
     expect(classes).toEqual(
-      expect.arrayContaining(["flex", "flex-wrap", "gap-grid", "items-start"]),
+      expect.arrayContaining(["flex", "flex-wrap", "gap-grid"]),
+    );
+    expect(classes.filter((name) => /^(items|content|self)-/.test(name))).toEqual(
+      [],
     );
     expect(heightClasses(BENTO_GRID_CLASSES)).toEqual([]);
   });

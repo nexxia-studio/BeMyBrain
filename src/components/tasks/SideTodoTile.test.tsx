@@ -146,8 +146,20 @@ describe("tuile « To-do pro »", () => {
     expect(classes("Nexxia")).toContain("bg-chip-indigo");
   });
 
+  it("vide, étirée par sa rangée : contenu en haut, bouton « Ajouter une tâche » poussé en bas", () => {
+    renderTile([]);
+
+    const add = within(tile()).getByRole("button", {
+      name: messages.tasks.list.add,
+    });
+    const bottom = add.closest(".mt-auto");
+    expect(bottom).not.toBeNull();
+    expect(bottom?.parentElement?.classList.contains("grow")).toBe(true);
+    expect(tile().dataset.tile).toBe("proTodo");
+  });
+
   it.each([0, 2])(
-    "%i tâche(s) : à la hauteur de son contenu, aucune classe de hauteur, rien de poussé en bas",
+    "%i tâche(s) : à la hauteur de son contenu, aucune classe de hauteur",
     (count) => {
       renderTile(
         Array.from({ length: count }, (_, i) =>
@@ -166,9 +178,21 @@ describe("tuile « To-do pro »", () => {
           (name) => /(^|:)(min-|max-)?h-/.test(name) && name !== "min-h-11",
         ),
       ).toEqual([]);
-      expect(classes).not.toContain("mt-auto");
     },
   );
+
+  it("2 tâches : l'action est le lien « Tout voir » de l'en-tête, rien n'est poussé en bas", () => {
+    renderTile(
+      Array.from({ length: 2 }, (_, i) =>
+        buildTask({ side: "pro", title: `Pro ${i}` }),
+      ),
+    );
+
+    const classes = [tile(), ...tile().querySelectorAll("*")].flatMap(
+      (element) => Array.from(element.classList),
+    );
+    expect(classes).not.toContain("mt-auto");
+  });
 
   it("une ligne de la tuile tient sur une ligne : titre tronqué, légende et espaces sans retour à la ligne", () => {
     const title =

@@ -19,8 +19,18 @@ import messages from "../../../../messages/fr.json";
 
 const loadSideSpaces = vi.hoisted(() => vi.fn());
 const pageHeaderProps = vi.hoisted(() => vi.fn());
+/** Cookies de la requête (`cookies()` de Next) : nom → valeur brute. */
+const requestCookies = vi.hoisted(() => new Map<string, string>());
 
 vi.mock("@/lib/context-filter", () => ({ loadSideSpaces }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      requestCookies.has(name)
+        ? { name, value: requestCookies.get(name) }
+        : undefined,
+  }),
+}));
 vi.mock("next-intl/server", () => ({
   getTranslations: async (namespace: "dashboard") =>
     createTranslator({ locale: "fr", messages, namespace }),
@@ -96,8 +106,20 @@ function hasClasses(element: HTMLElement, classes: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  requestCookies.clear();
   loadSideSpaces.mockResolvedValue(PRIVATE_SIDE);
 });
+
+const TILES_COOKIE = "bmb-dashboard-tiles";
+const heightVars = (tile: HTMLElement) =>
+  Object.fromEntries(
+    ["sm", "md", "lg"]
+      .map((tier) => [
+        `--tile-h-${tier}`,
+        tile.style.getPropertyValue(`--tile-h-${tier}`),
+      ])
+      .filter(([, value]) => value !== ""),
+  );
 
 describe("chargement du tableau de bord", () => {
   it("affiche le titre par l'en-tête de page, un statut chargement et des tuiles givrées", async () => {
@@ -233,10 +255,83 @@ describe("chargement du tableau de bord", () => {
 
       const strut = strutOf(solid);
       expect(hasClasses(strut, TODAY_TILE_BODY_CLASSES)).toBe(true);
-      const shared = render(withIntl(<TodayHead intro={intro} />)).container;
+      const shared = render(withIntl(<TodayHead intro={intro} strut />)).container;
       expect(strut.innerHTML).toBe(shared.innerHTML);
     },
   );
+
+  it("sans relevé : chaque tuile givrée réserve sa place (tile-reserve) sans variable de hauteur, la cale donne l'état compact", async () => {
+    const { tiles } = await renderLoading();
+
+    for (const tile of tiles) {
+      expect(tile.classList.contains("tile-reserve")).toBe(true);
+      expect(heightVars(tile)).toEqual({});
+    }
+  });
+
+  it("relevé dans le cookie : chaque tuile givrée reçoit les hauteurs de son côté, une variable par palier", async () => {
+    requestCookies.set(
+      TILES_COOKIE,
+      "private.sm:today-31240_privateTodo-48000_home-15050~private.lg:today-28000~pro.sm:today-99900_proTodo-50000",
+    );
+
+    const { tiles } = await renderLoading();
+    const byId = Object.fromEntries(
+      tiles.map((tile) => [tile.dataset.testid, heightVars(tile)]),
+    );
+
+    expect(byId["frost-tile-today"]).toEqual({
+      "--tile-h-sm": "312.4px",
+      "--tile-h-lg": "280px",
+    });
+    expect(byId["frost-tile-privateTodo"]).toEqual({ "--tile-h-sm": "480px" });
+    expect(byId["frost-tile-home"]).toEqual({ "--tile-h-sm": "150.5px" });
+    expect(byId["frost-tile-health"]).toEqual({});
+    // --frost-index garde sa place à côté des hauteurs.
+    expect(tiles[1].style.getPropertyValue("--frost-index")).toBe("1");
+  });
+
+  it("côté Pro : lit le relevé Pro, jamais celui de l'autre côté", async () => {
+    loadSideSpaces.mockResolvedValue(PRO_SIDE);
+    requestCookies.set(
+      TILES_COOKIE,
+      "private.sm:today-31240~pro.md:today-40000_proTodo-50000",
+    );
+
+    const { tiles } = await renderLoading();
+
+    expect(heightVars(tiles[0])).toEqual({ "--tile-h-md": "400px" });
+    expect(heightVars(tiles[1])).toEqual({ "--tile-h-md": "500px" });
+  });
+
+  it("cookie hostile : rien du cookie n'entre dans un style, seules les entrées valides comptent", async () => {
+    requestCookies.set(
+      TILES_COOKIE,
+      "private.sm:today-1px;background:url(https://x.test/a)_home-calc(100vh)_health-var(--x)_budget--5_shopping-99999999~private.md:privateTodo-30000",
+    );
+
+    const { frost, tiles } = await renderLoading();
+
+    const styles = [frost, ...frost.querySelectorAll("*")]
+      .map((element) => element.getAttribute("style") ?? "")
+      .join(" ");
+    expect(styles).not.toMatch(/url|calc|var\(--x|background|-5|99999999/);
+    const reserved = tiles.filter(
+      (tile) => Object.keys(heightVars(tile)).length > 0,
+    );
+    expect(reserved.map((tile) => tile.dataset.testid)).toEqual([
+      "frost-tile-privateTodo",
+    ]);
+  });
+
+  it("cookie trop long : ignoré en entier", async () => {
+    const valid = "private.sm:today-31240";
+    requestCookies.set(TILES_COOKIE, `${valid}~${"x".repeat(1100)}`);
+
+    const { tiles } = await renderLoading();
+
+    for (const tile of tiles) expect(heightVars(tile)).toEqual({});
+  });
 
   it("sans espace sur le côté, seule la tuile pleine est rendue", async () => {
     loadSideSpaces.mockResolvedValue({

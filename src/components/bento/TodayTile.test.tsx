@@ -167,6 +167,23 @@ describe("tuile « Aujourd'hui »", () => {
     expect(classes).not.toContain("justify-between");
   });
 
+  it("étirée par sa rangée : contenu en haut, lien « Voir la to-do » poussé en bas", () => {
+    renderTile({ due: dueOn(3) });
+
+    const seeAll = within(tile()).getByRole("link", { name: "Voir la to-do" });
+    const body = seeAll.parentElement as HTMLElement;
+    expect(seeAll.classList.contains("mt-auto")).toBe(true);
+    expect(body.parentElement).toBe(tile());
+    expect(body.classList.contains("grow")).toBe(true);
+    expect(tile().classList.contains("flex-col")).toBe(true);
+  });
+
+  it("porte son identifiant de tuile pour le relevé des hauteurs du givre", () => {
+    renderTile();
+
+    expect(tile().dataset.tile).toBe("today");
+  });
+
   it("une ligne de la tuile tient sur une ligne : titre tronqué, légende sans retour à la ligne", () => {
     const title =
       "Renouveler l'assurance de la voiture avant la fin du mois prochain";
@@ -223,6 +240,27 @@ describe("tuile « Aujourd'hui »", () => {
     ).container.firstElementChild?.outerHTML;
 
     expect(real).toBe(shared);
+  });
+
+  it("cale du givre : TodayHead sans repère de test ni cible d'animation, la vraie tuile les garde", () => {
+    renderTile();
+    const real = tile().firstElementChild as HTMLElement;
+
+    const strut = render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TodayHead intro={messages.dashboard.today.introClear} strut />
+      </NextIntlClientProvider>,
+    ).container.firstElementChild as HTMLElement;
+
+    expect(real.querySelector('[data-testid="today-date"]')).not.toBeNull();
+    expect(real.querySelectorAll("[data-signature-item]")).toHaveLength(3);
+    expect(strut.querySelector("[data-testid]")).toBeNull();
+    expect(strut.querySelector("[data-signature-item]")).toBeNull();
+    expect(strut.textContent).toBe(real.textContent);
   });
 
   it("rien en retard ni aujourd'hui : une phrase le dit, ni compteur ni ligne", () => {

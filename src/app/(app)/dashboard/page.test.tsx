@@ -27,6 +27,15 @@ vi.mock("next-intl/server", () => ({
     createTranslator({ locale: "fr", messages, namespace }),
 }));
 
+// Relevé des hauteurs : testé à part (TileHeightRecorder.test.tsx) ; ici, le côté et le chemin qu'il reçoit.
+const recorderProps = vi.hoisted(() => vi.fn());
+vi.mock("@/components/bento/TileHeightRecorder", () => ({
+  TileHeightRecorder: (props: object) => {
+    recorderProps(props);
+    return null;
+  },
+}));
+
 // Moments GSAP : testés à part (src/components/signature/).
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 
@@ -288,6 +297,22 @@ describe("tableau de bord", () => {
     expect(screen.queryByTestId("workspace-name")).toBeNull();
     expect(screen.queryByText(/Atelier Monie/)).toBeNull();
   });
+
+  it.each([
+    ["Privé", PRIVATE_SIDE, "private"],
+    ["Pro", PRO_SIDE, "pro"],
+  ])(
+    "côté %s : relève la hauteur des tuiles du côté affiché, cookie au chemin du tableau de bord",
+    async (_, spaces, side) => {
+      useSide(spaces);
+
+      await renderPage();
+
+      expect(recorderProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({ side, path: "/dashboard" }),
+      );
+    },
+  );
 
   it("titre la page par son en-tête", async () => {
     await renderPage();
