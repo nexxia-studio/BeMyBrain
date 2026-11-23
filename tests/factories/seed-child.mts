@@ -9,6 +9,8 @@
 // Arguments : <mode> [uuid du propriétaire].
 // - `rollback` : seedWorkspace via withAdminTx, puis erreur levée dans la même transaction après les insertions ;
 // - `concurrent` : deux seedWorkspace simultanés via withAdminTx ;
+// - `lock` : seedWorkspace via withAdminTx ; juste avant le COMMIT, puis après, une autre connexion essaie de prendre
+//   le verrou du seed (pg_try_advisory_lock, même clé) ;
 // - `backends` : deux lectures simultanées de pg_backend_pid() dans une transaction withAdminTx ;
 // - `naive-backends` : témoin, la même chose avec `drizzle({ client: createPool(…) }).transaction` (le piège).
 // Une ligne JSON sur stdout, jamais d'URL ni de message du pilote.
@@ -17,7 +19,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 
 import { endAdminPool, withAdminTx, type AdminTx } from "../../src/db/admin";
 import { getMigrationEnv } from "../../src/db/migration-env";
-import { createPool } from "../../src/db/pool";
+import { createPool, type AppPool } from "../../src/db/pool";
 import { seedWorkspace, type SeedTransaction } from "../../scripts/seed";
 
 const [mode, ownerUserId = ""] = process.argv.slice(2);
@@ -48,6 +50,25 @@ async function distinctBackends(run: SeedTransaction): Promise<number> {
   return new Set(pids).size;
 }
 
+/** Une autre connexion peut-elle prendre le verrou du seed pour ce propriétaire ? Relâché aussitôt si pris. */
+async function lockIsFree(probe: AppPool): Promise<boolean> {
+  const client = await probe.connect();
+  try {
+    const { rows } = await client.query<{ ok: boolean }>(
+      "select pg_try_advisory_lock(hashtextextended($1, 0)) as ok",
+      [ownerUserId],
+    );
+    const free = rows[0]?.ok === true;
+    if (free)
+      await client.query("select pg_advisory_unlock(hashtextextended($1, 0))", [
+        ownerUserId,
+      ]);
+    return free;
+  } finally {
+    client.release();
+  }
+}
+
 async function main(): Promise<Record<string, unknown>> {
   if (mode === "naive-backends") {
     const pool = createPool(getMigrationEnv().DATABASE_URL, "témoin");
@@ -61,6 +82,27 @@ async function main(): Promise<Record<string, unknown>> {
     }
   }
   try {
+    if (mode === "lock") {
+      const probe = createPool(getMigrationEnv().DATABASE_URL, "sonde");
+      try {
+        let duringTransaction: boolean | undefined;
+        // fn de seedWorkspace terminée (verrou pris en tête), COMMIT pas encore envoyé.
+        const probing: SeedTransaction = (fn) =>
+          withAdminTx(async (tx) => {
+            const result = await fn(tx);
+            duringTransaction = await lockIsFree(probe);
+            return result;
+          });
+        const { created } = await seedWorkspace(probing, { ownerUserId });
+        return {
+          created,
+          duringTransaction,
+          afterCommit: await lockIsFree(probe),
+        };
+      } finally {
+        await probe.end();
+      }
+    }
     if (mode === "backends") {
       return { backends: await distinctBackends(withAdminTx) };
     }

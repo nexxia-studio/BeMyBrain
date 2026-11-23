@@ -169,7 +169,13 @@ const CHILD = join(ROOT, "tests/factories/seed-child.mts");
 // tsx à froid, plus le réveil possible du compute Neon de la branche test.
 const TSX_TIMEOUT_MS = 60_000;
 
-/** Lance un script sous tsx, comme `pnpm db:seed`, sur la branche test ; rend son stdout (stderr ignoré : messages du pilote). */
+// Arrêt forcé d'un enfant bloqué, avant le délai du test : jamais de processus orphelin.
+const CHILD_KILL_MS = TSX_TIMEOUT_MS - 5_000;
+
+/**
+ * Lance un script sous tsx, comme `pnpm db:seed`, sur la branche test ; rend son stdout (stderr ignoré : messages
+ * du pilote). Enfant tué (SIGKILL) s'il dépasse CHILD_KILL_MS, et l'appel rejette.
+ */
 function runUnderTsx(
   args: string[],
   extraEnv: Record<string, string> = {},
@@ -194,17 +200,39 @@ function runUnderTsx(
     },
     stdio: ["ignore", "pipe", "ignore"],
   });
+  let timedOut = false;
+  const killer = setTimeout(() => {
+    timedOut = true;
+    proc.kill("SIGKILL");
+  }, CHILD_KILL_MS);
   let stdout = "";
   proc.stdout!.on("data", (chunk: Buffer) => {
     stdout += chunk.toString();
   });
-  return new Promise((resolve) =>
-    proc.once("close", (code) => resolve({ code, stdout })),
+  return new Promise((resolve, reject) =>
+    proc.once("close", (code) => {
+      clearTimeout(killer);
+      if (timedOut) {
+        reject(
+          new Error(
+            `${args.join(" ")} : aucune fin en ${CHILD_KILL_MS} ms, enfant tué (SIGKILL).`,
+          ),
+        );
+        return;
+      }
+      resolve({ code, stdout });
+    }),
   );
 }
 
 async function runChild(mode: string, owner: string) {
   const { code, stdout } = await runUnderTsx([CHILD, mode, owner]);
+  if (stdout.trim() === "") {
+    // stderr n'est jamais affiché (messages du pilote) : relancer à la main pour le voir.
+    throw new Error(
+      `seed-child ${mode} s'est arrêté sans rien écrire (code ${code ?? "aucun"}). Relancer à la main : DATABASE_URL=<branche test> node --import tsx tests/factories/seed-child.mts ${mode} <uuid>.`,
+    );
+  }
   return { code, result: JSON.parse(stdout.trim()) as Record<string, unknown> };
 }
 
@@ -224,6 +252,21 @@ describe("seed sous tsx, comme pnpm db:seed", () => {
         result: { outcome: "annulée" },
       });
       expect(await workspacesOf(owner)).toEqual([]);
+    },
+    TSX_TIMEOUT_MS,
+  );
+
+  it(
+    "via withAdminTx, le verrou du seed est tenu jusqu'au COMMIT : refusé à une autre connexion pendant la transaction, libre après",
+    async () => {
+      const owner = newOwner();
+
+      const { code, result } = await runChild("lock", owner);
+
+      expect({ code, result }).toEqual({
+        code: 0,
+        result: { created: true, duringTransaction: false, afterCommit: true },
+      });
     },
     TSX_TIMEOUT_MS,
   );
