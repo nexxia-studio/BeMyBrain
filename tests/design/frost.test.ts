@@ -5,12 +5,7 @@ import { describe, expect, it } from "vitest";
 
 // Verrou du givre de chargement (DESIGN.md § 5 « États de chargement — givre », § 11).
 const FROST_LEVEL_VARS = ["--frost-from", "--frost-to", "--frost-rest"];
-const ALLOWED_COLORS = [
-  "--halo-blue",
-  "--halo-lilac",
-  "--primary",
-  "--popover",
-];
+const ALLOWED_COLORS = ["--halo-blue", "--halo-lilac"];
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 
 /** Bloc entre accolades qui suit `start` (accolades imbriquées comprises). */

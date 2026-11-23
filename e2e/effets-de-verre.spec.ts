@@ -23,9 +23,9 @@ import {
 // (barre latérale sur ordinateur, barre d'onglets sur mobile), sauf les scénarios 6 et 7 (sans variante mobile,
 // tag @desktop).
 //
-// Chargement ralenti : la requête RSC de la navigation côté client est
-// retenue 2 s par `page.route`. Les préchargements (en-tête `next-router-prefetch`) passent tout de suite : Next
-// a déjà en cache le `loading.tsx` de la route et l'affiche au clic, pendant que la vraie page attend.
+// Chargement ralenti : `page.route` retient 2 s la requête RSC de la navigation côté client. Les préchargements
+// (en-tête `next-router-prefetch`) passent tout de suite : Next a déjà en cache le `loading.tsx` de la route et
+// l'affiche au clic, pendant que la vraie page attend.
 test.use({ locale: "fr-FR" });
 // Connexion, deux navigations ralenties et fenêtres d'observation du reflet : au-delà des 30 s par défaut.
 test.setTimeout(60_000);
