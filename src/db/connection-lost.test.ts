@@ -1,5 +1,9 @@
 // @vitest-environment node
-import { DatabaseError as DriverDatabaseError } from "@neondatabase/serverless";
+import {
+  DatabaseError as DriverDatabaseError,
+  neonConfig,
+  Pool,
+} from "@neondatabase/serverless";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { describe, expect, it } from "vitest";
 
@@ -30,8 +34,43 @@ function serverError(code: string) {
 }
 
 /** Enveloppe de Drizzle autour de l'erreur du pilote : le message et le SQLSTATE sont sur la cause. */
-function wrapped(cause: Error) {
-  return new DrizzleQueryError("select 1", [], cause);
+function wrapped(cause: unknown) {
+  return new DrizzleQueryError("select 1", [], cause as Error);
+}
+
+/** Erreur système d'un socket (Node) : code dans `code`. */
+function socketError(code: string) {
+  return Object.assign(new Error(`read ${code}`), { code });
+}
+
+/**
+ * Ce que le vrai pilote rejette quand son WebSocket échoue : emprunt d'une connexion vers un port local fermé
+ * (aucune base, aucun réseau extérieur). Le pilote relaie l'événement d'erreur du WebSocket tel quel.
+ */
+async function realWebSocketError(): Promise<unknown> {
+  const saved = {
+    wsProxy: neonConfig.wsProxy,
+    useSecureWebSocket: neonConfig.useSecureWebSocket,
+  };
+  neonConfig.wsProxy = () => "127.0.0.1:1/v2";
+  neonConfig.useSecureWebSocket = false;
+  const pool = new Pool({
+    connectionString: "postgres://test:test@localhost:5432/test",
+  });
+  pool.on("error", () => undefined);
+  try {
+    return await pool.connect().then(
+      (client) => {
+        client.release();
+        throw new Error("Connexion inattendue");
+      },
+      (error: unknown) => error,
+    );
+  } finally {
+    neonConfig.wsProxy = saved.wsProxy;
+    neonConfig.useSecureWebSocket = saved.useSecureWebSocket;
+    await pool.end();
+  }
 }
 
 class TestDomainError extends DomainError {
@@ -84,7 +123,46 @@ describe("isConnectionLost : erreurs de connexion", () => {
   );
 });
 
+describe("isConnectionLost : socket coupé et WebSocket en erreur", () => {
+  it.each(["ECONNRESET", "EPIPE"])(
+    "vrai pour le code système %s, nu ou sous l'enveloppe de Drizzle",
+    (code) => {
+      expect(isConnectionLost(socketError(code))).toBe(true);
+      expect(isConnectionLost(wrapped(socketError(code)))).toBe(true);
+    },
+  );
+
+  it("le pilote rejette avec l'ErrorEvent du WebSocket, pas une Error", async () => {
+    const error = await realWebSocketError();
+
+    expect(error).toBeInstanceOf(Event);
+    expect(error).not.toBeInstanceOf(Error);
+    expect((error as Event).type).toBe("error");
+  });
+
+  it("vrai pour l'erreur du WebSocket levée par le vrai pilote, nue ou sous l'enveloppe de Drizzle", async () => {
+    const error = await realWebSocketError();
+
+    expect(isConnectionLost(error)).toBe(true);
+    expect(isConnectionLost(wrapped(error))).toBe(true);
+  });
+});
+
 describe("isConnectionLost : pas une erreur de connexion", () => {
+  it.each(["ETIMEDOUT", "ECONNREFUSED", "ENOTFOUND"])(
+    "faux pour le code système %s",
+    (code) => {
+      expect(isConnectionLost(socketError(code))).toBe(false);
+      expect(isConnectionLost(wrapped(socketError(code)))).toBe(false);
+    },
+  );
+
+  it("faux pour un événement qui n'est pas une erreur, ou un objet qui imite son type", () => {
+    expect(isConnectionLost(new Event("close"))).toBe(false);
+    expect(isConnectionLost({ type: "error" })).toBe(false);
+    expect(isConnectionLost(wrapped({ type: "error" }))).toBe(false);
+  });
+
   it.each(["42501", "23505", "42P01", "40001", "57014", "22P02"])(
     "faux pour le SQLSTATE %s, nu ou sous l'enveloppe de Drizzle",
     (code) => {

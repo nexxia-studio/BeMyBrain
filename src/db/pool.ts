@@ -5,6 +5,9 @@ export type AppPool = Pool & {
   /**
    * Ferme toutes les connexions au repos du pool ; une connexion empruntée n'est pas touchée.
    * Appelée avant une nouvelle tentative : gelées en même temps que la connexion morte, elles sont suspectes.
+   * Contrat : appeler seulement après avoir rendu sa propre connexion. La purge n'emprunte que des connexions
+   * au repos et n'attend jamais une connexion occupée, mais une connexion morte gardée par l'appelant
+   * resterait dans le pool.
    */
   evictIdle: () => Promise<void>;
 };
@@ -38,14 +41,22 @@ export function createPool(connectionString: string, role: string): AppPool {
   // Purge par l'API publique de pg-pool. `client.end()` sur une connexion au repos la fermerait sans la
   // retirer du pool (pg-pool n'écoute pas « end », et un client qu'on ferme n'émet pas « error ») : elle
   // resterait au repos et serait prêtée. On emprunte donc chaque connexion au repos (connect() sert le repos
-  // en premier) et on la rend par `release(true)` : pg-pool la retire de ses clients et la ferme
-  // (_release → _remove, événement « remove »).
-  // Une connexion née pendant la purge (repos vidé entre-temps par un autre emprunt) est neuve : rendue
-  // normalement, et la purge s'arrête. Purges simultanées (lectures parallèles en échec au réveil) : une passe.
+  // en premier) et on la rend par `release(true)` : pg-pool la retire aussitôt de ses clients (`totalCount`
+  // baisse, _release → _remove), puis la ferme. L'événement « remove », émis à la fin de cette fermeture,
+  // n'est pas garanti (connexion déjà morte : « end » déjà passé) ; la purge ne l'attend pas.
+  // Jamais d'attente d'une connexion occupée : au plus `idleCount` emprunts (valeur de départ), et un
+  // emprunt seulement s'il reste plus de connexions au repos que d'emprunts en file (`waitingCount`, servis
+  // avant le nôtre dans l'ordre d'arrivée). Sinon les emprunts de l'app prendront ces connexions et la purge
+  // s'arrête (pool plein : connect() attendrait sans limite ; pool non plein : il ouvrirait une connexion).
+  // Une connexion née pendant la purge (le repos s'est vidé avant que pg-pool ne serve notre emprunt, ex.
+  // erreur d'une connexion au repos) est neuve : rendue normalement, et la purge s'arrête.
+  // Purges simultanées (lectures parallèles en échec au réveil) : une seule passe, même promesse.
   let running: Promise<void> | undefined;
   async function evict(): Promise<void> {
     const started = ++generation;
-    while (pool.idleCount > 0) {
+    for (let left = pool.idleCount; left > 0; left--) {
+      // Couvre aussi « pool plein sans connexion au repos » (idleCount = 0).
+      if (pool.idleCount <= pool.waitingCount) return;
       const client = await pool.connect();
       const fresh = (bornAt.get(client) ?? -1) >= started;
       client.release(fresh ? undefined : true);

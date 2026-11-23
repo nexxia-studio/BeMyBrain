@@ -176,4 +176,101 @@ describe("createPool : evictIdle (BRAIN-50)", () => {
       process.off("uncaughtException", onUncaught);
     }
   }, 20_000);
+
+  it("deux purges simultanées partagent la même passe", async () => {
+    await warm(2);
+    const connect = vi.spyOn(pool, "connect");
+
+    const first = pool.evictIdle();
+    const second = pool.evictIdle();
+    await first;
+
+    expect(second).toBe(first);
+    expect(connect).toHaveBeenCalledTimes(2);
+    expect(pool.totalCount).toBe(0);
+  }, 20_000);
+
+  it("un emprunt de l'app lancé dans le même tick après la purge : purge finie, au plus une connexion ouverte, emprunt servi", async () => {
+    const [oldPid] = await warm(1);
+    let opened = 0;
+    pool.on("connect", () => opened++);
+
+    const purge = pool.evictIdle();
+    const borrowing = safe(pool.connect());
+    await purge;
+    const client = await borrowing;
+
+    try {
+      expect(opened).toBeLessThanOrEqual(1);
+      expect(await pidOf(client)).not.toBe(oldPid);
+      expect(pool.totalCount).toBe(1);
+    } finally {
+      client.release();
+    }
+  }, 20_000);
+
+  it("un emprunt de l'app lancé dans le même tick avant la purge : la purge lui laisse la connexion au repos et n'en ouvre aucune", async () => {
+    const [oldPid] = await warm(1);
+    let opened = 0;
+    pool.on("connect", () => opened++);
+
+    const borrowing = safe(pool.connect());
+    await pool.evictIdle();
+    const client = await borrowing;
+
+    try {
+      expect(opened).toBe(0);
+      expect(await pidOf(client)).toBe(oldPid);
+    } finally {
+      client.release();
+    }
+  }, 20_000);
+
+  it("pool plein, sa dernière connexion au repos promise à l'app : la purge n'attend aucune connexion occupée", async () => {
+    const max = pool.options.max;
+    await warm(max);
+    const held = await Promise.all(
+      Array.from({ length: max - 1 }, () => safe(pool.connect())),
+    );
+    const connect = vi.spyOn(pool, "connect");
+
+    try {
+      const borrowing = safe(pool.connect());
+      const outcome = await Promise.race([
+        pool.evictIdle().then(() => "finie"),
+        new Promise((resolve) => setTimeout(resolve, 2_000, "bloquée")),
+      ]);
+      (await borrowing).release();
+
+      expect(outcome).toBe("finie");
+      expect(connect).toHaveBeenCalledTimes(1);
+      expect(pool.totalCount).toBe(max);
+    } finally {
+      for (const client of held) client.release();
+    }
+  }, 30_000);
+
+  it("une connexion au repos qui tombe pendant la purge : la purge garde la connexion neuve servie à sa place et s'arrête", async () => {
+    const idle = await safe(pool.connect());
+    const oldPid = await pidOf(idle);
+    idle.release();
+    let opened = 0;
+    pool.on("connect", () => opened++);
+
+    const purge = pool.evictIdle();
+    // Erreur de la connexion au repos traitée avant que pg-pool ne serve l'emprunt de la purge : son
+    // écouteur de repos la retire, l'emprunt est servi par une connexion neuve.
+    idle.emit("error", new Error("coupure simulée"));
+    await purge;
+
+    expect(opened).toBe(1);
+    expect(pool.totalCount).toBe(1);
+    expect(pool.idleCount).toBe(1);
+    const client = await safe(pool.connect());
+    try {
+      expect(await pidOf(client)).not.toBe(oldPid);
+    } finally {
+      client.release();
+    }
+  }, 20_000);
 });
