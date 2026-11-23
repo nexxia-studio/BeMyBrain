@@ -184,5 +184,14 @@ Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défau
     - e2e desktop et mobile, avec données réalistes : boîtes de l'en-tête, du filtre, de l'interrupteur, du premier en-tête de section et de la première ligne identiques au pixel ; le bas de la liste n'est pas vérifié.
   - Fini quand : tests verts, suite e2e sans régression.
 
+- [ ] **QA-4. Coupure de connexion pendant une lecture : plus d'exception non interceptée** `[security]`
+  - Constat (essai iPhone du 2026-11-23, Sentry BEMYBRAIN-3/4/5, preview `1028e24`) : socket WebSocket fermé pendant qu'une transaction emprunte la connexion → `reportStreamError` → `Client._handleErrorEvent` → `emit("error")` sans écouteur → `uncaughtException`, processus tué.
+  - Cause : pg-pool (embarqué dans `@neondatabase/serverless` 1.2.0) retire son écouteur d'erreur de repos à l'emprunt (`_acquireClient` → `removeListener("error", idleListener)`) et ne le remet qu'au rendu. `pool.on("error")` ne couvre donc que les connexions au repos.
+  - Correction : un écouteur d'erreur permanent sur chaque connexion créée par le pool (`pool.on("connect", client => client.on("error", …))`), dans `src/db/client.ts` et `src/db/admin.ts`. Message générique, ni URL, ni claims, ni détail du pilote (même règle que l'écouteur actuel). La requête en cours échoue normalement (`_errorAllQueries`) et devient `DatabaseError` ; la connexion non requêtable est retirée du pool au rendu.
+  - Scripts : `scripts/seed.ts` passe par `adminDb` (couvert). Vérifier qu'aucun autre script, workflow CI ou code de prod n'ouvre son propre pool ou client ; les fabriques de test (`tests/factories/`) sont hors périmètre sauf si triviales.
+  - Test à écrire d'abord : un vrai pool `@neondatabase/serverless` (pas de mock du pilote) dont la connexion est coupée pendant une lecture empruntée : aucune `uncaughtException`, la lecture rejette, un appel suivant obtient une connexion neuve. Même test pour `admin.ts` si son pool peut être construit en test.
+  - Hors périmètre : connexions mortes après une mise en veille (ticket Linear séparé).
+  - Fini quand : tests verts, reviewer OK, `security-auditor` sans faille.
+
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->
