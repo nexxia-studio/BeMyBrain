@@ -197,6 +197,30 @@ describe("frontières d'import", () => {
     expect(errors.length).toBeGreaterThan(0);
   });
 
+  it.each(["src/i18n/x.ts", "src/proxy.ts", "src/app/probe.ts"])(
+    "eslint refuse @/db/pool (pool brut, sans RLS) dans %s",
+    async (filePath) => {
+      const code =
+        'import { createPool } from "@/db/pool";\nexport const x = createPool;\n';
+
+      const errors = await restrictedImportRules(code, filePath);
+
+      expect(errors.some((message) => message.includes("db/pool"))).toBe(true);
+    },
+  );
+
+  it.each(["src/db/client.ts", "src/db/admin.ts"])(
+    "eslint autorise ./pool dans %s",
+    async (filePath) => {
+      const code =
+        'import { createPool } from "./pool";\nexport const x = createPool;\n';
+
+      const errors = await restrictedImportRules(code, filePath);
+
+      expect(errors).toHaveLength(0);
+    },
+  );
+
   it("eslint refuse new Pool dans un module", async () => {
     const code =
       'import { Pool } from "@neondatabase/serverless";\nexport const pool = new Pool({});\n';

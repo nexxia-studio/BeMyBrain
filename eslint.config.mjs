@@ -4,7 +4,7 @@ import nextTs from "eslint-config-next/typescript";
 
 // Frontières ADR-002 / ADR-008 : l'UI ne touche pas la base, les modules ne dépendent ni de React ni de Next.
 // Partout dans src/ hors src/db : ni db/admin (rôle propriétaire), ni db/user-db (fabrique interne),
-// ni db/migration-env (URL propriétaire), ni pilote (Neon, pg, postgres), ni sous-chemin de drizzle-orm
+// ni db/migration-env (URL propriétaire), ni db/pool (pool brut), ni pilote (Neon, pg, postgres), ni sous-chemin de drizzle-orm
 // (pg-core et pilotes réservés à src/db ; les modules n'utilisent que les opérateurs de « drizzle-orm »).
 // Les modules n'accèdent à src/db que par @/db/client (withUserDb) et @/db/schema (tables).
 // Regex et non motifs gitignore : une négation (!@/db/client) ne ré-autorise pas un chemin dont le parent est exclu.
@@ -12,9 +12,9 @@ import nextTs from "eslint-config-next/typescript";
 // chaque config passe donc par restrictedImports() / restrictedSyntax(), qui reprennent le socle commun.
 const privilegedDbImports = {
   regex:
-    "(?:^|/)db/(?:.*/)?(?:admin|user-db|migration-env)(?:\\.[cm]?[jt]sx?)?$",
+    "(?:^|/)db/(?:.*/)?(?:admin|user-db|migration-env|pool)(?:\\.[cm]?[jt]sx?)?$",
   message:
-    "db/admin, db/user-db et db/migration-env sont réservés à src/db, aux scripts et aux tests : passer par withUserDb de @/db/client (ADR-002).",
+    "db/admin, db/user-db, db/migration-env et db/pool (pool brut, sans RLS) sont réservés à src/db, aux scripts et aux tests : passer par withUserDb de @/db/client (ADR-002).",
 };
 
 const driverImports = {
