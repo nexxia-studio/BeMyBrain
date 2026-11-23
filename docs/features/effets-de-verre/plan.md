@@ -194,5 +194,27 @@ Essai iPhone du 2026-11-21 : reflet validé sans changement. Givre : deux défau
   - Fini quand : tests verts, reviewer OK, `security-auditor` sans faille.
   - Fait (2026-11-23) : `a5d3119`, `900e09d`, `aff77b6`. Reviewer approuvé ; audit : une faille (frontière eslint de `src/db/pool.ts`) corrigée puis vérifiée fermée ; durcissements : BRAIN-51. Connexions mortes après veille : BRAIN-50.
 
+Essai iPhone du tableau de bord ralenti (2026-11-23) : hauteurs fixes refusées (tuiles de près de 500 px pour une phrase), retour à l'option 1 (hauteurs mémorisées). Cran « discret » pour toute l'app. Césure « aujourd'-hui » dans la tuile pleine.
+
+- [ ] **QA-5. Tuiles à la hauteur de leur contenu, états vides compacts, cran « discret », sans césure**
+  - Retirer `TILE_HEIGHT_CLASSES`, `TODAY_TILE_HEIGHT_CLASSES` et leur usage (tuiles, `dashboard/loading.tsx`), et l'amendement « Hauteurs fixes » de DESIGN.md § 6 (tableau des valeurs compris).
+  - États vides compacts : plus de `TileRest` ni d'état de remplissage (« Rien d'autre aujourd'hui. », « Rien d'autre à venir. ») ; une tuile vide ou peu remplie a la hauteur de son contenu. Garder les lignes de tâche et pastilles sur une ligne dans les tuiles. Retirer les clés de messages devenues inutiles (FR et EN). DESIGN.md § 6 décrit les états compacts.
+  - Givre du tableau de bord, en attendant QA-6 : chaque tuile givrée prend la hauteur de l'état vide compact de sa tuile, lue depuis une source partagée avec la tuile (pas de valeur recopiée).
+  - Cran « discret » figé dans le code : valeurs par défaut de `:root` = discret (halos purs, repos 0,55). La démo garde son sélecteur jusqu'à la tâche 9, avec « discret » par défaut. DESIGN.md § 5 à jour.
+  - Césure : retirer `hyphens: auto` de `globals.css` et la règle de DESIGN.md (ligne « FR et EN »).
+  - Test à écrire d'abord : unitaires (aucune classe de hauteur fixe, plus d'état de remplissage, `:root` au cran discret, plus de `hyphens: auto`) ; e2e : le titre et l'ordre et la largeur des tuiles ne bougent pas du givre au contenu ; les anciennes vérifications de hauteur au pixel sont retirées jusqu'à QA-6 (sauf tuiles sans données).
+  - Fini quand : tests verts, e2e sans régression.
+
+- [ ] **QA-6. Hauteurs des tuiles mémorisées dans un cookie, réservées par le givre** `[security]`
+  - Mesure : après chaque affichage du tableau de bord, un petit composant client mesure la hauteur de chaque tuile et l'écrit dans le cookie `bmb-dashboard-tiles`. Un relevé par côté (Privé / Pro) et par palier d'écran (mobile < 640, tablette, ordinateur ≥ 1024, mêmes paliers que la grille). Le filtre d'espace n'est pas une clé : il est persistant, donc le dernier relevé correspond au filtre courant ; un changement de filtre relève de la limite « données changées ».
+  - Attributs : `Secure`, `SameSite=Strict`, `Path=/dashboard`, `Max-Age` 30 jours, sans `HttpOnly` (écrit par le navigateur). Pour la démo ralentie (supprimée à la tâche 9), le chemin du cookie est celui de la route lente : le chemin est passé par la page, jamais calculé depuis l'adresse.
+  - Lecture : `dashboard/loading.tsx` lit le cookie (`cookies()`), le côté courant et pose sur chaque tuile givrée les trois hauteurs du côté en variables CSS (`--tile-h-sm`, `--tile-h-md`, `--tile-h-lg`, via `style`, permis par la CSP `style-src-attr`) ; le CSS applique celle du palier. Sans relevé : hauteur de l'état vide compact (QA-5).
+  - Validation (donnée non fiable) : un seul module pur de lecture ; cookie au-delà de 1 024 caractères ignoré en entier ; identifiants de tuile hors de la liste connue ignorés ; valeurs converties en entier, bornées (ex. 80 à 1 200 px), toute autre valeur ignorée ; jamais de chaîne du cookie recopiée dans un style.
+  - Test à écrire d'abord :
+    - unitaires du module de lecture avec valeurs hostiles : texte, CSS (`1px;background:url(…)`, `calc(…)`, `var(…)`), négatifs, zéro, décimaux, nombres énormes, `NaN`, `Infinity`, tuile inconnue, côté inconnu, palier inconnu, JSON cassé, cookie trop long → ignorés ;
+    - unitaires de l'écriture (attributs du cookie) ;
+    - e2e mobile et ordinateur : premier affichage puis rechargement ralenti avec données inchangées → boîte de chaque tuile identique au pixel du givre au contenu ; sans cookie → état compact ; ordre et largeur des tuiles inchangés dans tous les cas.
+  - Fini quand : tests verts, reviewer OK, `security-auditor` sans faille.
+
 ## Terminé
 <!-- scribe déplace ici les tâches cochées avec la date. -->

@@ -44,7 +44,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - aucune barre de texte simulée (les lignes givrées de la liste et de la corbeille, QA-3, sont des surfaces de ligne voilées, pas des squelettes).
 - [ ] Un seul composant givre réutilisable, rendu par le serveur, sans JavaScript client. Il s'affiche avant le reste du code.
 - [ ] Le givre est un voile teinté posé dans la tuile de verre (jamais un second verre) :
-  - dégradé à 135°, de `--halo-blue` à `--halo-lilac`, à l'un des trois crans (QA-1) : discret = halos purs ; moyen = chaque halo mêlé à 15 % de `--primary` ; marqué = à 30 % ;
+  - dégradé à 135°, de `--halo-blue` à `--halo-lilac`, halos purs, cran « discret » (QA-1, retenu le 2026-11-23) ;
   - départ opaque (1), puis éclaircissement tuile par tuile jusqu'à un voile de repos qui reste ;
   - 1,3 s par tuile, 0,18 s de décalage ;
   - aucune boucle.
@@ -60,11 +60,13 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - la légende d'une ligne de la liste a la hauteur d'une pastille, avec ou sans pastille d'espace (cale invisible) : la première ligne est au pixel dans les deux cas ;
   - boîte (x, y, largeur, hauteur) identique au pixel près, du givre au contenu, pour l'en-tête de page, le filtre d'espace, l'interrupteur « Terminées », le premier en-tête de section et la première ligne (corbeille : en-tête de page et première ligne) ;
   - sous la première ligne, un ajustement est accepté (titres sur deux lignes, légende plus haute, nombre de lignes) : le bas de la liste n'est pas vérifié. Pour ces deux pages, ce critère remplace « même position et même largeur du titre et de la première tuile ».
-- [ ] Tableau de bord (QA-2, décision d'Antoine du 2026-11-21) : chaque tuile du givre a la boîte de la vraie tuile (x, y, largeur, hauteur), au pixel près, quel que soit le contenu (To-do à 0, 2 ou 5 tâches, « Aujourd'hui » vide, peu remplie ou pleine, tuiles vides, titres longs), sur mobile et ordinateur :
-  - hauteur fixe par tuile (`wide`, `standard`, `figure`, tuile pleine), par palier d'écran, définie une seule fois dans `tile-sizes.ts` et lue par les tuiles et le givre (valeurs : DESIGN.md § 6) ;
-  - chaque hauteur est calée sur le contenu maximal de la tuile ;
-  - dans les tuiles, lignes de tâche et pastilles d'espace sur une ligne (titre tronqué) ; titre complet dans la liste et le détail ;
-  - une tuile peu remplie montre un état de remplissage (« Rien d'autre aujourd'hui. », « Rien d'autre à venir. »), jamais du blanc.
+- [ ] Tableau de bord (QA-5 et QA-6, décision d'Antoine du 2026-11-23, remplace QA-2 : les hauteurs fixes laissaient des tuiles de près de 500 px pour une phrase) :
+  - les tuiles s'adaptent à leur contenu ; aucune hauteur fixe ; titres de tâche et pastilles sur une ligne dans les tuiles (titre complet dans la liste et le détail) ;
+  - états vides compacts : une tuile vide ou peu remplie a la hauteur de son contenu, sans blanc ajouté ni état de remplissage ;
+  - le givre réserve la hauteur mesurée de chaque tuile au dernier affichage, mémorisée dans un cookie par côté (Privé / Pro) et par palier d'écran, lue par le serveur au rendu de `loading.tsx` (aucun script, aucun éclair) ; sans relevé (première ouverture, nouvel appareil, nouveau palier), le givre prend la hauteur de l'état vide compact ;
+  - le cookie est une donnée non fiable : valeurs converties en nombre et bornées, tuiles inconnues et cookie trop long ignorés, avant tout usage dans un style ;
+  - test de géométrie, données inchangées depuis la visite précédente : boîte de chaque tuile identique au pixel, du givre au contenu, sur mobile et ordinateur ; dans tous les cas, l'ordre et la largeur des tuiles ne changent jamais ;
+  - limites acceptées : (1) si les données ont changé depuis la dernière visite (dont un autre filtre d'espace), une tuile s'ajuste en hauteur à l'arrivée du contenu ; (2) pendant une navigation dans l'app, Next peut réutiliser un écran de chargement préchargé plus tôt, dont les hauteurs datent alors d'une visite précédente.
 - [ ] Accessibilité inchangée : `aria-busy` sur `<main>`, message « chargement » en `role="status"`, givre `aria-hidden`.
 - [ ] Les squelettes actuels et leurs `data-testid` sont retirés. Leurs tests sont remplacés.
 
@@ -74,6 +76,7 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - la phrase « reportés… » est retirée ;
   - le givre de chargement est décrit avec ses valeurs ;
   - § 11 : le givre n'est pas une boucle.
+- [ ] Aucune césure automatique dans les textes de l'interface (`hyphens: auto` retiré, décision d'Antoine du 2026-11-23 : « aujourd'-hui » coupé dans la tuile pleine).
 - [ ] Avant l'essai iPhone, la démo offre :
   - un bouton qui efface les marqueurs de session des moments, puis ouvre le tableau de bord ;
   - des liens vers le tableau de bord et la liste des tâches avec un chargement ralenti de 3 s, sur les vraies pages et les vrais composants de chargement.
@@ -110,5 +113,5 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - `prefers-reduced-transparency` : le verre devient opaque, le voile reste.
 
 ## Questions ouvertes
-- [ ] Intensité du givre : 0,45 sur des halos mêlés à 75 % de blanc s'est révélé presque invisible à l'essai iPhone du 2026-11-21. Trois crans à comparer sur la démo (QA-1) : discret (repos 0,55), moyen (0,6, par défaut), marqué (0,65). Liste et corbeille : « discret » (essai iPhone d'Antoine, 2026-11-23). Tableau de bord : à choisir à son essai iPhone ; même cran → valeur par défaut de toute l'app, cran différent → valeur par page.
+- [x] Intensité du givre : « discret » (repos 0,55, halos purs) pour toute l'app, choisi aux essais iPhone d'Antoine du 2026-11-23 (liste, puis tableau de bord). Les crans moyen et marqué disparaissent avec la démo.
 - [x] Bascule Privé / Pro : pas d'effet de verre (Antoine, 2026-11-20).
