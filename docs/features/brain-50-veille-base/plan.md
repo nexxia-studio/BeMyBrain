@@ -38,6 +38,7 @@ Tests base : branche Neon `test` (`DATABASE_TEST_URL`, `DATABASE_TEST_AUTHENTICA
   - Décision du 2026-11-23 (relecture) : pas d'e2e automatisé. Aucun moyen de faire échouer une lecture serveur depuis Playwright, et pas de point d'injection dans le code de production. Le `qa-tester` joue le scénario 3 sur un build local avec un `throw` temporaire après `requireSessionWithToken()` dans `TaskDetailPanel.tsx`, dans un worktree jetable, jamais committé.
 - [ ] **7. BRAIN-54 : chargement du détail séparé de la liste**
   - Fichiers : `src/app/(app)/tasks/@detail/(.)[id]/loading.tsx`, `src/app/(app)/tasks/@detail/[id]/loading.tsx` (ou au niveau `@detail`), givre de la fiche de détail par `FrostTile`
+  - Écart (2026-11-23, mesuré sur build) : un `loading.tsx` dans `@detail` ne retire pas le doublon, celui de `tasks/` enveloppe l'emplacement quoi qu'il arrive. Fait : liste et chargement déplacés dans le groupe `tasks/(list)/` (adresses inchangées) ; `@detail/[id]/loading.tsx` rend `null` ; aucun givre de détail (la spec admet « ou rien » : une fiche givrée ferait entrer la fenêtre deux fois). Le `null` voisine une page qui appelle `notFound()` : statut 200 déjà connu (`e2e/todo.ts`), pas une régression.
   - Tests à écrire d'abord : test unitaire du chargement du détail ; e2e : pendant le chargement de `/tasks`, un seul titre « To-do » et un seul `data-testid="tasks-frost"`.
   - Fini quand : tests verts, desktop et mobile.
 - [ ] **8. Vérification sur preview** (session principale)

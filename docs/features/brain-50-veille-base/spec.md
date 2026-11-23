@@ -75,7 +75,7 @@ Cause commune : en Next 16, `error.tsx` et `loading.tsx` de `tasks/` enveloppent
 - `src/db/user-db.ts`, `src/db/pool.ts`, `src/db/admin.ts` touchés → `security-auditor` après le reviewer (tâches 2, 3, 4) : la tentative rejouée repose l'identité vérifiée, ne réutilise aucun état de la première, et la trace ne porte aucune donnée.
 
 ## UI
-- BRAIN-47 et BRAIN-54 seulement : `src/app/(app)/tasks/@detail/`. Réutiliser `FrostTile`, la tuile d'erreur de `tasks/error.tsx` et les textes `next-intl` (FR/EN, ADR-007). Rien hors DESIGN.md.
+- BRAIN-47 et BRAIN-54 seulement : `src/app/(app)/tasks/@detail/` et le groupe `src/app/(app)/tasks/(list)/` (liste et son chargement, BRAIN-54). Réutiliser `FrostTile`, la tuile d'erreur de `tasks/error.tsx` et les textes `next-intl` (FR/EN, ADR-007). Rien hors DESIGN.md.
 
 ## Questions ouvertes
 - Aucune.
