@@ -36,8 +36,7 @@ export function TodayHead({ intro, strut = false }: TodayHeadProps) {
         {t("greeting")}
       </h2>
       {intro !== null && (
-        <p {...item} className="max-w-105 text-lead text-on-primary-lead"
-        >
+        <p {...item} className="max-w-105 text-lead text-on-primary-lead">
           {intro}
         </p>
       )}

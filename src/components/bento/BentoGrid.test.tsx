@@ -85,16 +85,17 @@ describe("grille bento", () => {
     expect(root.classList.contains("items-start")).toBe(false);
   });
 
-  it("relève la hauteur de ses tuiles pour le givre : côté et chemin du cookie passés au relevé, grille comme racine", async () => {
+  it("relève la hauteur de ses tuiles pour le givre : chemin du cookie passé au relevé, grille comme racine, côté rendu dans le DOM", async () => {
     const { container } = await renderGrid();
 
     expect(recorderProps).toHaveBeenCalledWith(
-      expect.objectContaining({ side: "private", path: "/dashboard" }),
+      expect.objectContaining({ path: "/dashboard" }),
     );
     const { rootRef } = recorderProps.mock.calls.at(-1)?.[0] as {
-      rootRef: { current: Element | null };
+      rootRef: { current: HTMLElement | null };
     };
     expect(rootRef.current).toBe(container.firstElementChild);
+    expect(rootRef.current?.dataset.side).toBe("private");
   });
 
   it("masque les cibles des moments en attente dès le montage (arrivée par navigation côté client)", async () => {

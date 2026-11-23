@@ -114,9 +114,9 @@ export function BentoGrid({ side, tileHeightsPath, children }: BentoGridProps) {
   }, []);
 
   return (
-    <div ref={rootRef} className={BENTO_GRID_CLASSES}>
+    <div ref={rootRef} data-side={side} className={BENTO_GRID_CLASSES}>
       {children}
-      <TileHeightRecorder rootRef={rootRef} side={side} path={tileHeightsPath} />
+      <TileHeightRecorder rootRef={rootRef} path={tileHeightsPath} />
       {/* Une barrière par moment : un morceau introuvable démasque ses cibles, sans page d'erreur. */}
       {entrance ? (
         <>

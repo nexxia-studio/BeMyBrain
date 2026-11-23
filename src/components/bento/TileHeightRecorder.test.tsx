@@ -54,11 +54,11 @@ function Grid({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   return (
-    <div ref={rootRef} data-testid="grid">
+    <div ref={rootRef} data-testid="grid" data-side={side}>
       {tiles.map((id) => (
         <section key={id} data-tile={id} />
       ))}
-      <TileHeightRecorder rootRef={rootRef} side={side} path={path} />
+      <TileHeightRecorder rootRef={rootRef} path={path} />
     </div>
   );
 }
@@ -71,9 +71,7 @@ function renderGrid(
     path = "/dashboard",
   }: { side?: Side; path?: string } = {},
 ) {
-  return render(
-    <Grid side={side} path={path} tiles={Object.keys(heights)} />,
-  );
+  return render(<Grid side={side} path={path} tiles={Object.keys(heights)} />);
 }
 
 function tilesOf(container: HTMLElement) {
@@ -217,6 +215,37 @@ describe("relevé des hauteurs de tuiles", () => {
     tier = "";
 
     mountAndMeasure({ today: 300 });
+
+    expect(cookieJar.writes).toEqual([]);
+  });
+
+  it("bascule en transition : l'ancien observateur qui se déclenche sur le DOM du nouveau côté, avant les effets, n'écrit rien sous l'ancien côté", () => {
+    const { rerender } = mountAndMeasure({
+      today: 300,
+      privateTodo: 480,
+      home: 150,
+    });
+    const before = valueOf(lastWrite());
+    cookieJar.read = `${TILE_HEIGHTS_COOKIE}=${before}`;
+    const oldObserver = FakeResizeObserver.instances.at(-1);
+
+    // Nouveau DOM (côté Pro) mis en place ; l'ancien observateur se déclenche avant que les effets ne repartent.
+    rerender(
+      <Grid side="pro" path="/dashboard" tiles={["today", "proTodo"]} />,
+    );
+    for (const tile of tilesOf(document.body)) setHeight(tile, 200);
+    cookieJar.writes = [];
+    act(() => oldObserver?.fire());
+
+    for (const write of cookieJar.writes) {
+      expect(parseTileHeights(valueOf(write)).private).toEqual(
+        parseTileHeights(before).private,
+      );
+    }
+  });
+
+  it("une tuile qui n'appartient pas au côté rendu : rien n'est écrit", () => {
+    mountAndMeasure({ today: 300, proTodo: 200 }, { side: "private" });
 
     expect(cookieJar.writes).toEqual([]);
   });

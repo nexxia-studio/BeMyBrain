@@ -47,6 +47,7 @@ export function TileCompactEmpty({ tile, seeAll, add }: TileCompactEmptyProps) {
       <div className="flex grow flex-col items-start gap-3">
         <div className="flex w-full flex-wrap items-center gap-3">
           <span
+            // Reste dans la cale du givre : empty-state.tsx ne cherche ses cibles que sous `rootRef` (la vraie grille).
             data-signature="empty"
             className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-row text-link"
           >

@@ -309,8 +309,12 @@ describe("tableau de bord", () => {
       await renderPage();
 
       expect(recorderProps).toHaveBeenLastCalledWith(
-        expect.objectContaining({ side, path: "/dashboard" }),
+        expect.objectContaining({ path: "/dashboard" }),
       );
+      const { rootRef } = recorderProps.mock.calls.at(-1)?.[0] as {
+        rootRef: { current: HTMLElement | null };
+      };
+      expect(rootRef.current?.dataset.side).toBe(side);
     },
   );
 
