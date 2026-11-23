@@ -73,6 +73,11 @@ function startChild(trigger: string) {
     stdio: ["ignore", "pipe", "ignore"],
   });
   child = proc;
+  const exited = new Promise<string>((resolve) =>
+    proc.once("exit", (code, signal) =>
+      resolve(`code ${code ?? "aucun"}, signal ${signal ?? "aucun"}`),
+    ),
+  );
   const lines = createInterface({ input: proc.stdout! })[
     Symbol.asyncIterator
   ]();
@@ -80,10 +85,44 @@ function startChild(trigger: string) {
     proc,
     async next(): Promise<ChildMessage> {
       const { value, done } = await lines.next();
-      if (done) throw new Error("L'enfant s'est arrêté sans répondre.");
+      // stdout fermé : l'enfant est mort (au démarrage, ou pendant la chauffe). Son stderr n'est jamais affiché.
+      if (done)
+        throw new Error(
+          `L'enfant s'est arrêté sans répondre (${await exited}). Relancer à la main : node --import tsx tests/factories/frozen-pool-child.mts <déclencheur>.`,
+        );
       return JSON.parse(value) as ChildMessage;
     },
   };
+}
+
+const BACKENDS_GONE_LIMIT_MS = 5_000;
+
+/** Nombre des `pids` encore présents dans pg_stat_activity. */
+async function countBackends(pids: number[]): Promise<number> {
+  const { rows } = await killer
+    .query<{ n: number }>(
+      "select count(*)::int as n from pg_stat_activity where pid = any($1::int[])",
+      [pids],
+    )
+    .catch((error: { code?: string }) => {
+      throw new Error(`lecture de pg_stat_activity en échec (${error.code})`);
+    });
+  return rows[0]?.n ?? -1;
+}
+
+/** Interroge pg_stat_activity jusqu'à ce qu'aucun des `pids` n'y figure ; échoue au-delà du plafond. */
+async function waitForBackendsGone(pids: number[]) {
+  const deadline = Date.now() + BACKENDS_GONE_LIMIT_MS;
+  for (;;) {
+    const remaining = await countBackends(pids);
+    if (remaining === 0) return;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `${remaining} backend(s) encore présents après ${BACKENDS_GONE_LIMIT_MS} ms.`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
 }
 
 async function freezeAndWake(options: { terminate: boolean }) {
@@ -104,9 +143,12 @@ async function freezeAndWake(options: { terminate: boolean }) {
         throw new Error(`pg_terminate_backend en échec (${error.code})`);
       });
     expect(rows.map((row) => row.ok)).toEqual([true, true, true, true]);
+    // Attend que les backends aient disparu côté serveur (sockets fermés) ; l'enfant, gelé, ne le sait pas.
+    await waitForBackendsGone(ready.pids);
+  } else {
+    // Témoin : les 4 connexions de l'enfant sont toujours vivantes pendant le gel.
+    expect(await countBackends(ready.pids)).toBe(4);
   }
-  // Laisse au serveur le temps de fermer les sockets ; l'enfant, gelé, ne les traite pas.
-  await new Promise((resolve) => setTimeout(resolve, 500));
   writeFileSync(trigger, "");
   proc.kill("SIGCONT");
 
@@ -127,26 +169,38 @@ describe("pool gelé puis réveillé (BRAIN-50)", () => {
         { ok: true },
         { ok: true },
       ]);
+      expect(result).toMatchObject({
+        attempts: 4,
+        rawErrors: [],
+        warnCount: 0,
+      });
     },
     TIMEOUT,
   );
 
-  // Rouge sur le code actuel (constaté le 2026-11-23, 4 runs sur 4) : 4 DatabaseError 57P01. Le serveur a
-  // envoyé « terminating connection due to administrator command » avant de fermer ; le pool, réveillé, prête
-  // les 4 connexions avant de traiter ces messages. Avec la veille Neon (sans message), même mécanisme mais
-  // « Connection terminated unexpectedly » sans SQLSTATE. Deux erreurs de connexion au sens de la spec.
-  // Rendu vert par la tâche 3 (BRAIN-50) : passer alors `it.fails` en `it`.
-  it.fails(
-    "connexions tuées pendant le gel : les 4 lectures parallèles du réveil réussissent",
+  // Signature actuelle du bug (constatée le 2026-11-23) : le pool, réveillé, prête les 4 connexions mortes
+  // avant de traiter leur fermeture → 4 DatabaseError. pg_terminate_backend envoie un FATAL 57P01 avant de
+  // fermer ; la veille Neon ferme sans message (« Connection terminated unexpectedly », sans SQLSTATE) : deux
+  // erreurs de connexion au sens de la spec. Un enfant mort, un terminate refusé ou un délai dépassé font
+  // échouer ce test.
+  // La tâche 3 inverse cette attente : outcomes 4 × { ok: true }, attempts 8, rawErrors inchangés (4 erreurs
+  // de connexion, vues aux premières tentatives), warnCount 4.
+  it(
+    "connexions tuées pendant le gel : les 4 lectures du réveil échouent sur des connexions mortes (bug actuel)",
     async () => {
       const result = await freezeAndWake({ terminate: true });
 
-      expect(result.outcomes).toEqual([
-        { ok: true },
-        { ok: true },
-        { ok: true },
-        { ok: true },
-      ]);
+      expect(result.outcomes).toEqual(
+        Array.from({ length: 4 }, () =>
+          expect.objectContaining({ ok: false, name: "DatabaseError" }),
+        ),
+      );
+      expect(result.attempts).toBe(4);
+      expect(result.rawErrors).toHaveLength(4);
+      for (const raw of result.rawErrors) {
+        expect(raw.code === "57P01" || raw.connectionTerminated).toBe(true);
+      }
+      expect(result.warnCount).toBe(0);
     },
     TIMEOUT,
   );
