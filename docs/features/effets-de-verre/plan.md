@@ -215,6 +215,12 @@ Essai iPhone du tableau de bord ralenti (2026-11-23) : hauteurs fixes refusées 
     - unitaires du module de lecture avec valeurs hostiles : texte, CSS (`1px;background:url(…)`, `calc(…)`, `var(…)`), négatifs, zéro, décimaux, nombres énormes, `NaN`, `Infinity`, tuile inconnue, côté inconnu, palier inconnu, JSON cassé, cookie trop long → ignorés ;
     - unitaires de l'écriture (attributs du cookie) ;
     - e2e mobile et ordinateur : premier affichage puis rechargement ralenti avec données inchangées → boîte de chaque tuile identique au pixel du givre au contenu ; sans cookie → état compact ; ordre et largeur des tuiles inchangés dans tous les cas.
+  - Ajout d'Antoine (2026-11-23, après QA-5) : rangées alignées en bas.
+    - Ordinateur et tablette : les tuiles d'une même rangée s'étirent à la hauteur de la plus haute (retirer `items-start`) ; la hauteur d'une rangée suit son contenu, sans hauteur fixe.
+    - Une colonne (mobile) : chaque tuile garde la hauteur de son contenu.
+    - Tuile étirée : contenu en haut, lien ou bouton d'action en bas.
+    - Le relevé du cookie mémorise la hauteur affichée, étirement compris ; l'e2e « données inchangées » le prouve au pixel sur une rangée où une tuile est étirée.
+    - Titres de tuile : deux lignes au plus, inchangés.
   - Fini quand : tests verts, reviewer OK, `security-auditor` sans faille.
 
 ## Terminé
