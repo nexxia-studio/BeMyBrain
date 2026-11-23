@@ -110,5 +110,5 @@ Donner au tableau de bord un moment d'ouverture propre au liquid glass : le refl
   - `prefers-reduced-transparency` : le verre devient opaque, le voile reste.
 
 ## Questions ouvertes
-- [ ] Intensité du givre : 0,45 sur des halos mêlés à 75 % de blanc s'est révélé presque invisible à l'essai iPhone du 2026-11-21. Trois crans à comparer sur la démo (QA-1) : discret (repos 0,55), moyen (0,6, par défaut), marqué (0,65). Cran retenu : à choisir à l'essai iPhone.
+- [ ] Intensité du givre : 0,45 sur des halos mêlés à 75 % de blanc s'est révélé presque invisible à l'essai iPhone du 2026-11-21. Trois crans à comparer sur la démo (QA-1) : discret (repos 0,55), moyen (0,6, par défaut), marqué (0,65). Liste et corbeille : « discret » (essai iPhone d'Antoine, 2026-11-23). Tableau de bord : à choisir à son essai iPhone ; même cran → valeur par défaut de toute l'app, cran différent → valeur par page.
 - [x] Bascule Privé / Pro : pas d'effet de verre (Antoine, 2026-11-20).
