@@ -164,11 +164,11 @@ const FROST_CASES: FrostCase[] = [
   },
 ];
 
-/** Tuiles du givre (enfants directs du conteneur), puis leur voile. */
+/** Tuiles du givre (enfants directs du conteneur), puis leur voile (pas la cale de hauteur, inerte). */
 const frostTiles = (page: Page, frostId: string) =>
   page.getByTestId(frostId).locator(":scope > div");
 const frostVeils = (page: Page, frostId: string) =>
-  page.getByTestId(frostId).locator(":scope > div > div");
+  page.getByTestId(frostId).locator(":scope > div > div:not([inert])");
 
 test.describe("givre de chargement", () => {
   for (const c of FROST_CASES) {
@@ -251,7 +251,7 @@ test.describe("givre de chargement", () => {
       await navLink(page, fr.shell.home).click();
       const veils = frostVeils(page, "dashboard-frost");
       await expect(veils.first()).toBeAttached();
-      // Lu d'un coup dès l'affichage : une animation en cours donnerait une opacité entre 1 et le repos (0,6, cran moyen par défaut).
+      // Lu d'un coup dès l'affichage : une animation en cours donnerait une opacité entre 1 et le repos (0,55, cran discret).
       const states = await veils.evaluateAll((elements) =>
         elements.map((element) => ({
           opacity: getComputedStyle(element).opacity,
@@ -261,16 +261,18 @@ test.describe("givre de chargement", () => {
 
       expect(states.length).toBeGreaterThan(0);
       for (const state of states) {
-        expect(state).toEqual({ opacity: "0.6", animations: 0 });
+        expect(state).toEqual({ opacity: "0.55", animations: 0 });
       }
     });
   });
 });
 
-// Givre du tableau de bord à la géométrie exacte (QA-2) : la boîte (x, y, largeur, hauteur) de chaque tuile du
-// givre est celle de la vraie tuile, au pixel près, quel que soit le contenu. Données réalistes créées par l'ajout
-// rapide (titres longs, échéances, heures), mises à la corbeille à la fin : To-do à 0, 2 puis 5 tâches, tuile
-// « Aujourd'hui » peu remplie puis pleine, tuiles vides, côté Privé (paire de tuiles chiffre) et côté Pro.
+// Givre du tableau de bord, tuiles à la hauteur du contenu (QA-5) : du givre au contenu, l'ordre des tuiles, leur
+// position horizontale et leur largeur ne changent pas, ni la boîte de la première rangée. Hauteur : le givre
+// prend celle de l'état vide compact de chaque tuile ; elle n'est vérifiée au pixel que pour les tuiles sans données
+// (tuiles vides, To-do à 0). Les tuiles qui ont des données s'ajustent jusqu'aux hauteurs mémorisées (QA-6).
+// Données réalistes créées par l'ajout rapide (titres longs, échéances, heures), mises à la corbeille à la fin :
+// To-do à 0, 2 puis 5 tâches, côté Privé (paire de tuiles chiffre) et côté Pro.
 // Précondition : le compte e2e n'a aucune tâche ouverte dans l'espace Trustup (To-do à 0).
 
 /** Écart refusé : un pixel. En dessous, arrondis de sous-pixel (aucun n'a été observé). */
@@ -284,12 +286,21 @@ type TileBox = {
   height: number;
 };
 
-/** Boîtes des tuiles du givre (enfants directs du conteneur), dans l'ordre de la grille. */
-async function frostBoxes(page: Page): Promise<Omit<TileBox, "id">[]> {
+/** Boîtes des tuiles du givre (enfants directs du conteneur), dans l'ordre de la grille ; id sans préfixe. */
+async function frostBoxes(page: Page): Promise<TileBox[]> {
   return frostTiles(page, "dashboard-frost").evaluateAll((tiles) =>
     tiles.map((tile) => {
       const rect = tile.getBoundingClientRect();
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      return {
+        id: ((tile as HTMLElement).dataset.testid ?? "").replace(
+          "frost-tile-",
+          "tile-",
+        ),
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      };
     }),
   );
 }
@@ -323,13 +334,26 @@ function sideTodoRows(page: Page, tileId: "privateTodo" | "proTodo"): Locator {
     .getByRole("listitem");
 }
 
+/** Tuiles sans données du catalogue (vides tant que leur module n'existe pas). */
+const EMPTY_TILE_IDS = [
+  "tile-shopping",
+  "tile-budget",
+  "tile-health",
+  "tile-home",
+  "tile-clients",
+  "tile-proFinances",
+  "tile-social",
+];
+
 /**
  * Depuis la liste, ouvre le tableau de bord avec un chargement ralenti ; relève les boîtes de chaque tuile du givre
- * puis du contenu et les compare au pixel. `check` vérifie le contenu attendu une fois la page chargée.
+ * puis du contenu. Ordre, x et largeur au pixel pour toutes ; y pour la première rangée (celle d'« Aujourd'hui ») ;
+ * hauteur pour les tuiles sans données et celles de `alsoCompact` (To-do à 0). `check` vérifie le contenu attendu.
  */
-async function expectFrostGeometry(
+async function expectFrostLayout(
   page: Page,
   what: string,
+  alsoCompact: string[],
   check: () => Promise<void>,
 ) {
   await page.goto("/tasks");
@@ -352,9 +376,19 @@ async function expectFrostGeometry(
     type: `géométrie : ${what}`,
     description: JSON.stringify({ frost, content }),
   });
-  expect(content.length, `${what} : nombre de tuiles`).toBe(frost.length);
+  expect(
+    content.map((tile) => tile.id),
+    `${what} : ordre des tuiles`,
+  ).toEqual(frost.map((tile) => tile.id));
+  const compact = new Set([...EMPTY_TILE_IDS, ...alsoCompact]);
+  const firstRowY = frost[0].y;
   content.forEach((tile, i) => {
-    for (const key of ["x", "y", "width", "height"] as const) {
+    const keys: (keyof Omit<TileBox, "id">)[] = ["x", "width"];
+    if (Math.abs(frost[i].y - firstRowY) < GEOMETRY_TOLERANCE_PX) {
+      keys.push("y");
+    }
+    if (compact.has(tile.id)) keys.push("height");
+    for (const key of keys) {
       expect(
         Math.abs(tile[key] - frost[i][key]),
         `${what}, ${tile.id} : ${key} ${frost[i][key]} (givre) → ${tile[key]} (contenu)`,
@@ -363,14 +397,14 @@ async function expectFrostGeometry(
   });
 }
 
-test.describe("givre du tableau de bord à la géométrie exacte", () => {
+test.describe("givre du tableau de bord, tuiles à la hauteur du contenu", () => {
   const created: string[] = [];
 
   test.afterEach(async ({ page }) => {
     await trashTasks(page, created.splice(0));
   });
 
-  test("chaque tuile garde sa boîte au pixel près, du givre au contenu, To-do à 0, 2 et 5 tâches", async ({
+  test("ordre, position horizontale et largeur de chaque tuile inchangés du givre au contenu ; hauteur au pixel pour les tuiles sans données", async ({
     page,
   }) => {
     // Neuf tâches créées par l'ajout rapide et quatre chargements ralentis.
@@ -384,12 +418,12 @@ test.describe("givre du tableau de bord à la géométrie exacte", () => {
     await filterContext(page, "Trustup");
     await expect(page.getByTestId("tile-proTodo")).toBeVisible();
 
-    // To-do à 0 (espace Trustup vide) : l'état vide de la tuile.
-    await expectFrostGeometry(page, "To-do à 0", async () => {
+    // To-do à 0 (espace Trustup vide) : l'état vide compact de la tuile, à la hauteur du givre.
+    await expectFrostLayout(page, "To-do à 0", ["tile-proTodo"], async () => {
       await expect(sideTodoRows(page, "proTodo")).toHaveCount(0);
     });
 
-    // To-do à 2 (espace Nexxia) et tuile « Aujourd'hui » peu remplie : états de remplissage.
+    // To-do à 2 (espace Nexxia) et tuile « Aujourd'hui » peu remplie : aucun état de remplissage.
     await filterContext(page, "Nexxia");
     created.push(
       await quickAddTask(page, longTitle("Relancer le devis"), {
@@ -403,7 +437,7 @@ test.describe("givre du tableau de bord à la géométrie exacte", () => {
         time: "14:00",
       }),
     );
-    await expectFrostGeometry(page, "To-do à 2", async () => {
+    await expectFrostLayout(page, "To-do à 2", [], async () => {
       await expect(sideTodoRows(page, "proTodo")).toHaveCount(2);
     });
 
@@ -422,7 +456,7 @@ test.describe("givre du tableau de bord à la géométrie exacte", () => {
       );
     }
     await filterContext(page, t("shell.contexts.all", { count: 2 }));
-    await expectFrostGeometry(page, "To-do à 5", async () => {
+    await expectFrostLayout(page, "To-do à 5", [], async () => {
       await expect(sideTodoRows(page, "proTodo")).toHaveCount(5);
       await expect(
         page
@@ -443,7 +477,7 @@ test.describe("givre du tableau de bord à la géométrie exacte", () => {
         await quickAddTask(page, longTitle(name), { date: userDay(4) }),
       );
     }
-    await expectFrostGeometry(page, "côté Privé", async () => {
+    await expectFrostLayout(page, "côté Privé", [], async () => {
       await expect(page.getByTestId("tile-shopping")).toBeVisible();
       await expect(sideTodoRows(page, "privateTodo")).not.toHaveCount(0);
     });

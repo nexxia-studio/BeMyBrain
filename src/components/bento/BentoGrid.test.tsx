@@ -67,6 +67,14 @@ afterEach(() => {
 });
 
 describe("grille bento", () => {
+  it("rangées aux classes de tile-sizes.ts (celles du givre) : tuiles alignées en haut, à la hauteur de leur contenu", async () => {
+    const { container } = await renderGrid();
+
+    const { BENTO_GRID_CLASSES } = await import("./tile-sizes");
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toBe(BENTO_GRID_CLASSES);
+  });
+
   it("masque les cibles des moments en attente dès le montage (arrivée par navigation côté client)", async () => {
     await renderGrid();
 
@@ -109,16 +117,16 @@ describe("grille bento", () => {
     await waitFor(() =>
       expect(html().hasAttribute(SIGNATURE_PENDING_ATTRIBUTE)).toBe(false),
     );
-    expect(container.querySelectorAll('[data-signature="reveal"]')).toHaveLength(
-      1,
-    );
+    expect(
+      container.querySelectorAll('[data-signature="reveal"]'),
+    ).toHaveLength(1);
   });
 
   it("rend ses tuiles", async () => {
     const { container } = await renderGrid();
 
-    expect(container.querySelectorAll('[data-signature="reveal"]')).toHaveLength(
-      1,
-    );
+    expect(
+      container.querySelectorAll('[data-signature="reveal"]'),
+    ).toHaveLength(1);
   });
 });

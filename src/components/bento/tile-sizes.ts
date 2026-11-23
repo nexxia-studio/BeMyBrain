@@ -10,35 +10,33 @@ export const TILE_SIZE_CLASSES: Record<TileSize, string> = {
   figure: "grow basis-35",
 };
 
-// Hauteurs fixes (DESIGN.md § 6, « Hauteurs fixes », QA-2 d'effets-de-verre) : par taille de tuile et pour la
-// tuile pleine, par palier d'écran (téléphone, tablette dès 640 px, ordinateur dès 1024 px). Chacune est calée
-// sur le contenu maximal de la tuile, mesuré à la largeur la plus étroite du palier, en FR et en EN :
-// - Aujourd'hui : 2 pastilles + 3 tâches (`TODAY_TILE_LIMIT`) + lien ;
-// - To-do (large) : en-tête, espaces, 5 tâches (`SIDE_TILE_LIMIT`) ;
-// - tuiles vides : surtitre, titre (deux lignes possibles), espaces, icône et phrase.
-// Les lignes des tuiles tiennent sur une ligne (titre tronqué) : la hauteur ne dépend jamais du contenu. Une
-// rangée s'aligne sur sa tuile la plus haute (`min-h` + étirement de la rangée), comme la référence : la hauteur
-// d'une tuile ne dépend que de la mise en page, que le givre (`dashboard/loading.tsx`) reproduit avec les mêmes
-// classes.
-// Valeurs (contenu maximal mesuré le 2026-11-21, Chromium, de 320 à 1700 px, arrondi au-dessus avec 4 à 8 px de
-// marge) : téléphone / tablette / ordinateur.
-// - large (To-do) : 490 / 491 / 503 px → 496 / 496 / 508 ;
-// - standard : 225 / 225 / 258 px → 232 / 232 / 264 ;
-// - chiffre : 251 / 252 / 264 px → 256 / 256 / 272 (titre anglais sur trois lignes à 140 px) ;
-// - Aujourd'hui : 481 / 485 / 502 px → 488 / 492 / 508 (salutation en taille fluide).
-export const TILE_HEIGHT_CLASSES: Record<TileSize, string> = {
-  wide: "min-h-124 sm:min-h-124 lg:min-h-127",
-  standard: "min-h-58 sm:min-h-58 lg:min-h-66",
-  figure: "min-h-64 sm:min-h-64 lg:min-h-68",
-};
+// Hauteur du contenu (DESIGN.md § 6, QA-5 d'effets-de-verre, décision d'Antoine du 2026-11-23) : aucune hauteur
+// fixe. Une tuile a la hauteur de son contenu ; les rangées alignent leurs tuiles en haut, sans les étirer à la
+// plus haute (une tuile vide garde la hauteur de son message, sans blanc ajouté). Le givre
+// (`dashboard/loading.tsx`) reprend ces classes, et la hauteur de l'état vide compact de chaque tuile par les
+// composants partagés (`TileCompactEmpty`, `TodayHead`) posés dans les corps ci-dessous.
 
-/** Hauteur fixe de la tuile pleine « Aujourd'hui », mêmes paliers. */
-export const TODAY_TILE_HEIGHT_CLASSES = "min-h-122 sm:min-h-123 lg:min-h-127";
+/** Grille bento : vraie grille (BentoGrid) et givre. */
+export const BENTO_GRID_CLASSES = "flex flex-wrap items-start gap-grid";
 
-/** Classes de place d'une tuile de verre : largeur puis hauteur (vraie tuile et givre). */
+/** Classes de place d'une tuile de verre : largeur seule (vraie tuile et givre). */
 export function tileClasses(size: TileSize): string {
-  return `min-w-0 ${TILE_SIZE_CLASSES[size]} ${TILE_HEIGHT_CLASSES[size]}`;
+  return `min-w-0 ${TILE_SIZE_CLASSES[size]}`;
 }
 
 /** Classes de place de la tuile pleine « Aujourd'hui » (vraie tuile et givre). */
-export const TODAY_TILE_CLASSES = `min-w-0 ${TILE_SIZE_CLASSES.wide} ${TODAY_TILE_HEIGHT_CLASSES}`;
+export const TODAY_TILE_CLASSES = `min-w-0 ${TILE_SIZE_CLASSES.wide}`;
+
+/** Corps d'une tuile de verre (padding et pas entre blocs) : surface de la vraie tuile, cale du givre. */
+export const GLASS_TILE_BODY_CLASSES = "flex w-full flex-col gap-4 p-tile";
+
+/** Corps de la tuile pleine « Aujourd'hui » : la vraie tuile, cale du givre. */
+export const TODAY_TILE_BODY_CLASSES = "flex flex-col gap-5.5 p-today";
+
+/** Lien d'action d'en-tête de tuile (« Tout voir ») : zone 44 px par padding, sans décaler l'en-tête. */
+export const TILE_LINK_CLASSES =
+  "-my-2.5 flex min-h-11 shrink-0 items-center text-small font-semibold text-link no-underline";
+
+/** Bouton d'ajout de l'état vide de la To-do (et sa cale dans le givre). */
+export const TILE_ADD_CLASSES =
+  "flex min-h-11 items-center rounded-full bg-primary px-5 text-body font-semibold text-primary-foreground";

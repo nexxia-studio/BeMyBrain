@@ -1,57 +1,45 @@
 import { describe, expect, it } from "vitest";
 
+import * as tileSizes from "./tile-sizes";
 import {
-  TILE_HEIGHT_CLASSES,
+  BENTO_GRID_CLASSES,
   TILE_SIZE_CLASSES,
   tileClasses,
   TODAY_TILE_CLASSES,
-  TODAY_TILE_HEIGHT_CLASSES,
 } from "./tile-sizes";
 
 const SIZES = ["wide", "standard", "figure"] as const;
 
-/** Une hauteur fixe par palier d'écran : téléphone (sans préfixe), tablette (`sm:`), ordinateur (`lg:`). */
-function heightsByBreakpoint(classes: string) {
-  const names = classes.split(" ");
-  return {
-    base: names.filter((name) => /^min-h-\d/.test(name)),
-    sm: names.filter((name) => /^sm:min-h-\d/.test(name)),
-    lg: names.filter((name) => /^lg:min-h-\d/.test(name)),
-  };
-}
+/** Classes qui imposent une hauteur, à tous les paliers d'écran. */
+const heightClasses = (classes: string) =>
+  classes.split(/\s+/).filter((name) => /(^|:)(min-|max-)?h-/.test(name));
 
-describe("tailles et hauteurs des tuiles", () => {
-  it.each(SIZES)(
-    "la tuile %s a une hauteur et une seule par palier d'écran",
-    (size) => {
-      const heights = heightsByBreakpoint(TILE_HEIGHT_CLASSES[size]);
-
-      expect(heights.base).toHaveLength(1);
-      expect(heights.sm).toHaveLength(1);
-      expect(heights.lg).toHaveLength(1);
-    },
-  );
-
-  it("la tuile pleine « Aujourd'hui » a sa propre hauteur, une par palier d'écran", () => {
-    const heights = heightsByBreakpoint(TODAY_TILE_HEIGHT_CLASSES);
-
-    expect(heights.base).toHaveLength(1);
-    expect(heights.sm).toHaveLength(1);
-    expect(heights.lg).toHaveLength(1);
+describe("tailles des tuiles (QA-5 : hauteur du contenu)", () => {
+  it("plus aucune table de hauteurs fixes", () => {
+    expect(tileSizes).not.toHaveProperty("TILE_HEIGHT_CLASSES");
+    expect(tileSizes).not.toHaveProperty("TODAY_TILE_HEIGHT_CLASSES");
   });
 
-  it("la base de largeur ne porte plus de hauteur : elle vit dans les classes de hauteur", () => {
-    for (const size of SIZES) {
-      expect(TILE_SIZE_CLASSES[size]).not.toMatch(/min-h|(^|\s)h-/);
-    }
+  it.each(SIZES)("la tuile %s n'a aucune classe de hauteur", (size) => {
+    expect(heightClasses(TILE_SIZE_CLASSES[size])).toEqual([]);
+    expect(heightClasses(tileClasses(size))).toEqual([]);
   });
 
-  it("classes complètes : largeur puis hauteur, pour les vraies tuiles comme pour le givre", () => {
-    expect(tileClasses("figure")).toBe(
-      `min-w-0 ${TILE_SIZE_CLASSES.figure} ${TILE_HEIGHT_CLASSES.figure}`,
+  it("la tuile pleine « Aujourd'hui » n'a aucune classe de hauteur", () => {
+    expect(heightClasses(TODAY_TILE_CLASSES)).toEqual([]);
+  });
+
+  it("classes de place : largeur seule, pour les vraies tuiles comme pour le givre", () => {
+    expect(tileClasses("figure")).toBe(`min-w-0 ${TILE_SIZE_CLASSES.figure}`);
+    expect(TODAY_TILE_CLASSES).toBe(`min-w-0 ${TILE_SIZE_CLASSES.wide}`);
+  });
+
+  it("grille : rangées flex-wrap, tuiles alignées en haut, jamais étirées à la hauteur de la rangée", () => {
+    const classes = BENTO_GRID_CLASSES.split(" ");
+
+    expect(classes).toEqual(
+      expect.arrayContaining(["flex", "flex-wrap", "gap-grid", "items-start"]),
     );
-    expect(TODAY_TILE_CLASSES).toBe(
-      `min-w-0 ${TILE_SIZE_CLASSES.wide} ${TODAY_TILE_HEIGHT_CLASSES}`,
-    );
+    expect(heightClasses(BENTO_GRID_CLASSES)).toEqual([]);
   });
 });

@@ -199,11 +199,11 @@
   --chart-5: var(--ink);
 
   /* Givre de chargement (DESIGN.md § 5) : cran d'intensité, lu par l'utilitaire `frost` et `frost-clear`, qui
-     ne le redéfinissent pas (une enveloppe peut le surcharger par héritage). Cran moyen : chaque halo mêlé à
-     15 % de la couleur primaire, repos 0,6. Cran retenu : à choisir à l'essai iPhone. */
-  --frost-from: color-mix(in srgb, var(--halo-blue), var(--primary) 15%);
-  --frost-to: color-mix(in srgb, var(--halo-lilac), var(--primary) 15%);
-  --frost-rest: 0.6;
+     ne le redéfinissent pas (une enveloppe peut le surcharger par héritage). Cran discret, retenu pour toute
+     l'app aux essais iPhone du 2026-11-23 : halos purs, repos 0,55. */
+  --frost-from: var(--halo-blue);
+  --frost-to: var(--halo-lilac);
+  --frost-rest: 0.55;
 
   /* Barre latérale : surface en verre de premier niveau (posée sur le fond). */
   --sidebar: var(--glass-bg);
@@ -464,10 +464,6 @@ html:has(.frost) {
     z-index: var(--z-halo);
     pointer-events: none;
     background-image: var(--halo-layers);
-  }
-  /* Césure selon <html lang> (FR plus long que EN). */
-  p {
-    hyphens: auto;
   }
   h1,
   h2,

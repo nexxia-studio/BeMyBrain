@@ -1,5 +1,5 @@
 // Crans d'intensité du givre pour l'essai iPhone (QA-1) : mêmes variables que les défauts de `:root` dans
-// globals.css (cran moyen), surchargées par héritage sur l'enveloppe du layout de la démo. Couleurs tirées
+// globals.css (cran discret), surchargées par héritage sur l'enveloppe du layout de la démo. Couleurs tirées
 // des seuls tokens de la charte (halos, primaire). Aucun zod : importé aussi par le réglage côté client.
 // raccourci: réglage de démo, retiré avec la démo à la tâche 9 du plan effets-de-verre (cookie compris).
 
@@ -32,7 +32,7 @@ export const FROST_LEVEL_VARS: Record<FrostLevel, FrostVars> = {
   strong: { ...tinted(30), "--frost-rest": "0.65" },
 };
 
-/** Cran lu dans le cookie : toute valeur hors liste (ou absente) donne le cran moyen. */
+/** Cran lu dans le cookie : toute valeur hors liste (ou absente) donne le cran discret, celui de l'app. */
 export function parseFrostLevel(value: string | undefined): FrostLevel {
-  return FROST_LEVELS.find((level) => level === value) ?? "medium";
+  return FROST_LEVELS.find((level) => level === value) ?? "subtle";
 }

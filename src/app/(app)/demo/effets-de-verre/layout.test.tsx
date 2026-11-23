@@ -118,29 +118,29 @@ describe("layout de la démo des effets de verre", () => {
     });
   });
 
-  it("retombe sur le cran moyen pour un cookie invalide", async () => {
+  it("retombe sur le cran discret (celui de l'app) pour un cookie invalide", async () => {
     vi.stubEnv("NODE_ENV", "development");
     cookieStore.get.mockReturnValue({ value: "infinite;--x:red" });
 
     const envelope = await renderLayout();
 
     expect(frostVars(envelope)).toEqual({
-      from: "color-mix(in srgb, var(--halo-blue), var(--primary) 15%)",
-      to: "color-mix(in srgb, var(--halo-lilac), var(--primary) 15%)",
-      rest: "0.6",
+      from: "var(--halo-blue)",
+      to: "var(--halo-lilac)",
+      rest: "0.55",
     });
   });
 
-  it("retombe sur le cran moyen sans cookie, et le réglage le montre choisi", async () => {
+  it("retombe sur le cran discret sans cookie, et le réglage le montre choisi", async () => {
     vi.stubEnv("NODE_ENV", "development");
     cookieStore.get.mockReturnValue(undefined);
 
     const envelope = await renderLayout();
 
-    expect(frostVars(envelope).rest).toBe("0.6");
+    expect(frostVars(envelope).rest).toBe("0.55");
     expect(
       screen
-        .getByRole("button", { name: "Moyen" })
+        .getByRole("button", { name: "Discret" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
   });

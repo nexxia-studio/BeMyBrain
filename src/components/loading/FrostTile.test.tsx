@@ -72,6 +72,18 @@ describe("FrostTile", () => {
     expect(veilOf(tile)).toBeNull();
   });
 
+  it("la variante pleine porte sa cale de hauteur (enfants), toujours sans voile", () => {
+    const { container } = render(
+      <FrostTile variant="solid" className="basis-100">
+        <div data-testid="cale" />
+      </FrostTile>,
+    );
+    const tile = container.firstElementChild as HTMLElement;
+
+    expect(tile.querySelector('[data-testid="cale"]')).not.toBeNull();
+    expect(veilOf(tile)).toBeNull();
+  });
+
   it("la variante ligne : surface de ligne donnée par la classe, voile, sans verre ni rayon de tuile", () => {
     const { container } = render(
       <FrostTile variant="row" index={2} className="rounded-lg bg-row" />,

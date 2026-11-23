@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { TileCompactEmpty } from "@/components/bento/TileCompactEmpty";
 import { tileClasses } from "@/components/bento/tile-sizes";
 import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
 import { buildDashboard } from "@/modules/dashboard/tiles";
@@ -145,13 +146,29 @@ describe("tuile « To-do pro »", () => {
     expect(classes("Nexxia")).toContain("bg-chip-indigo");
   });
 
-  it("hauteur fixe : les classes de taille et de hauteur de tile-sizes.ts, les mêmes que son givre", () => {
-    renderTile([]);
+  it.each([0, 2])(
+    "%i tâche(s) : à la hauteur de son contenu, aucune classe de hauteur, rien de poussé en bas",
+    (count) => {
+      renderTile(
+        Array.from({ length: count }, (_, i) =>
+          buildTask({ side: "pro", title: `Pro ${i}` }),
+        ),
+      );
 
-    for (const name of tileClasses("wide").split(" ")) {
-      expect(tile().classList.contains(name)).toBe(true);
-    }
-  });
+      for (const name of tileClasses("wide").split(" ")) {
+        expect(tile().classList.contains(name)).toBe(true);
+      }
+      const classes = [tile(), ...tile().querySelectorAll("*")].flatMap(
+        (element) => Array.from(element.classList),
+      );
+      expect(
+        classes.filter(
+          (name) => /(^|:)(min-|max-)?h-/.test(name) && name !== "min-h-11",
+        ),
+      ).toEqual([]);
+      expect(classes).not.toContain("mt-auto");
+    },
+  );
 
   it("une ligne de la tuile tient sur une ligne : titre tronqué, légende et espaces sans retour à la ligne", () => {
     const title =
@@ -182,7 +199,7 @@ describe("tuile « To-do pro »", () => {
   });
 
   it.each([1, 2, 4])(
-    "%i tâche(s) sur 5 : « Rien d'autre à venir » comble la place sous les lignes",
+    "%i tâche(s) sur 5 : aucun état de remplissage sous les lignes",
     (count) => {
       renderTile(
         Array.from({ length: count }, (_, i) =>
@@ -190,31 +207,22 @@ describe("tuile « To-do pro »", () => {
         ),
       );
 
-      const rest = within(tile()).getByTestId("tile-rest");
-      expect(rest.textContent).toBe(messages.dashboard.tiles.nothingElse);
-      const list = within(tile()).getByRole("list", {
-        name: "Prochaines tâches",
-      });
-      expect(
-        list.compareDocumentPosition(rest) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
+      expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+      expect(tile().textContent).not.toContain("Rien d'autre à venir.");
     },
   );
 
-  it("5 tâches (le maximum) : aucun état de remplissage", () => {
-    renderTile(
-      Array.from({ length: 6 }, (_, i) =>
-        buildTask({ side: "pro", title: `Pro ${i}` }),
-      ),
-    );
-
-    expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
-  });
-
-  it("aucune tâche : l'état vide, pas l'état de remplissage", () => {
+  it("vide : l'état vide compact de TileCompactEmpty, le même texte que le givre de chargement", () => {
     renderTile([]);
+    const real = tile().querySelector("section")?.textContent;
 
-    expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+    const shared = render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <TileCompactEmpty tile={proTodo()} />
+      </NextIntlClientProvider>,
+    ).container.textContent;
+
+    expect(real).toBe(shared);
   });
 
   it("vide : dit à quoi sert la tuile et propose d'ajouter une tâche", () => {

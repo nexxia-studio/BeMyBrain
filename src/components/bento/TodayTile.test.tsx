@@ -19,6 +19,7 @@ const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
 import { TODAY_TILE_CLASSES } from "./tile-sizes";
+import { TodayHead } from "./TodayHead";
 import { TodayTile } from "./TodayTile";
 
 const TODAY = "2026-11-19";
@@ -148,12 +149,22 @@ describe("tuile « Aujourd'hui »", () => {
     expect(box.disabled).toBe(false);
   });
 
-  it("hauteur fixe : les classes de taille et de hauteur de tile-sizes.ts, les mêmes que son givre", () => {
+  it("à la hauteur de son contenu : classes de place de tile-sizes.ts, aucune classe de hauteur, rien d'étiré", () => {
     renderTile({ due: dueOn(3) });
 
     for (const name of TODAY_TILE_CLASSES.split(" ")) {
       expect(tile().classList.contains(name)).toBe(true);
     }
+    const classes = [tile(), ...tile().querySelectorAll("*")].flatMap(
+      (element) => Array.from(element.classList),
+    );
+    // `min-h-11` : zone tactile de 44 px des lignes et du lien, pas une hauteur de tuile.
+    expect(
+      classes.filter(
+        (name) => /(^|:)(min-|max-)?h-/.test(name) && name !== "min-h-11",
+      ),
+    ).toEqual([]);
+    expect(classes).not.toContain("justify-between");
   });
 
   it("une ligne de la tuile tient sur une ligne : titre tronqué, légende sans retour à la ligne", () => {
@@ -176,34 +187,42 @@ describe("tuile « Aujourd'hui »", () => {
   });
 
   it.each([1, 2])(
-    "%i tâche(s) sur 3 : « Rien d'autre aujourd'hui » comble la place sous les lignes",
+    "%i tâche(s) sur 3 : aucun état de remplissage sous les lignes",
     (count) => {
       renderTile({ due: dueOn(count) });
 
-      const rest = within(tile()).getByTestId("tile-rest");
-      expect(rest.textContent).toBe(messages.dashboard.today.nothingElse);
-      const list = within(tile()).getByRole("list", { name: "Tâches du jour" });
-      expect(
-        list.compareDocumentPosition(rest) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
+      expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
+      expect(tile().textContent).not.toContain("Rien d'autre aujourd'hui.");
     },
   );
 
-  it("3 tâches (le maximum) : aucun état de remplissage", () => {
-    renderTile({ due: dueOn(4) });
+  it("rien de dû : l'état vide compact, la phrase « rien en retard » en introduction sous la salutation", () => {
+    renderTile();
 
+    const greeting = within(tile()).getByRole("heading", {
+      name: messages.dashboard.today.greeting,
+    });
+    expect(greeting.nextElementSibling?.textContent).toBe(
+      messages.dashboard.today.introClear,
+    );
     expect(within(tile()).queryByTestId("tile-rest")).toBeNull();
   });
 
-  it("rien de dû : la phrase « rien en retard » occupe la place des lignes, sans « Rien d'autre »", () => {
+  it("l'en-tête (date, salutation, introduction) vient de TodayHead, partagé avec le givre de chargement", () => {
     renderTile();
+    const real = tile().firstElementChild?.outerHTML;
 
-    expect(within(tile()).getByTestId("tile-rest").textContent).toBe(
-      messages.dashboard.today.introClear,
-    );
-    expect(tile().textContent).not.toContain(
-      messages.dashboard.today.nothingElse,
-    );
+    const shared = render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TodayHead intro={messages.dashboard.today.introClear} />
+      </NextIntlClientProvider>,
+    ).container.firstElementChild?.outerHTML;
+
+    expect(real).toBe(shared);
   });
 
   it("rien en retard ni aujourd'hui : une phrase le dit, ni compteur ni ligne", () => {

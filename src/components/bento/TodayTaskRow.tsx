@@ -5,8 +5,8 @@
 // titre `text-body` et légende `text-caption` en blanc plein (le blanc atténué tomberait sous 4,5:1 sur cette
 // surface). Case à cocher blanche (zone 44 px), puis lien vers le détail sur le reste de la ligne. Légende :
 // côté (jamais de pastille colorée dans la tuile pleine), parente, échéance passée, heure. Une colonne à toutes
-// les largeurs ; titre et légende sur une seule ligne (titre tronqué, légende coupée au bord) : la tuile a une
-// hauteur fixe (DESIGN.md § 6), le titre complet est dans la liste et le détail. Cocher : même règle que la liste (useTaskToggle), pas d'optimiste, erreur dans la ligne.
+// les largeurs ; titre et légende sur une seule ligne (titre tronqué, légende coupée au bord, DESIGN.md § 6) :
+// le titre complet est dans la liste et le détail. Cocher : même règle que la liste (useTaskToggle), pas d'optimiste, erreur dans la ligne.
 // Mouvement : pression du lien seulement (Motion, scale 0,97) ; la tuile entière est animée par GSAP, pas la ligne.
 import { CornerDownRight } from "lucide-react";
 import { motion } from "motion/react";

@@ -51,7 +51,7 @@ type TaskRowProps = {
   listQuery?: string;
   /** Surface propre à un emplacement (ex. ligne posée sur le `popover` opaque du détail). */
   className?: string;
-  /** `tile` : une seule ligne (tuile à hauteur fixe) ; `list` (défaut) : titre sur deux lignes, légende à la ligne. */
+  /** `tile` : une seule ligne (tuile du tableau de bord, DESIGN.md § 6) ; `list` (défaut) : titre sur deux lignes, légende à la ligne. */
   layout?: "list" | "tile";
 };
 

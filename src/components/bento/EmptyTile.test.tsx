@@ -7,7 +7,8 @@ import { buildDashboard } from "@/modules/dashboard/tiles";
 import messages from "../../../messages/fr.json";
 
 import { EmptyTile } from "./EmptyTile";
-import { tileClasses } from "./tile-sizes";
+import { TileCompactEmpty } from "./TileCompactEmpty";
+import { GLASS_TILE_BODY_CLASSES, tileClasses } from "./tile-sizes";
 
 const TRUSTUP = {
   id: "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b",
@@ -61,7 +62,7 @@ describe("tuile vide", () => {
   });
 
   it.each(["wide", "standard", "figure"] as const)(
-    "hauteur fixe : une tuile %s porte les classes de taille et de hauteur de tile-sizes.ts, les mêmes que son givre",
+    "tuile %s à la hauteur de son contenu : classes de place de tile-sizes.ts, aucune hauteur, état vide non poussé en bas",
     (size) => {
       render(
         <NextIntlClientProvider locale="fr" messages={messages}>
@@ -73,8 +74,42 @@ describe("tuile vide", () => {
       for (const name of tileClasses(size).split(" ")) {
         expect(tile.classList.contains(name)).toBe(true);
       }
+      const classes = [tile, ...tile.querySelectorAll("*")].flatMap((element) =>
+        Array.from(element.classList),
+      );
+      expect(
+        classes.filter((name) => /(^|:)(min-|max-)?h-/.test(name)),
+      ).toEqual([]);
+      expect(classes).not.toContain("mt-auto");
+      expect(classes).not.toContain("flex-1");
     },
   );
+
+  it("état vide compact : le corps vient de TileCompactEmpty, partagé avec le givre de chargement", () => {
+    const tile = { ...clientsWithLabels(), spaceLabels: [] };
+    const real = render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <EmptyTile tile={tile} />
+      </NextIntlClientProvider>,
+    );
+    const surface = real.getByTestId("tile-clients").querySelector("section");
+    const shared = render(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <div className={GLASS_TILE_BODY_CLASSES}>
+          <TileCompactEmpty tile={tile} />
+        </div>
+      </NextIntlClientProvider>,
+    ).container.firstElementChild;
+
+    for (const name of GLASS_TILE_BODY_CLASSES.split(" ")) {
+      expect(surface?.classList.contains(name)).toBe(true);
+    }
+    // Premier enfant de la surface : le calque du reflet ; le reste est le corps partagé.
+    const body = Array.from(surface?.children ?? []).slice(1);
+    expect(body.map((element) => element.outerHTML)).toEqual(
+      Array.from(shared?.children ?? []).map((element) => element.outerHTML),
+    );
+  });
 
   it("les espaces tiennent sur une ligne (pastilles tronquées, sans retour à la ligne)", () => {
     render(

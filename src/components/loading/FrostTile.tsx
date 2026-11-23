@@ -1,8 +1,8 @@
 // Curseurs nexxia-design (DESIGN.md § 1, tableau de bord) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Givre de chargement (DESIGN.md § 5 « États de chargement — givre ») : composant serveur, CSS pur,
-// affiché avant tout JavaScript. Tuile de verre + voile teinté (jamais un second verre) ; la tuile
-// pleine « Aujourd'hui » reste vide, sans voile. Le décalage vient de `--frost-index`. Variante `row` : ligne
-// d'une liste (surface `row` donnée par la classe, posée dans une tuile de verre), voile compris. Les enfants
+// affiché avant tout JavaScript. Tuile de verre + voile teinté (jamais un second verre) ; la tuile pleine
+// « Aujourd'hui » reste sans voile et peut porter une cale de hauteur (enfants), comme les autres. Le décalage
+// vient de `--frost-index`. Variante `row` : ligne d'une liste (surface `row` donnée par la classe, posée dans une tuile de verre), voile compris. Les enfants
 // (cales de hauteur des listes) sont posés après le voile, au-dessus de lui. Tant qu'un voile est affiché, le
 // document n'ancre pas son défilement (`html:has(.frost)`, globals.css) : le haut de page ne saute pas.
 import type { CSSProperties, ReactNode } from "react";
@@ -34,7 +34,9 @@ export function FrostTile({
         aria-hidden="true"
         data-testid={testId}
         className={cn("rounded-tile bg-primary shadow-today", className)}
-      />
+      >
+        {children}
+      </div>
     );
   }
 

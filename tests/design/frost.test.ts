@@ -62,14 +62,10 @@ describe("givre de chargement (globals.css)", () => {
     expect(css).toMatch(/--frost-stagger:\s*0\.18s;/);
   });
 
-  it("défauts du cran sur :root = cran moyen (15 % de --primary, repos 0,6)", () => {
-    expect(root).toMatch(/--frost-rest:\s*0\.6;/);
-    expect(root).toMatch(
-      /--frost-from:\s*color-mix\(in srgb, var\(--halo-blue\), var\(--primary\) 15%\);/,
-    );
-    expect(root).toMatch(
-      /--frost-to:\s*color-mix\(in srgb, var\(--halo-lilac\), var\(--primary\) 15%\);/,
-    );
+  it("défauts du cran sur :root = cran discret, retenu pour toute l'app (halos purs, repos 0,55)", () => {
+    expect(root).toMatch(/--frost-rest:\s*0\.55;/);
+    expect(root).toMatch(/--frost-from:\s*var\(--halo-blue\);/);
+    expect(root).toMatch(/--frost-to:\s*var\(--halo-lilac\);/);
   });
 
   it("frost et frost-clear lisent les variables du cran sans les redéfinir", () => {

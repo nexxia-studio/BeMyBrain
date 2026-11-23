@@ -1,8 +1,18 @@
 import { render, screen } from "@testing-library/react";
-import { createTranslator } from "next-intl";
+import { createTranslator, NextIntlClientProvider } from "next-intl";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { tileClasses, TODAY_TILE_CLASSES } from "@/components/bento/tile-sizes";
+import { TileCompactEmpty } from "@/components/bento/TileCompactEmpty";
+import {
+  BENTO_GRID_CLASSES,
+  GLASS_TILE_BODY_CLASSES,
+  tileClasses,
+  TODAY_TILE_BODY_CLASSES,
+  TODAY_TILE_CLASSES,
+} from "@/components/bento/tile-sizes";
+import { TodayHead } from "@/components/bento/TodayHead";
+import { getUserTimeZone } from "@/modules/core/time-zone";
 import { buildDashboard } from "@/modules/dashboard/tiles";
 
 import messages from "../../../../messages/fr.json";
@@ -52,8 +62,29 @@ const PRO_SIDE = {
   selected: [TRUSTUP.id, NEXXIA.id],
 } as const;
 
+function withIntl(children: ReactNode) {
+  return (
+    <NextIntlClientProvider
+      locale="fr"
+      messages={messages}
+      timeZone={getUserTimeZone()}
+    >
+      {children}
+    </NextIntlClientProvider>
+  );
+}
+
+/** Cale de hauteur d'une tuile givrée : son seul enfant qui n'est pas le voile. */
+function strutOf(tile: HTMLElement) {
+  const struts = Array.from(tile.children).filter(
+    (child) => !child.classList.contains("frost"),
+  ) as HTMLElement[];
+  expect(struts).toHaveLength(1);
+  return struts[0];
+}
+
 async function renderLoading() {
-  const { container } = render(await DashboardLoading());
+  const { container } = render(withIntl(await DashboardLoading()));
   const frost = screen.getByTestId("dashboard-frost");
   const tiles = Array.from(frost.children) as HTMLElement[];
   return { container, frost, tiles };
@@ -84,7 +115,6 @@ describe("chargement du tableau de bord", () => {
     );
     expect(screen.getByRole("main").getAttribute("aria-busy")).toBe("true");
     expect(frost.getAttribute("aria-hidden")).toBe("true");
-    expect(frost.textContent).toBe("");
     tiles.slice(1).forEach((tile, i) => {
       expect(tile.querySelector(".frost")).not.toBeNull();
       expect(tile.style.getPropertyValue("--frost-index")).toBe(String(i + 1));
@@ -102,13 +132,14 @@ describe("chargement du tableau de bord", () => {
     );
   });
 
-  it("plus aucune ligne de squelette", async () => {
-    const { container } = await renderLoading();
+  it("aucun squelette : le seul contenu d'une tuile givrée est une cale invisible et inerte", async () => {
+    const { tiles } = await renderLoading();
 
-    expect(container.querySelectorAll("span")).toHaveLength(0);
-    expect(
-      container.querySelectorAll(".bg-on-primary-surface, .bg-track, .bg-row"),
-    ).toHaveLength(0);
+    for (const tile of tiles) {
+      const strut = strutOf(tile);
+      expect(strut.classList.contains("invisible")).toBe(true);
+      expect(strut.hasAttribute("inert")).toBe(true);
+    }
   });
 
   it("la tuile pleine n'a pas de voile", async () => {
@@ -118,14 +149,14 @@ describe("chargement du tableau de bord", () => {
 
     expect(solid.classList.contains("bg-primary")).toBe(true);
     expect(solid.classList.contains("glass")).toBe(false);
-    expect(solid.childElementCount).toBe(0);
+    expect(solid.querySelector(".frost")).toBeNull();
   });
 
   it.each([
     ["Privé, avec la paire de tuiles chiffre", PRIVATE_SIDE],
     ["Pro", PRO_SIDE],
   ])(
-    "les tuiles givrées suivent la grille du côté %s, aux classes de taille et de hauteur des vraies tuiles (tile-sizes.ts)",
+    "les tuiles givrées suivent la grille du côté %s, aux classes de place des vraies tuiles (tile-sizes.ts)",
     async (_, side) => {
       loadSideSpaces.mockResolvedValue(side);
       const expected = buildDashboard(side).tiles.map((tile) => tile.size);
@@ -133,29 +164,79 @@ describe("chargement du tableau de bord", () => {
       const { frost, tiles } = await renderLoading();
       const [solid, ...glass] = tiles;
 
-      expect(hasClasses(frost, "flex flex-wrap gap-grid")).toBe(true);
+      expect(hasClasses(frost, BENTO_GRID_CLASSES)).toBe(true);
       expect(hasClasses(solid, TODAY_TILE_CLASSES)).toBe(true);
       expect(glass).toHaveLength(expected.length);
       glass.forEach((tile, i) => {
         expect(hasClasses(tile, tileClasses(expected[i]))).toBe(true);
       });
+      // Repères de l'e2e (ordre des tuiles du givre au contenu).
+      expect(tiles.map((tile) => tile.dataset.testid)).toEqual([
+        "frost-tile-today",
+        ...buildDashboard(side).tiles.map((tile) => `frost-tile-${tile.id}`),
+      ]);
     },
   );
 
-  it("aucune hauteur propre au givre : ses seules classes de hauteur sont celles de tile-sizes.ts", async () => {
-    const sizes = buildDashboard(PRIVATE_SIDE).tiles.map((tile) => tile.size);
-    const heights = (classes: string) =>
-      classes.split(/\s+/).filter((name) => /(^|:)(min-)?h-/.test(name));
+  it("aucune hauteur fixe dans le givre : ni sur les tuiles, ni dans leurs cales", async () => {
+    const { frost } = await renderLoading();
 
-    const {
-      tiles: [solid, ...glass],
-    } = await renderLoading();
-
-    expect(heights(solid.className)).toEqual(heights(TODAY_TILE_CLASSES));
-    glass.forEach((tile, i) => {
-      expect(heights(tile.className)).toEqual(heights(tileClasses(sizes[i])));
-    });
+    const classes = [frost, ...frost.querySelectorAll("*")].flatMap((element) =>
+      Array.from(element.classList),
+    );
+    expect(
+      classes.filter(
+        (name) => /(^|:)(min-|max-)?h-/.test(name) && name !== "min-h-11",
+      ),
+    ).toEqual([]);
   });
+
+  it.each([
+    ["Privé", PRIVATE_SIDE],
+    ["Pro", PRO_SIDE],
+  ])(
+    "côté %s : chaque tuile de verre givrée a la hauteur de l'état vide compact de sa tuile (TileCompactEmpty, source partagée)",
+    async (_, side) => {
+      loadSideSpaces.mockResolvedValue(side);
+      const dashboardTiles = buildDashboard(side).tiles;
+
+      const {
+        tiles: [, ...glass],
+      } = await renderLoading();
+
+      glass.forEach((tile, i) => {
+        const strut = strutOf(tile);
+        expect(hasClasses(strut, GLASS_TILE_BODY_CLASSES)).toBe(true);
+        const shared = render(
+          withIntl(<TileCompactEmpty tile={dashboardTiles[i]} />),
+        ).container;
+        expect(strut.innerHTML).toBe(shared.innerHTML);
+      });
+    },
+  );
+
+  it.each([
+    ["un côté avec espaces", PRIVATE_SIDE, messages.dashboard.today.introClear],
+    [
+      "un côté sans espace",
+      { side: "private", contexts: [], selected: [] },
+      messages.dashboard.today.introNoSpace,
+    ],
+  ])(
+    "%s : la tuile pleine givrée a la hauteur de son état vide compact (TodayHead, source partagée)",
+    async (_, side, intro) => {
+      loadSideSpaces.mockResolvedValue(side);
+
+      const {
+        tiles: [solid],
+      } = await renderLoading();
+
+      const strut = strutOf(solid);
+      expect(hasClasses(strut, TODAY_TILE_BODY_CLASSES)).toBe(true);
+      const shared = render(withIntl(<TodayHead intro={intro} />)).container;
+      expect(strut.innerHTML).toBe(shared.innerHTML);
+    },
+  );
 
   it("sans espace sur le côté, seule la tuile pleine est rendue", async () => {
     loadSideSpaces.mockResolvedValue({

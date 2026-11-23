@@ -27,6 +27,8 @@ import {
 } from "@/components/signature/signature-keys";
 import type { Side } from "@/modules/core/schemas";
 
+import { BENTO_GRID_CLASSES } from "./tile-sizes";
+
 const DashboardIntroSignature = dynamic(
   () =>
     import("@/components/signature/dashboard-intro").then(
@@ -108,7 +110,7 @@ export function BentoGrid({ side, children }: BentoGridProps) {
   }, []);
 
   return (
-    <div ref={rootRef} className="flex flex-wrap gap-grid">
+    <div ref={rootRef} className={BENTO_GRID_CLASSES}>
       {children}
       {/* Une barrière par moment : un morceau introuvable démasque ses cibles, sans page d'erreur. */}
       {entrance ? (
