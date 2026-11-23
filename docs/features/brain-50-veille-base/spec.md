@@ -39,7 +39,7 @@ Procédure rejouable : `docs/runbooks/veille-base.md`.
 | `drizzle-kit migrate` (`drizzle.config.ts`, CI `migrate-production.yml`) | pilote propre à drizzle-kit | migrations | hors périmètre : processus court, jamais gelé, rejouable en entier |
 | Fabriques de test (`tests/factories/core.ts`, `as-user.ts`) | `new Pool` | tests seulement | hors périmètre |
 
-Verrou : aucun `new Pool` ni `drizzle(` hors de `src/db/pool.ts`, `src/db/client.ts`, `src/db/admin.ts` et `tests/` (test d'inventaire, tâche 4).
+Verrou (`tests/db/pool-inventory.test.ts`, tâche 4) : aucun pool, client ni pilote de base (`new Pool`, `new Client`, `neon(`, `drizzle(`, imports de `@neondatabase/serverless`, `pg`, `postgres`, `drizzle-orm/<pilote>`) hors de `src/db/pool.ts`, `src/db/client.ts`, `src/db/admin.ts`, `src/db/transaction-retry.ts` (`createPooledDb`), de `tests/` et des fichiers `*.test.*`. `adminDb` n'est plus exporté : `withAdminTx` et `endAdminPool` seulement.
 
 ## BRAIN-47 et BRAIN-54 : erreur et chargement du détail d'une tâche
 Cause commune : en Next 16, `error.tsx` et `loading.tsx` de `tasks/` enveloppent aussi l'emplacement `@detail`.
