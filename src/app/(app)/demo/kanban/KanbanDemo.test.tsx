@@ -267,6 +267,91 @@ describe("démo du kanban", () => {
     expect(idsIn("started")[0]).toBe(PLUMBER);
   });
 
+  it("n'affiche ni bulle ni Réessayer pour l'échec d'un déplacement dépassé par un dépôt plus récent de la même carte", async () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole("button", { name: "1 s" }));
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Faire échouer le prochain dépôt" }),
+    );
+
+    await drop(TO_STARTED_HEAD);
+    await drop({
+      id: PLUMBER,
+      toColumn: "completed",
+      beforeId: null,
+      afterId: "completed-1",
+    });
+    await wait(2000);
+
+    expect(idsIn("completed")[0]).toBe(PLUMBER);
+    expect(idsIn("started")).not.toContain(PLUMBER);
+    expect(screen.queryByText("Déplacement non enregistré.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
+    expect(animate).not.toHaveBeenCalled();
+  });
+
+  it("à l'échec d'une carte, garde à sa place la carte déposée juste sous elle", async () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole("button", { name: "1 s" }));
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Faire échouer le prochain dépôt" }),
+    );
+    const startedBefore = columnIds("started");
+
+    await drop(TO_STARTED_HEAD);
+    await drop({
+      id: "unstarted-2",
+      toColumn: "started",
+      beforeId: PLUMBER,
+      afterId: "started-1",
+    });
+    await wait(2000);
+
+    expect(columnIds("started")).toEqual(["unstarted-2", ...startedBefore]);
+    expect(columnIds("unstarted")[0]).toBe(PLUMBER);
+    expect(screen.getByText("Déplacement non enregistré.")).toBeDefined();
+  });
+
+  it("garde affichée la carte lâchée sous la 20e de Terminée", async () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole("button", { name: "1 s" }));
+
+    await drop({
+      id: PLUMBER,
+      toColumn: "completed",
+      beforeId: "completed-20",
+      afterId: null,
+    });
+
+    expect(idsIn("completed").at(-1)).toBe(PLUMBER);
+
+    await wait(1000);
+
+    expect(idsIn("completed")).toHaveLength(21);
+    expect(idsIn("completed").at(-1)).toBe(PLUMBER);
+    expect(
+      screen.getByRole("button", { name: "Tout voir (25)" }),
+    ).toBeDefined();
+  });
+
+  it("efface la bulle d'échec après 5 s", async () => {
+    renderDemo();
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Faire échouer le prochain dépôt" }),
+    );
+    await drop(TO_STARTED_HEAD);
+    await wait(0);
+
+    await wait(4999);
+
+    expect(screen.getByText("Déplacement non enregistré.")).toBeDefined();
+
+    await wait(1);
+    await wait(0);
+
+    expect(screen.queryByText("Déplacement non enregistré.")).toBeNull();
+  });
+
   it("ramène la carte sans animation quand le mouvement est réduit", async () => {
     reducedMotion.current = true;
     renderDemo();

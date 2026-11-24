@@ -1,8 +1,13 @@
+import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const requireSessionWithToken = vi.hoisted(() => vi.fn());
-const getTranslations = vi.hoisted(() => vi.fn(async () => (key: string) => key));
-const PageHeader = vi.hoisted(() => vi.fn(() => null));
+const getTranslations = vi.hoisted(() =>
+  vi.fn(async () => (key: string) => key),
+);
+const PageHeader = vi.hoisted(() =>
+  vi.fn<(props: { contextFilter?: boolean }) => null>(() => null),
+);
 const notFound = vi.hoisted(() =>
   vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -57,9 +62,9 @@ describe("page de démo du kanban", () => {
     vi.stubEnv("VERCEL_ENV", undefined);
     requireSessionWithToken.mockResolvedValue({});
 
-    const tree = await KanbanDemoPage();
+    render(await KanbanDemoPage());
 
-    const header = (tree.props.children as React.ReactElement[])[0];
-    expect(header.props).toMatchObject({ contextFilter: false });
+    expect(PageHeader).toHaveBeenCalledOnce();
+    expect(PageHeader.mock.calls[0][0]).toMatchObject({ contextFilter: false });
   });
 });
