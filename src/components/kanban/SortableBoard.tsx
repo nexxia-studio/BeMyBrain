@@ -23,6 +23,8 @@
 // Un `click` sans geste pointeur (`detail` 0, ou aucun pointeur posé : lecteur d'écran) ouvre. Clavier : Entrée
 // ouvre, Espace saisit (Entrée ne saisit plus ; elle dépose toujours une carte saisie).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
+// Surfaces (`surface`, D7 de demo-plan.md) : fond de la colonne (verre par défaut), couleur de son en-tête et creux
+// sous les cartes viennent de l'appelant, en classes de la charte ; le tableau ne connaît aucune variante.
 // Colonne partielle (ex. 20 plus récentes) : `total` donne le compteur, `footer` se pose sous les cartes.
 // Onglets : motif ARIA tablist (flèches gauche/droite en boucle, Début/Fin, seul l'onglet choisi est tabulable).
 // Pendant le glisser, l'ordre est un brouillon local ; au dépôt, `onMove` reçoit les voisins de la carte et le
@@ -115,6 +117,16 @@ export type BoardMove = {
 
 export type CardState = { dragging: boolean; overlay: boolean };
 
+/** Surfaces du tableau, en classes données par l'appelant (tokens de DESIGN.md). */
+export type BoardSurface = {
+  /** Fond de la colonne. Défaut : verre. */
+  column?: string;
+  /** Couleur de l'en-tête de colonne. Défaut : texte secondaire, réservé à une colonne en verre ou opaque. */
+  heading?: string;
+  /** Creux sous les cartes d'une colonne ouverte (fond, rayon, marge intérieure). Défaut : aucun. */
+  well?: string;
+};
+
 type SortableBoardProps<T extends BoardItem> = {
   columns: readonly BoardColumn<T>[];
   renderCard: (item: T, state: CardState) => ReactNode;
@@ -123,6 +135,7 @@ type SortableBoardProps<T extends BoardItem> = {
   onMove: (move: BoardMove) => void;
   /** Tap, clic ou Entrée sur une carte (jamais après un glisser, un appui long ou un défilement). */
   onOpen?: (id: string) => void;
+  surface?: BoardSurface;
 };
 
 /** Appui avant le glisser au doigt (décision d'Antoine après l'essai iPhone, 2026-11-24). */
@@ -143,6 +156,7 @@ const FLAT = { rotate: 0, y: 0 };
 const LIFT_SPRING = { type: "spring", bounce: 0.2, duration: 0.3 } as const;
 /** Saisie en cours : lu par la copie, que dnd-kit garde montée pendant l'animation de dépôt. */
 const LiftedContext = createContext(false);
+const DEFAULT_SURFACE: BoardSurface = {};
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";
 
@@ -255,6 +269,7 @@ export function SortableBoard<T extends BoardItem>({
   getItemLabel,
   onMove,
   onOpen,
+  surface = DEFAULT_SURFACE,
 }: SortableBoardProps<T>) {
   const t = useTranslations("kanban");
   const contextId = useId();
@@ -455,6 +470,7 @@ export function SortableBoard<T extends BoardItem>({
             reducedMotion={reducedMotion}
             roleDescription={t("roleDescription")}
             onOpen={onOpen}
+            surface={surface}
             panelId={wide ? undefined : panelId(column.id)}
             className={cn(
               "md:w-80 md:shrink-0",
@@ -484,6 +500,7 @@ type BoardColumnViewProps<T extends BoardItem> = {
   reducedMotion: boolean;
   roleDescription: string;
   onOpen: ((id: string) => void) | undefined;
+  surface: BoardSurface;
   /** Sous 768 px, la colonne est le panneau de son onglet. */
   panelId: string | undefined;
   className: string;
@@ -497,6 +514,7 @@ function BoardColumnView<T extends BoardItem>({
   reducedMotion,
   roleDescription,
   onOpen,
+  surface,
   panelId,
   className,
 }: BoardColumnViewProps<T>) {
@@ -521,14 +539,18 @@ function BoardColumnView<T extends BoardItem>({
       aria-labelledby={headingId}
       data-board-column={column.id}
       className={cn(
-        "glass flex flex-col gap-2 rounded-tile p-tile",
+        "flex flex-col gap-2 rounded-tile p-tile",
+        surface.column ?? "glass",
         isOver && "outline-2 outline-ring",
         className,
       )}
     >
       <h2
         id={headingId}
-        className="flex min-h-11 items-center justify-between gap-2 text-eyebrow text-muted-foreground uppercase"
+        className={cn(
+          "flex min-h-11 items-center justify-between gap-2 text-eyebrow uppercase",
+          surface.heading ?? "text-muted-foreground",
+        )}
       >
         <span>{column.label}</span>
         <span className="tabular-nums">{countOf(column, itemIds)}</span>
@@ -539,7 +561,10 @@ function BoardColumnView<T extends BoardItem>({
           items={itemIds}
           strategy={verticalListSortingStrategy}
         >
-          <div className="flex min-h-11 flex-col gap-2">
+          <div
+            data-board-cards=""
+            className={cn("flex min-h-11 flex-col gap-2", surface.well)}
+          >
             {itemIds.map((id) => {
               const item = itemsById.get(id);
               return item ? (

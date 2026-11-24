@@ -16,6 +16,7 @@ import {
 import type {
   BoardColumn,
   BoardMove,
+  BoardSurface,
   CardState,
 } from "@/components/kanban/SortableBoard";
 
@@ -27,6 +28,7 @@ type BoardProps = {
   renderCard: (item: { id: string }, state: CardState) => ReactNode;
   onMove: (move: BoardMove) => void;
   onOpen?: (id: string) => void;
+  surface?: BoardSurface;
 };
 
 // Double du tableau : le glisser lui-même est couvert par SortableBoard.test.tsx. Ici, chaque colonne rend ses
@@ -102,6 +104,12 @@ function idsIn(status: string) {
   return [
     ...document.querySelectorAll(`[data-column="${status}"] [data-demo-card]`),
   ].map((card) => card.getAttribute("data-demo-card"));
+}
+
+function cardClasses(id: string) {
+  return document
+    .querySelector(`[data-demo-card="${id}"]`)!
+    .className.split(/\s+/);
 }
 
 function columnIds(status: string) {
@@ -388,8 +396,107 @@ describe("démo du kanban", () => {
     expect(boardProps.current).not.toHaveProperty("activationDelayMs");
   });
 
+  it("variante A par défaut : colonne creusée sans verre, en-tête à l'encre, cartes opaques bordées avec ombre légère", () => {
+    renderDemo();
+
+    const surface = boardProps.current!.surface!;
+    expect(surface.column).toBe("bg-pill-track");
+    expect(surface.heading).toBe("text-foreground");
+    expect(surface.well).toBeUndefined();
+    expect(cardClasses(PLUMBER)).toEqual(
+      expect.arrayContaining([
+        "bg-popover",
+        "border",
+        "border-border",
+        "shadow-raised",
+      ]),
+    );
+    expect(cardClasses(PLUMBER)).not.toContain("bg-row");
+    expect(
+      screen
+        .getByRole("group", { name: "Cartes" })
+        .querySelector('[aria-pressed="true"]')?.textContent,
+    ).toBe("Creux");
+  });
+
+  it("variante B au sélecteur : colonne en verre, creux teinté sous les cartes, cartes opaques bordées sans ombre", () => {
+    renderDemo();
+
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Cartes" })).getByRole(
+        "button",
+        { name: "Verre" },
+      ),
+    );
+
+    const surface = boardProps.current!.surface!;
+    expect(surface.column).toBe("glass");
+    expect(surface.heading).toBeUndefined();
+    expect(surface.well?.split(" ")).toContain("bg-pill-track");
+    expect(cardClasses(PLUMBER)).toEqual(
+      expect.arrayContaining(["bg-popover", "border", "border-border"]),
+    );
+    expect(cardClasses(PLUMBER)).not.toContain("shadow-raised");
+  });
+
+  it("garde le sélecteur Cartes visible sans déplier les réglages", () => {
+    renderDemo();
+
+    expect(
+      screen.getByRole("group", { name: "Cartes" }).closest("details"),
+    ).toBeNull();
+    expect(
+      screen.getByRole("group", { name: "Latence simulée" }).closest("details"),
+    ).not.toBeNull();
+  });
+
+  it("calque du glisser : même carte bordée, sans ombre propre (celle du calque suffit)", () => {
+    renderDemo();
+    const { container } = render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={fr}
+        timeZone={getUserTimeZone()}
+      >
+        {boardProps.current!.renderCard(
+          boardProps
+            .current!.columns.flatMap((column) => column.items)
+            .find((item) => item.id === PLUMBER)!,
+          { dragging: true, overlay: true },
+        )}
+      </NextIntlClientProvider>,
+    );
+
+    const classes = (
+      container.firstElementChild as HTMLElement
+    ).className.split(/\s+/);
+    expect(classes).toEqual(
+      expect.arrayContaining(["bg-popover", "border", "border-border"]),
+    );
+    expect(classes).not.toContain("shadow-raised");
+  });
+
+  it("accroche l'icône de priorité d'une carte à la dernière information de sa légende", () => {
+    renderDemo();
+    // `unstarted-3` : priorité Haute, avec espace, échéance ou tags avant elle.
+    const card = document.querySelector(
+      '[data-demo-card="unstarted-3"]',
+    ) as HTMLElement;
+    const group = card.querySelector("[data-legend-group]") as HTMLElement;
+
+    expect(group.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["flex", "flex-nowrap", "min-w-0"]),
+    );
+    expect(group.children).toHaveLength(2);
+    expect(within(group).getByText("Priorité haute")).toBeDefined();
+  });
+
   it("affiche ses réglages et ses colonnes en anglais", () => {
     renderDemo("en");
+
+    const cards = screen.getByRole("group", { name: "Cards" });
+    expect(within(cards).getByRole("button", { name: "Well" })).toBeDefined();
+    expect(within(cards).getByRole("button", { name: "Glass" })).toBeDefined();
 
     expect(screen.getByText("Settings")).toBeDefined();
     expect(

@@ -377,7 +377,10 @@
       "latencyNone": "Aucune",
       "latencyOne": "1 s",
       "latencyThree": "3 s",
-      "failNext": "Faire échouer le prochain dépôt"
+      "failNext": "Faire échouer le prochain dépôt",
+      "look": "Cartes",
+      "lookWell": "Creux",
+      "lookGlass": "Verre"
     },
     "saving": "{count, plural, one {# déplacement en cours d'enregistrement…} other {# déplacements en cours d'enregistrement…}}",
     "saved": "Tout est enregistré.",

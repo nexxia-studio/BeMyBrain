@@ -11,6 +11,7 @@
 // Terminée : 20 plus récentes + « Tout voir », plus les cartes déposées pendant la visite. Annulée : bandeau replié avec compteur, cible de dépôt.
 // Tap, clic ou Entrée sur une carte (`onOpen` du tableau) : détail de la carte (`KanbanDemoDetail`). Ses
 // modifications restent en mémoire, par carte ; un changement de statut est un déplacement (en tête de colonne).
+// Sélecteur « Cartes » (D7) : deux habillages de la colonne et des cartes (`demo-looks.ts`), à choisir à l'œil.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import {
   animate,
@@ -37,6 +38,7 @@ import {
   statusOf,
 } from "./demo-board";
 import { demoBoard, type DemoTask, demoTasks } from "./demo-fixtures";
+import { type DemoLook, DEMO_LOOKS } from "./demo-looks";
 import { KanbanDemoCard } from "./KanbanDemoCard";
 import { type DemoEdit, KanbanDemoDetail } from "./KanbanDemoDetail";
 import { KanbanDemoSettings, type Latency } from "./KanbanDemoSettings";
@@ -79,6 +81,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
   const [failure, setFailure] = useState<BoardMove | null>(null);
   const [latency, setLatency] = useState<Latency>(0);
   const [failNext, setFailNext] = useState(false);
+  const [look, setLook] = useState<DemoLook>("well");
   const [showAllDone, setShowAllDone] = useState(false);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const nextKey = useRef(0);
@@ -192,6 +195,8 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
         onLatencyChange={setLatency}
         failNext={failNext}
         onFailNextChange={setFailNext}
+        look={look}
+        onLookChange={setLook}
         pendingCount={pending.length}
       />
       <div aria-busy={pending.length > 0}>
@@ -200,8 +205,14 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
           getItemLabel={(task) => task.title}
           onMove={move}
           onOpen={setOpenId}
+          surface={DEMO_LOOKS[look].board}
           renderCard={(task, state) => (
-            <KanbanDemoCard task={task} today={today} state={state} />
+            <KanbanDemoCard
+              task={task}
+              today={today}
+              state={state}
+              look={look}
+            />
           )}
         />
       </div>

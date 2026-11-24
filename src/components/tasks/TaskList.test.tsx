@@ -36,6 +36,7 @@ import {
   TASK_SECTION_HEADING_TEXT,
 } from "./task-list-layout";
 import { TaskList } from "./TaskList";
+import { TaskRow } from "./TaskRow";
 
 function expectClasses(element: HTMLElement, classes: string) {
   expect(element.className.split(/\s+/)).toEqual(
@@ -312,6 +313,64 @@ describe("liste des tâches : priorité", () => {
       expect(svg?.getAttribute("class")).toContain("text-foreground");
       expect(within(link).getByText(label)).toBeTruthy();
     }
+  });
+
+  it("accroche l'icône de priorité à la dernière information qui la précède (groupe insécable), compteur à part", () => {
+    renderList([
+      buildTask({
+        title: "Groupée",
+        priority: 2,
+        tags: ["client"],
+        subtaskTotal: 3,
+        subtaskDone: 1,
+      }),
+    ]);
+
+    const link = screen.getByRole("link", { name: /Groupée/ });
+    const group = link.querySelector("[data-legend-group]") as HTMLElement;
+
+    expect(group.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["flex", "flex-nowrap", "min-w-0"]),
+    );
+    expect(group.children).toHaveLength(2);
+    expect(within(group).getByText("client")).toBeTruthy();
+    expect(within(group).getByText("Priorité haute")).toBeTruthy();
+    expect(group.querySelector("svg.lucide-list-checks")).toBeNull();
+    expect(link.querySelector("svg.lucide-list-checks")).not.toBeNull();
+  });
+
+  it("sans information avant elle, l'icône de priorité reste seule, sans groupe", () => {
+    renderList([buildTask({ title: "Seule", priority: 2 })], {
+      showContext: false,
+    });
+
+    const link = screen.getByRole("link", { name: /Seule/ });
+
+    expect(link.querySelector("[data-legend-group]")).toBeNull();
+    expect(within(link).getByText("Priorité haute")).toBeTruthy();
+  });
+
+  it("variante tile : légende sur une ligne inchangée, aucun groupe", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TaskRow
+          task={buildTask({ title: "Tuile", priority: 2, tags: ["client"] })}
+          overdue={false}
+          showDate
+          showContext={false}
+          layout="tile"
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const link = screen.getByRole("link", { name: /Tuile/ });
+
+    expect(link.querySelector("[data-legend-group]")).toBeNull();
+    expect(within(link).getByText("Priorité haute")).toBeTruthy();
   });
 
   it("aucune icône de priorité pour 0", () => {

@@ -20,6 +20,7 @@ import fr from "../../../messages/fr.json";
 import {
   type BoardColumn,
   type BoardMove,
+  type BoardSurface,
   SortableBoard,
 } from "./SortableBoard";
 
@@ -59,7 +60,11 @@ const COLUMNS = [column("todo", ["a", "b", "c"]), column("doing", ["d", "e"])];
 function board(
   onMove: (move: BoardMove) => void = vi.fn(),
   columns: readonly BoardColumn<Card>[] = COLUMNS,
-  extra: { locale?: "fr" | "en"; onOpen?: (id: string) => void } = {},
+  extra: {
+    locale?: "fr" | "en";
+    onOpen?: (id: string) => void;
+    surface?: BoardSurface;
+  } = {},
 ) {
   const locale = extra.locale ?? "fr";
   return (
@@ -73,6 +78,7 @@ function board(
         renderCard={(card) => <span>{card.title}</span>}
         onMove={onMove}
         onOpen={extra.onOpen}
+        surface={extra.surface}
       />
     </NextIntlClientProvider>
   );
@@ -801,5 +807,46 @@ describe("SortableBoard", () => {
 
       expect(footprints()).toHaveLength(0);
     });
+  });
+});
+
+describe("surfaces du tableau", () => {
+  const classesOf = (element: Element) => element.className.split(/\s+/);
+  const heading = (id: string) => columnSection(id).querySelector("h2")!;
+  const well = (id: string) =>
+    columnSection(id).querySelector("[data-board-cards]")!;
+
+  it("par défaut : colonne en verre, en-tête en texte secondaire, aucun creux", () => {
+    render(board());
+
+    expect(classesOf(columnSection("todo"))).toContain("glass");
+    expect(classesOf(heading("todo"))).toContain("text-muted-foreground");
+    expect(well("todo").className).not.toMatch(/\bbg-/);
+  });
+
+  it("prend de l'appelant la surface de la colonne, la couleur de l'en-tête et le creux sous les cartes", () => {
+    render(
+      board(vi.fn(), COLUMNS, {
+        surface: {
+          column: "bg-pill-track",
+          heading: "text-foreground",
+          well: "rounded-lg bg-track p-2",
+        },
+      }),
+    );
+
+    const section = classesOf(columnSection("todo"));
+    expect(section).toContain("bg-pill-track");
+    expect(section).not.toContain("glass");
+    expect(section).toEqual(
+      expect.arrayContaining(["flex", "flex-col", "rounded-tile", "p-tile"]),
+    );
+    expect(classesOf(heading("todo"))).toContain("text-foreground");
+    expect(classesOf(heading("todo"))).not.toContain("text-muted-foreground");
+    expect(classesOf(heading("todo"))).toContain("text-eyebrow");
+    expect(classesOf(well("todo"))).toEqual(
+      expect.arrayContaining(["rounded-lg", "bg-track", "p-2", "min-h-11"]),
+    );
+    expect(well("todo").querySelectorAll("[data-board-card]")).toHaveLength(3);
   });
 });

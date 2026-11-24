@@ -4,7 +4,8 @@
 // Ligne de la liste (spec todo-unifiee, « Liste ») : case à cocher (zone 44 px, libellé sur la case seule),
 // puis un lien vers le détail qui couvre le reste de la ligne : titre (deux lignes au plus), puis légende
 // (parente, espace, échéance, heure, tags, priorité, compteur de sous-tâches). Une seule colonne à toutes les
-// largeurs : la légende passe à la ligne sous 390 px. Variante `tile` (tuiles To-do du tableau de bord, hauteur
+// largeurs : la légende passe à la ligne sous 390 px, l'icône de priorité jamais seule (accrochée à l'information
+// qui la précède). Variante `tile` (tuiles To-do du tableau de bord, hauteur
 // fixe, DESIGN.md § 6) : titre tronqué sur une ligne, légende sur une ligne coupée au bord ; la liste et le détail
 // gardent le titre complet.
 // Cocher : `tasks.complete` par le registre (`runAppAction`, origine `app`) ; rouvrir une tâche fermée (terminée
@@ -32,6 +33,7 @@ import {
   TASK_ROW_TEXT_CLASSES,
   TASK_ROW_TITLE_TEXT,
 } from "./task-list-layout";
+import { TaskLegendItems } from "./TaskLegendItems";
 import { useTaskToggle } from "./use-task-toggle";
 
 const MotionLink = motion.create(Link);
@@ -88,6 +90,19 @@ export function TaskRow({
     hasTags ||
     PriorityIcon !== null ||
     counter !== null;
+
+  // Liste : accrochée à l'information qui la précède (`TaskLegendItems`). Tuile : légende sur une ligne, à la suite.
+  const priority =
+    PriorityIcon === null ? null : (
+      <span className="flex items-center">
+        <PriorityIcon
+          aria-hidden="true"
+          className="size-4 text-foreground"
+          strokeWidth={2}
+        />
+        <span className="sr-only">{t(`list.priority.${task.priority}`)}</span>
+      </span>
+    );
 
   return (
     // Survol du lien de la ligne : fond `accent` sur toute la ligne (DESIGN.md § 2, états dérivés).
@@ -152,70 +167,61 @@ export function TaskRow({
                     : "flex-wrap gap-y-1",
                 )}
               >
-                {canceled && (
-                  <span
-                    className={cn(
-                      CHIP_SHAPE_CLASSES,
-                      "bg-chip-neutral text-chip-neutral-foreground",
-                    )}
-                  >
-                    {t("list.canceled")}
-                  </span>
-                )}
-                {hasParent && (
-                  <span className="flex min-w-0 items-center gap-1">
-                    <CornerDownRight
-                      aria-hidden="true"
-                      className="size-3.5 shrink-0"
-                      strokeWidth={2}
-                    />
-                    <span className="sr-only">{t("list.parent")}</span>
-                    <span className="truncate">{task.parentTitle}</span>
-                  </span>
-                )}
-                {/* Pastille de la couleur de l'espace ; nom et couleur viennent de la même ligne de contexts. */}
-                {showChip && (
-                  <span
-                    className={`truncate ${contextChipClass(task.contextColor ?? "neutral")}`}
-                  >
-                    {task.contextName}
-                  </span>
-                )}
-                {shownDueDate !== null && (
-                  <span className={cn(overdue && "text-destructive")}>
-                    {format.dateTime(dueDateInstant(shownDueDate), {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                )}
-                {hasTime && <span>{task.dueTime}</span>}
-                {hasTags && (
-                  <span className="flex min-w-0 items-center gap-1">
-                    <Tag
-                      aria-hidden="true"
-                      className="size-3.5 shrink-0"
-                      strokeWidth={2}
-                    />
-                    <span className="sr-only">{t("list.tags")}</span>
-                    {/* Contenu saisi : jamais traduit, seul le séparateur suit la langue. */}
-                    <span className="truncate">
-                      {tagList(task.tags, locale)}
+                <TaskLegendItems priority={oneLine ? null : priority}>
+                  {canceled && (
+                    <span
+                      className={cn(
+                        CHIP_SHAPE_CLASSES,
+                        "bg-chip-neutral text-chip-neutral-foreground",
+                      )}
+                    >
+                      {t("list.canceled")}
                     </span>
-                  </span>
-                )}
-                {PriorityIcon !== null && (
-                  <span className="flex items-center">
-                    <PriorityIcon
-                      aria-hidden="true"
-                      className="size-4 text-foreground"
-                      strokeWidth={2}
-                    />
-                    <span className="sr-only">
-                      {t(`list.priority.${task.priority}`)}
+                  )}
+                  {hasParent && (
+                    <span className="flex min-w-0 items-center gap-1">
+                      <CornerDownRight
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0"
+                        strokeWidth={2}
+                      />
+                      <span className="sr-only">{t("list.parent")}</span>
+                      <span className="truncate">{task.parentTitle}</span>
                     </span>
-                  </span>
-                )}
+                  )}
+                  {/* Pastille de la couleur de l'espace ; nom et couleur viennent de la même ligne de contexts. */}
+                  {showChip && (
+                    <span
+                      className={`truncate ${contextChipClass(task.contextColor ?? "neutral")}`}
+                    >
+                      {task.contextName}
+                    </span>
+                  )}
+                  {shownDueDate !== null && (
+                    <span className={cn(overdue && "text-destructive")}>
+                      {format.dateTime(dueDateInstant(shownDueDate), {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                  )}
+                  {hasTime && <span>{task.dueTime}</span>}
+                  {hasTags && (
+                    <span className="flex min-w-0 items-center gap-1">
+                      <Tag
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0"
+                        strokeWidth={2}
+                      />
+                      <span className="sr-only">{t("list.tags")}</span>
+                      {/* Contenu saisi : jamais traduit, seul le séparateur suit la langue. */}
+                      <span className="truncate">
+                        {tagList(task.tags, locale)}
+                      </span>
+                    </span>
+                  )}
+                </TaskLegendItems>
+                {oneLine && priority}
                 {counter !== null && (
                   <span className="flex items-center gap-1">
                     <ListChecks

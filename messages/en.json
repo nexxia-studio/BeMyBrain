@@ -377,7 +377,10 @@
       "latencyNone": "None",
       "latencyOne": "1 s",
       "latencyThree": "3 s",
-      "failNext": "Fail the next drop"
+      "failNext": "Fail the next drop",
+      "look": "Cards",
+      "lookWell": "Well",
+      "lookGlass": "Glass"
     },
     "saving": "{count, plural, one {Saving # move…} other {Saving # moves…}}",
     "saved": "Everything is saved.",
