@@ -10,6 +10,7 @@
 // Glisser : souris après 4 px, doigt après un appui de `activationDelayMs` (le défilement reste libre avant),
 // clavier (Espace/Entrée, flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
+// Colonne partielle (ex. 20 plus récentes) : `total` donne le compteur, `footer` se pose sous les cartes.
 // Onglets : motif ARIA tablist (flèches gauche/droite en boucle, Début/Fin, seul l'onglet choisi est tabulable).
 // Pendant le glisser, l'ordre est un brouillon local ; au dépôt, `onMove` reçoit les voisins de la carte et le
 // brouillon est effacé : le parent met ses colonnes à jour dans le même événement (optimiste) pour que la carte
@@ -64,6 +65,10 @@ export type BoardColumn<T extends BoardItem> = {
   items: readonly T[];
   /** Repliée : un bandeau avec libellé et compteur, qui reçoit les cartes en tête. */
   collapsed?: boolean;
+  /** Nombre total quand `items` n'en montre qu'une partie (ex. 20 plus récentes) ; défaut : `items.length`. */
+  total?: number;
+  /** Sous les cartes d'une colonne ouverte (ex. « Tout voir »). */
+  footer?: ReactNode;
 };
 
 export type BoardMove = {
@@ -102,6 +107,13 @@ function layoutOf<T extends BoardItem>(
 ): Layout {
   return Object.fromEntries(
     columns.map((column) => [column.id, column.items.map((item) => item.id)]),
+  );
+}
+
+// Compteur affiché : le total de la colonne, corrigé des cartes entrées ou sorties pendant le glisser.
+function countOf<T extends BoardItem>(column: BoardColumn<T>, ids: string[]) {
+  return (
+    (column.total ?? column.items.length) + ids.length - column.items.length
   );
 }
 
@@ -346,7 +358,7 @@ export function SortableBoard<T extends BoardItem>({
               key={column.id}
               columnId={column.id}
               label={column.label}
-              count={current[column.id]?.length ?? 0}
+              count={countOf(column, current[column.id] ?? [])}
               selected={column.id === shownColumnId}
               panelId={`${tabsId}-panel`}
               onSelect={() => setChosenColumnId(column.id)}
@@ -437,7 +449,7 @@ function BoardColumnView<T extends BoardItem>({
         className="flex min-h-11 items-center justify-between gap-2 text-eyebrow text-muted-foreground uppercase"
       >
         <span>{column.label}</span>
-        <span className="tabular-nums">{itemIds.length}</span>
+        <span className="tabular-nums">{countOf(column, itemIds)}</span>
       </h2>
       {collapsed ? null : (
         <SortableContext
@@ -462,6 +474,7 @@ function BoardColumnView<T extends BoardItem>({
           </div>
         </SortableContext>
       )}
+      {collapsed ? null : column.footer}
     </section>
   );
 }

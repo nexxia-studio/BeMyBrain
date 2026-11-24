@@ -367,5 +367,31 @@
     "dropped": "Dropped card “{item}” in “{column}”, position {position} of {count}.",
     "droppedColumn": "Dropped card “{item}” in “{column}”.",
     "cancelled": "Moving “{item}” was cancelled."
+  },
+  "kanbanDemo": {
+    "title": "Kanban demo",
+    "settings": {
+      "label": "Settings",
+      "layout": "Layout",
+      "layoutScroll": "Columns",
+      "layoutTabs": "Tabs",
+      "delay": "Press before pick-up",
+      "delayShort": "Short",
+      "delayMedium": "Medium",
+      "delayLong": "Long",
+      "delayHint": "On touch, a card is picked up after a {ms} ms press.",
+      "latency": "Simulated latency",
+      "latencyNone": "None",
+      "latencyOne": "1 s",
+      "latencyThree": "3 s",
+      "failNext": "Fail the next drop"
+    },
+    "saving": "{count, plural, one {Saving # move…} other {Saving # moves…}}",
+    "saved": "Everything is saved.",
+    "moveFailed": "Move not saved.",
+    "retry": "Retry",
+    "blocked": "Blocked",
+    "seeAll": "See all ({count})",
+    "seeLess": "Show the {count} most recent"
   }
 }

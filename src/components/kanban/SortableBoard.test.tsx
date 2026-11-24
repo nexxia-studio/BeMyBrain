@@ -228,6 +228,33 @@ describe("SortableBoard", () => {
     expect(screen.queryByText("x")).toBeNull();
   });
 
+  it("une colonne affiche son total, au-delà des cartes affichées, puis son pied", () => {
+    const columns = [
+      column("todo", ["a"]),
+      column("done", ["x", "y"], { total: 25, footer: <button>PIED</button> }),
+    ];
+
+    render(board(vi.fn(), columns));
+
+    expect(screen.getByRole("heading", { name: /DONE/ }).textContent).toBe(
+      "DONE25",
+    );
+    expect(screen.getByRole("button", { name: "PIED" })).toBeDefined();
+  });
+
+  it("en onglets, l'onglet compte le total de la colonne", () => {
+    const columns = [
+      column("todo", ["a"]),
+      column("done", ["x"], { total: 25 }),
+    ];
+
+    render(board(vi.fn(), columns, { layout: "tabs" }));
+
+    expect(screen.getByRole("tab", { name: /DONE/ }).textContent).toBe(
+      "DONE25",
+    );
+  });
+
   it("en onglets, n'affiche que la colonne choisie et change de colonne au toucher d'un onglet", () => {
     render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
 

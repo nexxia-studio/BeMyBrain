@@ -367,5 +367,31 @@
     "dropped": "Carte « {item} » déposée dans « {column} », position {position} sur {count}.",
     "droppedColumn": "Carte « {item} » déposée dans « {column} ».",
     "cancelled": "Déplacement de « {item} » annulé."
+  },
+  "kanbanDemo": {
+    "title": "Démo du kanban",
+    "settings": {
+      "label": "Réglages",
+      "layout": "Mise en page",
+      "layoutScroll": "Colonnes",
+      "layoutTabs": "Onglets",
+      "delay": "Appui avant saisie",
+      "delayShort": "Court",
+      "delayMedium": "Moyen",
+      "delayLong": "Long",
+      "delayHint": "Au doigt, la carte se saisit après {ms} ms d'appui.",
+      "latency": "Latence simulée",
+      "latencyNone": "Aucune",
+      "latencyOne": "1 s",
+      "latencyThree": "3 s",
+      "failNext": "Faire échouer le prochain dépôt"
+    },
+    "saving": "{count, plural, one {# déplacement en cours d'enregistrement…} other {# déplacements en cours d'enregistrement…}}",
+    "saved": "Tout est enregistré.",
+    "moveFailed": "Déplacement non enregistré.",
+    "retry": "Réessayer",
+    "blocked": "Bloquée",
+    "seeAll": "Tout voir ({count})",
+    "seeLess": "Voir les {count} plus récentes"
   }
 }
