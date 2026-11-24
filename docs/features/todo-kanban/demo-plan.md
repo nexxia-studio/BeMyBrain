@@ -91,11 +91,11 @@ Décisions d'Antoine : appui long validé (250 ms, soulèvement, empreinte), ne 
   - Tests : Entrée ajoute, champ vidé et toujours focalisé, visible liste vide, vide refusé, erreur affichée ; `SubtaskList` et démo.
   - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts.
 
-- [ ] **D9. Hiérarchie du détail**
+- [x] **D9. Hiérarchie du détail** (2026-11-24, `3bf46c3`)
   - Ordre : titre ; propriétés (Statut, Priorité, Échéance, Espace, Tags) ; sous-tâches ; notes en bas, repliées à une ligne quand elles sont vides (« Ajouter une note », s'ouvre au focus ou au tap), dépliées dès qu'elles ont du contenu.
   - Statut et priorité visuellement marqués : icône propre à chaque statut (Lucide) et icône du niveau de priorité (`priority-icons.ts`) dans la pastille, accent de couleur de la charte seulement ; la braise reste réservée aux erreurs et au retard (DESIGN.md § 2).
   - Composants communs dans `src/components/tasks/` (icônes de statut, champ de notes repliable), utilisés par `TaskDetail` (vrai détail, vue liste) et par la démo. `TaskDetail` passe au nouvel ordre ; comportements d'enregistrement, erreurs, corbeille et sous-tâche d'une parente inchangés.
-  - Démo : sélecteur « Détail » (Nouveau / Actuel) dans les réglages, Nouveau par défaut ; « Actuel » garde l'ordre d'avant (notes en haut) pour comparer.
+  - Démo : sélecteur « Détail » (Nouveau / Actuel) dans les réglages, Nouveau par défaut ; « Actuel » garde l'ordre d'avant (notes en haut) pour comparer. Fait : sélecteur rangé dans « Réglages » replié (visible, il poussait la première carte sous la barre d'onglets à 390 px).
   - Tests : ordre des blocs (DOM) dans `TaskDetail` et la démo, notes repliées vides et dépliées remplies, icône par statut, bascule du sélecteur ; e2e du détail de la liste mis à jour si l'ordre les touche.
   - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts ; e2e `demo-kanban` et e2e du détail verts ; anti-slop passé.
 
