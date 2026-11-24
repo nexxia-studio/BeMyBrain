@@ -34,4 +34,39 @@ Risque connu : `useUniqueId` de dnd-kit (compteur de module) donne des `aria-des
   - Fin : e2e de la démo verts sous `pnpm dev` (la garde ferme la page sur tout build de production hors Vercel) ; 404 vérifié sur un build de production (`e2e/demo-kanban-fermee.spec.ts`, lancé seul contre `pnpm build && next start`) ; PR en brouillon ouverte, preview prête.
   - 404 sur build de production : 2026-11-24, `pnpm build && next start -p 3100`, `e2e/demo-kanban-fermee.spec.ts` 1 passé (`/demo/kanban` 404, `/tasks` 200, même session).
 
+## Retour de l'essai iPhone (2026-11-24)
+
+Décisions d'Antoine :
+- Mise en page : onglets sur mobile (< 768 px), colonnes à défilement horizontal sur tablette et ordinateur. Le réglage de mise en page de la démo disparaît.
+- Délai d'appui : moyen, 250 ms. Le réglage du délai disparaît de la démo.
+
+- [ ] **D4. Saut du tableau pendant un glisser** — bug vu sur iPhone, mise en page colonnes
+  - Symptôme (vidéo d'Antoine) : il tire une carte de « En cours » vers « Terminée ». La colonne d'origine disparaît un instant, en-tête compris. Puis le tableau saute horizontalement et la colonne réapparaît décalée. Le défilement horizontal s'emballe pendant le glisser.
+  - Piste à confirmer, pas à présumer : le conteneur aimante le défilement (`snap-x snap-mandatory`, `SortableBoard.tsx`), et dnd-kit fait défiler le tableau près des bords. L'aimant ramène le tableau en arrière, les rectangles mesurés au départ deviennent faux, la cible change, la carte change de colonne, et la boucle recommence. Autres causes à écarter : remesure des colonnes, `glass` (backdrop-filter) sur une section déplacée, colonne vidée qui change de taille.
+  - Rouge d'abord : un e2e (`e2e/demo-kanban.spec.ts`, à une largeur où toutes les colonnes ne tiennent pas, au doigt par CDP et à la souris) tire une carte de « En cours » vers « Terminée » et échantillonne pendant tout le glisser :
+    - `scrollLeft` du tableau : il ne revient jamais en arrière tant qu'on avance, et ne fait aucun aller-retour ;
+    - la colonne d'origine : rectangle et en-tête toujours visibles, sans saut horizontal hors du défilement voulu.
+  - Correction dans `SortableBoard.tsx` seulement. Même vérification dans la mise en page en onglets : barre d'onglets, panneau, page.
+  - Mise en page choisie par la largeur (onglets < 768 px, colonnes au-delà) et délai d'appui fixé à 250 ms ; réglages retirés de la démo, tests à jour.
+  - Fin : e2e rouge avant la correction, vert après (desktop et mobile) ; `pnpm test`, `pnpm lint`, `pnpm typecheck` verts.
+
+- [ ] **D5. Tap = détail, appui long = saisie**
+  - Tap sur une carte : ouvre le détail dans la même fenêtre que la liste, `TaskDetailSheet` (panneau sur ordinateur, tiroir sur mobile). Contenu : statut, priorité, notes, échéance, tags, sous-tâches.
+  - Démo sans base ni action serveur : `TaskDetail` appelle `tasks.update` et ne peut donc pas servir tel quel. Réutiliser la fenêtre et les pastilles qui ne font qu'afficher (`ChoiceChip`, `DueDateChip`, `TagsChip`…), branchées sur l'état local de la démo. Aucun appel au registre d'actions. Si `TaskDetailSheet` impose une navigation à la fermeture, ajouter une fermeture par rappel sans changer le comportement actuel, testée.
+  - Les gestes ne se confondent jamais :
+    - un tap n'est un tap que si le doigt se lève avant le délai d'appui, sans avoir bougé au-delà de la tolérance ;
+    - une saisie, un défilement ou un glisser n'ouvre jamais le détail ;
+    - au clavier : Entrée ouvre le détail, Espace saisit la carte (dnd-kit).
+  - API de `SortableBoard` : `onOpen(id)`, toujours générique.
+  - Tests : unitaires (Vitest) sur le tap, le glisser, le défilement, Entrée et Espace ; e2e au doigt par CDP (tap court = détail, appui de 250 ms et plus = saisie sans détail).
+  - Fin : tests, lint, typecheck verts.
+
+- [ ] **D6. Effet de saisie et survol**
+  - Appui long : la carte se soulève, inclinée d'environ 2°, avec une ombre marquée. Pendant le déplacement, une empreinte estompée reste à sa place d'origine.
+  - Couleurs, verre et ombres de DESIGN.md seulement. Animation par Motion (ADR-006).
+  - `prefers-reduced-motion` : aucune inclinaison, aucune animation de soulèvement, l'empreinte reste.
+  - Ordinateur (pointeur fin et survol) : curseur main ouverte et léger relief au survol, main fermée pendant le glisser. Rien de tout cela au doigt.
+  - Tests : état de la carte en glisser (inclinaison, empreinte), mouvement réduit (aucune inclinaison) ; e2e : console propre et curseur `grab` au survol sur ordinateur.
+  - Fin : tests, lint, typecheck verts ; anti-slop de `nexxia-design` passé.
+
 Retrait : la dernière tâche de `plan.md` supprime `/demo/kanban`, ses messages et ses fixtures (`SortableBoard` reste), et vide la liste `ALLOWED_DEMOS` de `tests/build/no-demo.test.ts` (`pnpm test:build` refuse alors toute démo).
