@@ -10,6 +10,7 @@
 // Glisser : souris après 4 px, doigt après un appui de `activationDelayMs` (le défilement reste libre avant),
 // clavier (Espace/Entrée, flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
+// Onglets : motif ARIA tablist (flèches gauche/droite en boucle, Début/Fin, seul l'onglet choisi est tabulable).
 // Pendant le glisser, l'ordre est un brouillon local ; au dépôt, `onMove` reçoit les voisins de la carte et le
 // brouillon est effacé : le parent met ses colonnes à jour dans le même événement (optimiste) pour que la carte
 // reste où elle a été lâchée.
@@ -44,7 +45,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useId, useMemo, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useId,
+  useMemo,
+  useState,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -170,7 +177,11 @@ export function SortableBoard<T extends BoardItem>({
   const reducedMotion = useReducedMotion() ?? false;
   const [draft, setDraft] = useState<Layout | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [shownColumnId, setShownColumnId] = useState(columns[0]?.id);
+  const [chosenColumnId, setShownColumnId] = useState(columns[0]?.id);
+  // Colonne choisie retirée par le parent : retour à la première.
+  const shownColumnId = columns.some((column) => column.id === chosenColumnId)
+    ? chosenColumnId
+    : columns[0]?.id;
 
   const current = draft ?? layoutOf(columns);
 
@@ -282,6 +293,27 @@ export function SortableBoard<T extends BoardItem>({
     setDraft(null);
   }
 
+  // Motif ARIA des onglets : flèches gauche/droite en boucle, Début/Fin ; l'onglet atteint est choisi.
+  function handleTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    const index = columns.findIndex((column) => column.id === shownColumnId);
+    let next: number;
+    if (step !== undefined) {
+      next = (index + step + columns.length) % columns.length;
+    } else if (event.key === "Home") {
+      next = 0;
+    } else if (event.key === "End") {
+      next = columns.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    setShownColumnId(columns[next].id);
+    event.currentTarget
+      .querySelectorAll<HTMLElement>('[role="tab"]')
+      [next]?.focus();
+  }
+
   const activeItem = activeId ? itemsById.get(activeId) : undefined;
   const shownColumns =
     layout === "tabs"
@@ -305,6 +337,7 @@ export function SortableBoard<T extends BoardItem>({
       {layout === "tabs" ? (
         <div
           role="tablist"
+          onKeyDown={handleTabKeyDown}
           aria-label={t("columns")}
           className="glass flex gap-1 overflow-x-auto rounded-full p-1"
         >
@@ -505,6 +538,7 @@ function BoardTab({
       type="button"
       role="tab"
       aria-selected={selected}
+      tabIndex={selected ? 0 : -1}
       aria-controls={selected ? panelId : undefined}
       onClick={onSelect}
       className={cn(

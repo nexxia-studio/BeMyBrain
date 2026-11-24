@@ -152,13 +152,13 @@ describe("SortableBoard", () => {
 
     await dragWithKeyboard("b", ["ArrowRight"]);
 
-    expect(onMove).toHaveBeenCalledTimes(1);
-    const move = onMove.mock.calls[0][0] as BoardMove;
-    expect(move.id).toBe("b");
-    expect(move.toColumn).toBe("doing");
-    expect([move.beforeId, move.afterId]).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^[de]$/)]),
-    );
+    // Géométrie factice : « e », à la hauteur de « b », est la carte la plus proche à droite.
+    expect(onMove).toHaveBeenCalledExactlyOnceWith({
+      id: "b",
+      toColumn: "doing",
+      beforeId: "d",
+      afterId: "e",
+    });
   });
 
   it("n'appelle pas onMove quand la carte revient à sa place", async () => {
@@ -239,6 +239,44 @@ describe("SortableBoard", () => {
     expect(screen.queryByText("a")).toBeNull();
   });
 
+  it("en onglets, seul l'onglet choisi est dans l'ordre de tabulation", () => {
+    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
+
+    expect(
+      screen.getAllByRole("tab").map((tab) => tab.getAttribute("tabindex")),
+    ).toEqual(["0", "-1"]);
+  });
+
+  it("en onglets, les flèches passent d'un onglet à l'autre, en boucle, et affichent sa colonne", () => {
+    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
+    const [todo, doing] = screen.getAllByRole("tab");
+    todo.focus();
+
+    fireEvent.keyDown(todo, { key: "ArrowRight" });
+
+    expect(document.activeElement).toBe(doing);
+    expect(doing.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("d")).toBeDefined();
+
+    fireEvent.keyDown(doing, { key: "ArrowRight" });
+
+    expect(document.activeElement).toBe(todo);
+
+    fireEvent.keyDown(todo, { key: "ArrowLeft" });
+
+    expect(document.activeElement).toBe(doing);
+  });
+
+  it("en onglets, revient à la première colonne quand la colonne choisie disparaît", () => {
+    const { rerender } = render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
+    fireEvent.click(screen.getByRole("tab", { name: /DOING/ }));
+
+    rerender(board(vi.fn(), [COLUMNS[0]], { layout: "tabs" }));
+
+    expect(screen.getByText("a")).toBeDefined();
+    expect(screen.getByRole("tab").getAttribute("aria-selected")).toBe("true");
+  });
+
   it("en onglets, une carte déposée sur un onglet passe en tête de cette colonne", async () => {
     const onMove = vi.fn();
     render(board(onMove, COLUMNS, { layout: "tabs" }));
@@ -279,19 +317,17 @@ describe("SortableBoard", () => {
   });
 
   it("s'hydrate après un rendu serveur sans avertissement ni erreur", async () => {
-    const html = renderToString(board());
-    const container = document.createElement("div");
-    container.innerHTML = html;
-    document.body.append(container);
     const error = vi.spyOn(console, "error");
     const warn = vi.spyOn(console, "warn");
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(board());
+    document.body.append(container);
 
-    await act(async () => {
-      hydrateRoot(container, board());
-    });
+    const root = await act(async () => hydrateRoot(container, board()));
 
     expect(error).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
+    act(() => root.unmount());
     container.remove();
   });
 });
