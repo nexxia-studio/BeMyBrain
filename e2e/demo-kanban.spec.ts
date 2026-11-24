@@ -257,3 +257,192 @@ test("@mobile un glisser lancé sans attendre le délai ne saisit pas la carte e
     .toBeGreaterThan(scrollBefore);
   await expect(card(column(page, "unstarted"), "unstarted-1")).toBeVisible();
 });
+
+// D4 (demo-plan.md) : pendant un glisser de « En cours » vers « Terminée », en colonnes, le tableau ne revient
+// jamais en arrière et la colonne d'origine reste visible, sans saut hors du défilement. Échantillons pris à
+// chaque image (`requestAnimationFrame`) dans la page, du début du geste au lâcher.
+type Sample = {
+  scrollLeft: number;
+  /** Bord gauche de la colonne dans le contenu du tableau (indépendant du défilement). */
+  columnOffset: number | null;
+  columnWidth: number;
+  columnHeight: number;
+  headingWidth: number;
+  headingHeight: number;
+};
+
+async function startSampling(page: Page, columnId: string): Promise<void> {
+  await page.evaluate((id) => {
+    const store = window as unknown as {
+      __samples: unknown[];
+      __sampling: boolean;
+    };
+    store.__samples = [];
+    store.__sampling = true;
+    const frame = () => {
+      const columnEl = document.querySelector(`[data-board-column="${id}"]`);
+      const board = document.querySelector("[data-board-column]")!
+        .parentElement!;
+      const rect = columnEl?.getBoundingClientRect();
+      const heading = columnEl?.querySelector("h2")?.getBoundingClientRect();
+      store.__samples.push({
+        scrollLeft: board.scrollLeft,
+        columnOffset: rect
+          ? rect.left - board.getBoundingClientRect().left + board.scrollLeft
+          : null,
+        columnWidth: rect?.width ?? 0,
+        columnHeight: rect?.height ?? 0,
+        headingWidth: heading?.width ?? 0,
+        headingHeight: heading?.height ?? 0,
+      });
+      if (store.__sampling) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, columnId);
+}
+
+async function stopSampling(page: Page): Promise<Sample[]> {
+  return page.evaluate(() => {
+    const store = window as unknown as {
+      __samples: Sample[];
+      __sampling: boolean;
+    };
+    store.__sampling = false;
+    return store.__samples;
+  });
+}
+
+// Défilement automatique de dnd-kit : au plus 10 px toutes les 5 ms. Une image plus lente sous une machine
+// chargée en cumule plusieurs ; au-delà d'une demi-colonne (160 px), c'est un saut, pas un défilement.
+const MAX_SCROLL_STEP = 160;
+
+/** Pas du défilement d'une image à la suivante qui reculent, ou qui sautent plus loin qu'un défilement. */
+function scrollFaults(samples: Sample[]): { back: number[]; jumps: number[] } {
+  const steps = samples
+    .slice(1)
+    .map((sample, index) => sample.scrollLeft - samples[index].scrollLeft);
+  return {
+    back: steps.filter((step) => step < -1),
+    jumps: steps.filter((step) => step > MAX_SCROLL_STEP),
+  };
+}
+
+function expectSteadyBoard(samples: Sample[]): void {
+  expect(samples.length).toBeGreaterThan(20);
+  expect(samples.at(-1)!.scrollLeft).toBeGreaterThan(samples[0].scrollLeft);
+  const first = samples[0];
+  const hidden = samples.filter(
+    (sample) =>
+      sample.columnOffset === null ||
+      sample.columnWidth < 1 ||
+      sample.columnHeight < 1 ||
+      sample.headingWidth < 1 ||
+      sample.headingHeight < 1,
+  );
+  const shifted = samples
+    .map((sample) =>
+      sample.columnOffset === null
+        ? null
+        : Math.round(sample.columnOffset - first.columnOffset!),
+    )
+    .filter((shift) => shift !== null && Math.abs(shift) > 1);
+  expect({
+    ...scrollFaults(samples),
+    hidden: hidden.length,
+    shifted,
+  }).toEqual({ back: [], jumps: [], hidden: 0, shifted: [] });
+}
+
+function boardOf(page: Page): Locator {
+  return page.locator("[data-board-column]").first().locator("..");
+}
+
+/** Point près du bord droit visible du tableau, à la hauteur des cartes : zone de défilement automatique. */
+async function rightEdgeOfBoard(
+  page: Page,
+  y: number,
+): Promise<{ x: number; y: number }> {
+  const box = await boardOf(page).boundingBox();
+  if (!box) throw new Error("tableau sans boîte");
+  const viewport = page.viewportSize()!;
+  return { x: Math.min(box.x + box.width, viewport.width) - 12, y };
+}
+
+/** Attend que la colonne soit entière dans la partie visible du tableau (le défilement automatique l'amène). */
+async function waitUntilFullyShown(page: Page, id: string): Promise<void> {
+  await expect
+    .poll(() =>
+      column(page, id).evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const board = el.parentElement!.getBoundingClientRect();
+        return rect.left >= board.left - 1 && rect.right <= board.right + 1;
+      }),
+    )
+    .toBe(true);
+}
+
+/** Point de dépôt dans « Terminée » : sa première carte. */
+async function firstDoneCard(page: Page): Promise<{ x: number; y: number }> {
+  const box = await column(page, "completed")
+    .locator("[data-board-card]")
+    .first()
+    .boundingBox();
+  if (!box) throw new Error("carte sans boîte");
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+test.describe("en colonnes, au doigt (tablette, 1024 px)", () => {
+  test.use({
+    viewport: { width: 1024, height: 768 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("@desktop pendant un glisser au doigt de « En cours » vers « Terminée », le tableau défile sans recul ni saut et la colonne d'origine reste en place", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await openDemo(page);
+    const finger = await Finger.on(page);
+    const from = await center(card(page, "started-1"));
+    const edge = await rightEdgeOfBoard(page, from.y);
+    await startSampling(page, "started");
+
+    await finger.down(from);
+    await expect(overlay(page)).toBeVisible();
+    await finger.move(from, edge, 20);
+    // Doigt tenu près du bord : le défilement automatique amène « Terminée ».
+    await waitUntilFullyShown(page, "completed");
+    const to = await firstDoneCard(page);
+    await finger.move(edge, to, 10);
+    const samples = await stopSampling(page);
+    await finger.up();
+
+    expectSteadyBoard(samples);
+    await expect(card(column(page, "completed"), "started-1")).toBeVisible();
+  });
+});
+
+test("@desktop pendant un glisser à la souris de « En cours » vers « Terminée », le tableau défile sans recul ni saut et la colonne d'origine reste en place", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const from = await center(card(page, "started-1"));
+  const edge = await rightEdgeOfBoard(page, from.y);
+  await startSampling(page, "started");
+
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+  await expect(overlay(page)).toBeVisible();
+  await page.mouse.move(edge.x, edge.y, { steps: 20 });
+  await waitUntilFullyShown(page, "completed");
+  const to = await firstDoneCard(page);
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  const samples = await stopSampling(page);
+  await page.mouse.up();
+
+  expectSteadyBoard(samples);
+  await expect(card(column(page, "completed"), "started-1")).toBeVisible();
+});
