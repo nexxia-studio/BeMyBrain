@@ -63,7 +63,7 @@ Décisions d'Antoine :
   - Tests : unitaires (Vitest) sur le tap, le glisser, le défilement, Entrée et Espace ; e2e au doigt par CDP (tap court = détail, appui de 250 ms et plus = saisie sans détail).
   - Fin : tests, lint, typecheck verts.
 
-- [ ] **D6. Effet de saisie et survol**
+- [x] **D6. Effet de saisie et survol** — 2026-11-24 — ombre `shadow-glass` (aucun token d'ombre plus marquée), pas d'agrandissement (aucune échelle > 1 dans la charte)
   - Appui long : la carte se soulève, inclinée d'environ 2°, avec une ombre marquée. Pendant le déplacement, une empreinte estompée reste à sa place d'origine.
   - Couleurs, verre et ombres de DESIGN.md seulement. Animation par Motion (ADR-006).
   - `prefers-reduced-motion` : aucune inclinaison, aucune animation de soulèvement, l'empreinte reste.

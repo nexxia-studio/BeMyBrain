@@ -4,7 +4,7 @@
 // Carte de la démo du kanban : titre (deux lignes au plus), puis légende reprise de la ligne de liste (`TaskRow`) :
 // « Bloquée », pastille d'espace, échéance (braise en retard), tags, icône de priorité. Surface `row` dans la
 // colonne en verre (jamais de verre sur du verre) ; pendant le glisser, le calque qui suit le doigt passe sur
-// `popover` opaque avec l'ombre de verre (il survole la page, pas une tuile).
+// `popover` opaque (il survole la page, pas une tuile) ; ombre, inclinaison et empreinte viennent de `SortableBoard`.
 // Pastille « Bloquée » : forme des pastilles, bordée `input` (≥ 3:1), texte encre, icône Lucide ; aucune couleur
 // d'espace, la braise reste au retard. À valider à la spec.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
@@ -52,7 +52,7 @@ export function KanbanDemoCard({ task, today, state }: KanbanDemoCardProps) {
       data-demo-card={state.overlay ? undefined : task.id}
       className={cn(
         "flex min-h-11 flex-col justify-center gap-1 rounded-lg px-3.5 py-2.5",
-        state.overlay ? "bg-popover shadow-glass" : "bg-row",
+        state.overlay ? "bg-popover" : "bg-row",
       )}
     >
       {/* Contenu saisi : jamais traduit. */}

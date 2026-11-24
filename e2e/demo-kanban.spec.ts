@@ -761,3 +761,63 @@ test("@desktop un glisser à la souris n'ouvre pas le détail", async ({
   await expect(detailDialog(page)).toHaveCount(0);
   expect(messages).toEqual([]);
 });
+
+// D6 : sur ordinateur (pointeur fin et survol), main ouverte et relief au survol, main fermée sur la copie saisie ;
+// au doigt, ni curseur ni relief.
+test("@desktop au survol d'une carte, main ouverte et relief ; pendant le glisser, main fermée, copie inclinée", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+  const target = card(page, "unstarted-1");
+  const shadowAtRest = await target.evaluate(
+    (el) => getComputedStyle(el).boxShadow,
+  );
+
+  await target.hover();
+
+  await expect
+    .poll(() => target.evaluate((el) => getComputedStyle(el).cursor))
+    .toBe("grab");
+  expect(
+    await target.evaluate((el) => getComputedStyle(el).boxShadow),
+  ).not.toBe(shadowAtRest);
+
+  const from = await center(target);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+  await expect(overlay(page)).toBeVisible();
+  await expect
+    .poll(() => overlay(page).evaluate((el) => getComputedStyle(el).cursor))
+    .toBe("grabbing");
+  await expect
+    .poll(() => overlay(page).evaluate((el) => el.style.transform))
+    .toContain("rotate(2deg)");
+  await expect(page.locator("[data-board-footprint]")).toHaveAttribute(
+    "data-board-card",
+    "unstarted-1",
+  );
+  await page.mouse.up();
+
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(page.locator("[data-board-footprint]")).toHaveCount(0);
+  expect(messages).toEqual([]);
+});
+
+test("@mobile au doigt, une carte n'a ni curseur main ni relief", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const target = card(page, "backlog-1");
+
+  const style = await target.evaluate((el) => ({
+    cursor: getComputedStyle(el).cursor,
+    shadow: getComputedStyle(el).boxShadow,
+  }));
+
+  expect(style.cursor).not.toBe("grab");
+  expect(style.shadow).toBe("none");
+});

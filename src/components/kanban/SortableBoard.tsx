@@ -30,7 +30,16 @@
 // reste où elle a été lâchée.
 // Hydratation : `id` stable (`useId`) passé à DndContext, sinon le compteur de module de dnd-kit donne des
 // `aria-describedby` différents entre serveur et client.
-// Mouvement réduit : pas d'animation de dépôt ni de glissement des cartes voisines.
+// Saisie (D6 de demo-plan.md) : la copie qui suit le pointeur se soulève (`y` −2, comme le survol d'une tuile) et
+// s'incline de 2°, par le ressort du tiroir (`bounce` 0,2, 0,3 s, DESIGN.md § 7), avec `shadow-glass` (pas de token
+// d'ombre plus marquée). Au dépôt, elle revient à plat pendant l'animation de dépôt de dnd-kit : dnd-kit garde la
+// copie montée le temps du dépôt, et `LiftedContext` (hors de `DragOverlay`) lui dit que la saisie est finie. À sa
+// place d'origine, la carte laisse une empreinte : son contenu est masqué (la place est gardée) et l'emplacement est
+// dessiné en pointillé (`outline`, sans changer la taille) sur un fond `pill-track`, pour ne pas lire une carte en
+// double. Ordinateur (pointeur fin et survol, variantes `pointer-fine` et `hover`) : main ouverte et `shadow-raised`
+// au survol, main fermée sur la copie ; rien au doigt (pas de survol collé après un tap sur iOS).
+// Mouvement réduit : pas d'animation de dépôt ni de glissement des cartes voisines ; la copie n'est ni inclinée ni
+// soulevée (ombre et empreinte restent, sans transition).
 import {
   type Announcements,
   closestCorners,
@@ -60,9 +69,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
+  createContext,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -71,6 +81,7 @@ import {
   useId,
   useMemo,
   useRef,
+  use,
   useState,
 } from "react";
 
@@ -124,6 +135,13 @@ const OPEN_KEYBOARD_CODES: KeyboardCodes = {
   cancel: [KeyboardCode.Esc],
   end: [KeyboardCode.Space, KeyboardCode.Enter, KeyboardCode.Tab],
 };
+/** Copie saisie : inclinaison (demande d'Antoine) et soulèvement (survol d'une tuile, DESIGN.md § 7). */
+const LIFT = { rotate: 2, y: -2 };
+const FLAT = { rotate: 0, y: 0 };
+/** Ressort du tiroir mobile (DESIGN.md § 7). */
+const LIFT_SPRING = { type: "spring", bounce: 0.2, duration: 0.3 } as const;
+/** Saisie en cours : lu par la copie, que dnd-kit garde montée pendant l'animation de dépôt. */
+const LiftedContext = createContext(false);
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";
 
@@ -444,13 +462,15 @@ export function SortableBoard<T extends BoardItem>({
           />
         ))}
       </div>
-      <DragOverlay dropAnimation={reducedMotion ? null : undefined}>
-        {activeItem ? (
-          <div data-board-overlay className="cursor-grabbing">
-            {renderCard(activeItem, { dragging: true, overlay: true })}
-          </div>
-        ) : null}
-      </DragOverlay>
+      <LiftedContext value={activeId !== null}>
+        <DragOverlay dropAnimation={reducedMotion ? null : undefined}>
+          {activeItem ? (
+            <LiftedCard reducedMotion={reducedMotion}>
+              {renderCard(activeItem, { dragging: true, overlay: true })}
+            </LiftedCard>
+          ) : null}
+        </DragOverlay>
+      </LiftedContext>
     </DndContext>
   );
 }
@@ -645,13 +665,36 @@ function SortableCard({
         transition: reducedMotion ? undefined : transition,
         WebkitTouchCallout: "none",
       }}
+      data-board-footprint={isDragging ? "" : undefined}
       className={cn(
-        "cursor-grab touch-manipulation rounded-lg select-none",
-        isDragging && "opacity-40",
+        "touch-manipulation rounded-lg select-none pointer-fine:cursor-grab pointer-fine:hover:shadow-raised",
+        isDragging &&
+          "bg-pill-track outline outline-dashed -outline-offset-1 outline-input pointer-fine:hover:shadow-none",
       )}
     >
-      {children(isDragging)}
+      {/* Empreinte : contenu invisible mais à sa taille, la colonne ne bouge pas. */}
+      <div className={cn(isDragging && "invisible")}>
+        {children(isDragging)}
+      </div>
     </div>
+  );
+}
+
+type LiftedCardProps = { reducedMotion: boolean; children: ReactNode };
+
+/** Copie qui suit le pointeur : soulevée et inclinée pendant la saisie, à plat au dépôt. */
+function LiftedCard({ reducedMotion, children }: LiftedCardProps) {
+  const lifted = use(LiftedContext);
+  return (
+    <motion.div
+      data-board-overlay
+      initial={FLAT}
+      animate={lifted && !reducedMotion ? LIFT : FLAT}
+      transition={reducedMotion ? { duration: 0 } : LIFT_SPRING}
+      className="rounded-lg shadow-glass pointer-fine:cursor-grabbing"
+    >
+      {children}
+    </motion.div>
   );
 }
 

@@ -1,8 +1,18 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { MotionGlobalConfig } from "motion/react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
@@ -14,6 +24,22 @@ import {
 } from "./SortableBoard";
 
 type Card = { id: string; title: string };
+
+const reducedMotion = vi.hoisted(() => ({ current: false }));
+
+vi.mock("motion/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("motion/react")>()),
+  useReducedMotion: () => reducedMotion.current,
+}));
+
+// Animations Motion jouées d'un coup : l'état final se lit tout de suite.
+beforeAll(() => {
+  MotionGlobalConfig.skipAnimations = true;
+});
+
+afterAll(() => {
+  MotionGlobalConfig.skipAnimations = false;
+});
 
 function column(
   id: string,
@@ -113,6 +139,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  reducedMotion.current = false;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -696,5 +723,60 @@ describe("SortableBoard", () => {
         expect(document.body.textContent).toContain(instructions);
       },
     );
+  });
+
+  describe("saisie : copie soulevée et empreinte", () => {
+    function overlay() {
+      return document.querySelector("[data-board-overlay]") as HTMLElement;
+    }
+
+    async function pickWithKeyboard(id: string) {
+      render(board());
+      cardHandle(id).focus();
+      await press(cardHandle(id), "Space");
+    }
+
+    it("la copie qui suit le pointeur est inclinée et soulevée", async () => {
+      await pickWithKeyboard("a");
+
+      expect(overlay().style.transform).toContain("rotate(2deg)");
+      expect(overlay().style.transform).toContain("translateY(-2px)");
+    });
+
+    it("en mouvement réduit, la copie n'est ni inclinée ni soulevée", async () => {
+      reducedMotion.current = true;
+      await pickWithKeyboard("a");
+
+      expect(overlay()).not.toBeNull();
+      expect(overlay().style.transform).not.toContain("rotate");
+      expect(overlay().style.transform).not.toContain("translateY");
+    });
+
+    it("une empreinte reste à la place d'origine, contenu masqué, pendant un glisser au clavier", async () => {
+      await pickWithKeyboard("b");
+      await press(cardHandle("b"), "ArrowDown");
+
+      const footprint = document.querySelector("[data-board-footprint]");
+      expect(footprint?.getAttribute("data-board-card")).toBe("b");
+      // Un emplacement, pas une carte en double : contour en pointillé, contenu invisible mais à sa taille.
+      expect(footprint?.className).toContain("outline-dashed");
+      expect(
+        footprint?.firstElementChild?.classList.contains("invisible"),
+      ).toBe(true);
+      expect(document.querySelectorAll("[data-board-footprint]")).toHaveLength(
+        1,
+      );
+    });
+
+    it("l'empreinte disparaît au dépôt", async () => {
+      await pickWithKeyboard("b");
+      await press(cardHandle("b"), "ArrowDown");
+      await press(cardHandle("b"), "Space");
+
+      expect(document.querySelector("[data-board-footprint]")).toBeNull();
+      expect(
+        cardHandle("b").firstElementChild?.classList.contains("invisible"),
+      ).toBe(false);
+    });
   });
 });
