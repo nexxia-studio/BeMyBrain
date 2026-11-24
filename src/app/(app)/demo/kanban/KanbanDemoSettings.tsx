@@ -4,6 +4,7 @@
 // Réglages de la démo du kanban, dans une tuile de verre : repliés sous « Réglages » (le tableau reste visible
 // sans défiler sur iPhone), puis la ligne d'état de l'enregistrement, toujours visible (`role="status"`, sur le
 // verre : jamais de texte secondaire sur le cœur d'un halo). Une colonne sous 768 px, réglages côte à côte au-delà.
+// Mise en page (par la largeur) et délai d'appui (250 ms) fixés après l'essai iPhone : plus de réglage.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import { ChevronDown } from "lucide-react";
 import { motion } from "motion/react";
@@ -13,17 +14,10 @@ import { cn } from "@/lib/utils";
 
 import { DemoChoiceGroup } from "./DemoChoiceGroup";
 
-export const ACTIVATION_DELAYS = { short: 150, medium: 250, long: 400 } as const;
-export type DelayKey = keyof typeof ACTIVATION_DELAYS;
 export const LATENCIES = [0, 1000, 3000] as const;
 export type Latency = (typeof LATENCIES)[number];
-export type BoardLayout = "scroll" | "tabs";
 
 type KanbanDemoSettingsProps = {
-  layout: BoardLayout;
-  onLayoutChange: (layout: BoardLayout) => void;
-  delay: DelayKey;
-  onDelayChange: (delay: DelayKey) => void;
   latency: Latency;
   onLatencyChange: (latency: Latency) => void;
   failNext: boolean;
@@ -33,10 +27,6 @@ type KanbanDemoSettingsProps = {
 };
 
 export function KanbanDemoSettings({
-  layout,
-  onLayoutChange,
-  delay,
-  onDelayChange,
   latency,
   onLatencyChange,
   failNext,
@@ -57,26 +47,6 @@ export function KanbanDemoSettings({
           />
         </summary>
         <div className="flex flex-col gap-4 pt-2 pb-3 md:flex-row md:flex-wrap md:gap-x-8">
-          <DemoChoiceGroup
-            label={t("settings.layout")}
-            value={layout}
-            onChange={onLayoutChange}
-            options={[
-              { value: "scroll", label: t("settings.layoutScroll") },
-              { value: "tabs", label: t("settings.layoutTabs") },
-            ]}
-          />
-          <DemoChoiceGroup
-            label={t("settings.delay")}
-            value={delay}
-            onChange={onDelayChange}
-            hint={t("settings.delayHint", { ms: ACTIVATION_DELAYS[delay] })}
-            options={[
-              { value: "short", label: t("settings.delayShort") },
-              { value: "medium", label: t("settings.delayMedium") },
-              { value: "long", label: t("settings.delayLong") },
-            ]}
-          />
           <DemoChoiceGroup
             label={t("settings.latency")}
             value={latency}
@@ -117,13 +87,8 @@ export function KanbanDemoSettings({
           </motion.button>
         </div>
       </details>
-      <p
-        role="status"
-        className="pb-1 text-caption text-muted-foreground"
-      >
-        {pendingCount > 0
-          ? t("saving", { count: pendingCount })
-          : t("saved")}
+      <p role="status" className="pb-1 text-caption text-muted-foreground">
+        {pendingCount > 0 ? t("saving", { count: pendingCount }) : t("saved")}
       </p>
     </section>
   );

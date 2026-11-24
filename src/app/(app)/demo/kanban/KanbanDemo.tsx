@@ -33,13 +33,7 @@ import {
 } from "./demo-board";
 import { demoBoard, type DemoTask, demoTasks } from "./demo-fixtures";
 import { KanbanDemoCard } from "./KanbanDemoCard";
-import {
-  ACTIVATION_DELAYS,
-  type BoardLayout,
-  type DelayKey,
-  KanbanDemoSettings,
-  type Latency,
-} from "./KanbanDemoSettings";
+import { KanbanDemoSettings, type Latency } from "./KanbanDemoSettings";
 
 type PendingMove = { key: number; move: BoardMove };
 type Origin = { id: string; left: number; top: number };
@@ -70,8 +64,6 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
   const [saved, setSaved] = useState(() => demoBoard(tasks));
   const [pending, setPending] = useState<PendingMove[]>([]);
   const [failure, setFailure] = useState<BoardMove | null>(null);
-  const [layout, setLayout] = useState<BoardLayout>("scroll");
-  const [delay, setDelay] = useState<DelayKey>("medium");
   const [latency, setLatency] = useState<Latency>(0);
   const [failNext, setFailNext] = useState(false);
   const [showAllDone, setShowAllDone] = useState(false);
@@ -164,10 +156,6 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
   return (
     <>
       <KanbanDemoSettings
-        layout={layout}
-        onLayoutChange={setLayout}
-        delay={delay}
-        onDelayChange={setDelay}
         latency={latency}
         onLatencyChange={setLatency}
         failNext={failNext}
@@ -177,8 +165,6 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
       <div aria-busy={pending.length > 0}>
         <SortableBoard
           columns={columns}
-          layout={layout}
-          activationDelayMs={ACTIVATION_DELAYS[delay]}
           getItemLabel={(task) => task.title}
           onMove={move}
           renderCard={(task, state) => (

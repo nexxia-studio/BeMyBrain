@@ -26,8 +26,6 @@ type BoardProps = {
   columns: readonly BoardColumn<{ id: string }>[];
   renderCard: (item: { id: string }, state: CardState) => ReactNode;
   onMove: (move: BoardMove) => void;
-  activationDelayMs?: number;
-  layout?: "scroll" | "tabs";
 };
 
 // Double du tableau : le glisser lui-même est couvert par SortableBoard.test.tsx. Ici, chaque colonne rend ses
@@ -366,20 +364,18 @@ describe("démo du kanban", () => {
     expect(animate).not.toHaveBeenCalled();
   });
 
-  it("transmet au tableau la mise en page et le délai d'appui choisis", () => {
+  it("ne propose que la latence et l'échec simulé : mise en page et délai d'appui sont fixés par le tableau", () => {
     renderDemo();
 
-    expect(boardProps.current!.layout).toBe("scroll");
-    expect(boardProps.current!.activationDelayMs).toBe(250);
-
-    fireEvent.click(screen.getByRole("button", { name: "Onglets" }));
-    fireEvent.click(screen.getByRole("button", { name: "Long" }));
-
-    expect(boardProps.current!.layout).toBe("tabs");
-    expect(boardProps.current!.activationDelayMs).toBe(400);
     expect(
-      screen.getByRole("button", { name: "Long" }).getAttribute("aria-pressed"),
-    ).toBe("true");
+      screen.getByRole("group", { name: "Latence simulée" }),
+    ).toBeDefined();
+    expect(screen.queryByRole("group", { name: "Mise en page" })).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Appui avant saisie" }),
+    ).toBeNull();
+    expect(boardProps.current).not.toHaveProperty("layout");
+    expect(boardProps.current).not.toHaveProperty("activationDelayMs");
   });
 
   it("affiche ses réglages et ses colonnes en anglais", () => {

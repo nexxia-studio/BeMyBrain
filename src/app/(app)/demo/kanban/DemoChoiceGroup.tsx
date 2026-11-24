@@ -15,8 +15,6 @@ type DemoChoiceGroupProps<V extends string | number> = {
   options: readonly { value: V; label: string }[];
   value: V;
   onChange: (value: V) => void;
-  /** Précision sous les pilules (ex. durée d'appui en ms). */
-  hint?: string;
 };
 
 export function DemoChoiceGroup<V extends string | number>({
@@ -24,7 +22,6 @@ export function DemoChoiceGroup<V extends string | number>({
   options,
   value,
   onChange,
-  hint,
 }: DemoChoiceGroupProps<V>) {
   const labelId = useId();
 
@@ -57,9 +54,6 @@ export function DemoChoiceGroup<V extends string | number>({
           </motion.button>
         ))}
       </div>
-      {hint ? (
-        <span className="text-caption text-muted-foreground">{hint}</span>
-      ) : null}
     </div>
   );
 }

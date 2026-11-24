@@ -4,11 +4,17 @@
 // Tableau à colonnes ordonnées et glisser-déposer, générique (aucune notion de tâche). Seul fichier du dépôt
 // qui importe dnd-kit (verrou eslint `sortableBoardImports`) : les sous-composants qui appellent ses hooks
 // (carte, colonne, onglet) vivent donc ici, par exception à « un composant par fichier ».
-// Mobile d'abord (ADR-008) : `scroll` = colonnes côte à côte en défilement horizontal aimanté, une colonne et
-// demie visible à 390 px ; `tabs` = une colonne à la fois sous une rangée d'onglets, chaque onglet est une cible
-// de dépôt. Au-delà de 768 px, `scroll` montre plusieurs colonnes, sans changement de structure.
-// Glisser : souris après 4 px, doigt après un appui de `activationDelayMs` (le défilement reste libre avant),
-// clavier (Espace/Entrée, flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
+// Mobile d'abord (ADR-008), mise en page choisie par la largeur, en CSS seulement (même balisage au serveur et
+// au client : ni avertissement d'hydratation, ni saut au chargement) : sous 768 px, une colonne à la fois sous
+// une rangée d'onglets, chaque onglet est une cible de dépôt ; au-delà, colonnes côte à côte en défilement
+// horizontal. Une colonne masquée (`display: none`) a un rectangle vide : elle est retirée des cibles, à la
+// souris, au doigt et au clavier. Seuls les rôles ARIA des onglets suivent la largeur en JS (`useMediaQuery`,
+// rendu serveur en onglets, corrigé après l'hydratation sans rien changer à l'écran).
+// Défilement horizontal sans aimant (`scroll-snap`) : le défilement automatique de dnd-kit avance par petits
+// `scrollBy`, que l'aimant transforme chacun en saut d'une colonne entière (le tableau s'emballait jusqu'au bout,
+// la colonne d'origine sortait de l'écran ; mesuré dans Chromium et WebKit, D4 de demo-plan.md).
+// Glisser : souris après 4 px, doigt après un appui de 250 ms (le défilement reste libre avant), clavier
+// (Espace/Entrée, flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
 // Colonne partielle (ex. 20 plus récentes) : `total` donne le compteur, `footer` se pose sous les cartes.
 // Onglets : motif ARIA tablist (flèches gauche/droite en boucle, Début/Fin, seul l'onglet choisi est tabulable).
@@ -27,6 +33,7 @@ import {
   type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
+  type KeyboardCoordinateGetter,
   KeyboardSensor,
   MouseSensor,
   pointerWithin,
@@ -54,6 +61,7 @@ import {
   useState,
 } from "react";
 
+import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
 export type BoardItem = { id: string };
@@ -88,10 +96,12 @@ type SortableBoardProps<T extends BoardItem> = {
   /** Nom de la carte dans les annonces du lecteur d'écran. */
   getItemLabel: (item: T) => string;
   onMove: (move: BoardMove) => void;
-  /** Appui avant le glisser au doigt, en ms. */
-  activationDelayMs?: number;
-  layout?: "scroll" | "tabs";
 };
+
+/** Appui avant le glisser au doigt (décision d'Antoine après l'essai iPhone, 2026-11-24). */
+const ACTIVATION_DELAY_MS = 250;
+/** Largeur des colonnes côte à côte : `md` de Tailwind. */
+const WIDE_QUERY = "(min-width: 48rem)";
 
 type Layout = Record<string, string[]>;
 type DropKind = "column" | "zone";
@@ -162,9 +172,21 @@ function moveTo(layout: Layout, id: string, target: Target): Layout {
   };
 }
 
+// Cibles affichées seulement : une cible masquée par la mise en page (onglets au-delà de 768 px, colonnes non
+// choisies en deçà) a un rectangle vide en haut à gauche, qui attirerait les coins les plus proches. Sans
+// rectangle, dnd-kit ignore la cible (détection de collision et déplacement au clavier).
+function shownRects<R extends { width: number; height: number }>(
+  rects: Map<UniqueIdentifier, R>,
+): Map<UniqueIdentifier, R> {
+  return new Map(
+    [...rects].filter(([, rect]) => rect.width > 0 || rect.height > 0),
+  );
+}
+
 // Une cible de dépôt sous le pointeur (onglet, bandeau) l'emporte ; sinon coins les plus proches, adapté aux
 // listes en colonnes (et seul calcul possible au clavier, sans pointeur).
-const collisionDetection: CollisionDetection = (args) => {
+const collisionDetection: CollisionDetection = (all) => {
+  const args = { ...all, droppableRects: shownRects(all.droppableRects) };
   const zone = pointerWithin(args).find(
     (collision) =>
       (
@@ -175,18 +197,26 @@ const collisionDetection: CollisionDetection = (args) => {
   return zone ? [zone] : closestCorners(args);
 };
 
+const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) =>
+  sortableKeyboardCoordinates(event, {
+    ...args,
+    context: {
+      ...args.context,
+      droppableRects: shownRects(args.context.droppableRects),
+    },
+  });
+
 export function SortableBoard<T extends BoardItem>({
   columns,
   renderCard,
   getItemLabel,
   onMove,
-  activationDelayMs = 250,
-  layout = "scroll",
 }: SortableBoardProps<T>) {
   const t = useTranslations("kanban");
   const contextId = useId();
   const tabsId = useId();
   const reducedMotion = useReducedMotion() ?? false;
+  const wide = useMediaQuery(WIDE_QUERY);
   const [draft, setDraft] = useState<Layout | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [chosenColumnId, setChosenColumnId] = useState(columns[0]?.id);
@@ -216,10 +246,10 @@ export function SortableBoard<T extends BoardItem>({
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: activationDelayMs, tolerance: 6 },
+      activationConstraint: { delay: ACTIVATION_DELAY_MS, tolerance: 6 },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: keyboardCoordinates,
     }),
   );
 
@@ -327,10 +357,7 @@ export function SortableBoard<T extends BoardItem>({
   }
 
   const activeItem = activeId ? itemsById.get(activeId) : undefined;
-  const shownColumns =
-    layout === "tabs"
-      ? columns.filter((column) => column.id === shownColumnId)
-      : columns;
+  const panelId = (columnId: string) => `${tabsId}-panel-${columnId}`;
 
   return (
     <DndContext
@@ -346,36 +373,27 @@ export function SortableBoard<T extends BoardItem>({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      {layout === "tabs" ? (
-        <div
-          role="tablist"
-          onKeyDown={handleTabKeyDown}
-          aria-label={t("columns")}
-          className="glass flex gap-1 overflow-x-auto rounded-full p-1"
-        >
-          {columns.map((column) => (
-            <BoardTab
-              key={column.id}
-              columnId={column.id}
-              label={column.label}
-              count={countOf(column, current[column.id] ?? [])}
-              selected={column.id === shownColumnId}
-              panelId={`${tabsId}-panel`}
-              onSelect={() => setChosenColumnId(column.id)}
-            />
-          ))}
-        </div>
-      ) : null}
+      {/* Onglets sous 768 px seulement ; au-delà, `display: none` les retire aussi des cibles et du lecteur d'écran. */}
       <div
-        id={layout === "tabs" ? `${tabsId}-panel` : undefined}
-        role={layout === "tabs" ? "tabpanel" : undefined}
-        className={cn(
-          layout === "scroll"
-            ? "-mx-page flex snap-x snap-mandatory gap-grid overflow-x-auto px-page pb-2 md:mx-0 md:px-0"
-            : "mt-grid",
-        )}
+        role="tablist"
+        onKeyDown={handleTabKeyDown}
+        aria-label={t("columns")}
+        className="glass flex gap-1 overflow-x-auto rounded-full p-1 md:hidden"
       >
-        {shownColumns.map((column) => (
+        {columns.map((column) => (
+          <BoardTab
+            key={column.id}
+            columnId={column.id}
+            label={column.label}
+            count={countOf(column, current[column.id] ?? [])}
+            selected={column.id === shownColumnId}
+            panelId={panelId(column.id)}
+            onSelect={() => setChosenColumnId(column.id)}
+          />
+        ))}
+      </div>
+      <div className="mt-grid flex flex-col md:mt-0 md:flex-row md:gap-grid md:overflow-x-auto md:pb-2">
+        {columns.map((column) => (
           <BoardColumnView
             key={column.id}
             column={column}
@@ -384,9 +402,11 @@ export function SortableBoard<T extends BoardItem>({
             renderCard={renderCard}
             reducedMotion={reducedMotion}
             roleDescription={t("roleDescription")}
-            className={
-              layout === "scroll" ? "w-72 shrink-0 snap-start md:w-80" : ""
-            }
+            panelId={wide ? undefined : panelId(column.id)}
+            className={cn(
+              "md:w-80 md:shrink-0",
+              column.id !== shownColumnId && "hidden md:flex",
+            )}
           />
         ))}
       </div>
@@ -408,6 +428,8 @@ type BoardColumnViewProps<T extends BoardItem> = {
   renderCard: (item: T, state: CardState) => ReactNode;
   reducedMotion: boolean;
   roleDescription: string;
+  /** Sous 768 px, la colonne est le panneau de son onglet. */
+  panelId: string | undefined;
   className: string;
 };
 
@@ -418,6 +440,7 @@ function BoardColumnView<T extends BoardItem>({
   renderCard,
   reducedMotion,
   roleDescription,
+  panelId,
   className,
 }: BoardColumnViewProps<T>) {
   const headingId = useId();
@@ -436,6 +459,8 @@ function BoardColumnView<T extends BoardItem>({
   return (
     <section
       ref={setNodeRef}
+      id={panelId}
+      role={panelId ? "tabpanel" : undefined}
       aria-labelledby={headingId}
       data-board-column={column.id}
       className={cn(

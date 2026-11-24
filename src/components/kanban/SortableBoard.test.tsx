@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -33,7 +33,7 @@ const COLUMNS = [column("todo", ["a", "b", "c"]), column("doing", ["d", "e"])];
 function board(
   onMove: (move: BoardMove) => void = vi.fn(),
   columns: readonly BoardColumn<Card>[] = COLUMNS,
-  extra: { layout?: "scroll" | "tabs"; locale?: "fr" | "en" } = {},
+  extra: { locale?: "fr" | "en" } = {},
 ) {
   const locale = extra.locale ?? "fr";
   return (
@@ -43,13 +43,26 @@ function board(
     >
       <SortableBoard
         columns={columns}
-        layout={extra.layout}
         getItemLabel={(card) => card.title}
         renderCard={(card) => <span>{card.title}</span>}
         onMove={onMove}
       />
     </NextIntlClientProvider>
   );
+}
+
+// Largeur simulée : `wide` = au-delà de 768 px (colonnes), sinon onglets. jsdom ne lit pas le CSS de Tailwind :
+// `matchMedia` répond selon `wide`, et un élément masqué par la mise en page (`md:hidden` au-delà, `hidden` en
+// deçà) reçoit le rectangle vide d'un `display: none`.
+let wide = true;
+
+function stubWidth(isWide: boolean) {
+  wide = isWide;
+  vi.stubGlobal("matchMedia", () => ({
+    matches: wide,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
 }
 
 // jsdom ne calcule aucune géométrie : colonnes côte à côte (300 px), cartes empilées (60 px).
@@ -67,6 +80,7 @@ function fakeRect(this: Element): DOMRect {
       bottom: y + height,
       toJSON: () => ({}),
     }) as DOMRect;
+  if (this.closest(wide ? ".md\\:hidden" : ".hidden")) return rect(0, 0, 0, 0);
   const columns = [...document.querySelectorAll("[data-board-column]")];
   const card = this.matches("[data-board-overlay], [data-board-overlay] *")
     ? document.querySelector('[data-board-card][aria-pressed="true"]')
@@ -91,6 +105,7 @@ function fakeRect(this: Element): DOMRect {
 }
 
 beforeEach(() => {
+  stubWidth(true);
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
     fakeRect,
   );
@@ -98,7 +113,17 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+function columnSection(id: string) {
+  return document.querySelector(`[data-board-column="${id}"]`) as HTMLElement;
+}
+
+// Sous 768 px, une colonne non choisie est masquée par la classe `hidden` (affichée par `md:flex` au-delà).
+function shownWhenNarrow(id: string) {
+  return !columnSection(id).classList.contains("hidden");
+}
 
 // Dans les données de test, l'id d'une carte est son titre.
 function cardHandle(id: string) {
@@ -223,8 +248,9 @@ describe("SortableBoard", () => {
 
     render(board(vi.fn(), columns));
 
-    expect(screen.getByText("CANCELED")).toBeDefined();
-    expect(screen.getByText("2")).toBeDefined();
+    const canceled = within(columnSection("canceled"));
+    expect(canceled.getByText("CANCELED")).toBeDefined();
+    expect(canceled.getByText("2")).toBeDefined();
     expect(screen.queryByText("x")).toBeNull();
   });
 
@@ -242,96 +268,152 @@ describe("SortableBoard", () => {
     expect(screen.getByRole("button", { name: "PIED" })).toBeDefined();
   });
 
-  it("en onglets, l'onglet compte le total de la colonne", () => {
-    const columns = [
-      column("todo", ["a"]),
-      column("done", ["x"], { total: 25 }),
-    ];
+  describe("sous 768 px, en onglets", () => {
+    beforeEach(() => {
+      stubWidth(false);
+    });
 
-    render(board(vi.fn(), columns, { layout: "tabs" }));
+    it("l'onglet compte le total de la colonne", () => {
+      const columns = [
+        column("todo", ["a"]),
+        column("done", ["x"], { total: 25 }),
+      ];
 
-    expect(screen.getByRole("tab", { name: /DONE/ }).textContent).toBe(
-      "DONE25",
-    );
+      render(board(vi.fn(), columns));
+
+      expect(screen.getByRole("tab", { name: /DONE/ }).textContent).toBe(
+        "DONE25",
+      );
+    });
+
+    it("n'affiche que la colonne choisie et change de colonne au toucher d'un onglet", () => {
+      render(board(vi.fn(), COLUMNS));
+
+      expect([shownWhenNarrow("todo"), shownWhenNarrow("doing")]).toEqual([
+        true,
+        false,
+      ]);
+
+      fireEvent.click(screen.getByRole("tab", { name: /DOING/ }));
+
+      expect([shownWhenNarrow("todo"), shownWhenNarrow("doing")]).toEqual([
+        false,
+        true,
+      ]);
+    });
+
+    it("chaque colonne est le panneau de son onglet", () => {
+      render(board(vi.fn(), COLUMNS));
+
+      const tab = screen.getByRole("tab", { name: /TODO/ });
+
+      expect(tab.getAttribute("aria-controls")).toBe(columnSection("todo").id);
+      expect(columnSection("todo").getAttribute("role")).toBe("tabpanel");
+    });
+
+    it("seul l'onglet choisi est dans l'ordre de tabulation", () => {
+      render(board(vi.fn(), COLUMNS));
+
+      expect(
+        screen.getAllByRole("tab").map((tab) => tab.getAttribute("tabindex")),
+      ).toEqual(["0", "-1"]);
+    });
+
+    it("les flèches passent d'un onglet à l'autre, en boucle, et affichent sa colonne", () => {
+      render(board(vi.fn(), COLUMNS));
+      const [todo, doing] = screen.getAllByRole("tab");
+      todo.focus();
+
+      fireEvent.keyDown(todo, { key: "ArrowRight" });
+
+      expect(document.activeElement).toBe(doing);
+      expect(doing.getAttribute("aria-selected")).toBe("true");
+      expect(shownWhenNarrow("doing")).toBe(true);
+
+      fireEvent.keyDown(doing, { key: "ArrowRight" });
+
+      expect(document.activeElement).toBe(todo);
+
+      fireEvent.keyDown(todo, { key: "ArrowLeft" });
+
+      expect(document.activeElement).toBe(doing);
+    });
+
+    it("Fin choisit le dernier onglet et Début le premier", () => {
+      render(board(vi.fn(), COLUMNS));
+      const [todo, doing] = screen.getAllByRole("tab");
+      todo.focus();
+
+      fireEvent.keyDown(todo, { key: "End" });
+
+      expect(document.activeElement).toBe(doing);
+      expect(doing.getAttribute("aria-selected")).toBe("true");
+
+      fireEvent.keyDown(doing, { key: "Home" });
+
+      expect(document.activeElement).toBe(todo);
+      expect(todo.getAttribute("aria-selected")).toBe("true");
+    });
+
+    it("revient à la première colonne quand la colonne choisie disparaît", () => {
+      const { rerender } = render(board(vi.fn(), COLUMNS));
+      fireEvent.click(screen.getByRole("tab", { name: /DOING/ }));
+
+      rerender(board(vi.fn(), [COLUMNS[0]]));
+
+      expect(shownWhenNarrow("todo")).toBe(true);
+      expect(screen.getByRole("tab").getAttribute("aria-selected")).toBe(
+        "true",
+      );
+    });
+
+    it("une carte déposée sur un onglet passe en tête de cette colonne", async () => {
+      const onMove = vi.fn();
+      render(board(onMove, COLUMNS));
+
+      // Géométrie factice : l'onglet DOING est le plus proche au-dessus de « a ».
+      await dragWithKeyboard("a", ["ArrowUp"]);
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "doing",
+        beforeId: null,
+        afterId: "d",
+      });
+    });
   });
 
-  it("en onglets, n'affiche que la colonne choisie et change de colonne au toucher d'un onglet", () => {
-    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
+  describe("au-delà de 768 px, en colonnes", () => {
+    it("aucune colonne n'est un panneau d'onglet", () => {
+      render(board());
 
-    expect(screen.queryByText("d")).toBeNull();
+      expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(0);
+    });
 
-    fireEvent.click(screen.getByRole("tab", { name: /DOING/ }));
+    it("les onglets masqués ne sont pas des cibles : flèche haut sur la première carte d'une colonne ne la déplace pas", async () => {
+      const onMove = vi.fn();
+      render(board(onMove));
 
-    expect(screen.getByText("d")).toBeDefined();
-    expect(screen.queryByText("a")).toBeNull();
-  });
+      // Géométrie factice : les onglets, masqués, ont le rectangle vide d'un `display: none` en (0, 0), seule
+      // cible au-dessus de « d » (DOING).
+      await dragWithKeyboard("d", ["ArrowUp"]);
 
-  it("en onglets, seul l'onglet choisi est dans l'ordre de tabulation", () => {
-    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+    it("s'hydrate après un rendu serveur en onglets sans avertissement ni erreur", async () => {
+      const error = vi.spyOn(console, "error");
+      const warn = vi.spyOn(console, "warn");
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(board());
+      document.body.append(container);
 
-    expect(
-      screen.getAllByRole("tab").map((tab) => tab.getAttribute("tabindex")),
-    ).toEqual(["0", "-1"]);
-  });
+      const root = await act(async () => hydrateRoot(container, board()));
 
-  it("en onglets, les flèches passent d'un onglet à l'autre, en boucle, et affichent sa colonne", () => {
-    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
-    const [todo, doing] = screen.getAllByRole("tab");
-    todo.focus();
-
-    fireEvent.keyDown(todo, { key: "ArrowRight" });
-
-    expect(document.activeElement).toBe(doing);
-    expect(doing.getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByText("d")).toBeDefined();
-
-    fireEvent.keyDown(doing, { key: "ArrowRight" });
-
-    expect(document.activeElement).toBe(todo);
-
-    fireEvent.keyDown(todo, { key: "ArrowLeft" });
-
-    expect(document.activeElement).toBe(doing);
-  });
-
-  it("en onglets, Fin choisit le dernier onglet et Début le premier", () => {
-    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
-    const [todo, doing] = screen.getAllByRole("tab");
-    todo.focus();
-
-    fireEvent.keyDown(todo, { key: "End" });
-
-    expect(document.activeElement).toBe(doing);
-    expect(doing.getAttribute("aria-selected")).toBe("true");
-
-    fireEvent.keyDown(doing, { key: "Home" });
-
-    expect(document.activeElement).toBe(todo);
-    expect(todo.getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("en onglets, revient à la première colonne quand la colonne choisie disparaît", () => {
-    const { rerender } = render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
-    fireEvent.click(screen.getByRole("tab", { name: /DOING/ }));
-
-    rerender(board(vi.fn(), [COLUMNS[0]], { layout: "tabs" }));
-
-    expect(screen.getByText("a")).toBeDefined();
-    expect(screen.getByRole("tab").getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("en onglets, une carte déposée sur un onglet passe en tête de cette colonne", async () => {
-    const onMove = vi.fn();
-    render(board(onMove, COLUMNS, { layout: "tabs" }));
-
-    // Géométrie factice : l'onglet DOING est le plus proche au-dessus de « a ».
-    await dragWithKeyboard("a", ["ArrowUp"]);
-
-    expect(onMove).toHaveBeenCalledExactlyOnceWith({
-      id: "a",
-      toColumn: "doing",
-      beforeId: null,
-      afterId: "d",
+      expect(error).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+      expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(0);
+      act(() => root.unmount());
+      container.remove();
     });
   });
 

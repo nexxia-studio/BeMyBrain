@@ -9,9 +9,10 @@ import {
 import fr from "../messages/fr.json";
 import { signIn } from "./session";
 
-// Démo du kanban (BRAIN-46, demo-plan.md, D3) : la page se charge sans avertissement ni erreur en console
+// Démo du kanban (BRAIN-46, demo-plan.md, D3 et D4) : la page se charge sans avertissement ni erreur en console
 // (hydratation comprise), une carte change de colonne à la souris (ordinateur) et au doigt, par dépôt sur un
-// onglet (mobile), et le doigt ne saisit une carte qu'après le délai d'appui.
+// onglet (mobile, onglets sous 768 px), le doigt ne saisit une carte qu'après l'appui de 250 ms, et un glisser
+// ne fait ni sauter ni reculer le tableau (colonnes au-delà de 768 px) ni la page (onglets).
 // Serveur : `pnpm dev` seulement. La garde ferme la page sur tout build de production hors Vercel (`next
 // start` répond 404, vérifié par `demo-kanban-fermee.spec.ts`).
 // Gestes tactiles : vrais événements tactiles du navigateur par le protocole Chromium (`Input.dispatchTouchEvent`),
@@ -142,6 +143,33 @@ test("la démo se charge sans avertissement ni erreur en console, hydratation co
   expect(messages).toEqual([]);
 });
 
+test("@mobile sous 768 px, une colonne à la fois sous la barre d'onglets", async ({
+  page,
+}) => {
+  await signIn(page);
+
+  await openDemo(page);
+
+  await expect(page.getByRole("tablist")).toBeVisible();
+  await expect(page.locator("[data-board-column]:visible")).toHaveCount(1);
+  await expect(page.getByRole("tabpanel")).toHaveAttribute(
+    "data-board-column",
+    "backlog",
+  );
+});
+
+test("@desktop au-delà de 768 px, les colonnes côte à côte, sans onglets", async ({
+  page,
+}) => {
+  await signIn(page);
+
+  await openDemo(page);
+
+  await expect(page.getByRole("tablist")).toBeHidden();
+  await expect(page.locator("[data-board-column]:visible")).toHaveCount(5);
+  await expect(page.getByRole("tabpanel")).toHaveCount(0);
+});
+
 test("@desktop une carte glissée à la souris de « À faire » vers « À planifier » y apparaît et y reste une fois enregistrée", async ({
   page,
 }) => {
@@ -169,20 +197,19 @@ test("@desktop une carte glissée à la souris de « À faire » vers « À plan
   await expect(card(column(page, "backlog"), "unstarted-1")).toBeVisible();
 });
 
-test("@mobile au doigt, la carte se saisit au bout du délai d'appui, pas avant", async ({
+test("@mobile au doigt, la carte se saisit au bout de l'appui de 250 ms, pas avant", async ({
   page,
 }) => {
   await signIn(page);
   await page.clock.install();
   await openDemo(page);
-  await chooseSetting(page, DEMO.settings.delay, DEMO.settings.delayLong);
   const finger = await Finger.on(page);
-  const from = await center(card(page, "unstarted-1"));
+  const from = await center(card(page, "backlog-1"));
   // Horloge arrêtée : seul `runFor` fait passer le temps de la page (minuterie du délai de dnd-kit).
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
 
   await finger.down(from);
-  await page.clock.runFor(399);
+  await page.clock.runFor(249);
   const overlayBefore = await overlay(page).count();
   await page.clock.runFor(1);
 
@@ -198,7 +225,6 @@ test("@mobile en onglets, une carte saisie au doigt puis déposée sur l'onglet 
 }) => {
   await signIn(page);
   await openDemo(page);
-  await chooseSetting(page, DEMO.settings.layout, DEMO.settings.layoutTabs);
   const todoTab = page.getByRole("tablist").getByRole("tab", {
     name: new RegExp(`^${STATUS.unstarted}`),
   });
@@ -215,7 +241,7 @@ test("@mobile en onglets, une carte saisie au doigt puis déposée sur l'onglet 
   await finger.move(from, to);
   await finger.up();
 
-  await expect(card(page, "backlog-1")).toHaveCount(0);
+  await expect(card(column(page, "backlog"), "backlog-1")).toHaveCount(0);
   await expect(todoTab).toContainText(String(todoCountBefore + 1));
   // dnd-kit avale tout clic dans les 50 ms qui suivent un glisser (pas de clic parasite au lâcher) : le
   // toucher sur l'onglet est rejoué jusqu'à ce qu'il le choisisse.
@@ -228,34 +254,6 @@ test("@mobile en onglets, une carte saisie au doigt puis déposée sur l'onglet 
   await expect(
     column(page, "unstarted").locator("[data-board-card]").first(),
   ).toHaveAttribute("data-board-card", "backlog-1");
-});
-
-test("@mobile un glisser lancé sans attendre le délai ne saisit pas la carte et fait défiler les colonnes", async ({
-  page,
-}) => {
-  await signIn(page);
-  await page.clock.install();
-  await openDemo(page);
-  await chooseSetting(page, DEMO.settings.delay, DEMO.settings.delayLong);
-  const board = page.locator("[data-board-column]").first().locator("..");
-  const scrollBefore = await board.evaluate((el) => el.scrollLeft);
-  const finger = await Finger.on(page);
-  const from = await center(card(page, "unstarted-1"));
-  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
-
-  await finger.down(from);
-  await finger.move(from, { x: from.x - 200, y: from.y }, 8);
-  // Doigt immobile bien au-delà du délai d'appui (400 ms) : la saisie, annulée par le mouvement, ne vient pas.
-  await page.clock.runFor(600);
-  const overlayWhileHeld = await overlay(page).count();
-  await finger.up();
-  await page.clock.resume();
-
-  expect(overlayWhileHeld).toBe(0);
-  await expect
-    .poll(() => board.evaluate((el) => el.scrollLeft))
-    .toBeGreaterThan(scrollBefore);
-  await expect(card(column(page, "unstarted"), "unstarted-1")).toBeVisible();
 });
 
 // D4 (demo-plan.md) : pendant un glisser de « En cours » vers « Terminée », en colonnes, le tableau ne revient
@@ -281,8 +279,9 @@ async function startSampling(page: Page, columnId: string): Promise<void> {
     store.__sampling = true;
     const frame = () => {
       const columnEl = document.querySelector(`[data-board-column="${id}"]`);
-      const board = document.querySelector("[data-board-column]")!
-        .parentElement!;
+      const board = document.querySelector(
+        "[data-board-column]",
+      )!.parentElement!;
       const rect = columnEl?.getBoundingClientRect();
       const heading = columnEl?.querySelector("h2")?.getBoundingClientRect();
       store.__samples.push({
@@ -421,6 +420,33 @@ test.describe("en colonnes, au doigt (tablette, 1024 px)", () => {
     expectSteadyBoard(samples);
     await expect(card(column(page, "completed"), "started-1")).toBeVisible();
   });
+
+  test("@desktop un glisser au doigt lancé sans attendre l'appui ne saisit pas la carte et fait défiler les colonnes", async ({
+    page,
+  }) => {
+    await signIn(page);
+    await page.clock.install();
+    await openDemo(page);
+    const board = boardOf(page);
+    const scrollBefore = await board.evaluate((el) => el.scrollLeft);
+    const finger = await Finger.on(page);
+    const from = await center(card(page, "unstarted-1"));
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+    await finger.down(from);
+    await finger.move(from, { x: from.x - 200, y: from.y }, 8);
+    // Doigt immobile bien au-delà de l'appui de 250 ms : la saisie, annulée par le mouvement, ne vient pas.
+    await page.clock.runFor(600);
+    const overlayWhileHeld = await overlay(page).count();
+    await finger.up();
+    await page.clock.resume();
+
+    expect(overlayWhileHeld).toBe(0);
+    await expect
+      .poll(() => board.evaluate((el) => el.scrollLeft))
+      .toBeGreaterThan(scrollBefore);
+    await expect(card(column(page, "unstarted"), "unstarted-1")).toBeVisible();
+  });
 });
 
 test("@desktop pendant un glisser à la souris de « En cours » vers « Terminée », le tableau défile sans recul ni saut et la colonne d'origine reste en place", async ({
@@ -445,4 +471,147 @@ test("@desktop pendant un glisser à la souris de « En cours » vers « Termin�
 
   expectSteadyBoard(samples);
   await expect(card(column(page, "completed"), "started-1")).toBeVisible();
+});
+
+type TabsSample = {
+  scrollY: number;
+  tabsScrollLeft: number;
+  /** Rectangles dans la page (indépendants du défilement vertical). */
+  tabs: { left: number; top: number; width: number; height: number };
+  panel: { left: number; top: number; width: number; height: number } | null;
+};
+
+/** Échantillonne page, barre d'onglets et panneau d'une colonne, à chaque image. */
+async function startTabsSampling(page: Page, columnId: string): Promise<void> {
+  await page.evaluate((id) => {
+    const store = window as unknown as {
+      __samples: unknown[];
+      __sampling: boolean;
+    };
+    store.__samples = [];
+    store.__sampling = true;
+    const box = (el: Element | null) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+    const frame = () => {
+      const tablist = document.querySelector('[role="tablist"]')!;
+      store.__samples.push({
+        scrollY: window.scrollY,
+        tabsScrollLeft: tablist.scrollLeft,
+        tabs: box(tablist),
+        panel: box(document.querySelector(`[data-board-column="${id}"]`)),
+      });
+      if (store.__sampling) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, columnId);
+}
+
+async function stopTabsSampling(page: Page): Promise<TabsSample[]> {
+  return page.evaluate(() => {
+    const store = window as unknown as {
+      __samples: TabsSample[];
+      __sampling: boolean;
+    };
+    store.__sampling = false;
+    return store.__samples;
+  });
+}
+
+test("@mobile en onglets, pendant un glisser au doigt vers l'onglet « Terminée », la page remonte sans recul ni saut, la barre d'onglets et le panneau restent en place", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const tablist = page.getByRole("tablist");
+  const todoTab = tablist.getByRole("tab", {
+    name: new RegExp(`^${STATUS.unstarted}`),
+  });
+  const doneTab = tablist.getByRole("tab", {
+    name: new RegExp(`^${STATUS.completed}`),
+  });
+  await todoTab.click();
+  const finger = await Finger.on(page);
+  // Dernière carte de « À faire » : la page est défilée, la barre d'onglets hors de l'écran.
+  const last = column(page, "unstarted").locator("[data-board-card]").last();
+  const lastId = (await last.getAttribute("data-board-card"))!;
+  const from = await center(last);
+  await startTabsSampling(page, "unstarted");
+
+  await finger.down(from);
+  await expect(overlay(page)).toBeVisible();
+  // Doigt tenu en haut de l'écran : le défilement automatique ramène la barre d'onglets.
+  await finger.move(from, { x: from.x, y: 8 }, 20);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  // « Terminée » dépasse à droite de la barre : doigt au bord, la barre défile jusqu'à le montrer en entier.
+  const edge = {
+    x: page.viewportSize()!.width - 8,
+    y: (await center(todoTab)).y,
+  };
+  await finger.move({ x: from.x, y: 8 }, edge, 10);
+  await expect
+    .poll(() =>
+      doneTab.evaluate((tab) => {
+        const rect = tab.getBoundingClientRect();
+        return rect.right <= tab.parentElement!.getBoundingClientRect().right;
+      }),
+    )
+    .toBe(true);
+  const to = await doneTab.boundingBox();
+  if (!to) throw new Error("onglet sans boîte");
+  await finger.move(
+    edge,
+    { x: to.x + to.width / 2, y: to.y + to.height / 2 },
+    5,
+  );
+  const samples = await stopTabsSampling(page);
+  await finger.up();
+
+  expect(samples.length).toBeGreaterThan(20);
+  // Page qui remonte (pas négatifs), barre d'onglets qui avance vers la droite (pas positifs).
+  const steps = samples
+    .slice(1)
+    .map((sample, index) => sample.scrollY - samples[index].scrollY);
+  const tabSteps = samples
+    .slice(1)
+    .map(
+      (sample, index) => sample.tabsScrollLeft - samples[index].tabsScrollLeft,
+    );
+  const first = samples[0];
+  const moved = (a: TabsSample["tabs"] | null, b: TabsSample["tabs"] | null) =>
+    a === null ||
+    b === null ||
+    Math.abs(a.left - b.left) > 1 ||
+    Math.abs(a.top - b.top) > 1 ||
+    Math.abs(a.width - b.width) > 1;
+  expect({
+    back: steps.filter((step) => step > 1),
+    jumps: steps.filter((step) => step < -MAX_SCROLL_STEP),
+    tabsBack: tabSteps.filter((step) => step < -1),
+    tabsJumps: tabSteps.filter((step) => step > MAX_SCROLL_STEP),
+    tabsMoved: samples.filter((sample) => moved(sample.tabs, first.tabs))
+      .length,
+    panelMoved: samples.filter((sample) => moved(sample.panel, first.panel))
+      .length,
+    panelHidden: samples.filter(
+      (sample) => !sample.panel || sample.panel.height < 1,
+    ).length,
+  }).toEqual({
+    back: [],
+    jumps: [],
+    tabsBack: [],
+    tabsJumps: [],
+    tabsMoved: 0,
+    panelMoved: 0,
+    panelHidden: 0,
+  });
+  await expect(doneTab).toHaveAttribute("aria-selected", "false");
+  await expect(card(column(page, "completed"), lastId)).toBeAttached();
 });
