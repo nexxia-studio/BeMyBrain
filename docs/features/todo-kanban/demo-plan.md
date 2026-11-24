@@ -19,7 +19,7 @@ Risque connu : `useUniqueId` de dnd-kit (compteur de module) donne des `aria-des
   - Tests : réordonnancement et changement de colonne au clavier (jsdom), `onMove` reçoit les bons voisins, rendu serveur puis hydratation sans avertissement (`renderToString` + `hydrateRoot`, console espionnée), règle eslint qui refuse `@dnd-kit/core` hors de `SortableBoard.tsx`.
   - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts.
 
-- [ ] **D2. Page `/demo/kanban`** `[security]`
+- [x] **D2. Page `/demo/kanban`** `[security]` — 2026-11-24 — `f8f75b4`, `523aab2`, `d7bc195`
   - Fichiers : `src/app/(app)/demo/kanban/` (layout de garde, page, `KanbanDemo.tsx`, `demo-fixtures.ts`, tests), `messages/{fr,en}.json`.
   - Garde dans un `layout.tsx` (leçon `508988b`) : 404 en production Vercel et sur tout build de production hors Vercel, ouverte en preview et en dev ; session exigée ensuite. Aucune base, aucune action serveur : tâches fictives en mémoire.
   - Données : 5 colonnes ; une quinzaine de cartes dans « À faire » ; titres courts et longs (deux lignes) ; pastilles d'espace, tags, priorités, échéances (en retard, aujourd'hui, plus tard) ; quelques cartes « Bloquée ». Terminée : plus de 20 cartes pour montrer « Tout voir ». Annulée repliée.

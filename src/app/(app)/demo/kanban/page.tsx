@@ -23,7 +23,7 @@ export default async function KanbanDemoPage() {
     notFound();
   }
 
-  // Session seule : la démo ne lit aucune base, pas de jeton à demander à Neon Auth.
+  // Session seule (frontend.md) : la page ne garde pas le jeton et ne lit aucune donnée métier.
   await requireSession();
   const t = await getTranslations("kanbanDemo");
   // « Aujourd'hui » calculé une fois côté serveur : mêmes échéances au rendu serveur et à l'hydratation.

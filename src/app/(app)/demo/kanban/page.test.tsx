@@ -50,7 +50,7 @@ describe("page de démo du kanban", () => {
     expect(requireSessionWithToken).not.toHaveBeenCalled();
   });
 
-  it("exige la session sur une preview Vercel, sans demander de jeton (aucune lecture de base)", async () => {
+  it("exige la session sur une preview Vercel, sans garder le jeton dans la page", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "preview");
     requireSession.mockRejectedValue(new Error("SESSION_LUE"));
