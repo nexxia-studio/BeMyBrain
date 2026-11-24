@@ -118,11 +118,11 @@ const ACTIVATION_DELAY_MS = 250;
 /** Tolérance du doigt avant la saisie, distance de la souris avant le glisser : au-delà, plus de tap. */
 const TOUCH_TOLERANCE_PX = 6;
 const MOUSE_DISTANCE_PX = 4;
-/** Avec `onOpen`, Entrée ouvre la carte : seul Espace la saisit. */
+/** Avec `onOpen`, Entrée ouvre la carte : seul Espace la saisit. Dépôt inchangé (défaut de dnd-kit). */
 const OPEN_KEYBOARD_CODES: KeyboardCodes = {
   start: [KeyboardCode.Space],
   cancel: [KeyboardCode.Esc],
-  end: [KeyboardCode.Space, KeyboardCode.Enter],
+  end: [KeyboardCode.Space, KeyboardCode.Enter, KeyboardCode.Tab],
 };
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";

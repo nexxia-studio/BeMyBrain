@@ -461,8 +461,8 @@ describe("SortableBoard", () => {
     function openable() {
       const onOpen = vi.fn();
       const onMove = vi.fn();
-      render(board(onMove, COLUMNS, { onOpen }));
-      return { onOpen, onMove, card: cardHandle("b") };
+      const view = render(board(onMove, COLUMNS, { onOpen }));
+      return { onOpen, onMove, card: cardHandle("b"), unmount: view.unmount };
     }
 
     /** Doigt ou souris posé sur la carte (`pointerType`), au point (100, 100). */
@@ -569,6 +569,36 @@ describe("SortableBoard", () => {
       expect(onOpen).not.toHaveBeenCalled();
     });
 
+    it("le défilement d'un conteneur (colonne, tableau) pendant le geste n'ouvre pas la carte", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "touch");
+      // `scroll` ne remonte pas : seule une écoute en capture sur `window` le voit.
+      fireEvent.scroll(columnSection("todo"));
+      up(card, "touch");
+
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("au démontage pendant un geste, retire ses écouteurs de window", () => {
+      const { card, unmount } = openable();
+      down(card, "touch");
+      const remove = vi.spyOn(window, "removeEventListener");
+
+      unmount();
+
+      const removed = remove.mock.calls.map(([type]) => type);
+      expect(removed).toEqual(
+        expect.arrayContaining([
+          "pointermove",
+          "pointercancel",
+          "pointerup",
+          "scroll",
+        ]),
+      );
+      expect(remove).toHaveBeenCalledWith("scroll", expect.any(Function), true);
+    });
+
     it("un geste repris par le navigateur (défilement natif, pointercancel) n'ouvre pas la carte", () => {
       const { onOpen, card } = openable();
 
@@ -629,6 +659,19 @@ describe("SortableBoard", () => {
       await press(cardHandle("a"), "Enter");
 
       expect(onMove).toHaveBeenCalledOnce();
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("pendant une saisie au clavier, Tab dépose la carte", async () => {
+      const { onOpen, onMove } = openable();
+      cardHandle("a").focus();
+      await press(cardHandle("a"), "Space");
+      await press(cardHandle("a"), "ArrowDown");
+
+      await press(cardHandle("a"), "Tab");
+
+      expect(onMove).toHaveBeenCalledOnce();
+      expect(document.querySelector("[data-board-overlay]")).toBeNull();
       expect(onOpen).not.toHaveBeenCalled();
     });
 
