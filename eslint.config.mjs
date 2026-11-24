@@ -49,13 +49,27 @@ const processImports = [
   { name: "node:process", message: processImportMessage },
 ];
 
-const restrictedImports = (...patterns) => [
-  "error",
-  {
-    paths: processImports,
-    patterns: [...patterns, privilegedDbImports, driverImports],
-  },
-];
+// Glisser-déposer (démo kanban, BRAIN-46) : dnd-kit n'entre que par SortableBoard.tsx, tests compris.
+// Posé sur tout le dépôt (dndKitEverywhere), repris par le socle de src (restrictedImports), levé pour ce seul
+// fichier en dernier (sortableBoardImports).
+const SORTABLE_BOARD = "src/components/kanban/SortableBoard.tsx";
+const dndKitImports = {
+  group: ["@dnd-kit", "@dnd-kit/*"],
+  message:
+    "dnd-kit est réservé à src/components/kanban/SortableBoard.tsx : passer par ce composant.",
+};
+
+const restrictedImportsOver =
+  (socle) =>
+  (...patterns) => [
+    "error",
+    { paths: processImports, patterns: [...patterns, ...socle] },
+  ];
+const restrictedImports = restrictedImportsOver([
+  privilegedDbImports,
+  driverImports,
+  dndKitImports,
+]);
 
 // Sélecteurs esquery : une regex esquery ne peut pas contenir « / », d'où /.
 const DB_SOURCE = "/(^|\\u002F)db(\\u002F|$)/";
@@ -201,21 +215,42 @@ const migrationEnvBoundaries = {
   },
 };
 
+const uiDbImports = {
+  group: [
+    "drizzle-orm",
+    "drizzle-orm/*",
+    "@/db",
+    "@/db/*",
+    "**/db",
+    "**/db/*",
+  ],
+  message:
+    "Pas d'accès base depuis l'UI : passer par src/modules/<module>/ (ADR-002).",
+};
+
 const uiBoundaries = {
   files: ["src/app/**", "src/components/**"],
   rules: {
-    "no-restricted-imports": restrictedImports({
-      group: [
-        "drizzle-orm",
-        "drizzle-orm/*",
-        "@/db",
-        "@/db/*",
-        "**/db",
-        "**/db/*",
-      ],
-      message:
-        "Pas d'accès base depuis l'UI : passer par src/modules/<module>/ (ADR-002).",
-    }),
+    "no-restricted-imports": restrictedImports(uiDbImports),
+  },
+};
+
+// Tout le dépôt (tests/, e2e/, scripts/, src/db/ compris) ; les configs de src/ qui suivent le reprennent.
+const dndKitEverywhere = {
+  files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+  rules: {
+    "no-restricted-imports": ["error", { patterns: [dndKitImports] }],
+  },
+};
+
+// Seule exception : mêmes frontières que l'UI, sans dnd-kit. Placé en dernier (la dernière config l'emporte).
+const sortableBoardImports = {
+  files: [SORTABLE_BOARD],
+  rules: {
+    "no-restricted-imports": restrictedImportsOver([
+      privilegedDbImports,
+      driverImports,
+    ])(uiDbImports),
   },
 };
 
@@ -321,6 +356,7 @@ const testFileSyntax = [
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  dndKitEverywhere,
   srcBoundaries,
   dbBoundaries,
   migrationEnvBoundaries,
@@ -330,6 +366,7 @@ const eslintConfig = defineConfig([
   ...actionsModuleSyntax,
   libBoundaries,
   ...testFileSyntax,
+  sortableBoardImports,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

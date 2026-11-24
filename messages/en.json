@@ -355,5 +355,17 @@
       "body": "The trash could not be loaded. Try again in a moment.",
       "retry": "Try again"
     }
+  },
+  "kanban": {
+    "roleDescription": "movable card",
+    "instructions": "To pick up a card, press Space or Enter. Move it with the arrow keys, drop it with Space or Enter, or cancel with Escape.",
+    "columns": "Columns",
+    "picked": "Picked up card “{item}”, in “{column}”, position {position} of {count}.",
+    "over": "Card “{item}” is over “{column}”, position {position} of {count}.",
+    "overColumn": "Card “{item}” is over “{column}”.",
+    "overNone": "Card “{item}” is not over a column.",
+    "dropped": "Dropped card “{item}” in “{column}”, position {position} of {count}.",
+    "droppedColumn": "Dropped card “{item}” in “{column}”.",
+    "cancelled": "Moving “{item}” was cancelled."
   }
 }

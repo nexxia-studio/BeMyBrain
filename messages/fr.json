@@ -355,5 +355,17 @@
       "body": "La corbeille n'a pas pu être chargée. Réessaie dans un instant.",
       "retry": "Réessayer"
     }
+  },
+  "kanban": {
+    "roleDescription": "carte déplaçable",
+    "instructions": "Pour saisir une carte, appuie sur Espace ou Entrée. Déplace-la avec les flèches, dépose-la avec Espace ou Entrée, ou annule avec Échap.",
+    "columns": "Colonnes",
+    "picked": "Carte « {item} » saisie, dans « {column} », position {position} sur {count}.",
+    "over": "Carte « {item} » au-dessus de « {column} », position {position} sur {count}.",
+    "overColumn": "Carte « {item} » au-dessus de « {column} ».",
+    "overNone": "Carte « {item} » hors de toute colonne.",
+    "dropped": "Carte « {item} » déposée dans « {column} », position {position} sur {count}.",
+    "droppedColumn": "Carte « {item} » déposée dans « {column} ».",
+    "cancelled": "Déplacement de « {item} » annulé."
   }
 }

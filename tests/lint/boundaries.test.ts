@@ -607,3 +607,60 @@ describe("createRequire dans src", () => {
     );
   });
 });
+
+// Démo kanban (BRAIN-46) : dnd-kit n'entre que par src/components/kanban/SortableBoard.tsx.
+describe("verrou d'import de dnd-kit", () => {
+  const dndKitImport =
+    'import { DndContext } from "@dnd-kit/core";\nexport const x = DndContext;\n';
+  const isDndKitError = (message: string) => /dnd-kit/.test(message);
+
+  it.each([
+    "src/components/tasks/TaskList.tsx",
+    "src/components/kanban/SortableBoard.test.tsx",
+    "src/components/kanban/OtherBoard.tsx",
+    "src/app/(app)/demo/kanban/KanbanDemo.tsx",
+    "src/modules/tasks/queries.ts",
+    "src/lib/probe.ts",
+    "src/lib/probe.test.ts",
+    "src/db/probe.ts",
+    "tests/lint/probe.test.ts",
+    "e2e/probe.spec.ts",
+    "scripts/probe.ts",
+  ])("eslint refuse @dnd-kit/core dans %s", async (filePath) => {
+    const errors = await restrictedImportRules(dndKitImport, filePath);
+
+    expect(errors.filter(isDndKitError)).toHaveLength(1);
+  });
+
+  it("eslint refuse aussi @dnd-kit/sortable et @dnd-kit/utilities hors de SortableBoard", async () => {
+    const code =
+      'import { useSortable } from "@dnd-kit/sortable";\nimport { CSS } from "@dnd-kit/utilities";\nexport const x = [useSortable, CSS];\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/components/tasks/TaskList.tsx",
+    );
+
+    expect(errors.filter(isDndKitError)).toHaveLength(2);
+  });
+
+  it("eslint laisse dnd-kit à SortableBoard.tsx", async () => {
+    const errors = await restrictedImportRules(
+      dndKitImport,
+      "src/components/kanban/SortableBoard.tsx",
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  it("SortableBoard.tsx garde les autres frontières de l'UI", async () => {
+    const code = 'import { db } from "@/db/client";\nexport const x = db;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/components/kanban/SortableBoard.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+});
