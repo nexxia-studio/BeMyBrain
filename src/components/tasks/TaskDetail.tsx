@@ -5,9 +5,9 @@
 // ordinateur, tiroir sur mobile, fermeture) : `TaskDetailSheet`, partagée avec l'état d'erreur du détail.
 // Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
 // Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : parente en lien (sous-tâche), titre, puis
-// les propriétés groupées (Statut, Priorité, Côté et espace, Échéance, Tags ; statut et priorité marqués par leur
+// les propriétés groupées (Statut, Priorité, Échéance, Côté et espace, Tags ; statut et priorité marqués par leur
 // icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), notes en bas, repliées
-// sur une ligne quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
+// sur une ligne à l'ouverture quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
 // Corbeille : retour à la liste ; une sous-tâche revient au détail de sa parente, où le message et « Annuler »
 // s'affichent dans la fenêtre (emplacement collé en bas du panneau, au-dessus du contenu qui défile).
 // Chaque champ appelle `tasks.update` seul (registre, origine `app`) : désactivé pendant l'appel, pas
@@ -331,6 +331,20 @@ export function TaskDetail({
                 />
               </DetailField>
               <DetailField
+                label={t("detail.due")}
+                errors={errorOf(due, ids.due)}
+              >
+                <DueDateChip
+                  today={today}
+                  value={dueDraft}
+                  onChange={changeDue}
+                  onOpenChange={saveDue}
+                  disabled={due.pending}
+                  describedBy={describedBy(due, ids.due)}
+                  emptyLabel="none"
+                />
+              </DetailField>
+              <DetailField
                 label={t("detail.placement")}
                 errors={[
                   ...errorOf(side, ids.side),
@@ -373,20 +387,6 @@ export function TaskDetail({
                     )}
                   </>
                 )}
-              </DetailField>
-              <DetailField
-                label={t("detail.due")}
-                errors={errorOf(due, ids.due)}
-              >
-                <DueDateChip
-                  today={today}
-                  value={dueDraft}
-                  onChange={changeDue}
-                  onOpenChange={saveDue}
-                  disabled={due.pending}
-                  describedBy={describedBy(due, ids.due)}
-                  emptyLabel="none"
-                />
               </DetailField>
               <DetailField
                 label={t("detail.tags")}

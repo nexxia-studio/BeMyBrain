@@ -59,7 +59,7 @@ describe("champ de notes repliable", () => {
     expect(screen.getByText("Notes", { selector: "label" })).toBeTruthy();
   });
 
-  it("au focus : le même champ s'agrandit, puis se replie au départ s'il est resté vide", () => {
+  it("au focus : le même champ s'agrandit, et reste déplié au départ même resté vide (rien ne bouge sous le pointeur)", () => {
     renderField({ initial: "" });
     const before = field();
 
@@ -71,7 +71,9 @@ describe("champ de notes repliable", () => {
 
     fireEvent.blur(field());
 
-    expect(field().getAttribute("data-collapsed")).toBe("true");
+    expect(field().getAttribute("data-collapsed")).toBe("false");
+    expect(classes()).toContain("min-h-24");
+    expect(field().rows).toBe(3);
   });
 
   it("rempli : déplié, sans focus", () => {
@@ -83,15 +85,35 @@ describe("champ de notes repliable", () => {
     expect(classes()).toContain("field-sizing-content");
   });
 
-  it("saisie puis départ : reste déplié ; des espaces seuls comptent pour vide", () => {
+  it("saisie puis départ : reste déplié, texte gardé tel quel", () => {
     renderField({ initial: "" });
 
     fireEvent.focus(field());
-    fireEvent.change(field(), { target: { value: "Penser au devis" } });
+    fireEvent.change(field(), { target: { value: "  Penser au devis " } });
     fireEvent.blur(field());
-    expect(field().getAttribute("data-collapsed")).toBe("false");
 
+    expect(field().getAttribute("data-collapsed")).toBe("false");
+    expect(field().value).toBe("  Penser au devis ");
+  });
+
+  it("des espaces seuls comptent pour vide : au départ le champ redevient vide et montre l'invite", () => {
+    const onBlur = vi.fn();
+    renderField({ initial: "", onBlur });
+
+    fireEvent.focus(field());
     fireEvent.change(field(), { target: { value: "   " } });
+    fireEvent.blur(field());
+
+    expect(field().value).toBe("");
+    // L'invite n'est affichée par le navigateur que sur une valeur vide.
+    expect(field().placeholder).toBe("Ajouter une note");
+    expect(field().matches(":placeholder-shown")).toBe(true);
+    expect(onBlur).toHaveBeenCalledTimes(1);
+  });
+
+  it("des espaces seuls reçus à l'ouverture : replié, comme vide", () => {
+    renderField({ initial: "   " });
+
     expect(field().getAttribute("data-collapsed")).toBe("true");
   });
 

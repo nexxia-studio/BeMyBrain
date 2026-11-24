@@ -980,7 +980,7 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
     });
   });
 
-  it("propriétés groupées : Statut, Priorité, Côté et espace, Échéance, Tags, dans cet ordre", () => {
+  it("propriétés groupées : Statut, Priorité, Échéance, Côté et espace, Tags, dans cet ordre", () => {
     renderDetail();
 
     const names = within(screen.getByRole("group", { name: "Propriétés" }))
@@ -990,9 +990,9 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
     expect(names).toEqual([
       "Statut",
       "Priorité",
+      "Échéance",
       "Côté",
       "Espace",
-      "Échéance",
       "Tags",
     ]);
   });
@@ -1053,6 +1053,50 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
     });
     await act(async () => pending.resolve({ ok: true, result: null }));
     expect(notes.disabled).toBe(false);
+  });
+
+  it("notes vides focalisées puis quittées : restent dépliées (la corbeille ne bouge pas sous le clic), rien d'enregistré", () => {
+    renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.focus(notes);
+    fireEvent.blur(notes);
+
+    expect(notes.getAttribute("data-collapsed")).toBe("false");
+    expect(paramsOf("tasks.update")).toBeUndefined();
+  });
+
+  it("espaces seuls saisis puis champ quitté : le champ redevient vide, rien d'enregistré", () => {
+    renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "   " } });
+    fireEvent.blur(notes);
+
+    expect(notes.value).toBe("");
+    expect(paramsOf("tasks.update")).toBeUndefined();
+  });
+
+  it("notes remplacées par des espaces puis quittées : enregistrées comme absentes (null), champ vide", async () => {
+    const task = renderDetail();
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "   " } });
+    fireEvent.blur(notes);
+
+    expect(notes.value).toBe("");
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        notes: null,
+      }),
+    );
   });
 });
 

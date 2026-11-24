@@ -3,7 +3,8 @@
 // Curseurs nexxia-design (DESIGN.md § 1, app) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Détail d'une carte de la démo du kanban (BRAIN-46, D5) : même fenêtre que la liste (`TaskDetailSheet`, panneau
 // sur ordinateur, tiroir sur mobile), fermée par rappel (aucune adresse). Une colonne, deux ordres à comparer par
-// le sélecteur « Détail » des réglages (D9) :
+// le sélecteur « Détail » (D9), en haut de la fenêtre (une rangée, zones de 44 px) : la bascule se fait sur place,
+// détail ouvert, focus gardé sur le choix (le sélecteur ne se remonte pas d'un ordre à l'autre) :
 // - `new` (défaut), celui du vrai détail (`TaskDetail`) : titre et croix, propriétés groupées (Statut, Priorité,
 //   Échéance, Tags ; icône propre à chaque statut, `status-icons.ts`), sous-tâches, notes en bas, repliées sur une
 //   ligne quand elles sont vides (`TaskNotesField`, commun au vrai détail) ;
@@ -41,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { DEMO_STATUSES, type DemoStatus } from "./demo-board";
 import type { DemoTask } from "./demo-fixtures";
 import type { DemoDetailLayout } from "./demo-looks";
+import { DemoChoiceGroup } from "./DemoChoiceGroup";
 
 const PRIORITIES = ["0", "1", "2", "3", "4"] as const;
 
@@ -56,6 +58,7 @@ type KanbanDemoDetailProps = {
   task: DemoTask;
   /** Ordre des blocs : le nouveau (D9) ou celui d'avant, pour comparer. */
   layout: DemoDetailLayout;
+  onLayoutChange: (layout: DemoDetailLayout) => void;
   /** `YYYY-MM-DD`, jour de l'utilisateur. */
   today: string;
   /** Tags des cartes de la démo, proposés par la pastille Tags. */
@@ -70,6 +73,7 @@ type KanbanDemoDetailProps = {
 export function KanbanDemoDetail({
   task,
   layout,
+  onLayoutChange,
   today,
   knownTags,
   onStatusChange,
@@ -78,6 +82,7 @@ export function KanbanDemoDetail({
   onClose,
 }: KanbanDemoDetailProps) {
   const t = useTranslations("tasks");
+  const tDemo = useTranslations("kanbanDemo.settings");
   const notesId = useId();
   const subtasksId = useId();
   const done = task.subtasks.filter((subtask) => subtask.done).length;
@@ -106,6 +111,16 @@ export function KanbanDemoDetail({
     <TaskDetailSheet onClose={onClose}>
       {(closeButton) => (
         <div className="flex flex-col gap-5 px-4 pb-5 lg:p-5">
+          <DemoChoiceGroup
+            inline
+            label={tDemo("detail")}
+            value={layout}
+            onChange={onLayoutChange}
+            options={[
+              { value: "new", label: tDemo("detailNew") },
+              { value: "current", label: tDemo("detailCurrent") },
+            ]}
+          />
           <div className="flex items-start justify-between gap-3">
             {/* Contenu saisi : jamais traduit. */}
             <h2 className="min-w-0 py-2 font-heading text-title break-words">

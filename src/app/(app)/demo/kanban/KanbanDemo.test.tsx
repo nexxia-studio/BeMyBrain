@@ -539,6 +539,13 @@ async function choose(chipName: RegExp, option: string) {
   await wait(0);
 }
 
+/** Sélecteur « Détail » (Nouveau / Actuel), dans la fenêtre du détail. */
+function layoutChoice(name: string) {
+  return within(
+    within(detail()).getByRole("group", { name: "Détail" }),
+  ).getByRole("button", { name });
+}
+
 async function closeDetail() {
   fireEvent.click(
     within(detail()).getByRole("button", { name: fr.tasks.detail.close }),
@@ -694,14 +701,11 @@ describe("démo du kanban : détail d'une carte", () => {
   });
   it("détail « Nouveau » par défaut : titre, propriétés, sous-tâches, puis notes", async () => {
     renderDemo();
-    expect(
-      within(screen.getByRole("group", { name: "Détail" }))
-        .getByRole("button", { name: "Nouveau" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
 
     await openCard(DEMO_PREP);
 
+    expect(layoutChoice("Nouveau").getAttribute("aria-pressed")).toBe("true");
+    expect(layoutChoice("Actuel").getAttribute("aria-pressed")).toBe("false");
     const dialog = within(detail());
     const blocks = [
       dialog.getByRole("heading", { name: /^Préparer la démo du kanban/ }),
@@ -738,14 +742,9 @@ describe("démo du kanban : détail d'une carte", () => {
 
   it("détail « Actuel » au sélecteur : notes en grand cadre sous le titre, avant les champs, icône de champ au statut", async () => {
     renderDemo();
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "Détail" })).getByRole(
-        "button",
-        { name: "Actuel" },
-      ),
-    );
-
     await openCard(PLUMBER);
+
+    fireEvent.click(layoutChoice("Actuel"));
 
     const dialog = within(detail());
     const notes = dialog.getByLabelText(
@@ -764,12 +763,96 @@ describe("démo du kanban : détail d'une carte", () => {
     expect(status.querySelector("svg.lucide-circle-dot")).not.toBeNull();
   });
 
-  it("range le sélecteur Détail dans les réglages repliés (le tableau reste visible sur iPhone), en anglais aussi", () => {
+  it("détail « Nouveau » : espaces seuls dans les notes puis champ quitté, aucune note rangée, invite de retour", async () => {
+    renderDemo();
+    await openCard(NO_NOTES);
+    const notes = within(detail()).getByLabelText(
+      fr.tasks.detail.notes,
+    ) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "   " } });
+    fireEvent.blur(notes);
+
+    expect(notes.value).toBe("");
+    await closeDetail();
+    await openCard(NO_NOTES);
+    expect(
+      within(detail())
+        .getByLabelText(fr.tasks.detail.notes)
+        .getAttribute("data-collapsed"),
+    ).toBe("true");
+  });
+
+  it("sélecteur Détail dans la fenêtre du détail, en haut, plus dans les réglages ; zones de 44 px", async () => {
+    renderDemo();
+    expect(screen.queryByRole("group", { name: "Détail" })).toBeNull();
+
+    await openCard(DEMO_PREP);
+
+    const group = within(detail()).getByRole("group", { name: "Détail" });
+    expect(group.closest("details")).toBeNull();
+    expect(
+      precedes(
+        group,
+        within(detail()).getByRole("heading", {
+          name: /^Préparer la démo du kanban/,
+        }),
+      ),
+    ).toBe(true);
+    for (const name of ["Nouveau", "Actuel"]) {
+      expect(layoutChoice(name).className.split(/\s+/)).toContain("min-h-11");
+    }
+  });
+
+  it("bascule du sélecteur : le détail reste ouvert sur la même carte, le focus reste sur le choix, aller et retour", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+    const before = detail();
+    const current = layoutChoice("Actuel");
+
+    current.focus();
+    fireEvent.click(current);
+
+    expect(detail()).toBe(before);
+    expect(layoutChoice("Actuel")).toBe(current);
+    expect(document.activeElement).toBe(current);
+    expect(current.getAttribute("aria-pressed")).toBe("true");
+    expect(
+      within(detail())
+        .getByLabelText(fr.tasks.detail.notes)
+        .hasAttribute("data-collapsed"),
+    ).toBe(false);
+
+    fireEvent.click(layoutChoice("Nouveau"));
+
+    expect(detail()).toBe(before);
+    expect(
+      within(detail())
+        .getByLabelText(fr.tasks.detail.notes)
+        .getAttribute("data-collapsed"),
+    ).toBe("false");
+  });
+
+  it("garde le choix du sélecteur Détail d'une carte à l'autre", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+    fireEvent.click(layoutChoice("Actuel"));
+
+    await closeDetail();
+    await openCard(PLUMBER);
+
+    expect(layoutChoice("Actuel").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("sélecteur Détail en anglais", async () => {
     renderDemo("en");
 
-    const group = screen.getByRole("group", { name: "Detail" });
+    await openCard(DEMO_PREP);
 
-    expect(group.closest("details")).not.toBeNull();
+    const group = within(
+      screen.getByRole("dialog", { name: en.tasks.detail.label }),
+    ).getByRole("group", { name: "Detail" });
     expect(within(group).getByRole("button", { name: "New" })).toBeTruthy();
     expect(within(group).getByRole("button", { name: "Current" })).toBeTruthy();
   });

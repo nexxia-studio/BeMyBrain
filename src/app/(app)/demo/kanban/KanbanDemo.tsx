@@ -11,7 +11,8 @@
 // Terminée : 20 plus récentes + « Tout voir », plus les cartes déposées pendant la visite. Annulée : bandeau replié avec compteur, cible de dépôt.
 // Tap, clic ou Entrée sur une carte (`onOpen` du tableau) : détail de la carte (`KanbanDemoDetail`). Ses
 // modifications restent en mémoire, par carte ; un changement de statut est un déplacement (en tête de colonne).
-// Sélecteur « Détail » (D9) : nouvel ordre du détail (défaut) ou ordre d'avant, pour comparer.
+// Sélecteur « Détail » (D9), dans la fenêtre du détail : nouvel ordre (défaut) ou ordre d'avant, à comparer sur
+// place ; le choix est tenu ici, gardé d'une carte à l'autre.
 // Sélecteur « Cartes » (D7) : deux habillages de la colonne et des cartes (`demo-looks.ts`), à choisir à l'œil.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import {
@@ -218,8 +219,6 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
         onFailNextChange={setFailNext}
         look={look}
         onLookChange={setLook}
-        detailLayout={detailLayout}
-        onDetailLayoutChange={setDetailLayout}
         pendingCount={pending.length}
       />
       <div aria-busy={pending.length > 0}>
@@ -241,8 +240,9 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
       </div>
       {openId !== null && openStatus !== undefined && (
         <KanbanDemoDetail
-          layout={detailLayout}
           key={openId}
+          layout={detailLayout}
+          onLayoutChange={setDetailLayout}
           task={shownTask(openId, openStatus)}
           today={today}
           knownTags={knownTags}

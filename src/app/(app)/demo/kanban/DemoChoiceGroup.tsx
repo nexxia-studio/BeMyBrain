@@ -4,6 +4,7 @@
 // Groupe de choix d'un réglage de la démo du kanban : libellé visible puis pilules sur piste, motif de la bascule
 // Privé / Pro (DESIGN.md § 5) : `role="group"`, boutons `aria-pressed`, actif blanc + `shadow-raised`, pression
 // `scale` 0,97. Changement instantané, rien d'enregistré. Les pilules passent à la ligne sous 390 px.
+// `inline` : libellé et piste sur une seule rangée (sélecteur « Détail », en haut de la fenêtre du détail).
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import { motion } from "motion/react";
 import { useId } from "react";
@@ -15,6 +16,8 @@ type DemoChoiceGroupProps<V extends string | number> = {
   options: readonly { value: V; label: string }[];
   value: V;
   onChange: (value: V) => void;
+  /** Libellé à gauche de la piste, sur une rangée, au lieu d'au-dessus. */
+  inline?: boolean;
 };
 
 export function DemoChoiceGroup<V extends string | number>({
@@ -22,18 +25,29 @@ export function DemoChoiceGroup<V extends string | number>({
   options,
   value,
   onChange,
+  inline = false,
 }: DemoChoiceGroupProps<V>) {
   const labelId = useId();
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div
+      className={cn(
+        "flex",
+        inline
+          ? "flex-wrap items-center gap-x-3 gap-y-1.5"
+          : "flex-col gap-1.5",
+      )}
+    >
       <span id={labelId} className="text-small font-medium">
         {label}
       </span>
       <div
         role="group"
         aria-labelledby={labelId}
-        className="flex flex-wrap gap-1 self-start rounded-full bg-pill-track p-1"
+        className={cn(
+          "flex flex-wrap gap-1 rounded-full bg-pill-track p-1",
+          !inline && "self-start",
+        )}
       >
         {options.map((option) => (
           <motion.button

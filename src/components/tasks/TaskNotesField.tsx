@@ -4,10 +4,14 @@
 // Champ de notes du détail (BRAIN-46, D9), commun au vrai détail (`TaskDetail`) et à la démo du kanban. Libellé
 // visible au-dessus, à la taille d'un titre de section (comme « Sous-tâches »), champ de la charte (DESIGN.md § 5,
 // Champs : `border-input bg-row`, `text-base` contre le zoom d'iOS).
-// Vide et sans focus : replié sur une ligne de 44 px, texte d'invite « Ajouter une note » (le libellé visible reste,
-// l'invite n'en tient pas lieu). Au focus, ou dès qu'il y a du texte : déplié (96 px au moins, puis la hauteur du
-// contenu, `field-sizing-content`). Replié ou non, c'est le même `textarea`, toujours monté : le tap le focalise
-// directement et le clavier d'iOS s'ouvre (un bouton qui monterait le champ ensuite ne l'ouvrirait pas, gotchas).
+// Vide à l'ouverture : replié sur une ligne de 44 px, texte d'invite « Ajouter une note » (le libellé visible reste,
+// l'invite n'en tient pas lieu). Au premier focus, ou dès qu'il y a du texte : déplié (96 px au moins, puis la
+// hauteur du contenu, `field-sizing-content`), et il le reste jusqu'au démontage du détail, même vide : se replier
+// au départ du champ ferait remonter ce qui est dessous entre l'appui et le relâchement de la souris, et le clic
+// sur « Mettre à la corbeille » serait perdu. Replié ou non, c'est le même `textarea`, toujours monté : le tap le
+// focalise directement et le clavier d'iOS s'ouvre (un bouton qui monterait le champ ensuite ne l'ouvrirait pas,
+// gotchas).
+// Des espaces seuls comptent pour vide : au départ du champ, la valeur redevient vide (l'invite revient).
 // Aucune animation : le champ change de hauteur d'un coup (animer une hauteur est exclu, anti-slop de nexxia-design).
 // Sans logique de données : l'appelant tient la valeur et enregistre (au départ du champ dans le vrai détail).
 import { useTranslations } from "next-intl";
@@ -38,8 +42,9 @@ export function TaskNotesField({
 }: TaskNotesFieldProps) {
   const t = useTranslations("tasks");
   const fieldId = useId();
-  const [focused, setFocused] = useState(false);
-  const collapsed = !focused && value.trim() === "";
+  // Ouvert une fois pour toutes au premier focus (jamais replié ensuite, voir l'en-tête).
+  const [opened, setOpened] = useState(false);
+  const collapsed = !opened && value.trim() === "";
 
   return (
     <div className="flex flex-col gap-3">
@@ -63,9 +68,9 @@ export function TaskNotesField({
             : undefined
         }
         onChange={(event) => onChange(event.target.value)}
-        onFocus={() => setFocused(true)}
+        onFocus={() => setOpened(true)}
         onBlur={() => {
-          setFocused(false);
+          if (value !== "" && value.trim() === "") onChange("");
           onBlur?.();
         }}
         className={cn(

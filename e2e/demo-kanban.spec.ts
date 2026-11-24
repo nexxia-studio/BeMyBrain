@@ -13,7 +13,8 @@ import { signIn } from "./session";
 // (hydratation comprise), une carte change de colonne à la souris (ordinateur) et au doigt, par dépôt sur un
 // onglet (mobile, onglets sous 768 px), le doigt ne saisit une carte qu'après l'appui de 250 ms, et un glisser
 // ne fait ni sauter ni reculer le tableau (colonnes au-delà de 768 px) ni la page (onglets). D5 : un tap court
-// ou un clic ouvre le détail ; un appui long, un défilement ou un glisser ne l'ouvrent jamais.
+// ou un clic ouvre le détail ; un appui long, un défilement ou un glisser ne l'ouvrent jamais. D9 : le sélecteur
+// « Détail » (Nouveau / Actuel) est dans la fenêtre du détail.
 // Serveur : `pnpm dev` seulement. La garde ferme la page sur tout build de production hors Vercel (`next
 // start` répond 404, vérifié par `demo-kanban-fermee.spec.ts`).
 // Gestes tactiles : vrais événements tactiles du navigateur par le protocole Chromium (`Input.dispatchTouchEvent`),
@@ -703,6 +704,52 @@ async function twoFrames(page: Page): Promise<void> {
   );
 }
 
+/**
+ * Sélecteur « Détail » (D9, correctif de relecture) : dans la fenêtre du détail, il bascule sur place entre le
+ * nouvel ordre (notes en bas) et l'ordre d'avant (notes sous le titre), sans fermer le détail ni bouger le tableau.
+ */
+async function compareDetailLayouts(
+  page: Page,
+  boardCard: Locator,
+): Promise<void> {
+  const dialog = detailDialog(page);
+  const group = dialog.getByRole("group", { name: DEMO.settings.detail });
+  const choice = (name: string) =>
+    group.getByRole("button", { name, exact: true });
+  const notes = dialog.getByLabel(fr.tasks.detail.notes, { exact: true });
+  const status = dialog.getByRole("button", {
+    name: new RegExp(`^${fr.tasks.detail.status.label} :`),
+  });
+  const top = async (locator: Locator) => (await locator.boundingBox())!.y;
+  const boardBefore = await boardCard.boundingBox();
+  await expect(choice(DEMO.settings.detailNew)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  for (const name of [DEMO.settings.detailNew, DEMO.settings.detailCurrent]) {
+    const box = (await choice(name).boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
+  expect(await top(notes)).toBeGreaterThan(await top(status));
+
+  await choice(DEMO.settings.detailCurrent).click();
+
+  await expect(choice(DEMO.settings.detailCurrent)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(dialog).toBeVisible();
+  await expect(choice(DEMO.settings.detailCurrent)).toBeFocused();
+  expect(await top(notes)).toBeLessThan(await top(status));
+
+  await choice(DEMO.settings.detailNew).click();
+
+  await expect(dialog).toBeVisible();
+  expect(await top(notes)).toBeGreaterThan(await top(status));
+  expect(await boardCard.boundingBox()).toEqual(boardBefore);
+}
+
 test.describe("au doigt, à 390 px", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -823,6 +870,22 @@ test.describe("au doigt, à 390 px", () => {
     await expect(detailDialog(page)).toHaveCount(0);
     expect(messages).toEqual([]);
   });
+
+  test("@mobile le sélecteur « Détail » bascule Nouveau / Actuel dans le tiroir, sans le fermer ni bouger le tableau", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const messages = watchConsole(page);
+    await openDemo(page);
+    const finger = await Finger.on(page);
+    await finger.down(await center(card(page, "backlog-1")));
+    await finger.up();
+    await expect(detailDialog(page)).toBeVisible();
+
+    await compareDetailLayouts(page, card(page, "backlog-1"));
+
+    expect(messages).toEqual([]);
+  });
 });
 
 test("@desktop un clic à la souris ouvre le détail de la carte", async ({
@@ -840,6 +903,20 @@ test("@desktop un clic à la souris ouvre le détail de la carte", async ({
     dialog.getByRole("heading", { name: "Refonte de la page tarifs" }),
   ).toBeVisible();
   await expect(overlay(page)).toHaveCount(0);
+  expect(messages).toEqual([]);
+});
+
+test("@desktop le sélecteur « Détail » bascule Nouveau / Actuel dans le panneau, sans le fermer ni bouger le tableau", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+  await card(page, "started-1").click();
+  await expect(detailDialog(page)).toBeVisible();
+
+  await compareDetailLayouts(page, card(page, "started-1"));
+
   expect(messages).toEqual([]);
 });
 
