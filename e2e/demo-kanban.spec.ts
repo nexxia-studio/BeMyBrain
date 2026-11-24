@@ -52,6 +52,74 @@ async function openDemo(page: Page): Promise<void> {
   await expect(page.locator('[id^="DndLiveRegion-"]')).toBeAttached();
 }
 
+/**
+ * Opacité calculée de la ligne « Ajouter une sous-tâche » (le `label` qui porte le champ). Au repos : 1, sinon
+ * le texte d'invite et l'icône « + » tombent sous 4,5:1 (`:has(:read-only)` est vrai pour tout élément non
+ * modifiable, pas seulement pour un champ en lecture seule).
+ */
+function addRowOpacity(field: Locator): Promise<string> {
+  return field.evaluate((el) => getComputedStyle(el.closest("label")!).opacity);
+}
+
+/**
+ * Contraste (WCAG) du texte d'invite du champ sur ce qui est réellement affiché derrière lui : fonds et opacités
+ * de tous ses ancêtres composés, couleurs lues par un canevas (toute notation CSS, `oklch` comprise).
+ */
+function placeholderContrast(field: Locator): Promise<number> {
+  return field.evaluate((input) => {
+    type Rgba = [number, number, number, number];
+    const context = document
+      .createElement("canvas")
+      .getContext("2d", { willReadFrequently: true })!;
+    const rgba = (color: string): Rgba => {
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = color;
+      context.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+      return [r, g, b, a / 255];
+    };
+    const over = (top: Rgba, under: Rgba): Rgba => [
+      top[0] * top[3] + under[0] * (1 - top[3]),
+      top[1] * top[3] + under[1] * (1 - top[3]),
+      top[2] * top[3] + under[2] * (1 - top[3]),
+      1,
+    ];
+    const chain: Element[] = [];
+    for (let el: Element | null = input; el !== null; el = el.parentElement) {
+      chain.unshift(el);
+    }
+    // Chaque élément est un groupe : son fond puis son contenu, fondus dans ce qui est derrière à son opacité.
+    const paint = (index: number, backdrop: Rgba, withText: boolean): Rgba => {
+      const style = getComputedStyle(chain[index]);
+      const surface = over(rgba(style.backgroundColor), backdrop);
+      let content = surface;
+      if (index < chain.length - 1) {
+        content = paint(index + 1, surface, withText);
+      } else if (withText) {
+        const placeholder = getComputedStyle(input, "::placeholder").color;
+        content = over(rgba(placeholder), surface);
+      }
+      return over(
+        [content[0], content[1], content[2], Number(style.opacity)],
+        backdrop,
+      );
+    };
+    const luminance = (color: Rgba): number => {
+      const [r, g, b] = color.slice(0, 3).map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045
+          ? value / 12.92
+          : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const white: Rgba = [255, 255, 255, 1];
+    const text = luminance(paint(0, white, true));
+    const surface = luminance(paint(0, white, false));
+    return (Math.max(text, surface) + 0.05) / (Math.min(text, surface) + 0.05);
+  });
+}
+
 function column(page: Page, id: string): Locator {
   return page.locator(`[data-board-column="${id}"]`);
 }
@@ -676,6 +744,11 @@ test.describe("au doigt, à 390 px", () => {
     const dialog = detailDialog(page);
     const field = dialog.getByLabel(fr.tasks.detail.subtasks.add);
     await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+    expect(await addRowOpacity(field)).toBe("1");
+    // Texte d'invite lisible : il tient lieu de libellé visible (DESIGN.md § 5, exception de la ligne d'ajout).
+    await expect
+      .poll(() => placeholderContrast(field))
+      .toBeGreaterThanOrEqual(4.5);
 
     await field.fill("Lister les écrans");
     await field.press("Enter");
@@ -780,6 +853,11 @@ test("@desktop Entrée ajoute une sous-tâche puis la suivante sans quitter le c
   const dialog = detailDialog(page);
   const field = dialog.getByLabel(fr.tasks.detail.subtasks.add);
   await expect(dialog.getByText("1/2", { exact: true })).toBeVisible();
+  expect(await addRowOpacity(field)).toBe("1");
+  // Texte d'invite lisible : il tient lieu de libellé visible (DESIGN.md § 5, exception de la ligne d'ajout).
+  await expect
+    .poll(() => placeholderContrast(field))
+    .toBeGreaterThanOrEqual(4.5);
 
   await field.click();
   await page.keyboard.type("Relire les prix");

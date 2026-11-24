@@ -9,6 +9,10 @@
 // texte d'invite le montrent. Anneau de focus porté par la ligne entière, pas par le champ nu.
 // Entrée envoie ; pendant l'appel le champ passe en lecture seule (jamais `disabled`, qui ferait perdre le focus et
 // fermer le clavier d'iOS) ; succès : vidé, prêt pour la suivante ; échec : saisie gardée, message sous la ligne.
+// Ce qui est tapé pendant l'appel est ignoré (lecture seule, comportement d'avant D8 gardé). Contrat : `onAdd` ne
+// rejette jamais, un échec revient en message (sinon le champ resterait sans retour visible).
+// Estompage pendant l'appel : `has-[input:read-only]`, jamais `has-read-only` (`:has(:read-only)` est vrai pour
+// tout élément non modifiable, `span` et `svg` compris : la ligne serait estompée en permanence).
 // Aucune animation : le retour visible est la ligne qui apparaît dans la liste (DESIGN.md § 7).
 // Sans logique de données : l'appelant ajoute (`onAdd`) et rend le message d'échec déjà traduit.
 import { Plus } from "lucide-react";
@@ -52,7 +56,7 @@ export function SubtaskAddField({ onAdd }: SubtaskAddFieldProps) {
       <label
         className={cn(
           TASK_ROW_LINE_CLASSES,
-          "cursor-text items-center rounded-lg border border-input bg-row has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-read-only:opacity-60",
+          "cursor-text items-center rounded-lg border border-input bg-row has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-[input:read-only]:opacity-60",
         )}
       >
         <span className="flex size-11 shrink-0 items-center justify-center text-muted-foreground">

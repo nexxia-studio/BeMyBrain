@@ -6,9 +6,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { Profiler } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { getUserTimeZone } from "@/modules/core/time-zone";
+import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
@@ -17,14 +19,21 @@ import { SubtaskAddField } from "./SubtaskAddField";
 
 type OnAdd = (title: string) => Promise<string | null>;
 
-function renderField(onAdd: OnAdd, locale: "fr" | "en" = "fr") {
+function renderField(
+  onAdd: OnAdd,
+  locale: "fr" | "en" = "fr",
+  onCommit: () => void = () => {},
+) {
   render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "fr" ? fr : en}
       timeZone={getUserTimeZone()}
     >
-      <SubtaskAddField onAdd={onAdd} />
+      {/* `onRender` est appelé à chaque rendu appliqué au DOM : de quoi relever les états intermédiaires. */}
+      <Profiler id="field" onRender={onCommit}>
+        <SubtaskAddField onAdd={onAdd} />
+      </Profiler>
     </NextIntlClientProvider>,
   );
   return screen.getByRole("textbox", {
@@ -123,6 +132,53 @@ describe("SubtaskAddField", () => {
     await waitFor(() => expect(field.value).toBe(""));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(field.hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("succès : aucun rendu ne montre le champ vidé mais encore en lecture seule", async () => {
+    let finish!: (error: string | null) => void;
+    const onAdd = vi.fn<OnAdd>(
+      () => new Promise((resolve) => (finish = resolve)),
+    );
+    const commits: { value: string; readOnly: boolean }[] = [];
+    const field = renderField(onAdd, "fr", () => {
+      // Premier rendu : appelé avant que `renderField` ait rendu le champ.
+      const input = document.querySelector("input");
+      if (input !== null) {
+        commits.push({ value: input.value, readOnly: input.readOnly });
+      }
+    });
+    typeAndEnter(field, "Préparer le devis");
+    await waitFor(() => expect(field.readOnly).toBe(true));
+
+    await act(async () => finish(null));
+    await waitFor(() => expect(field.readOnly).toBe(false));
+
+    expect(field.value).toBe("");
+    expect(commits).not.toContainEqual({ value: "", readOnly: true });
+    // Témoin : le relevé voit bien les rendus (lecture seule avec la saisie, puis vidé et modifiable).
+    expect(commits).toContainEqual({
+      value: "Préparer le devis",
+      readOnly: true,
+    });
+    expect(commits.at(-1)).toEqual({ value: "", readOnly: false });
+  });
+
+  it("au repos, la ligne n'est pas estompée : l'estompage ne vise que le champ en lecture seule", () => {
+    const field = renderField(async () => null);
+
+    const row = field.closest("label")!;
+
+    // `has-read-only:` compile en `:has(:read-only)`, vrai pour tout élément non modifiable (`span`, `svg`).
+    expect(row.classList.contains("has-read-only:opacity-60")).toBe(false);
+    expect(row.classList.contains("has-[input:read-only]:opacity-60")).toBe(
+      true,
+    );
+  });
+
+  it("limite la saisie à la longueur maximale d'un titre", () => {
+    const field = renderField(async () => null);
+
+    expect(field.maxLength).toBe(TASK_TITLE_MAX);
   });
 
   it("en anglais : nom accessible et texte d'invite traduits", () => {
