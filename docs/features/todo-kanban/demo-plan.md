@@ -75,7 +75,7 @@ Décisions d'Antoine :
 
 Décisions d'Antoine : appui long validé (250 ms, soulèvement, empreinte), ne plus y toucher. Trois retours de design et un détail. Le détail d'une tâche est partagé avec la vue liste : D8 et D9 passent par des composants communs de `src/components/tasks/`, utilisés par le vrai détail (`TaskDetail`, `SubtaskList`) et par la démo.
 
-- [ ] **D7. Cartes lisibles dans la colonne, deux variantes**
+- [x] **D7. Cartes lisibles dans la colonne, deux variantes** (2026-11-24, `fa17dd6`)
   - Constat : carte `row` (blanc 50 %) sur colonne en verre (blanc 58 %) : blanc sur blanc, limites invisibles.
   - Cible : colonne légèrement teintée (un creux de brume), cartes claires et nettes posées dessus, fin contour, ombre légère. Tokens de DESIGN.md seulement (`pill-track`, `track`, `popover`, `border`, `shadow-raised`, `glass`…), aucune couleur ni ombre inventée, jamais deux verres empilés.
   - Deux variantes nettement différentes à l'œil, choisies par un sélecteur « Cartes » dans les réglages de la démo (visible sans déplier, variante A par défaut). Piste : A = colonne creusée sans verre (`bg-pill-track`), cartes `popover` + `border-border` + `shadow-raised` ; B = colonne en verre gardée, creux intérieur teinté sous les cartes, cartes `popover` bordées. L'implementer ajuste après capture d'écran à 390 px et 1280 px, et vérifie le contraste du texte secondaire sur chaque surface (≥ 4,5:1).
