@@ -92,11 +92,22 @@ Décisions d'Antoine : appui long validé (250 ms, soulèvement, empreinte), ne 
   - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts.
 
 - [x] **D9. Hiérarchie du détail** (2026-11-24, `3bf46c3`)
-  - Ordre : titre ; propriétés (Statut, Priorité, Échéance, Espace, Tags) ; sous-tâches ; notes en bas, repliées à une ligne quand elles sont vides (« Ajouter une note », s'ouvre au focus ou au tap), dépliées dès qu'elles ont du contenu.
+  - Ordre : titre ; propriétés (Statut, Priorité, Échéance, Côté et espace, Tags) ; sous-tâches ; notes en bas, repliées à une ligne à l'ouverture quand elles sont vides (« Ajouter une note », s'ouvre au focus ou au tap), dépliées dès qu'elles ont du contenu ; une fois ouvertes, elles restent dépliées jusqu'à la fermeture du détail.
   - Statut et priorité visuellement marqués : icône propre à chaque statut (Lucide) et icône du niveau de priorité (`priority-icons.ts`) dans la pastille, accent de couleur de la charte seulement ; la braise reste réservée aux erreurs et au retard (DESIGN.md § 2).
   - Composants communs dans `src/components/tasks/` (icônes de statut, champ de notes repliable), utilisés par `TaskDetail` (vrai détail, vue liste) et par la démo. `TaskDetail` passe au nouvel ordre ; comportements d'enregistrement, erreurs, corbeille et sous-tâche d'une parente inchangés.
-  - Démo : sélecteur « Détail » (Nouveau / Actuel) dans les réglages, Nouveau par défaut ; « Actuel » garde l'ordre d'avant (notes en haut) pour comparer. Fait : sélecteur rangé dans « Réglages » replié (visible, il poussait la première carte sous la barre d'onglets à 390 px).
+  - Démo : sélecteur « Détail » (Nouveau / Actuel) dans les réglages, Nouveau par défaut ; « Actuel » garde l'ordre d'avant (notes en haut) pour comparer. Fait : sélecteur d'abord rangé dans « Réglages » replié (visible, il poussait la première carte sous la barre d'onglets à 390 px), puis déplacé dans la fenêtre du détail (correctifs de relecture).
   - Tests : ordre des blocs (DOM) dans `TaskDetail` et la démo, notes repliées vides et dépliées remplies, icône par statut, bascule du sélecteur ; e2e du détail de la liste mis à jour si l'ordre les touche.
   - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts ; e2e `demo-kanban` et e2e du détail verts ; anti-slop passé.
+  - Correctifs de relecture (2026-11-25, `c206768`) : notes dépliées une fois ouvertes, même vides (repliées au départ du champ, elles faisaient remonter « Mettre à la corbeille » sous le pointeur et le clic était perdu ; e2e `todo-detail-notes`) ; espaces seuls remis à vide au départ du champ (vrai détail et démo) ; ordre des propriétés aligné sur l'énoncé (Échéance avant Côté et espace) ; sélecteur « Détail » sorti des réglages et placé en haut de la fenêtre du détail de la démo (bascule sur place, choix gardé d'une carte à l'autre) ; couleur de l'icône d'un choix du menu verrouillée par un test (`ChoiceChip`).
+
+### Restes connus
+- Démo seulement, depuis D5 : Entrée sur la même carte juste après la fermeture de son détail ne le rouvre pas. Cause probable : `TaskDetailSheet` tient `open`, `KanbanDemo` tient `openId`, remis à `null` seulement à `onExitComplete` ; entre-temps, `setOpenId(mêmeId)` est sans effet. Le vrai détail (navigation par adresse) n'est pas touché. À traiter dans le plan du kanban réel, pas dans la démo.
+- À trancher par Antoine à l'essai :
+  - variante de cartes (Creux / Verre) ;
+  - en « Creux », relief au survol presque imperceptible et empreinte peu contrastée ;
+  - priorité sans couleur ;
+  - notes repliées à 46 px ;
+  - libellé « Notes » en `font-semibold` ;
+  - exception « Champs » de DESIGN.md pour la ligne d'ajout de sous-tâche.
 
 Retrait : la dernière tâche de `plan.md` supprime `/demo/kanban`, ses messages et ses fixtures (`SortableBoard` reste), et vide la liste `ALLOWED_DEMOS` de `tests/build/no-demo.test.ts` (`pnpm test:build` refuse alors toute démo).
