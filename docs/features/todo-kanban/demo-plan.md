@@ -33,4 +33,4 @@ Risque connu : `useUniqueId` de dnd-kit (compteur de module) donne des `aria-des
   - e2e (desktop et mobile) : page chargée sans message de console de niveau avertissement ou erreur (hydratation comprise), glisser d'une carte entre deux colonnes à la souris, changement de colonne par onglet en mobile.
   - Fin : e2e verts sur `next start` ; PR en brouillon ouverte, preview prête.
 
-Retrait : la dernière tâche de `plan.md` supprime `/demo/kanban`, ses messages et ses fixtures (`SortableBoard` reste).
+Retrait : la dernière tâche de `plan.md` supprime `/demo/kanban`, ses messages et ses fixtures (`SortableBoard` reste), et vide la liste `ALLOWED_DEMOS` de `tests/build/no-demo.test.ts` (`pnpm test:build` refuse alors toute démo).
