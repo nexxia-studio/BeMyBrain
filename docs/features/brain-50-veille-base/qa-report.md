@@ -13,10 +13,11 @@ Joué en local : build de production de la branche (`f09c2a5`) servi par `next s
 
 ### Scénario 1 sur la preview (2026-11-23, coordinateur)
 - Compute de la branche Neon de la preview mis en veille par l'API Neon (vérifié : branche de preview, pas `production`).
-- Essai 1 : `/dashboard` rouvert 30 s après la mise en veille → tableau de bord affiché. PASS.
-- Essai 2 : `/dashboard` ouvert, 6 min d'inactivité, mise en veille, `/dashboard` rouvert aussitôt → tableau de bord affiché. PASS.
+- Essai 1 : `/dashboard` rouvert 30 s après la mise en veille → tableau de bord affiché (le cas du bug ne s'est pas produit, voir plus bas).
+- Essai 2 : `/dashboard` ouvert, 6 min d'inactivité, mise en veille, `/dashboard` rouvert aussitôt → tableau de bord affiché (idem).
 - Sentry : aucune nouvelle erreur. Journaux Vercel : aucune erreur, mais aussi aucune ligne « Nouvelle tentative ».
-- Limite : la nouvelle tentative n'a pas été déclenchée sur la preview. Au premier essai, la fonction était encore éveillée et a vu les connexions se fermer. Au second, Vercel a sans doute démarré une instance neuve, sans connexion au repos. Le cas « connexions mortes prêtées au réveil » est prouvé en local (`tests/db/pool-dead-after-freeze.test.ts`, script du runbook : 4/4 OK, 4 nouvelles tentatives). En production, la ligne « Nouvelle tentative » dans les journaux Vercel dira à quelle fréquence il survient.
+- **Le cas du bug ne s'est pas produit sur la preview** : le critère de fin de BRAIN-50 n'est donc prouvé qu'en local. BRAIN-50 reste ouvert « à confirmer en production » : on le ferme quand une ligne « Nouvelle tentative » apparaît dans les journaux de production, suivie d'un affichage normal.
+- Détail : la nouvelle tentative n'a pas été déclenchée sur la preview. Au premier essai, la fonction était encore éveillée et a vu les connexions se fermer. Au second, Vercel a sans doute démarré une instance neuve, sans connexion au repos. Le cas « connexions mortes prêtées au réveil » est prouvé en local (`tests/db/pool-dead-after-freeze.test.ts`, script du runbook : 4/4 OK, 4 nouvelles tentatives). En production, la ligne « Nouvelle tentative » dans les journaux Vercel dira à quelle fréquence il survient.
 - Scénario 2 (cocher après veille) : non joué sur la preview, aucune tâche sur son compte. Couvert par `tests/db/write-not-replayed.test.ts` et `src/db/transaction-retry.test.ts`.
 
 ### Détail du scénario 3

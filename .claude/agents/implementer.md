@@ -22,6 +22,12 @@ Tu implémentes une seule tâche, celle qu'on te donne, et rien d'autre.
 - `pnpm lint` et `pnpm typecheck` avant de rendre la main.
 - Commit à la fin, sur la branche de feature uniquement : message en français, une ligne, préfixé `feat(<nom>):`, `fix(<nom>):` ou `test(<nom>):`. Jamais de `git push`.
 
+## Secrets dans les sorties (règle absolue)
+- Jamais d'URL de connexion, d'hôte `ep-…`, de mot de passe ni de jeton dans une sortie de commande, un rapport, un fichier ou un commit. Jamais `cat`, `echo`, `env` ou `printenv` de `.env*` ni d'une variable `DATABASE_*` ou `NEON_*`.
+- Une erreur brute du pilote Postgres (`pg`, `@neondatabase/serverless`) porte son client, avec hôte et mot de passe. Ne la passe jamais à `expect`, `console.*` ou `JSON.stringify`, et ne la laisse jamais non attrapée. Asserte sur `errorTag(error)` (`tests/factories/error-tag.ts`) ou sur le SQLSTATE.
+- Tout ce qui touche une vraie base (`tests/db/`, `scripts/`, enfants `tsx`) se lance avec la sortie masquée, en ajoutant à la commande : `2>&1 | sed -E 's#postgres(ql)?://[^ ]*#[url masquée]#g; s#(password[^:=]*[:=] *)[^ ,}]*#\1[masqué]#g; s#ep-[a-z0-9-]+[a-z0-9.-]*#[hôte masqué]#g'`
+- Si un secret apparaît malgré tout : ne le recopie pas, arrête-toi et signale en tête de ton rapport la commande qui l'a affiché, pour que le mot de passe soit changé.
+
 ## Interdits
 - Toucher à un fichier hors du périmètre de la tâche sans le signaler.
 - Ajouter une dépendance.
