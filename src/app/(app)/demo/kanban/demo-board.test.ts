@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { applyMove, simulateSave } from "./demo-board";
+import { applyMove, simulateSave, statusMove, statusOf } from "./demo-board";
 
 const BOARD = {
   backlog: [],
@@ -94,5 +94,37 @@ describe("sauvegarde simulée de la démo", () => {
     await vi.runAllTimersAsync();
 
     await expect(result).resolves.toBe(false);
+  });
+});
+
+describe("changement de statut depuis le détail de la démo", () => {
+  it("donne le statut d'une carte : la colonne où elle se trouve", () => {
+    expect(statusOf(BOARD, "e")).toBe("started");
+    expect(statusOf(BOARD, "inconnue")).toBeUndefined();
+  });
+
+  it("déplace la carte en tête de la colonne du nouveau statut", () => {
+    const move = statusMove(BOARD, "b", "started");
+
+    expect(move).toEqual({
+      id: "b",
+      toColumn: "started",
+      beforeId: null,
+      afterId: "d",
+    });
+    expect(applyMove(BOARD, move!).started).toEqual(["b", "d", "e"]);
+  });
+
+  it("vers une colonne vide : ni voisine au-dessus ni en dessous", () => {
+    expect(statusMove(BOARD, "b", "completed")).toEqual({
+      id: "b",
+      toColumn: "completed",
+      beforeId: null,
+      afterId: null,
+    });
+  });
+
+  it("même statut : aucun déplacement", () => {
+    expect(statusMove(BOARD, "b", "unstarted")).toBeNull();
   });
 });

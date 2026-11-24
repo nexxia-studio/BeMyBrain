@@ -19,7 +19,14 @@ export type DemoTask = {
   /** `YYYY-MM-DD` ou `null`. */
   dueDate: string | null;
   blocked: boolean;
+  /** Contenu saisi : jamais traduit. */
+  notes: string | null;
+  /** `HH:MM` ou `null` (pastille Échéance du détail). */
+  dueTime: string | null;
+  subtasks: readonly DemoSubtask[];
 };
+
+export type DemoSubtask = { id: string; title: string; done: boolean };
 
 type Space = [name: string, color: ContextColor] | null;
 const HOME: Space = ["Maison", "neutral"];
@@ -131,6 +138,36 @@ const ROWS: Record<DemoStatus, Row[]> = {
   ],
 };
 
+// Notes et sous-tâches de quelques cartes, par id (`<statut>-<rang>`) : [notes, [titre, faite]…].
+const DETAILS: Record<string, [string | null, [string, boolean][]]> = {
+  "unstarted-1": [
+    "Fuite sous l'évier de la cuisine. Demander un passage avant vendredi.",
+    [],
+  ],
+  "unstarted-3": [
+    "Tap court : le détail. Appui long : la carte se soulève.",
+    [
+      ["Essai sur iPhone", true],
+      ["Essai sur ordinateur", false],
+      ["Noter les retours", false],
+    ],
+  ],
+  "started-1": [
+    null,
+    [
+      ["Grille des formules", true],
+      ["Textes FR et EN", false],
+    ],
+  ],
+  "started-3": [
+    "Pièces justificatives dans le dossier « Impôts 2026 ».",
+    [
+      ["Rassembler les attestations", true],
+      ["Remplir la déclaration en ligne", false],
+    ],
+  ],
+};
+
 const DAY_MS = 86_400_000;
 
 /** Jour `YYYY-MM-DD` décalé de `days`, calculé en UTC (aucun fuseau de la machine). */
@@ -142,17 +179,28 @@ function addDays(day: string, days: number): string {
 
 export function demoTasks(today: string): DemoTask[] {
   return DEMO_STATUSES.flatMap((status) =>
-    ROWS[status].map(([title, space, tags, priority, due, blocked], index) => ({
-      id: `${status}-${index + 1}`,
-      title,
-      status,
-      contextName: space?.[0] ?? null,
-      contextColor: space?.[1] ?? "neutral",
-      tags,
-      priority,
-      dueDate: due === null ? null : addDays(today, due),
-      blocked: blocked ?? false,
-    })),
+    ROWS[status].map(([title, space, tags, priority, due, blocked], index) => {
+      const id = `${status}-${index + 1}`;
+      const [notes, subtasks] = DETAILS[id] ?? [null, []];
+      return {
+        id,
+        title,
+        status,
+        contextName: space?.[0] ?? null,
+        contextColor: space?.[1] ?? "neutral",
+        tags,
+        priority,
+        dueDate: due === null ? null : addDays(today, due),
+        blocked: blocked ?? false,
+        notes,
+        dueTime: null,
+        subtasks: subtasks.map(([subtaskTitle, done], rank) => ({
+          id: `${id}.${rank + 1}`,
+          title: subtaskTitle,
+          done,
+        })),
+      };
+    }),
   );
 }
 

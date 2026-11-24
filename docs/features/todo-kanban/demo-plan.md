@@ -52,7 +52,7 @@ Décisions d'Antoine :
   - Mise en page choisie par la largeur (onglets < 768 px, colonnes au-delà) et délai d'appui fixé à 250 ms ; réglages retirés de la démo, tests à jour.
   - Fin : e2e rouge avant la correction, vert après (desktop et mobile) ; `pnpm test`, `pnpm lint`, `pnpm typecheck` verts.
 
-- [ ] **D5. Tap = détail, appui long = saisie**
+- [x] **D5. Tap = détail, appui long = saisie** — 2026-11-24
   - Tap sur une carte : ouvre le détail dans la même fenêtre que la liste, `TaskDetailSheet` (panneau sur ordinateur, tiroir sur mobile). Contenu : statut, priorité, notes, échéance, tags, sous-tâches.
   - Démo sans base ni action serveur : `TaskDetail` appelle `tasks.update` et ne peut donc pas servir tel quel. Réutiliser la fenêtre et les pastilles qui ne font qu'afficher (`ChoiceChip`, `DueDateChip`, `TagsChip`…), branchées sur l'état local de la démo. Aucun appel au registre d'actions. Si `TaskDetailSheet` impose une navigation à la fermeture, ajouter une fermeture par rappel sans changer le comportement actuel, testée.
   - Les gestes ne se confondent jamais :

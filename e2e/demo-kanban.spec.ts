@@ -9,10 +9,11 @@ import {
 import fr from "../messages/fr.json";
 import { signIn } from "./session";
 
-// Démo du kanban (BRAIN-46, demo-plan.md, D3 et D4) : la page se charge sans avertissement ni erreur en console
+// Démo du kanban (BRAIN-46, demo-plan.md, D3 à D5) : la page se charge sans avertissement ni erreur en console
 // (hydratation comprise), une carte change de colonne à la souris (ordinateur) et au doigt, par dépôt sur un
 // onglet (mobile, onglets sous 768 px), le doigt ne saisit une carte qu'après l'appui de 250 ms, et un glisser
-// ne fait ni sauter ni reculer le tableau (colonnes au-delà de 768 px) ni la page (onglets).
+// ne fait ni sauter ni reculer le tableau (colonnes au-delà de 768 px) ni la page (onglets). D5 : un tap court
+// ou un clic ouvre le détail ; un appui long, un défilement ou un glisser ne l'ouvrent jamais.
 // Serveur : `pnpm dev` seulement. La garde ferme la page sur tout build de production hors Vercel (`next
 // start` répond 404, vérifié par `demo-kanban-fermee.spec.ts`).
 // Gestes tactiles : vrais événements tactiles du navigateur par le protocole Chromium (`Input.dispatchTouchEvent`),
@@ -614,4 +615,149 @@ test("@mobile en onglets, pendant un glisser au doigt vers l'onglet « Terminée
   });
   await expect(doneTab).toHaveAttribute("aria-selected", "false");
   await expect(card(column(page, "completed"), lastId)).toBeAttached();
+});
+
+// D5 (demo-plan.md) : tap = détail, appui long = saisie.
+function detailDialog(page: Page): Locator {
+  return page.getByRole("dialog", { name: fr.tasks.detail.label });
+}
+
+/**
+ * Laisse passer deux images : le `click` qu'émet le navigateur après un relâchement est traité avant. Sert à
+ * vérifier qu'un détail ne s'ouvre pas (une absence ne s'attend pas).
+ */
+async function twoFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+}
+
+test.describe("au doigt, à 390 px", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("@mobile un tap court ouvre le détail de la carte, qui se ferme par la croix", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const messages = watchConsole(page);
+    await openDemo(page);
+    const finger = await Finger.on(page);
+    const from = await center(card(page, "backlog-1"));
+
+    await finger.down(from);
+    await finger.up();
+
+    const dialog = detailDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", {
+        name: "Repenser l'onboarding des abonnés",
+      }),
+    ).toBeVisible();
+    await expect(overlay(page)).toHaveCount(0);
+    await dialog.getByRole("button", { name: fr.tasks.detail.close }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(messages).toEqual([]);
+  });
+
+  test("@mobile un appui de 250 ms saisit la carte sans ouvrir le détail", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const messages = watchConsole(page);
+    await page.clock.install();
+    await openDemo(page);
+    const finger = await Finger.on(page);
+    const from = await center(card(page, "backlog-1"));
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+    await finger.down(from);
+    await page.clock.runFor(250);
+    await expect(overlay(page)).toBeVisible();
+    await finger.up();
+    await page.clock.resume();
+
+    await expect(overlay(page)).toHaveCount(0);
+    await twoFrames(page);
+    await expect(detailDialog(page)).toHaveCount(0);
+    expect(messages).toEqual([]);
+  });
+
+  test("@mobile un défilement vertical au doigt avant 250 ms ne saisit pas la carte et n'ouvre pas le détail", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const messages = watchConsole(page);
+    await page.clock.install();
+    await openDemo(page);
+    // « À faire » : une quinzaine de cartes, la page défile.
+    await page
+      .getByRole("tablist")
+      .getByRole("tab", { name: new RegExp(`^${STATUS.unstarted}`) })
+      .click();
+    const finger = await Finger.on(page);
+    const from = await center(card(page, "unstarted-4"));
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+    await finger.down(from);
+    await finger.move(from, { x: from.x, y: from.y - 250 }, 8);
+    // Doigt tenu bien au-delà de l'appui de 250 ms : la saisie, annulée par le défilement, ne vient pas.
+    await page.clock.runFor(600);
+    const overlayWhileHeld = await overlay(page).count();
+    await finger.up();
+    await page.clock.resume();
+
+    expect(overlayWhileHeld).toBe(0);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThan(scrollBefore);
+    await twoFrames(page);
+    await expect(detailDialog(page)).toHaveCount(0);
+    expect(messages).toEqual([]);
+  });
+});
+
+test("@desktop un clic à la souris ouvre le détail de la carte", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+
+  await card(page, "started-1").click();
+
+  const dialog = detailDialog(page);
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("heading", { name: "Refonte de la page tarifs" }),
+  ).toBeVisible();
+  await expect(overlay(page)).toHaveCount(0);
+  expect(messages).toEqual([]);
+});
+
+test("@desktop un glisser à la souris n'ouvre pas le détail", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+  const from = await center(card(page, "unstarted-1"));
+  const to = await center(card(column(page, "backlog"), "backlog-1"));
+
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+  await expect(overlay(page)).toBeVisible();
+  await page.mouse.move(to.x, to.y, { steps: 15 });
+  await page.mouse.up();
+
+  await expect(card(column(page, "backlog"), "unstarted-1")).toBeVisible();
+  await expect(overlay(page)).toHaveCount(0);
+  await twoFrames(page);
+  await expect(detailDialog(page)).toHaveCount(0);
+  expect(messages).toEqual([]);
 });

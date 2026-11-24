@@ -45,6 +45,26 @@ export function applyMove(board: DemoBoard, move: BoardMove): DemoBoard {
   return next;
 }
 
+/** Statut d'une carte : la colonne où elle se trouve. */
+export function statusOf(board: DemoBoard, id: string): DemoStatus | undefined {
+  return DEMO_STATUSES.find((status) => board[status].includes(id));
+}
+
+/** Changement de statut depuis le détail : la carte passe en tête de la colonne, `null` si rien ne change. */
+export function statusMove(
+  board: DemoBoard,
+  id: string,
+  status: DemoStatus,
+): BoardMove | null {
+  if (statusOf(board, id) === status) return null;
+  return {
+    id,
+    toColumn: status,
+    beforeId: null,
+    afterId: board[status][0] ?? null,
+  };
+}
+
 /** Enregistrement simulé : répond après `latencyMs`, en échec si demandé. */
 export function simulateSave({
   latencyMs,

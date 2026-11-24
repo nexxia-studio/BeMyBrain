@@ -9,6 +9,8 @@
 // puis bulle « Déplacement non enregistré. » avec Réessayer, au-dessus de la barre d'onglets (pouce).
 // Échec d'un dépôt déjà dépassé par un dépôt plus récent de la même carte : ni retour ni bulle.
 // Terminée : 20 plus récentes + « Tout voir », plus les cartes déposées pendant la visite. Annulée : bandeau replié avec compteur, cible de dépôt.
+// Tap, clic ou Entrée sur une carte (`onOpen` du tableau) : détail de la carte (`KanbanDemoDetail`). Ses
+// modifications restent en mémoire, par carte ; un changement de statut est un déplacement (en tête de colonne).
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import {
   animate,
@@ -28,11 +30,15 @@ import {
 import {
   applyMove,
   DEMO_STATUSES,
+  type DemoStatus,
   DONE_VISIBLE,
   simulateSave,
+  statusMove,
+  statusOf,
 } from "./demo-board";
 import { demoBoard, type DemoTask, demoTasks } from "./demo-fixtures";
 import { KanbanDemoCard } from "./KanbanDemoCard";
+import { type DemoEdit, KanbanDemoDetail } from "./KanbanDemoDetail";
 import { KanbanDemoSettings, type Latency } from "./KanbanDemoSettings";
 
 type PendingMove = { key: number; move: BoardMove };
@@ -61,6 +67,13 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
     () => new Map(tasks.map((task) => [task.id, task])),
     [tasks],
   );
+  // Tags proposés par le détail : ceux de toutes les cartes, sans doublon.
+  const knownTags = useMemo(
+    () => [...new Set(tasks.flatMap((task) => task.tags))],
+    [tasks],
+  );
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [edits, setEdits] = useState<Readonly<Record<string, DemoEdit>>>({});
   const [saved, setSaved] = useState(() => demoBoard(tasks));
   const [pending, setPending] = useState<PendingMove[]>([]);
   const [failure, setFailure] = useState<BoardMove | null>(null);
@@ -79,6 +92,25 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
     (current, { move }) => applyMove(current, move),
     saved,
   );
+
+  /** Carte telle qu'affichée : tâche fictive, modifications du détail, statut de sa colonne. */
+  function shownTask(id: string, status: DemoStatus): DemoTask {
+    return { ...tasksById.get(id)!, ...edits[id], status };
+  }
+
+  function edit(id: string, change: DemoEdit) {
+    setEdits((current) => ({
+      ...current,
+      [id]: { ...current[id], ...change },
+    }));
+  }
+
+  function changeStatus(id: string, status: DemoStatus) {
+    const next = statusMove(board, id, status);
+    if (next !== null) move(next);
+  }
+
+  const openStatus = openId === null ? undefined : statusOf(board, openId);
 
   // Retour d'une carte après un échec : elle part de l'endroit du dépôt, relevé avant le rendu.
   useLayoutEffect(() => {
@@ -136,7 +168,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
       id: status,
       label: tStatus(status),
       // Le statut suit la colonne : une carte déposée dans Terminée n'est plus en retard.
-      items: shown.map((id) => ({ ...tasksById.get(id)!, status })),
+      items: shown.map((id) => shownTask(id, status)),
       collapsed: status === "canceled",
       total: ids.length,
       footer: limited ? (
@@ -167,11 +199,23 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
           columns={columns}
           getItemLabel={(task) => task.title}
           onMove={move}
+          onOpen={setOpenId}
           renderCard={(task, state) => (
             <KanbanDemoCard task={task} today={today} state={state} />
           )}
         />
       </div>
+      {openId !== null && openStatus !== undefined && (
+        <KanbanDemoDetail
+          key={openId}
+          task={shownTask(openId, openStatus)}
+          today={today}
+          knownTags={knownTags}
+          onStatusChange={(status) => changeStatus(openId, status)}
+          onEdit={(change) => edit(openId, change)}
+          onClose={() => setOpenId(null)}
+        />
+      )}
       <div
         role="alert"
         className="pointer-events-none fixed inset-x-page bottom-tabbar-reserve z-(--z-toast) flex justify-center lg:inset-x-auto lg:right-page lg:bottom-page"

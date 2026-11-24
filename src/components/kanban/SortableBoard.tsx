@@ -14,7 +14,14 @@
 // `scrollBy`, que l'aimant transforme chacun en saut d'une colonne entière (le tableau s'emballait jusqu'au bout,
 // la colonne d'origine sortait de l'écran ; mesuré dans Chromium et WebKit, D4 de demo-plan.md).
 // Glisser : souris après 4 px, doigt après un appui de 250 ms (le défilement reste libre avant), clavier
-// (Espace/Entrée, flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
+// (Espace, ou Entrée sans `onOpen` ; flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
+// Ouvrir (`onOpen`, facultatif) : un tap ou un clic n'ouvre la carte que si le doigt ou la souris se relève
+// avant toute activation du glisser (doigt : moins de 250 ms ; les deux : sans dépasser la tolérance du capteur,
+// 6 px au doigt, 4 px à la souris), sans défilement entre-temps (`scroll`, ou `pointercancel` quand le
+// navigateur reprend le geste). Le geste est suivi par les événements pointeur, à côté des capteurs de dnd-kit,
+// et jugé au `click` que le navigateur émet ensuite : le `click` qui suit un glisser ou un appui long est ignoré.
+// Un `click` sans geste pointeur (`detail` 0, ou aucun pointeur posé : lecteur d'écran) ouvre. Clavier : Entrée
+// ouvre, Espace saisit (Entrée ne saisit plus ; elle dépose toujours une carte saisie).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
 // Colonne partielle (ex. 20 plus récentes) : `total` donne le compteur, `footer` se pose sous les cartes.
 // Onglets : motif ARIA tablist (flèches gauche/droite en boucle, Début/Fin, seul l'onglet choisi est tabulable).
@@ -34,6 +41,8 @@ import {
   DragOverlay,
   type DragStartEvent,
   type KeyboardCoordinateGetter,
+  KeyboardCode,
+  type KeyboardCodes,
   KeyboardSensor,
   MouseSensor,
   pointerWithin,
@@ -55,9 +64,13 @@ import { useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
   type ReactNode,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -96,10 +109,21 @@ type SortableBoardProps<T extends BoardItem> = {
   /** Nom de la carte dans les annonces du lecteur d'écran. */
   getItemLabel: (item: T) => string;
   onMove: (move: BoardMove) => void;
+  /** Tap, clic ou Entrée sur une carte (jamais après un glisser, un appui long ou un défilement). */
+  onOpen?: (id: string) => void;
 };
 
 /** Appui avant le glisser au doigt (décision d'Antoine après l'essai iPhone, 2026-11-24). */
 const ACTIVATION_DELAY_MS = 250;
+/** Tolérance du doigt avant la saisie, distance de la souris avant le glisser : au-delà, plus de tap. */
+const TOUCH_TOLERANCE_PX = 6;
+const MOUSE_DISTANCE_PX = 4;
+/** Avec `onOpen`, Entrée ouvre la carte : seul Espace la saisit. */
+const OPEN_KEYBOARD_CODES: KeyboardCodes = {
+  start: [KeyboardCode.Space],
+  cancel: [KeyboardCode.Esc],
+  end: [KeyboardCode.Space, KeyboardCode.Enter],
+};
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";
 
@@ -211,6 +235,7 @@ export function SortableBoard<T extends BoardItem>({
   renderCard,
   getItemLabel,
   onMove,
+  onOpen,
 }: SortableBoardProps<T>) {
   const t = useTranslations("kanban");
   const contextId = useId();
@@ -244,12 +269,18 @@ export function SortableBoard<T extends BoardItem>({
   };
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: MOUSE_DISTANCE_PX },
+    }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: ACTIVATION_DELAY_MS, tolerance: 6 },
+      activationConstraint: {
+        delay: ACTIVATION_DELAY_MS,
+        tolerance: TOUCH_TOLERANCE_PX,
+      },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: keyboardCoordinates,
+      ...(onOpen ? { keyboardCodes: OPEN_KEYBOARD_CODES } : {}),
     }),
   );
 
@@ -366,7 +397,9 @@ export function SortableBoard<T extends BoardItem>({
       collisionDetection={collisionDetection}
       accessibility={{
         announcements,
-        screenReaderInstructions: { draggable: t("instructions") },
+        screenReaderInstructions: {
+          draggable: t(onOpen ? "instructionsOpen" : "instructions"),
+        },
       }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -402,6 +435,7 @@ export function SortableBoard<T extends BoardItem>({
             renderCard={renderCard}
             reducedMotion={reducedMotion}
             roleDescription={t("roleDescription")}
+            onOpen={onOpen}
             panelId={wide ? undefined : panelId(column.id)}
             className={cn(
               "md:w-80 md:shrink-0",
@@ -428,6 +462,7 @@ type BoardColumnViewProps<T extends BoardItem> = {
   renderCard: (item: T, state: CardState) => ReactNode;
   reducedMotion: boolean;
   roleDescription: string;
+  onOpen: ((id: string) => void) | undefined;
   /** Sous 768 px, la colonne est le panneau de son onglet. */
   panelId: string | undefined;
   className: string;
@@ -440,6 +475,7 @@ function BoardColumnView<T extends BoardItem>({
   renderCard,
   reducedMotion,
   roleDescription,
+  onOpen,
   panelId,
   className,
 }: BoardColumnViewProps<T>) {
@@ -491,6 +527,7 @@ function BoardColumnView<T extends BoardItem>({
                   id={id}
                   reducedMotion={reducedMotion}
                   roleDescription={roleDescription}
+                  onOpen={onOpen}
                 >
                   {(dragging) => renderCard(item, { dragging, overlay: false })}
                 </SortableCard>
@@ -508,13 +545,54 @@ type SortableCardProps = {
   id: string;
   reducedMotion: boolean;
   roleDescription: string;
+  onOpen: ((id: string) => void) | undefined;
   children: (dragging: boolean) => ReactNode;
 };
+
+/** Geste pointeur en cours sur une carte : `spoiled` dès qu'il ne peut plus être un tap. */
+type Gesture = { spoiled: boolean; stop: () => void };
+
+/**
+ * Suit un geste pointeur depuis la carte jusqu'au relâchement : mouvement au-delà de la tolérance, appui long
+ * (doigt), défilement ou geste repris par le navigateur le gâchent. Écoute sur `window` : le pointeur peut
+ * quitter la carte (calque du glisser, défilement).
+ */
+function trackGesture(event: PointerEvent<HTMLElement>): Gesture {
+  const touch = event.pointerType === "touch";
+  const limit = touch ? TOUCH_TOLERANCE_PX : MOUSE_DISTANCE_PX;
+  const { clientX: x, clientY: y } = event;
+  const spoil = () => {
+    gesture.spoiled = true;
+  };
+  const onMove = (move: globalThis.PointerEvent) => {
+    if (Math.hypot(move.clientX - x, move.clientY - y) > limit) spoil();
+  };
+  const timer = touch ? setTimeout(spoil, ACTIVATION_DELAY_MS) : undefined;
+  const stop = () => {
+    clearTimeout(timer);
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointercancel", onCancel);
+    window.removeEventListener("pointerup", stop);
+    window.removeEventListener("scroll", spoil, true);
+  };
+  const onCancel = () => {
+    spoil();
+    stop();
+  };
+  const gesture: Gesture = { spoiled: false, stop };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointercancel", onCancel);
+  window.addEventListener("pointerup", stop);
+  // Capture : le défilement d'un conteneur (tableau, page) ne remonte pas jusqu'à `window`.
+  window.addEventListener("scroll", spoil, true);
+  return gesture;
+}
 
 function SortableCard({
   id,
   reducedMotion,
   roleDescription,
+  onOpen,
   children,
 }: SortableCardProps) {
   const {
@@ -525,12 +603,41 @@ function SortableCard({
     transition,
     isDragging,
   } = useSortable({ id, attributes: { roleDescription } });
+  const gesture = useRef<Gesture | null>(null);
+
+  useEffect(() => () => gesture.current?.stop(), []);
+
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!onOpen || !event.isPrimary || event.button !== 0) return;
+    gesture.current?.stop();
+    gesture.current = trackGesture(event);
+  }
+
+  function handleClick(event: MouseEvent<HTMLDivElement>) {
+    if (!onOpen) return;
+    const last = gesture.current;
+    gesture.current = null;
+    // `detail` 0 : activation sans pointeur (lecteur d'écran). Sans geste suivi non plus.
+    if (event.detail === 0 || last === null || !last.spoiled) onOpen(id);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (onOpen && event.key === "Enter" && !isDragging && !event.repeat) {
+      event.preventDefault();
+      onOpen(id);
+      return;
+    }
+    listeners?.onKeyDown?.(event);
+  }
 
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
       data-board-card={id}
       // Appui long sur iOS : pas de menu d'aperçu ni de sélection de texte, le glisser prend le relais.
       style={{

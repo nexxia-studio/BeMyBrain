@@ -38,4 +38,31 @@ describe("tâches fictives de la démo du kanban", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("donne des notes et des sous-tâches à quelques cartes, rien aux autres", () => {
+    const tasks = demoTasks(TODAY);
+
+    expect(tasks.filter((task) => task.notes !== null).length).toBeGreaterThan(
+      1,
+    );
+    expect(
+      tasks.filter((task) => task.subtasks.length > 0).length,
+    ).toBeGreaterThan(1);
+    expect(
+      tasks.some((task) => task.subtasks.some((subtask) => subtask.done)),
+    ).toBe(true);
+    expect(tasks.find((task) => task.id === "backlog-4")).toMatchObject({
+      notes: null,
+      dueTime: null,
+      subtasks: [],
+    });
+  });
+
+  it("donne à chaque sous-tâche un id unique", () => {
+    const ids = demoTasks(TODAY).flatMap((task) =>
+      task.subtasks.map((subtask) => subtask.id),
+    );
+
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });

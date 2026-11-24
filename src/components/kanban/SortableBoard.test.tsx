@@ -33,7 +33,7 @@ const COLUMNS = [column("todo", ["a", "b", "c"]), column("doing", ["d", "e"])];
 function board(
   onMove: (move: BoardMove) => void = vi.fn(),
   columns: readonly BoardColumn<Card>[] = COLUMNS,
-  extra: { locale?: "fr" | "en" } = {},
+  extra: { locale?: "fr" | "en"; onOpen?: (id: string) => void } = {},
 ) {
   const locale = extra.locale ?? "fr";
   return (
@@ -46,6 +46,7 @@ function board(
         getItemLabel={(card) => card.title}
         renderCard={(card) => <span>{card.title}</span>}
         onMove={onMove}
+        onOpen={extra.onOpen}
       />
     </NextIntlClientProvider>
   );
@@ -454,5 +455,203 @@ describe("SortableBoard", () => {
     expect(warn).not.toHaveBeenCalled();
     act(() => root.unmount());
     container.remove();
+  });
+
+  describe("ouverture d'une carte (onOpen)", () => {
+    function openable() {
+      const onOpen = vi.fn();
+      const onMove = vi.fn();
+      render(board(onMove, COLUMNS, { onOpen }));
+      return { onOpen, onMove, card: cardHandle("b") };
+    }
+
+    /** Doigt ou souris posé sur la carte (`pointerType`), au point (100, 100). */
+    function down(card: HTMLElement, pointerType: "touch" | "mouse") {
+      fireEvent.pointerDown(card, {
+        pointerType,
+        isPrimary: true,
+        button: 0,
+        clientX: 100,
+        clientY: 100,
+      });
+    }
+
+    function moveTo(pointerType: "touch" | "mouse", dx: number, dy: number) {
+      fireEvent.pointerMove(window, {
+        pointerType,
+        clientX: 100 + dx,
+        clientY: 100 + dy,
+      });
+    }
+
+    /** Doigt ou souris relevé, puis le `click` que le navigateur émet ensuite. */
+    function up(card: HTMLElement, pointerType: "touch" | "mouse") {
+      fireEvent.pointerUp(window, { pointerType, button: 0 });
+      fireEvent.click(card, { detail: 1 });
+    }
+
+    it("un tap court ouvre la carte", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "touch");
+      moveTo("touch", 3, 3);
+      up(card, "touch");
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith("b");
+    });
+
+    it("un clic à la souris ouvre la carte", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "mouse");
+      up(card, "mouse");
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith("b");
+    });
+
+    it("un glisser à la souris n'ouvre pas la carte, même si un clic suit", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "mouse");
+      moveTo("mouse", 5, 0);
+      up(card, "mouse");
+
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("un doigt qui bouge au-delà de la tolérance n'ouvre pas la carte", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "touch");
+      moveTo("touch", 0, 7);
+      up(card, "touch");
+
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("un appui long (250 ms) n'ouvre pas la carte, même si un clic suit", () => {
+      vi.useFakeTimers();
+      try {
+        const { onOpen, card } = openable();
+
+        down(card, "touch");
+        act(() => vi.advanceTimersByTime(250));
+        up(card, "touch");
+
+        expect(onOpen).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("un appui juste sous 250 ms reste un tap", () => {
+      vi.useFakeTimers();
+      try {
+        const { onOpen, card } = openable();
+
+        down(card, "touch");
+        act(() => vi.advanceTimersByTime(249));
+        up(card, "touch");
+
+        expect(onOpen).toHaveBeenCalledExactlyOnceWith("b");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("un défilement pendant le geste n'ouvre pas la carte", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "touch");
+      fireEvent.scroll(window);
+      up(card, "touch");
+
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("un geste repris par le navigateur (défilement natif, pointercancel) n'ouvre pas la carte", () => {
+      const { onOpen, card } = openable();
+
+      down(card, "touch");
+      fireEvent.pointerCancel(window, { pointerType: "touch" });
+      up(card, "touch");
+
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("le geste suivant repart de zéro : un tap après un glisser ouvre la carte", () => {
+      const { onOpen, card } = openable();
+      down(card, "mouse");
+      moveTo("mouse", 20, 0);
+      up(card, "mouse");
+
+      down(card, "touch");
+      up(card, "touch");
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith("b");
+    });
+
+    it("une activation sans pointeur (lecteur d'écran) ouvre la carte", () => {
+      const { onOpen, card } = openable();
+
+      fireEvent.click(card, { detail: 0 });
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith("b");
+    });
+
+    it("Entrée ouvre la carte sans la saisir", async () => {
+      const { onOpen, card } = openable();
+      card.focus();
+
+      await press(card, "Enter");
+
+      expect(onOpen).toHaveBeenCalledExactlyOnceWith("b");
+      expect(card.getAttribute("aria-pressed")).not.toBe("true");
+      expect(document.querySelector("[data-board-overlay]")).toBeNull();
+    });
+
+    it("Espace saisit la carte sans l'ouvrir", async () => {
+      const { onOpen, card } = openable();
+      card.focus();
+
+      await press(card, "Space");
+
+      expect(document.querySelector("[data-board-overlay]")).not.toBeNull();
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("pendant une saisie au clavier, Entrée dépose la carte sans l'ouvrir", async () => {
+      const { onOpen, onMove } = openable();
+      cardHandle("a").focus();
+      await press(cardHandle("a"), "Space");
+      await press(cardHandle("a"), "ArrowDown");
+
+      await press(cardHandle("a"), "Enter");
+
+      expect(onMove).toHaveBeenCalledOnce();
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("sans onOpen, Entrée saisit la carte comme Espace", async () => {
+      render(board());
+      const card = cardHandle("b");
+      card.focus();
+
+      await press(card, "Enter");
+
+      expect(document.querySelector("[data-board-overlay]")).not.toBeNull();
+    });
+
+    it.each([
+      ["fr", fr.kanban.instructionsOpen],
+      ["en", en.kanban.instructionsOpen],
+    ] as const)(
+      "consignes du lecteur d'écran en %s : Entrée ouvre, Espace saisit",
+      (locale, instructions) => {
+        render(board(vi.fn(), COLUMNS, { locale, onOpen: vi.fn() }));
+
+        expect(document.body.textContent).toContain(instructions);
+      },
+    );
   });
 });

@@ -359,6 +359,7 @@
   "kanban": {
     "roleDescription": "movable card",
     "instructions": "To pick up a card, press Space or Enter. Move it with the arrow keys, drop it with Space or Enter, or cancel with Escape.",
+    "instructionsOpen": "To open a card, press Enter; to pick it up, press Space. Move it with the arrow keys, drop it with Space or Enter, or cancel with Escape.",
     "columns": "Columns",
     "picked": "Picked up card “{item}”, in “{column}”, position {position} of {count}.",
     "over": "Card “{item}” is over “{column}”, position {position} of {count}.",

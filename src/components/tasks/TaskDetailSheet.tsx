@@ -6,7 +6,8 @@
 // `scrim`. Repli : sous 1024 px, tiroir bas (`rounded-tile` en haut, poignée qui ferme en glissant, ressort
 // `bounce: 0.2`, 0,3 s, comme l'ajout rapide) ; à partir de 1024 px, panneau latéral à droite, pleine hauteur
 // dans la marge de page (`opacity` + `x` 24, 0,2 s `ease-out-expo`). Mouvement réduit : fondus de 0,15 s.
-// Fermer (croix, Échap, voile, poignée) : animation de sortie, puis retour à la liste (`closeHref`).
+// Fermer (croix, Échap, voile, poignée) : animation de sortie, puis retour à la liste (`closeHref`), ou rappel
+// `onClose` quand la fenêtre n'a pas d'adresse (démo du kanban, état local).
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import {
@@ -32,14 +33,27 @@ const DRAWER_SPRING = { type: "spring", bounce: 0.2, duration: 0.3 } as const;
 const CLOSE_OFFSET = 80;
 const CLOSE_VELOCITY = 500;
 
-type TaskDetailSheetProps = {
-  /** Adresse de la liste rejointe à la fermeture, requête gardée (`/tasks?completed=1`). */
-  closeHref: string;
+type TaskDetailSheetProps = (
+  | {
+      /** Adresse de la liste rejointe à la fermeture, requête gardée (`/tasks?completed=1`). */
+      closeHref: string;
+      onClose?: never;
+    }
+  | {
+      closeHref?: never;
+      /** Appelé à la fin de l'animation de sortie, à la place de la navigation. */
+      onClose: () => void;
+    }
+) & {
   /** Contenu de la fenêtre ; reçoit la croix de fermeture à placer dans sa première rangée. */
   children: (closeButton: ReactNode) => ReactNode;
 };
 
-export function TaskDetailSheet({ closeHref, children }: TaskDetailSheetProps) {
+export function TaskDetailSheet({
+  closeHref,
+  onClose,
+  children,
+}: TaskDetailSheetProps) {
   const t = useTranslations("tasks.detail");
   const router = useRouter();
   const reduced = useReducedMotion() ?? false;
@@ -101,7 +115,9 @@ export function TaskDetailSheet({ closeHref, children }: TaskDetailSheetProps) {
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <AnimatePresence
-        onExitComplete={() => router.push(closeHref, { scroll: false })}
+        onExitComplete={() =>
+          onClose ? onClose() : router.push(closeHref, { scroll: false })
+        }
       >
         {open && (
           <Dialog.Portal keepMounted>

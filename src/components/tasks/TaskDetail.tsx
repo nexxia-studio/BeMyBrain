@@ -37,6 +37,7 @@ import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
 import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
 import { SubtaskList } from "./SubtaskList";
+import { loadWorkspaceTags } from "./load-workspace-tags";
 import { TagsChip } from "./TagsChip";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 import { useTrashNoticeHost, useTrashTask } from "./task-trash-context";
@@ -414,6 +415,7 @@ export function TaskDetail({
                 errors={errorOf(tags, ids.tags)}
               >
                 <TagsChip
+                  loadTags={loadWorkspaceTags}
                   value={tagsDraft}
                   onChange={changeTags}
                   onOpenChange={saveTags}

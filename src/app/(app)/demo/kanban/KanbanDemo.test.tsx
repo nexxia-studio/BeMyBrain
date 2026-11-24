@@ -26,6 +26,7 @@ type BoardProps = {
   columns: readonly BoardColumn<{ id: string }>[];
   renderCard: (item: { id: string }, state: CardState) => ReactNode;
   onMove: (move: BoardMove) => void;
+  onOpen?: (id: string) => void;
 };
 
 // Double du tableau : le glisser lui-même est couvert par SortableBoard.test.tsx. Ici, chaque colonne rend ses
@@ -60,6 +61,15 @@ vi.mock("motion/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("motion/react")>()),
   animate,
   useReducedMotion: () => reducedMotion.current,
+}));
+
+// Démo sans base ni action serveur : charger le registre d'actions (même indirectement) fait échouer ce fichier.
+vi.mock("@/app/(app)/tasks/actions", () => {
+  throw new Error("registre d'actions chargé par la démo");
+});
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 import { getUserTimeZone } from "@/modules/core/time-zone";
@@ -392,5 +402,129 @@ describe("démo du kanban", () => {
       "Done",
       "Canceled",
     ]);
+  });
+});
+
+// `unstarted-3` : « Préparer la démo du kanban… », notes et trois sous-tâches (une faite), priorité Haute.
+const DEMO_PREP = "unstarted-3";
+
+async function openCard(id: string) {
+  await act(async () => boardProps.current!.onOpen!(id));
+}
+
+function detail() {
+  return screen.getByRole("dialog", { name: fr.tasks.detail.label });
+}
+
+async function choose(chipName: RegExp, option: string) {
+  fireEvent.click(within(detail()).getByRole("button", { name: chipName }));
+  await wait(0);
+  fireEvent.click(screen.getByRole("menuitemradio", { name: option }));
+  await wait(0);
+}
+
+async function closeDetail() {
+  fireEvent.click(
+    within(detail()).getByRole("button", { name: fr.tasks.detail.close }),
+  );
+  await wait(0);
+}
+
+describe("démo du kanban : détail d'une carte", () => {
+  it("ouvre le détail de la carte : titre, statut, priorité, notes, échéance, tags, sous-tâches", async () => {
+    renderDemo();
+
+    await openCard(DEMO_PREP);
+
+    const dialog = within(detail());
+    expect(
+      dialog.getByRole("heading", { name: /^Préparer la démo du kanban/ }),
+    ).toBeTruthy();
+    expect(
+      dialog.getByRole("button", { name: "Statut : À faire" }),
+    ).toBeTruthy();
+    expect(
+      dialog.getByRole("button", { name: "Priorité : Haute" }),
+    ).toBeTruthy();
+    expect(
+      (dialog.getByLabelText(fr.tasks.detail.notes) as HTMLTextAreaElement)
+        .value,
+    ).toMatch(/^Tap court/);
+    expect(dialog.getByRole("button", { name: /^Échéance/ })).toBeTruthy();
+    expect(dialog.getByRole("button", { name: "Tags : produit" })).toBeTruthy();
+    expect(
+      dialog.getByRole("heading", { name: fr.tasks.detail.subtasks.title }),
+    ).toBeTruthy();
+    expect(dialog.getByText("1/3")).toBeTruthy();
+    expect(dialog.getAllByRole("checkbox")).toHaveLength(3);
+  });
+
+  it("changer le statut dans le détail déplace la carte en tête de la nouvelle colonne", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+
+    await choose(/^Statut :/, "En cours");
+
+    expect(idsIn("started")[0]).toBe(DEMO_PREP);
+    expect(idsIn("unstarted")).not.toContain(DEMO_PREP);
+    expect(
+      within(detail()).getByRole("button", { name: "Statut : En cours" }),
+    ).toBeTruthy();
+  });
+
+  it("changer la priorité dans le détail se voit sur la carte", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+
+    await choose(/^Priorité :/, "Urgente");
+
+    const card = document.querySelector(`[data-demo-card="${DEMO_PREP}"]`)!;
+    expect(card.textContent).toContain(fr.tasks.list.priority["1"]);
+  });
+
+  it("garde notes et sous-tâches cochées après fermeture puis réouverture", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+    fireEvent.change(within(detail()).getByLabelText(fr.tasks.detail.notes), {
+      target: { value: "Retour d'Antoine" },
+    });
+    fireEvent.click(within(detail()).getAllByRole("checkbox")[1]);
+
+    await closeDetail();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await openCard(DEMO_PREP);
+
+    expect(
+      (
+        within(detail()).getByLabelText(
+          fr.tasks.detail.notes,
+        ) as HTMLTextAreaElement
+      ).value,
+    ).toBe("Retour d'Antoine");
+    expect(within(detail()).getByText("2/3")).toBeTruthy();
+  });
+
+  it("propose les tags des autres cartes dans la pastille Tags", async () => {
+    renderDemo();
+    await openCard(PLUMBER);
+
+    fireEvent.click(within(detail()).getByRole("button", { name: /^Tags :/ }));
+    await wait(0);
+
+    expect(
+      screen.getByRole("button", { name: "finances", pressed: false }),
+    ).toBeTruthy();
+  });
+
+  it("affiche le détail en anglais", async () => {
+    renderDemo("en");
+
+    await openCard(DEMO_PREP);
+
+    const dialog = within(
+      screen.getByRole("dialog", { name: en.tasks.detail.label }),
+    );
+    expect(dialog.getByRole("button", { name: "Status: To do" })).toBeTruthy();
+    expect(dialog.getByLabelText(en.tasks.detail.notes)).toBeTruthy();
   });
 });

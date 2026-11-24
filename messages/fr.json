@@ -359,6 +359,7 @@
   "kanban": {
     "roleDescription": "carte déplaçable",
     "instructions": "Pour saisir une carte, appuie sur Espace ou Entrée. Déplace-la avec les flèches, dépose-la avec Espace ou Entrée, ou annule avec Échap.",
+    "instructionsOpen": "Pour ouvrir une carte, appuie sur Entrée ; pour la saisir, appuie sur Espace. Déplace-la avec les flèches, dépose-la avec Espace ou Entrée, ou annule avec Échap.",
     "columns": "Colonnes",
     "picked": "Carte « {item} » saisie, dans « {column} », position {position} sur {count}.",
     "over": "Carte « {item} » au-dessus de « {column} », position {position} sur {count}.",
