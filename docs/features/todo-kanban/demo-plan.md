@@ -71,4 +71,32 @@ Décisions d'Antoine :
   - Tests : état de la carte en glisser (inclinaison, empreinte), mouvement réduit (aucune inclinaison) ; e2e : console propre et curseur `grab` au survol sur ordinateur.
   - Fin : tests, lint, typecheck verts ; anti-slop de `nexxia-design` passé.
 
+## Retour du second essai iPhone (2026-11-24, soir)
+
+Décisions d'Antoine : appui long validé (250 ms, soulèvement, empreinte), ne plus y toucher. Trois retours de design et un détail. Le détail d'une tâche est partagé avec la vue liste : D8 et D9 passent par des composants communs de `src/components/tasks/`, utilisés par le vrai détail (`TaskDetail`, `SubtaskList`) et par la démo.
+
+- [ ] **D7. Cartes lisibles dans la colonne, deux variantes**
+  - Constat : carte `row` (blanc 50 %) sur colonne en verre (blanc 58 %) : blanc sur blanc, limites invisibles.
+  - Cible : colonne légèrement teintée (un creux de brume), cartes claires et nettes posées dessus, fin contour, ombre légère. Tokens de DESIGN.md seulement (`pill-track`, `track`, `popover`, `border`, `shadow-raised`, `glass`…), aucune couleur ni ombre inventée, jamais deux verres empilés.
+  - Deux variantes nettement différentes à l'œil, choisies par un sélecteur « Cartes » dans les réglages de la démo (visible sans déplier, variante A par défaut). Piste : A = colonne creusée sans verre (`bg-pill-track`), cartes `popover` + `border-border` + `shadow-raised` ; B = colonne en verre gardée, creux intérieur teinté sous les cartes, cartes `popover` bordées. L'implementer ajuste après capture d'écran à 390 px et 1280 px, et vérifie le contraste du texte secondaire sur chaque surface (≥ 4,5:1).
+  - `SortableBoard` reste générique : la surface de la colonne et du creux vient d'une prop (classes ou variante), sans rien de spécifique aux tâches. Empreinte, calque soulevé, capteurs et délai inchangés.
+  - Détail : l'icône de priorité n'est jamais seule sur une ligne de la légende ; elle reste accrochée à la dernière information (groupe insécable avec l'élément qui la précède). Même correction dans `TaskRow` (liste), variante `list`.
+  - Tests : variante par défaut et bascule du sélecteur (classes de surface de la colonne et de la carte), groupe insécable priorité + dernière information (carte et `TaskRow`), textes FR/EN. e2e de la démo toujours verts.
+  - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts ; anti-slop de `nexxia-design` passé.
+
+- [ ] **D8. Champ « Ajouter une sous-tâche » toujours visible**
+  - Composant commun `SubtaskAddField` (`src/components/tasks/`) : une ligne avec icône « + » (Lucide `Plus`) et champ « Ajouter une sous-tâche » (libellé accessible, texte d'invite admis ici car l'icône et le nom accessible portent le sens), validé par Entrée, vidé après succès et focus gardé pour la suivante, affiché même sans aucune sous-tâche. Titre vide ou espaces : rien. Erreur sous le champ (`role="alert"`). Sans logique de données : `onAdd(title)` asynchrone, état `pending`.
+  - Vrai détail : `SubtaskList` l'utilise à la place de son formulaire actuel (`tasks.create` inchangé).
+  - Démo : `KanbanDemoDetail` l'utilise, ajout dans l'état local (aucune action serveur), compteur « n/m » à jour.
+  - Tests : Entrée ajoute, champ vidé et toujours focalisé, visible liste vide, vide refusé, erreur affichée ; `SubtaskList` et démo.
+  - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts.
+
+- [ ] **D9. Hiérarchie du détail**
+  - Ordre : titre ; propriétés (Statut, Priorité, Échéance, Espace, Tags) ; sous-tâches ; notes en bas, repliées à une ligne quand elles sont vides (« Ajouter une note », s'ouvre au focus ou au tap), dépliées dès qu'elles ont du contenu.
+  - Statut et priorité visuellement marqués : icône propre à chaque statut (Lucide) et icône du niveau de priorité (`priority-icons.ts`) dans la pastille, accent de couleur de la charte seulement ; la braise reste réservée aux erreurs et au retard (DESIGN.md § 2).
+  - Composants communs dans `src/components/tasks/` (icônes de statut, champ de notes repliable), utilisés par `TaskDetail` (vrai détail, vue liste) et par la démo. `TaskDetail` passe au nouvel ordre ; comportements d'enregistrement, erreurs, corbeille et sous-tâche d'une parente inchangés.
+  - Démo : sélecteur « Détail » (Nouveau / Actuel) dans les réglages, Nouveau par défaut ; « Actuel » garde l'ordre d'avant (notes en haut) pour comparer.
+  - Tests : ordre des blocs (DOM) dans `TaskDetail` et la démo, notes repliées vides et dépliées remplies, icône par statut, bascule du sélecteur ; e2e du détail de la liste mis à jour si l'ordre les touche.
+  - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts ; e2e `demo-kanban` et e2e du détail verts ; anti-slop passé.
+
 Retrait : la dernière tâche de `plan.md` supprime `/demo/kanban`, ses messages et ses fixtures (`SortableBoard` reste), et vide la liste `ALLOWED_DEMOS` de `tests/build/no-demo.test.ts` (`pnpm test:build` refuse alors toute démo).
