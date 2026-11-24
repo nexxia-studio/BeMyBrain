@@ -1,8 +1,9 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-24 — session : `/handoff` après PR #13 (BRAIN-50, BRAIN-47, BRAIN-54)
+**Dernière mise à jour** : 2026-11-24 — session : `/feature todo-kanban` (BRAIN-46), démo avant spec
 
 ## Où on en est
+- **En cours : BRAIN-46 `todo-kanban`**, branche `feat/todo-kanban`, PR #14 en brouillon. Démo `/demo/kanban` sur la preview (plan court `docs/features/todo-kanban/demo-plan.md`, D1–D3 faites, reviewer et security-auditor OK). Décisions déjà prises : dnd-kit classique isolé dans `SortableBoard.tsx` (verrou eslint), mise à jour optimiste limitée au déplacement avec retour animé, Terminée limitée à 20, Annulée repliée. Attendu : essai iPhone d'Antoine (délai d'appui, mise en page défilement ou onglets), puis `spec.md` et `plan.md`.
 - PR #13 `fix/brain-50-veille-base` : fusionnée le 2026-11-24 (à corriger si la fusion a échoué). Reviewer et security-auditor OK, `/qa` PASS.
 - BRAIN-50 (connexions mortes après veille Neon) : solution C, une nouvelle tentative avant le travail métier (`src/db/transaction-retry.ts`). BRAIN-47 (erreur du détail) et BRAIN-54 (groupe `tasks/(list)/`) faits dans la même PR.
 - BRAIN-50 reste OUVERT « à confirmer en production » : sur preview, aucune ligne « Nouvelle tentative » (critère prouvé en local, `qa-report.md`).

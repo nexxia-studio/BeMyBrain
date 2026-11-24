@@ -28,7 +28,7 @@ Risque connu : `useUniqueId` de dnd-kit (compteur de module) donne des `aria-des
   - Tests : garde (404 production Vercel, 404 build hors Vercel, ouverte en preview, sans lecture de session avant la garde), dépôt optimiste puis retour en arrière à l'échec simulé, textes FR/EN sans texte en dur.
   - Fin : tests, lint, typecheck verts ; anti-slop de `nexxia-design` passé.
 
-- [ ] **D3. Vérification navigateur et preview**
+- [x] **D3. Vérification navigateur et preview** — 2026-11-24 — `7f79d75`, `2938b41`, `89a2fb2`, `7b52736` — PR #14 en brouillon
   - Fichiers : `e2e/demo-kanban.spec.ts`.
   - e2e (desktop et mobile) : page chargée sans message de console de niveau avertissement ou erreur (hydratation comprise), glisser d'une carte entre deux colonnes à la souris, changement de colonne par onglet en mobile.
   - Fin : e2e de la démo verts sous `pnpm dev` (la garde ferme la page sur tout build de production hors Vercel) ; 404 vérifié sur un build de production (`e2e/demo-kanban-fermee.spec.ts`, lancé seul contre `pnpm build && next start`) ; PR en brouillon ouverte, preview prête.
