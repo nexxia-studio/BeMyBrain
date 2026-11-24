@@ -84,7 +84,7 @@ Décisions d'Antoine : appui long validé (250 ms, soulèvement, empreinte), ne 
   - Tests : variante par défaut et bascule du sélecteur (classes de surface de la colonne et de la carte), groupe insécable priorité + dernière information (carte et `TaskRow`), textes FR/EN. e2e de la démo toujours verts.
   - Fin : `pnpm test`, `pnpm lint`, `pnpm typecheck` verts ; anti-slop de `nexxia-design` passé.
 
-- [ ] **D8. Champ « Ajouter une sous-tâche » toujours visible**
+- [x] **D8. Champ « Ajouter une sous-tâche » toujours visible** (2026-11-24, `c075ebf`)
   - Composant commun `SubtaskAddField` (`src/components/tasks/`) : une ligne avec icône « + » (Lucide `Plus`) et champ « Ajouter une sous-tâche » (libellé accessible, texte d'invite admis ici car l'icône et le nom accessible portent le sens), validé par Entrée, vidé après succès et focus gardé pour la suivante, affiché même sans aucune sous-tâche. Titre vide ou espaces : rien. Erreur sous le champ (`role="alert"`). Sans logique de données : `onAdd(title)` asynchrone, état `pending`.
   - Vrai détail : `SubtaskList` l'utilise à la place de son formulaire actuel (`tasks.create` inchangé).
   - Démo : `KanbanDemoDetail` l'utilise, ajout dans l'état local (aucune action serveur), compteur « n/m » à jour.
