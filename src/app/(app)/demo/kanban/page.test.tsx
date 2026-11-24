@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const requireSession = vi.hoisted(() => vi.fn());
 const requireSessionWithToken = vi.hoisted(() => vi.fn());
 const getTranslations = vi.hoisted(() =>
   vi.fn(async () => (key: string) => key),
@@ -15,7 +16,7 @@ const notFound = vi.hoisted(() =>
 );
 
 vi.mock("next/navigation", () => ({ notFound }));
-vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
+vi.mock("@/lib/session", () => ({ requireSession, requireSessionWithToken }));
 vi.mock("next-intl/server", () => ({ getTranslations }));
 vi.mock("@/components/shell/PageHeader", () => ({ PageHeader }));
 vi.mock("./KanbanDemo", () => ({ KanbanDemo: () => null }));
@@ -35,6 +36,7 @@ describe("page de démo du kanban", () => {
     await expect(KanbanDemoPage()).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(notFound).toHaveBeenCalledOnce();
+    expect(requireSession).not.toHaveBeenCalled();
     expect(requireSessionWithToken).not.toHaveBeenCalled();
   });
 
@@ -44,23 +46,25 @@ describe("page de démo du kanban", () => {
 
     await expect(KanbanDemoPage()).rejects.toThrow("NEXT_NOT_FOUND");
 
+    expect(requireSession).not.toHaveBeenCalled();
     expect(requireSessionWithToken).not.toHaveBeenCalled();
   });
 
-  it("exige la session sur une preview Vercel", async () => {
+  it("exige la session sur une preview Vercel, sans demander de jeton (aucune lecture de base)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "preview");
-    requireSessionWithToken.mockRejectedValue(new Error("SESSION_LUE"));
+    requireSession.mockRejectedValue(new Error("SESSION_LUE"));
 
     await expect(KanbanDemoPage()).rejects.toThrow("SESSION_LUE");
 
     expect(notFound).not.toHaveBeenCalled();
+    expect(requireSessionWithToken).not.toHaveBeenCalled();
   });
 
   it("n'affiche pas le filtre d'espace, la démo ne lit aucune donnée", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("VERCEL_ENV", undefined);
-    requireSessionWithToken.mockResolvedValue({});
+    requireSession.mockResolvedValue({});
 
     render(await KanbanDemoPage());
 

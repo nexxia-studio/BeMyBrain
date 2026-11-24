@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shell/PageHeader";
-import { requireSessionWithToken } from "@/lib/session";
+import { requireSession } from "@/lib/session";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 
 import { isKanbanDemoEnabled } from "./demo-access";
@@ -23,7 +23,8 @@ export default async function KanbanDemoPage() {
     notFound();
   }
 
-  await requireSessionWithToken();
+  // Session seule : la démo ne lit aucune base, pas de jeton à demander à Neon Auth.
+  await requireSession();
   const t = await getTranslations("kanbanDemo");
   // « Aujourd'hui » calculé une fois côté serveur : mêmes échéances au rendu serveur et à l'hydratation.
   const today = todayIn(getUserTimeZone(), new Date());

@@ -1,5 +1,6 @@
 // Tâches fictives de la démo du kanban (BRAIN-46), en mémoire : aucune base. Titres, espaces et tags jouent le
-// rôle du contenu saisi : jamais traduits (ADR-007), comme dans la vraie liste. Échéances relatives au jour
+// rôle du contenu saisi : jamais traduits (ADR-007), comme dans la vraie liste. Noms d'espaces, de clients
+// et de personnes fictifs : dépôt public. Échéances relatives au jour
 // donné par la page (`today`, fuseau de l'utilisateur) : en retard, aujourd'hui, plus tard.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import type { ContextColor } from "@/modules/core/context-colors";
@@ -22,15 +23,15 @@ export type DemoTask = {
 
 type Space = [name: string, color: ContextColor] | null;
 const HOME: Space = ["Maison", "neutral"];
-const TRUSTUP: Space = ["Trustup", "warm"];
-const NEXXIA: Space = ["Nexxia", "indigo"];
+const CLIENT: Space = ["Orme Conseil", "warm"];
+const STUDIO: Space = ["Studio", "indigo"];
 
 // [titre, espace, tags, priorité, échéance en jours depuis aujourd'hui (null : aucune), bloquée]
 type Row = [string, Space, string[], number, number | null, boolean?];
 
 const ROWS: Record<DemoStatus, Row[]> = {
   backlog: [
-    ["Repenser l'onboarding des abonnés", NEXXIA, ["produit"], 3, null],
+    ["Repenser l'onboarding des abonnés", STUDIO, ["produit"], 3, null],
     ["Devis pour la toiture", HOME, [], 4, 21],
     [
       "Lire le rapport annuel du fonds de pension avant la réunion de janvier",
@@ -40,48 +41,48 @@ const ROWS: Record<DemoStatus, Row[]> = {
       null,
     ],
     ["Trier le garage", HOME, [], 0, null],
-    ["Atelier de cadrage Trustup Q1", TRUSTUP, ["client"], 2, 14],
+    ["Atelier de cadrage Orme Conseil Q1", CLIENT, ["client"], 2, 14],
   ],
   unstarted: [
     ["Rappeler le plombier", HOME, [], 1, -2, true],
     [
-      "Envoyer la facture de novembre à Trustup",
-      TRUSTUP,
+      "Envoyer la facture de novembre à Orme Conseil",
+      CLIENT,
       ["admin", "client"],
       2,
       -1,
     ],
     [
-      "Préparer la démo du kanban pour Antoine et noter les retours au doigt sur iPhone",
-      NEXXIA,
+      "Préparer la démo du kanban et noter les retours au doigt sur le téléphone",
+      STUDIO,
       ["produit"],
       2,
       0,
     ],
     ["Courses de la semaine", HOME, ["courses"], 3, 0],
     ["Prendre rendez-vous chez le dentiste", null, ["santé"], 3, 1],
-    ["Relire le contrat de maintenance", TRUSTUP, ["client"], 2, 2, true],
+    ["Relire le contrat de maintenance", CLIENT, ["client"], 2, 2, true],
     ["Renouveler l'assurance auto", HOME, ["admin"], 2, 3],
-    ["Mettre à jour les mentions légales du site", NEXXIA, [], 4, 5],
+    ["Mettre à jour les mentions légales du site", STUDIO, [], 4, 5],
     ["Commander les pneus hiver", HOME, [], 3, 6],
     ["Réserver le train pour Paris", null, [], 0, 7],
     [
       "Écrire l'article sur la migration vers Neon et la sécurité des branches de preview",
-      NEXXIA,
+      STUDIO,
       ["blog"],
       3,
       10,
     ],
     ["Payer la taxe communale", HOME, ["admin", "finances"], 1, 12],
-    ["Faire le point avec le comptable", NEXXIA, ["finances"], 2, 14, true],
+    ["Faire le point avec le comptable", STUDIO, ["finances"], 2, 14, true],
     ["Changer le filtre de la hotte", HOME, [], 4, null],
-    ["Appeler maman", null, [], 0, null],
+    ["Appeler le syndic", null, [], 0, null],
   ],
   started: [
-    ["Refonte de la page tarifs", NEXXIA, ["produit"], 2, 2],
+    ["Refonte de la page tarifs", STUDIO, ["produit"], 2, 2],
     [
-      "Migration des données Trustup vers le nouvel entrepôt, avec reprise des historiques",
-      TRUSTUP,
+      "Migration des données d'Orme Conseil vers le nouvel entrepôt, avec reprise des historiques",
+      CLIENT,
       ["client"],
       1,
       -3,
@@ -95,11 +96,11 @@ const ROWS: Record<DemoStatus, Row[]> = {
     "Valider le budget de décembre",
     "Rendre les livres à la bibliothèque",
     "Mettre à jour Next.js",
-    "Envoyer le compte rendu Trustup",
+    "Envoyer le compte rendu à Orme Conseil",
     "Vidange de la voiture",
     "Répondre au notaire",
     "Corriger le bug du filtre d'espace",
-    "Acheter le cadeau de Léa",
+    "Acheter le cadeau d'anniversaire",
     "Résilier l'ancien abonnement mobile",
     "Préparer la réunion d'équipe",
     "Faire réviser la chaudière",
@@ -118,14 +119,14 @@ const ROWS: Record<DemoStatus, Row[]> = {
     "Archiver les factures 2025",
   ].map((title, index): Row => [
     title,
-    [HOME, NEXXIA, TRUSTUP, null][index % 4],
+    [HOME, STUDIO, CLIENT, null][index % 4],
     index % 5 === 0 ? ["admin"] : [],
     index % 3 === 0 ? 3 : 0,
     -1 - index,
   ]),
   canceled: [
     ["Salon de l'auto", null, [], 0, -10],
-    ["Migrer vers Supabase", NEXXIA, [], 3, null],
+    ["Migrer vers Supabase", STUDIO, [], 3, null],
     ["Repeindre la clôture", HOME, [], 4, null],
   ],
 };
