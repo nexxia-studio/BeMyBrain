@@ -20,12 +20,14 @@ import {
 
 /**
  * Un choix ; `icon` (facultatif) remplace l'icône de la pastille quand il est choisi et s'affiche dans le menu.
- * Sans `icon`, la pastille garde l'icône du champ.
+ * Sans `icon`, la pastille garde l'icône du champ. `iconClass` : couleur de l'icône (token de la charte), dans la
+ * pastille et dans le menu ; à l'encre par défaut.
  */
 export type Choice<V extends string> = {
   value: V;
   label: string;
   icon?: LucideIcon;
+  iconClass?: string;
 };
 
 type ChoiceChipProps<V extends string> = {
@@ -70,7 +72,7 @@ export function ChoiceChip<V extends string>({
       >
         <TriggerIcon
           aria-hidden="true"
-          className="size-4 shrink-0"
+          className={cn("size-4 shrink-0", current?.iconClass)}
           strokeWidth={2}
         />
         <span className="truncate">{current?.label}</span>
@@ -107,7 +109,10 @@ export function ChoiceChip<V extends string>({
                   {option.icon ? (
                     <option.icon
                       aria-hidden="true"
-                      className="size-4 shrink-0 text-foreground"
+                      className={cn(
+                        "size-4 shrink-0 text-foreground",
+                        option.iconClass,
+                      )}
                       strokeWidth={2}
                     />
                   ) : (

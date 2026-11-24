@@ -295,6 +295,8 @@
       "title": "Titre",
       "titleRequired": "Le titre ne peut pas être vide.",
       "notes": "Notes",
+      "notesPlaceholder": "Ajouter une note",
+      "properties": "Propriétés",
       "menuLabel": "{field} : {current}",
       "status": {
         "label": "Statut",
@@ -380,7 +382,10 @@
       "failNext": "Faire échouer le prochain dépôt",
       "look": "Cartes",
       "lookWell": "Creux",
-      "lookGlass": "Verre"
+      "lookGlass": "Verre",
+      "detail": "Détail",
+      "detailNew": "Nouveau",
+      "detailCurrent": "Actuel"
     },
     "saving": "{count, plural, one {# déplacement en cours d'enregistrement…} other {# déplacements en cours d'enregistrement…}}",
     "saved": "Tout est enregistré.",

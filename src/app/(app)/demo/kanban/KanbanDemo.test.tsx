@@ -512,6 +512,15 @@ describe("démo du kanban", () => {
   });
 });
 
+/** `a` est avant `b` dans le document. */
+function precedes(a: Element, b: Element) {
+  return Boolean(
+    a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
+// `backlog-1` : carte sans notes ni sous-tâches.
+const NO_NOTES = "backlog-1";
 // `unstarted-3` : « Préparer la démo du kanban… », notes et trois sous-tâches (une faite), priorité Haute.
 const DEMO_PREP = "unstarted-3";
 
@@ -682,5 +691,86 @@ describe("démo du kanban : détail d'une carte", () => {
     );
     expect(dialog.getByRole("button", { name: "Status: To do" })).toBeTruthy();
     expect(dialog.getByLabelText(en.tasks.detail.notes)).toBeTruthy();
+  });
+  it("détail « Nouveau » par défaut : titre, propriétés, sous-tâches, puis notes", async () => {
+    renderDemo();
+    expect(
+      within(screen.getByRole("group", { name: "Détail" }))
+        .getByRole("button", { name: "Nouveau" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    await openCard(DEMO_PREP);
+
+    const dialog = within(detail());
+    const blocks = [
+      dialog.getByRole("heading", { name: /^Préparer la démo du kanban/ }),
+      dialog.getByRole("group", { name: fr.tasks.detail.properties }),
+      dialog.getByRole("heading", { name: fr.tasks.detail.subtasks.title }),
+      dialog.getByLabelText(fr.tasks.detail.notes),
+    ];
+    blocks.slice(1).forEach((block, index) => {
+      expect(precedes(blocks[index], block)).toBe(true);
+    });
+    expect(
+      dialog
+        .getByRole("button", { name: "Statut : À faire" })
+        .querySelector("svg.lucide-circle"),
+    ).not.toBeNull();
+  });
+
+  it("détail « Nouveau » : notes vides repliées, notes remplies dépliées", async () => {
+    renderDemo();
+
+    await openCard(NO_NOTES);
+    const empty = within(detail()).getByLabelText(fr.tasks.detail.notes);
+    expect(empty.getAttribute("data-collapsed")).toBe("true");
+    expect(empty.getAttribute("placeholder")).toBe("Ajouter une note");
+    await closeDetail();
+    await openCard(DEMO_PREP);
+
+    expect(
+      within(detail())
+        .getByLabelText(fr.tasks.detail.notes)
+        .getAttribute("data-collapsed"),
+    ).toBe("false");
+  });
+
+  it("détail « Actuel » au sélecteur : notes en grand cadre sous le titre, avant les champs, icône de champ au statut", async () => {
+    renderDemo();
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Détail" })).getByRole(
+        "button",
+        { name: "Actuel" },
+      ),
+    );
+
+    await openCard(PLUMBER);
+
+    const dialog = within(detail());
+    const notes = dialog.getByLabelText(
+      fr.tasks.detail.notes,
+    ) as HTMLTextAreaElement;
+    const status = dialog.getByRole("button", { name: /^Statut :/ });
+    expect(precedes(notes, status)).toBe(true);
+    expect(
+      precedes(
+        status,
+        dialog.getByRole("heading", { name: fr.tasks.detail.subtasks.title }),
+      ),
+    ).toBe(true);
+    expect(notes.rows).toBe(3);
+    expect(notes.hasAttribute("data-collapsed")).toBe(false);
+    expect(status.querySelector("svg.lucide-circle-dot")).not.toBeNull();
+  });
+
+  it("range le sélecteur Détail dans les réglages repliés (le tableau reste visible sur iPhone), en anglais aussi", () => {
+    renderDemo("en");
+
+    const group = screen.getByRole("group", { name: "Detail" });
+
+    expect(group.closest("details")).not.toBeNull();
+    expect(within(group).getByRole("button", { name: "New" })).toBeTruthy();
+    expect(within(group).getByRole("button", { name: "Current" })).toBeTruthy();
   });
 });

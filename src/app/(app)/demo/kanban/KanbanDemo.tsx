@@ -11,6 +11,7 @@
 // Terminée : 20 plus récentes + « Tout voir », plus les cartes déposées pendant la visite. Annulée : bandeau replié avec compteur, cible de dépôt.
 // Tap, clic ou Entrée sur une carte (`onOpen` du tableau) : détail de la carte (`KanbanDemoDetail`). Ses
 // modifications restent en mémoire, par carte ; un changement de statut est un déplacement (en tête de colonne).
+// Sélecteur « Détail » (D9) : nouvel ordre du détail (défaut) ou ordre d'avant, pour comparer.
 // Sélecteur « Cartes » (D7) : deux habillages de la colonne et des cartes (`demo-looks.ts`), à choisir à l'œil.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import {
@@ -38,7 +39,7 @@ import {
   statusOf,
 } from "./demo-board";
 import { demoBoard, type DemoTask, demoTasks } from "./demo-fixtures";
-import { type DemoLook, DEMO_LOOKS } from "./demo-looks";
+import { type DemoDetailLayout, type DemoLook, DEMO_LOOKS } from "./demo-looks";
 import { KanbanDemoCard } from "./KanbanDemoCard";
 import { type DemoEdit, KanbanDemoDetail } from "./KanbanDemoDetail";
 import { KanbanDemoSettings, type Latency } from "./KanbanDemoSettings";
@@ -82,6 +83,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
   const [latency, setLatency] = useState<Latency>(0);
   const [failNext, setFailNext] = useState(false);
   const [look, setLook] = useState<DemoLook>("well");
+  const [detailLayout, setDetailLayout] = useState<DemoDetailLayout>("new");
   const [showAllDone, setShowAllDone] = useState(false);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const nextKey = useRef(0);
@@ -216,6 +218,8 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
         onFailNextChange={setFailNext}
         look={look}
         onLookChange={setLook}
+        detailLayout={detailLayout}
+        onDetailLayoutChange={setDetailLayout}
         pendingCount={pending.length}
       />
       <div aria-busy={pending.length > 0}>
@@ -237,6 +241,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
       </div>
       {openId !== null && openStatus !== undefined && (
         <KanbanDemoDetail
+          layout={detailLayout}
           key={openId}
           task={shownTask(openId, openStatus)}
           today={today}

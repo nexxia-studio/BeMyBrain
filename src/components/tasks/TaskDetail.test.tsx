@@ -955,3 +955,158 @@ describe("détail : icônes de priorité", () => {
     expect(await levelIcon("Aucune")).toBeUndefined();
   });
 });
+
+/** `a` est avant `b` dans le document. */
+function precedes(a: Element, b: Element) {
+  return Boolean(
+    a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
+describe("détail : hiérarchie (BRAIN-46, D9)", () => {
+  it("ordre : titre, propriétés, sous-tâches, notes, corbeille", () => {
+    renderDetail();
+
+    const blocks = [
+      titleField(),
+      screen.getByRole("group", { name: "Propriétés" }),
+      screen.getByRole("heading", { name: "Sous-tâches" }),
+      screen.getByRole("textbox", { name: "Notes" }),
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    ];
+
+    blocks.slice(1).forEach((block, index) => {
+      expect(precedes(blocks[index], block)).toBe(true);
+    });
+  });
+
+  it("propriétés groupées : Statut, Priorité, Côté et espace, Échéance, Tags, dans cet ordre", () => {
+    renderDetail();
+
+    const names = within(screen.getByRole("group", { name: "Propriétés" }))
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label")?.split(" :")[0]);
+
+    expect(names).toEqual([
+      "Statut",
+      "Priorité",
+      "Côté",
+      "Espace",
+      "Échéance",
+      "Tags",
+    ]);
+  });
+
+  it("sous-tâche : même ordre sans bloc sous-tâches, « Comme la tâche parente » dans les propriétés", () => {
+    renderDetail(
+      buildDetail({
+        parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+        parentTitle: "Relancer le devis",
+      }),
+    );
+
+    const properties = screen.getByRole("group", { name: "Propriétés" });
+
+    expect(within(properties).getByText("Comme la tâche parente")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Sous-tâches" })).toBeNull();
+    expect(precedes(titleField(), properties)).toBe(true);
+    expect(
+      precedes(properties, screen.getByRole("textbox", { name: "Notes" })),
+    ).toBe(true);
+  });
+
+  it("notes vides : repliées sur une ligne, invite « Ajouter une note »", () => {
+    renderDetail(buildDetail({ notes: null }));
+
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    expect(notes.getAttribute("data-collapsed")).toBe("true");
+    expect(notes.placeholder).toBe("Ajouter une note");
+  });
+
+  it("notes remplies : dépliées", () => {
+    renderDetail();
+
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    expect(notes.getAttribute("data-collapsed")).toBe("false");
+  });
+
+  it("notes saisies dans le champ replié puis quittées : tasks.update, champ désactivé pendant l'appel", async () => {
+    const pending = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValueOnce(pending.promise);
+    const task = renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "Penser au devis" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() => expect(notes.disabled).toBe(true));
+    expect(paramsOf("tasks.update")).toEqual({
+      taskId: task.id,
+      notes: "Penser au devis",
+    });
+    await act(async () => pending.resolve({ ok: true, result: null }));
+    expect(notes.disabled).toBe(false);
+  });
+});
+
+describe("détail : icônes de statut (BRAIN-46, D9)", () => {
+  const STATUS_ICON = {
+    backlog: "lucide-circle-dashed",
+    unstarted: "lucide-circle",
+    started: "lucide-circle-dot",
+    completed: "lucide-circle-check",
+    canceled: "lucide-circle-x",
+  } as const;
+
+  it.each(Object.entries(STATUS_ICON))(
+    "la pastille Statut d'une tâche « %s » montre son icône",
+    (statusCategory, icon) => {
+      renderDetail(
+        buildDetail({
+          statusCategory: statusCategory as keyof typeof STATUS_ICON,
+        }),
+      );
+
+      const svg = chip(/^Statut :/).querySelector("svg")!;
+
+      expect(svg.classList.contains(icon)).toBe(true);
+    },
+  );
+
+  it("le menu montre une icône distincte par statut", async () => {
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+
+    const items = await screen.findAllByRole("menuitemradio");
+    // La coche du choix courant porte la classe exacte `lucide-check` (« Terminée » : `lucide-circle-check`).
+    const icons = items.map((item) =>
+      [...item.querySelectorAll("svg")]
+        .find((svg) => !svg.classList.contains("lucide-check"))
+        ?.getAttribute("class"),
+    );
+    expect(icons.every(Boolean)).toBe(true);
+    expect(new Set(icons).size).toBe(5);
+  });
+
+  it("couleur : indigo pour En cours et Terminée, encre secondaire pour À planifier et Annulée, jamais la braise", () => {
+    const tone = (statusCategory: keyof typeof STATUS_ICON) => {
+      cleanup();
+      renderDetail(buildDetail({ statusCategory }));
+      return chip(/^Statut :/).querySelector("svg")!.classList;
+    };
+
+    expect(tone("started").contains("text-link")).toBe(true);
+    expect(tone("completed").contains("text-link")).toBe(true);
+    expect(tone("backlog").contains("text-muted-foreground")).toBe(true);
+    expect(tone("canceled").contains("text-muted-foreground")).toBe(true);
+    expect(tone("canceled").contains("text-destructive")).toBe(false);
+  });
+});

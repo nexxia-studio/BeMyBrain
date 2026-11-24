@@ -4,15 +4,17 @@
 // Détail `/tasks/[id]` (spec todo-unifiee, « Détail ») : au-dessus de la liste, URL propre. Fenêtre (panneau sur
 // ordinateur, tiroir sur mobile, fermeture) : `TaskDetailSheet`, partagée avec l'état d'erreur du détail.
 // Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
-// Contenu, une colonne : parente en lien (sous-tâche), titre, notes, puis lignes de champs (Statut, Priorité,
-// Côté et espace, Échéance, Tags), sous-tâches (pas sur une sous-tâche), pied « Mettre à la corbeille ».
+// Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : parente en lien (sous-tâche), titre, puis
+// les propriétés groupées (Statut, Priorité, Côté et espace, Échéance, Tags ; statut et priorité marqués par leur
+// icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), notes en bas, repliées
+// sur une ligne quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
 // Corbeille : retour à la liste ; une sous-tâche revient au détail de sa parente, où le message et « Annuler »
 // s'affichent dans la fenêtre (emplacement collé en bas du panneau, au-dessus du contenu qui défile).
 // Chaque champ appelle `tasks.update` seul (registre, origine `app`) : désactivé pendant l'appel, pas
 // d'optimiste, erreur sous le champ (code traduit, sinon message générique). Titre et notes : au départ du
 // champ ; Date et Tags : à la fermeture de leur pastille (une seule écriture pour plusieurs crans de roue iOS).
 // Aucune validation zod ici (zod interdit dans le bundle client, CSP) : le schéma du serveur tranche.
-import { CircleDot, CornerLeftUp, Flag, Layers, Trash2 } from "lucide-react";
+import { CornerLeftUp, Flag, Layers, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -25,7 +27,6 @@ import type { TaskDetail as TaskDetailData } from "@/modules/tasks/queries";
 import {
   statusCategories,
   type StatusCategory,
-  TASK_NOTES_MAX,
   TASK_TITLE_MAX,
 } from "@/modules/tasks/sides";
 import { subtaskCounter, tagChanges } from "@/modules/tasks/view";
@@ -36,10 +37,12 @@ import { ContextChip } from "./ContextChip";
 import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
 import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
+import { STATUS_ICONS } from "./status-icons";
 import { SubtaskList } from "./SubtaskList";
 import { loadWorkspaceTags } from "./load-workspace-tags";
 import { TagsChip } from "./TagsChip";
 import { TaskDetailSheet } from "./TaskDetailSheet";
+import { TaskNotesField } from "./TaskNotesField";
 import { useTrashNoticeHost, useTrashTask } from "./task-trash-context";
 import { type TaskUpdate, useTaskUpdate } from "./use-task-update";
 
@@ -85,7 +88,6 @@ export function TaskDetail({
   const noticeHost = useTrashNoticeHost();
   const [trashing, setTrashing] = useState(false);
   const titleId = useId();
-  const notesId = useId();
   const ids = {
     title: useId(),
     notes: useId(),
@@ -200,6 +202,7 @@ export function TaskDetail({
   const statusOptions = statusCategories.map((value) => ({
     value,
     label: t(`detail.status.${value}`),
+    ...STATUS_ICONS[value],
   }));
   const priorityOptions = PRIORITIES.map((value) => {
     const level = Number(value);
@@ -286,36 +289,11 @@ export function TaskDetail({
               ))}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={notesId} className="text-small font-medium">
-                {t("detail.notes")}
-              </label>
-              <textarea
-                id={notesId}
-                rows={3}
-                value={notesDraft}
-                disabled={notes.pending}
-                maxLength={TASK_NOTES_MAX}
-                aria-describedby={
-                  notesErrors.length > 0 ? ids.notes : undefined
-                }
-                onChange={(event) => setNotesDraft(event.target.value)}
-                onBlur={saveNotes}
-                className={cn(fieldClass, "min-h-24 text-base")}
-              />
-              {notesErrors.map((error) => (
-                <p
-                  key={error.id}
-                  id={error.id}
-                  role="alert"
-                  className="text-caption text-destructive"
-                >
-                  {error.text}
-                </p>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-1 border-t border-border pt-3">
+            <div
+              role="group"
+              aria-label={t("detail.properties")}
+              className="flex flex-col gap-1"
+            >
               <DetailField
                 label={t("detail.status.label")}
                 errors={errorOf(status, ids.status)}
@@ -325,7 +303,7 @@ export function TaskDetail({
                     field: t("detail.status.label"),
                     current: t(`detail.status.${task.statusCategory}`),
                   })}
-                  icon={CircleDot}
+                  icon={STATUS_ICONS[task.statusCategory].icon}
                   options={statusOptions}
                   value={task.statusCategory}
                   onChange={(value) => status.save({ statusCategory: value })}
@@ -426,8 +404,9 @@ export function TaskDetail({
               </DetailField>
             </div>
 
-            {!subtask && (
-              <div className="border-t border-border pt-4">
+            {/* Un seul filet sous les propriétés, sous-tâches ou non : le contenu libre commence ici. */}
+            <div className="flex flex-col gap-5 border-t border-border pt-4">
+              {!subtask && (
                 <SubtaskList
                   parentId={task.id}
                   subtasks={task.subtasks}
@@ -435,8 +414,15 @@ export function TaskDetail({
                   today={today}
                   listQuery={listQuery}
                 />
-              </div>
-            )}
+              )}
+              <TaskNotesField
+                value={notesDraft}
+                onChange={setNotesDraft}
+                onBlur={saveNotes}
+                disabled={notes.pending}
+                errors={notesErrors}
+              />
+            </div>
 
             <div className="border-t border-border pt-4">
               <motion.button

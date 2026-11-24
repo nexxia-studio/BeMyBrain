@@ -2,8 +2,13 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, app) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Détail d'une carte de la démo du kanban (BRAIN-46, D5) : même fenêtre que la liste (`TaskDetailSheet`, panneau
-// sur ordinateur, tiroir sur mobile), fermée par rappel (aucune adresse). Une colonne, ordre du vrai détail
-// (`TaskDetail`) : titre et croix, notes, lignes de champs (Statut, Priorité, Échéance, Tags), sous-tâches.
+// sur ordinateur, tiroir sur mobile), fermée par rappel (aucune adresse). Une colonne, deux ordres à comparer par
+// le sélecteur « Détail » des réglages (D9) :
+// - `new` (défaut), celui du vrai détail (`TaskDetail`) : titre et croix, propriétés groupées (Statut, Priorité,
+//   Échéance, Tags ; icône propre à chaque statut, `status-icons.ts`), sous-tâches, notes en bas, repliées sur une
+//   ligne quand elles sont vides (`TaskNotesField`, commun au vrai détail) ;
+// - `current`, l'ordre d'avant : notes en grand cadre sous le titre, puis les champs sous un filet (icône de champ
+//   au statut), puis les sous-tâches.
 // État local de la démo seulement : aucune action serveur, aucun registre (`TaskDetail`, `SubtaskList` et
 // `TaskRow` en appellent, d'où ce double). Chaque champ s'applique tout de suite ; le statut passe par le
 // déplacement de la démo (la carte change de colonne, enregistrement simulé).
@@ -17,6 +22,7 @@ import { useId } from "react";
 import { ChoiceChip } from "@/components/tasks/ChoiceChip";
 import { DetailField } from "@/components/tasks/DetailField";
 import { DueDateChip } from "@/components/tasks/DueDateChip";
+import { STATUS_ICONS } from "@/components/tasks/status-icons";
 import { SubtaskAddField } from "@/components/tasks/SubtaskAddField";
 import {
   isRowPriority,
@@ -29,10 +35,12 @@ import {
   TASK_ROW_TITLE_TEXT,
 } from "@/components/tasks/task-list-layout";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { TaskNotesField } from "@/components/tasks/TaskNotesField";
 import { cn } from "@/lib/utils";
 
 import { DEMO_STATUSES, type DemoStatus } from "./demo-board";
 import type { DemoTask } from "./demo-fixtures";
+import type { DemoDetailLayout } from "./demo-looks";
 
 const PRIORITIES = ["0", "1", "2", "3", "4"] as const;
 
@@ -46,6 +54,8 @@ export type DemoEdit = Partial<
 type KanbanDemoDetailProps = {
   /** Carte telle qu'affichée (modifications locales comprises, statut = sa colonne). */
   task: DemoTask;
+  /** Ordre des blocs : le nouveau (D9) ou celui d'avant, pour comparer. */
+  layout: DemoDetailLayout;
   /** `YYYY-MM-DD`, jour de l'utilisateur. */
   today: string;
   /** Tags des cartes de la démo, proposés par la pastille Tags. */
@@ -59,6 +69,7 @@ type KanbanDemoDetailProps = {
 
 export function KanbanDemoDetail({
   task,
+  layout,
   today,
   knownTags,
   onStatusChange,
@@ -73,9 +84,14 @@ export function KanbanDemoDetail({
   // Compteur « n/m », comme celui du vrai détail (`subtaskCounter`).
   const counter = `${done}/${task.subtasks.length}`;
 
+  const isNew = layout === "new";
+  const setNotes = (value: string) =>
+    onEdit({ notes: value === "" ? null : value });
+
   const statusOptions = DEMO_STATUSES.map((value) => ({
     value,
     label: t(`detail.status.${value}`),
+    ...(isNew ? STATUS_ICONS[value] : {}),
   }));
   const priorityOptions = PRIORITIES.map((value) => {
     const level = Number(value);
@@ -98,31 +114,36 @@ export function KanbanDemoDetail({
             {closeButton}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor={notesId} className="text-small font-medium">
-              {t("detail.notes")}
-            </label>
-            <textarea
-              id={notesId}
-              rows={3}
-              value={task.notes ?? ""}
-              onChange={(event) =>
-                onEdit({
-                  notes: event.target.value === "" ? null : event.target.value,
-                })
-              }
-              className="min-h-24 w-full resize-none rounded-lg border border-input bg-row px-3 py-2.5 text-base text-foreground field-sizing-content"
-            />
-          </div>
+          {!isNew && (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={notesId} className="text-small font-medium">
+                {t("detail.notes")}
+              </label>
+              <textarea
+                id={notesId}
+                rows={3}
+                value={task.notes ?? ""}
+                onChange={(event) => setNotes(event.target.value)}
+                className="min-h-24 w-full resize-none rounded-lg border border-input bg-row px-3 py-2.5 text-base text-foreground field-sizing-content"
+              />
+            </div>
+          )}
 
-          <div className="flex flex-col gap-1 border-t border-border pt-3">
+          <div
+            role="group"
+            aria-label={t("detail.properties")}
+            className={cn(
+              "flex flex-col gap-1",
+              !isNew && "border-t border-border pt-3",
+            )}
+          >
             <DetailField label={t("detail.status.label")} errors={[]}>
               <ChoiceChip<DemoStatus>
                 label={t("detail.menuLabel", {
                   field: t("detail.status.label"),
                   current: t(`detail.status.${task.status}`),
                 })}
-                icon={CircleDot}
+                icon={isNew ? STATUS_ICONS[task.status].icon : CircleDot}
                 options={statusOptions}
                 value={task.status}
                 onChange={onStatusChange}
@@ -237,6 +258,10 @@ export function KanbanDemoDetail({
               }}
             />
           </section>
+
+          {isNew && (
+            <TaskNotesField value={task.notes ?? ""} onChange={setNotes} />
+          )}
         </div>
       )}
     </TaskDetailSheet>

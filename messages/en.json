@@ -295,6 +295,8 @@
       "title": "Title",
       "titleRequired": "The title can't be empty.",
       "notes": "Notes",
+      "notesPlaceholder": "Add a note",
+      "properties": "Properties",
       "menuLabel": "{field}: {current}",
       "status": {
         "label": "Status",
@@ -380,7 +382,10 @@
       "failNext": "Fail the next drop",
       "look": "Cards",
       "lookWell": "Well",
-      "lookGlass": "Glass"
+      "lookGlass": "Glass",
+      "detail": "Detail",
+      "detailNew": "New",
+      "detailCurrent": "Current"
     },
     "saving": "{count, plural, one {Saving # move…} other {Saving # moves…}}",
     "saved": "Everything is saved.",

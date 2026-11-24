@@ -24,3 +24,6 @@ export const DEMO_LOOKS: Record<
     cardShadow: undefined,
   },
 };
+
+/** Ordre des blocs du détail (D9) : le nouveau, ou celui d'avant pour comparer (sélecteur « Détail »). */
+export type DemoDetailLayout = "new" | "current";
