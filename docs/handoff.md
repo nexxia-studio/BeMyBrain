@@ -15,7 +15,7 @@ Commande de reprise : `Lis docs/runbooks/veille-base.md et docs/features/brain-5
 
 ## Restes connus
 - BRAIN-50 : ~35 `rejects.toMatchObject` dans `tests/db` à passer sur `errorTag` ; e2e `todo-chargement` à prouver ; scénario 2 de `/qa` et mode `--suspend` non joués.
-- Ticket Linear « retour visible à l'ouverture d'un détail lent » (créé le 2026-11-24, priorité moyenne).
+- BRAIN-55 : retour visible à l'ouverture d'un détail lent (créé le 2026-11-24, priorité moyenne).
 
 ## Suite
 - BRAIN-51 (durcissements du pool), BRAIN-53, BRAIN-52. Faible priorité : BRAIN-43, BRAIN-44, BRAIN-45.
