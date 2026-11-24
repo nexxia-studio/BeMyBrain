@@ -102,6 +102,8 @@ Décisions d'Antoine : appui long validé (250 ms, soulèvement, empreinte), ne 
 
 ### Restes connus
 - Démo seulement, depuis D5 : Entrée sur la même carte juste après la fermeture de son détail ne le rouvre pas. Cause probable : `TaskDetailSheet` tient `open`, `KanbanDemo` tient `openId`, remis à `null` seulement à `onExitComplete` ; entre-temps, `setOpenId(mêmeId)` est sans effet. Le vrai détail (navigation par adresse) n'est pas touché. À traiter dans le plan du kanban réel, pas dans la démo.
+- Notes faites seulement de retours à la ligne (4 ou plus) : au départ du champ, la valeur revient à vide (`onBlur`, `TaskNotesField.tsx`), le champ rétrécit et le clic sur « Mettre à la corbeille » peut encore être perdu. Non couvert : les tests ne visent que les espaces seuls.
+- Test « notes remplacées par des espaces » (`TaskDetail.test.tsx`) : vérifie le dernier appel `tasks.update`, sans compter les appels.
 - À trancher par Antoine à l'essai :
   - variante de cartes (Creux / Verre) ;
   - en « Creux », relief au survol presque imperceptible et empreinte peu contrastée ;
