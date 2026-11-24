@@ -663,6 +663,37 @@ test.describe("au doigt, à 390 px", () => {
     expect(messages).toEqual([]);
   });
 
+  // D8 : champ « Ajouter une sous-tâche » toujours là, même sur une carte sans sous-tâche.
+  test("@mobile une carte sans sous-tâche propose le champ d'ajout : 44 px, sans zoom iOS, focus gardé après Entrée", async ({
+    page,
+  }) => {
+    await signIn(page);
+    const messages = watchConsole(page);
+    await openDemo(page);
+    const finger = await Finger.on(page);
+    await finger.down(await center(card(page, "backlog-1")));
+    await finger.up();
+    const dialog = detailDialog(page);
+    const field = dialog.getByLabel(fr.tasks.detail.subtasks.add);
+    await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+
+    await field.fill("Lister les écrans");
+    await field.press("Enter");
+
+    await expect(dialog.getByRole("listitem")).toHaveText([
+      "Lister les écrans",
+    ]);
+    await expect(field).toHaveValue("");
+    await expect(field).toBeFocused();
+    const size = await field.evaluate((el) => ({
+      font: parseFloat(getComputedStyle(el).fontSize),
+      row: el.closest("label")!.getBoundingClientRect().height,
+    }));
+    expect(size.font).toBeGreaterThanOrEqual(16);
+    expect(size.row).toBeGreaterThanOrEqual(44);
+    expect(messages).toEqual([]);
+  });
+
   test("@mobile un appui de 250 ms saisit la carte sans ouvrir le détail", async ({
     page,
   }) => {
@@ -736,6 +767,35 @@ test("@desktop un clic à la souris ouvre le détail de la carte", async ({
     dialog.getByRole("heading", { name: "Refonte de la page tarifs" }),
   ).toBeVisible();
   await expect(overlay(page)).toHaveCount(0);
+  expect(messages).toEqual([]);
+});
+
+test("@desktop Entrée ajoute une sous-tâche puis la suivante sans quitter le champ, compteur à jour", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+  await card(page, "started-1").click();
+  const dialog = detailDialog(page);
+  const field = dialog.getByLabel(fr.tasks.detail.subtasks.add);
+  await expect(dialog.getByText("1/2", { exact: true })).toBeVisible();
+
+  await field.click();
+  await page.keyboard.type("Relire les prix");
+  await page.keyboard.press("Enter");
+  await expect(field).toHaveValue("");
+  await page.keyboard.type("Publier");
+  await page.keyboard.press("Enter");
+
+  await expect(dialog.getByRole("listitem")).toHaveText([
+    "Grille des formules",
+    "Textes FR et EN",
+    "Relire les prix",
+    "Publier",
+  ]);
+  await expect(dialog.getByText("1/4", { exact: true })).toBeVisible();
+  await expect(field).toBeFocused();
   expect(messages).toEqual([]);
 });
 

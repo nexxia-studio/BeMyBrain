@@ -108,6 +108,25 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
     }));
   }
 
+  // Ajout à partir de l'état courant, pas de la carte rendue : deux Entrées rapprochées n'écrasent rien
+  // (l'ajout part dans une transition du champ, le rendu suivant peut ne pas être arrivé).
+  function addSubtask(id: string, title: string) {
+    setEdits((current) => {
+      const subtasks = current[id]?.subtasks ?? tasksById.get(id)!.subtasks;
+      return {
+        ...current,
+        [id]: {
+          ...current[id],
+          subtasks: [
+            ...subtasks,
+            // Aucun retrait dans la démo : le rang suffit à l'unicité.
+            { id: `${id}.${subtasks.length + 1}`, title, done: false },
+          ],
+        },
+      };
+    });
+  }
+
   function changeStatus(id: string, status: DemoStatus) {
     const next = statusMove(board, id, status);
     if (next !== null) move(next);
@@ -224,6 +243,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
           knownTags={knownTags}
           onStatusChange={(status) => changeStatus(openId, status)}
           onEdit={(change) => edit(openId, change)}
+          onAddSubtask={(title) => addSubtask(openId, title)}
           onClose={() => setOpenId(null)}
         />
       )}

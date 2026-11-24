@@ -7,7 +7,8 @@
 // État local de la démo seulement : aucune action serveur, aucun registre (`TaskDetail`, `SubtaskList` et
 // `TaskRow` en appellent, d'où ce double). Chaque champ s'applique tout de suite ; le statut passe par le
 // déplacement de la démo (la carte change de colonne, enregistrement simulé).
-// Sous-tâches : lignes bordées sur le `popover` opaque (comme `SubtaskList`), case à cocher locale, sans lien.
+// Sous-tâches : lignes bordées sur le `popover` opaque (comme `SubtaskList`), case à cocher locale, sans lien,
+// puis le champ commun `SubtaskAddField` (ajout dans l'état local, D8).
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import { CircleDot, Flag } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -16,6 +17,7 @@ import { useId } from "react";
 import { ChoiceChip } from "@/components/tasks/ChoiceChip";
 import { DetailField } from "@/components/tasks/DetailField";
 import { DueDateChip } from "@/components/tasks/DueDateChip";
+import { SubtaskAddField } from "@/components/tasks/SubtaskAddField";
 import {
   isRowPriority,
   PRIORITY_ICONS,
@@ -50,6 +52,8 @@ type KanbanDemoDetailProps = {
   knownTags: readonly string[];
   onStatusChange: (status: DemoStatus) => void;
   onEdit: (edit: DemoEdit) => void;
+  /** Ajoute une sous-tâche non faite à la fin (titre déjà nettoyé). */
+  onAddSubtask: (title: string) => void;
   onClose: () => void;
 };
 
@@ -59,6 +63,7 @@ export function KanbanDemoDetail({
   knownTags,
   onStatusChange,
   onEdit,
+  onAddSubtask,
   onClose,
 }: KanbanDemoDetailProps) {
   const t = useTranslations("tasks");
@@ -225,6 +230,12 @@ export function KanbanDemoDetail({
                 ))}
               </ul>
             )}
+            <SubtaskAddField
+              onAdd={async (title) => {
+                onAddSubtask(title.trim());
+                return null;
+              }}
+            />
           </section>
         </div>
       )}

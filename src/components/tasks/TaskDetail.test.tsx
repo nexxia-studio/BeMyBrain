@@ -415,6 +415,58 @@ describe("détail : sous-tâches", () => {
     await waitFor(() => expect((field as HTMLInputElement).value).toBe(""));
   });
 
+  it("sans aucune sous-tâche : le champ est là, sur une ligne à icône « + », focus gardé après l'ajout", async () => {
+    renderDetail(buildDetail({ subtasks: [] }));
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    }) as HTMLInputElement;
+    expect(field.placeholder).toBe("Ajouter une sous-tâche");
+    expect(field.closest("form")!.querySelector("svg.lucide-plus")).not.toBe(
+      null,
+    );
+
+    // La fenêtre pose son focus de départ (croix) juste après le rendu : attendu avant de focaliser le champ.
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    field.focus();
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    await waitFor(() => expect(field.value).toBe(""));
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("ajout refusé par le registre : message du code sous le champ, saisie gardée", async () => {
+    runAppAction.mockImplementation(async () => ({
+      ok: false,
+      code: "not_found",
+    }));
+    renderDetail();
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    }) as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(messages.tasks.errors.not_found);
+    expect(field.value).toBe("Préparer le devis");
+  });
+
+  it("ajout en panne (action rejetée) : « Sous-tâche non ajoutée. Réessaie. »", async () => {
+    runAppAction.mockRejectedValue(new Error("panne"));
+    renderDetail();
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    });
+
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(messages.tasks.detail.subtasks.addFailed);
+  });
+
   it("sous-tâches listées, cochables, avec lien vers leur détail", () => {
     const subtask = buildTask({ title: "Préparer le devis", parentTitle: "x" });
     renderDetail(buildDetail({ subtasks: [subtask] }));

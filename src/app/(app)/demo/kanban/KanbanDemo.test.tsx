@@ -611,6 +611,55 @@ describe("démo du kanban : détail d'une carte", () => {
     expect(within(detail()).getByText("2/3")).toBeTruthy();
   });
 
+  it("carte sans sous-tâche : le champ « Ajouter une sous-tâche » est là, Entrée ajoute dans l'état local", async () => {
+    renderDemo();
+    await openCard(PLUMBER);
+    const field = within(detail()).getByRole("textbox", {
+      name: fr.tasks.detail.subtasks.add,
+    }) as HTMLInputElement;
+    expect(within(detail()).queryAllByRole("checkbox")).toHaveLength(0);
+
+    field.focus();
+    fireEvent.change(field, { target: { value: "  Couper l'eau  " } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+    await wait(0);
+
+    expect(within(detail()).getByText("Couper l'eau")).toBeTruthy();
+    expect(within(detail()).getByText("0/1")).toBeTruthy();
+    expect(field.value).toBe("");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("ajoute à la suite des sous-tâches : compteur « n/m » à jour, gardé après réouverture", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+    const field = within(detail()).getByRole("textbox", {
+      name: fr.tasks.detail.subtasks.add,
+    });
+
+    for (const title of ["Corriger", "Montrer à Antoine"]) {
+      fireEvent.change(field, { target: { value: title } });
+      fireEvent.submit(field.closest("form") as HTMLFormElement);
+      await wait(0);
+    }
+    fireEvent.click(within(detail()).getAllByRole("checkbox")[4]);
+
+    await closeDetail();
+    await openCard(DEMO_PREP);
+    expect(within(detail()).getByText("2/5")).toBeTruthy();
+    expect(
+      within(detail())
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "Essai sur iPhone",
+      "Essai sur ordinateur",
+      "Noter les retours",
+      "Corriger",
+      "Montrer à Antoine",
+    ]);
+  });
+
   it("propose les tags des autres cartes dans la pastille Tags", async () => {
     renderDemo();
     await openCard(PLUMBER);
