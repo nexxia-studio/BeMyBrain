@@ -557,3 +557,53 @@ describe("frontières d'import", () => {
     expect(errors).toEqual([]);
   });
 });
+
+// createRequire contourne no-restricted-imports et les sélecteurs require/import (audit sécurité BRAIN-50).
+describe("createRequire dans src", () => {
+  const viaCreateRequire =
+    'import { createRequire } from "node:module";\nexport const admin = createRequire(import.meta.url)("@/db/admin");\n';
+
+  it.each([
+    "src/modules/probe/queries.ts",
+    "src/components/boundary-probe.tsx",
+    "src/app/probe/page.tsx",
+    "src/lib/probe.ts",
+    "src/modules/actions/probe.ts",
+    "src/modules/actions/run.ts",
+    "src/db/client.ts",
+    "src/db/migration-env.ts",
+    "src/proxy.ts",
+  ])(
+    'eslint refuse createRequire(import.meta.url)("@/db/admin") dans %s',
+    async (filePath) => {
+      const errors = await restrictedImportRules(viaCreateRequire, filePath);
+
+      expect(errors.some((message) => /createRequire/.test(message))).toBe(
+        true,
+      );
+    },
+  );
+
+  it("eslint refuse createRequire obtenu par import dynamique de module", async () => {
+    const code =
+      'const { createRequire } = await import("module");\nexport const x = createRequire;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/modules/probe/queries.ts",
+    );
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("eslint laisse createRequire aux fichiers de test de src", async () => {
+    const errors = await restrictedImportRules(
+      viaCreateRequire,
+      "src/lib/probe.test.ts",
+    );
+
+    expect(errors.filter((message) => /createRequire/.test(message))).toEqual(
+      [],
+    );
+  });
+});

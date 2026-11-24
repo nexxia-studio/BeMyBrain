@@ -144,11 +144,25 @@ const localRegistryImportSyntax = importSyntaxFor(
   registryImportMessage,
 );
 
+// createRequire (et le module « module » qui le fournit) charge n'importe quel chemin sans passer par
+// no-restricted-imports ni par les sélecteurs require/import ci-dessus : interdit dans tout src/, src/db compris.
+// Les fichiers de test de src/ le gardent (testFileSyntax, sans ces sélecteurs).
+const createRequireMessage =
+  "createRequire (module « module ») interdit dans src/ : il contourne les frontières d'import (ADR-002).";
+const createRequireSyntax = [
+  {
+    selector: "Identifier[name='createRequire']",
+    message: createRequireMessage,
+  },
+  ...importSyntaxFor("/^(node:)?module$/", createRequireMessage),
+];
+
 const restrictedSyntax = (...extra) => [
   "error",
   ...commonSyntax,
   ...testsImportSyntax,
   ...registryImportSyntax,
+  ...createRequireSyntax,
   ...extra,
 ];
 
@@ -170,6 +184,7 @@ const dbBoundaries = {
       ...processEnvDatabaseUrl,
       ...testsImportSyntax,
       ...registryImportSyntax,
+      ...createRequireSyntax,
     ],
   },
 };
@@ -178,7 +193,11 @@ const dbBoundaries = {
 const migrationEnvBoundaries = {
   files: ["src/db/migration-env.ts"],
   rules: {
-    "no-restricted-syntax": ["error", ...testsImportSyntax],
+    "no-restricted-syntax": [
+      "error",
+      ...testsImportSyntax,
+      ...createRequireSyntax,
+    ],
   },
 };
 
@@ -241,7 +260,12 @@ const actionsModuleSyntax = [
   {
     files: ["src/modules/actions/run.ts"],
     rules: {
-      "no-restricted-syntax": ["error", ...commonSyntax, ...testsImportSyntax],
+      "no-restricted-syntax": [
+        "error",
+        ...commonSyntax,
+        ...testsImportSyntax,
+        ...createRequireSyntax,
+      ],
     },
   },
 ];

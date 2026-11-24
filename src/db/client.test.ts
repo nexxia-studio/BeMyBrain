@@ -67,6 +67,9 @@ function signToken(
     .sign(privateKey);
 }
 
+// Nouvelle tentative (BRAIN-50) : testée dans user-db.test.ts et transaction-retry.test.ts.
+const RETRY = { evictIdle: async () => undefined, poolName: "test" };
+
 function fakeDb() {
   // Par défaut, la vérification d'identité réussit (applied = true).
   const tx = {
@@ -81,7 +84,7 @@ function fakeDb() {
 describe("withUserDb", () => {
   it("refuse un jeton à la signature invalide sans ouvrir de transaction", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const forged = await signToken(attacker.privateKey);
 
     const run = withUserDb(forged, async () => "lu");
@@ -92,7 +95,7 @@ describe("withUserDb", () => {
 
   it("refuse un jeton expiré sans ouvrir de transaction", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const expired = await new SignJWT({ sub: USER_ID, role: "authenticated" })
       .setProtectedHeader({ alg: "EdDSA" })
       .setIssuer(ISSUER)
@@ -117,7 +120,7 @@ describe("withUserDb", () => {
 
   it("refuse un iss étranger", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const token = await signToken(trusted.privateKey, undefined, {
       issuer: "https://auth.autre-branche.example.test",
     });
@@ -131,7 +134,7 @@ describe("withUserDb", () => {
 
   it("refuse une audience étrangère", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const token = await signToken(trusted.privateKey, undefined, {
       audience: "https://app-tierce.example.test",
     });
@@ -145,7 +148,7 @@ describe("withUserDb", () => {
 
   it("refuse un jeton sans audience", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const token = await new SignJWT({ sub: USER_ID, role: "authenticated" })
       .setProtectedHeader({ alg: "EdDSA" })
       .setIssuer(ISSUER)
@@ -161,7 +164,7 @@ describe("withUserDb", () => {
 
   it("refuse un jeton sans sub", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const token = await signToken(trusted.privateKey, {
       role: "authenticated",
     });
@@ -174,7 +177,7 @@ describe("withUserDb", () => {
 
   it("refuse un jeton dont le sub n'est pas un uuid", async () => {
     const { db, transaction } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const token = await signToken(trusted.privateKey, {
       sub: "pas-un-uuid",
       role: "authenticated",
@@ -188,7 +191,7 @@ describe("withUserDb", () => {
 
   it("ne garde de la cause jose qu'un code, sans chaîner l'erreur", async () => {
     const { db } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const forged = await signToken(attacker.privateKey);
 
     const error = await withUserDb(forged, async () => "lu").catch((e) => e);
@@ -208,7 +211,7 @@ describe("withUserDb", () => {
       marker: "verifie",
     };
     const stubVerify = vi.fn(async () => verified);
-    const withUserDb = createWithUserDb({ verify: stubVerify, db });
+    const withUserDb = createWithUserDb({ verify: stubVerify, db, ...RETRY });
     const fn = vi.fn(async (received: UserTx) => {
       expect(tx.execute).toHaveBeenCalledTimes(3);
       return received;
@@ -229,7 +232,7 @@ describe("withUserDb", () => {
 
   it("fn reçoit le sub du jeton vérifié comme userId", async () => {
     const { db } = fakeDb();
-    const withUserDb = createWithUserDb({ verify, db });
+    const withUserDb = createWithUserDb({ verify, db, ...RETRY });
     const token = await signToken(trusted.privateKey);
 
     const userId = await withUserDb(
@@ -245,6 +248,7 @@ describe("withUserDb", () => {
     const withUserDb = createWithUserDb({
       verify: async () => ({ sub: USER_ID, role: "authenticated" }),
       db,
+      ...RETRY,
     });
 
     await withUserDb("jeton-brut", async () => "lu");
@@ -274,6 +278,7 @@ describe("withUserDb", () => {
       const withUserDb = createWithUserDb({
         verify: async () => ({ sub: USER_ID, role: "authenticated" }),
         db,
+      ...RETRY,
       });
       const fn = vi.fn(async () => "lu");
 
@@ -295,6 +300,7 @@ describe("withUserDb", () => {
     const withUserDb = createWithUserDb({
       verify: async () => ({ sub: USER_ID, role: "authenticated" }),
       db,
+      ...RETRY,
     });
 
     const error = await withUserDb("jeton-brut", async () => "lu").catch(
@@ -316,6 +322,7 @@ describe("withUserDb", () => {
     const withUserDb = createWithUserDb({
       verify: async () => ({ sub: USER_ID, role: "authenticated" }),
       db,
+      ...RETRY,
     });
     class ProbeError extends DomainError {}
     const thrown = new ProbeError("probe_failed");
@@ -338,6 +345,7 @@ describe("withUserDb", () => {
       const withUserDb = createWithUserDb({
         verify: async () => ({ sub: USER_ID, role: "authenticated" }),
         db,
+      ...RETRY,
       });
       let thrown: unknown;
 
@@ -360,6 +368,7 @@ describe("withUserDb", () => {
     const withUserDb = createWithUserDb({
       verify: async () => ({ sub: USER_ID, role: "authenticated" }),
       db,
+      ...RETRY,
     });
 
     const error = await withUserDb("jeton-brut", async () => {
@@ -375,6 +384,7 @@ describe("withUserDb", () => {
     const withUserDb = createWithUserDb({
       verify: async () => ({ sub: USER_ID, role: "authenticated" }),
       db,
+      ...RETRY,
     });
     class ProbeError extends DomainError {}
 
@@ -430,6 +440,7 @@ describe("vérification du jeton : panne du JWKS distincte d'un jeton refusé (a
         throw outage;
       },
       db,
+      ...RETRY,
     });
 
     const run = withUserDb("eyJ.jwt.signe", async () => "lu");

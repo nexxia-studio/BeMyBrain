@@ -4,9 +4,9 @@
 import { pathToFileURL } from "node:url";
 
 import { and, asc, eq, sql } from "drizzle-orm";
-import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 import { z } from "zod";
 
+import type { AdminTx } from "../src/db/admin";
 import { contexts, workspaceMembers, workspaces } from "../src/db/schema/core";
 import { parseEnv, type EnvSource } from "../src/db/parse-env";
 import { assertNotProductionTarget } from "../src/db/production-guard";
@@ -23,8 +23,14 @@ export const DEFAULT_CONTEXTS = [
 
 type SeedOptions = { ownerUserId: string };
 
-// Tout pilote drizzle Postgres convient (adminDb en CLI, pool de la branche test en test).
-type SeedDb = NeonDatabase<Record<string, never>>;
+/**
+ * Ouvre une transaction et y exécute `fn` : withAdminTx en CLI, le même mécanisme sur la branche test en test.
+ * Jamais `db.transaction` d'une base Drizzle posée sur un pool : sous tsx, elle n'ouvre aucune vraie transaction
+ * (BRAIN-50, scripts/seed.test.ts).
+ */
+export type SeedTransaction = <T>(
+  fn: (tx: AdminTx) => Promise<T>,
+) => Promise<T>;
 
 /**
  * Retrouve le workspace dont `ownerUserId` est owner, sinon le crée avec son appartenance owner
@@ -33,10 +39,10 @@ type SeedDb = NeonDatabase<Record<string, never>>;
  * ou supprimé par l'utilisateur n'est jamais recréé ni remis en place.
  */
 export async function seedWorkspace(
-  db: SeedDb,
+  transaction: SeedTransaction,
   { ownerUserId }: SeedOptions,
 ): Promise<{ workspaceId: string; created: boolean }> {
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     // Deux seeds simultanés pour le même propriétaire : le second attend, puis retrouve le workspace.
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${ownerUserId}, 0))`,
@@ -81,7 +87,7 @@ const seedEnvSchema = z.object({ SEED_OWNER_USER_ID: z.uuid() });
  * de confiance (même garde-fou que drizzle.config.ts) et exige un SEED_OWNER_USER_ID uuid.
  */
 export function parseSeedEnv(source: EnvSource): { ownerUserId: string } {
-  // adminDb lit toujours DATABASE_URL : une cible de migration ici ferait croire à un seed de la branche test.
+  // withAdminTx lit toujours DATABASE_URL : une cible de migration ici ferait croire à un seed de la branche test.
   if (source.MIGRATION_TARGET) {
     throw new Error(
       "MIGRATION_TARGET n'est pas prise en charge par le seed : il vise toujours DATABASE_URL.",
@@ -114,9 +120,9 @@ async function main(): Promise<void> {
   // Erreurs des garde-fous : messages maison, sans valeur de variable.
   const { ownerUserId } = parseSeedEnv(process.env);
   // Import après les garde-fous : le pool propriétaire ne s'ouvre qu'une fois la cible validée.
-  const { adminDb } = await import("../src/db/admin");
+  const { endAdminPool, withAdminTx } = await import("../src/db/admin");
   try {
-    const { created } = await seedWorkspace(adminDb, { ownerUserId });
+    const { created } = await seedWorkspace(withAdminTx, { ownerUserId });
     console.log(
       created
         ? "Seed : workspace et contextes créés."
@@ -125,7 +131,7 @@ async function main(): Promise<void> {
   } catch (error) {
     throw new Error(seedFailureMessage(error));
   } finally {
-    await adminDb.$client.end();
+    await endAdminPool();
   }
 }
 

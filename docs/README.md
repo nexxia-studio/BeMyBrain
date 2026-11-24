@@ -16,6 +16,7 @@ Index lu par Claude au démarrage (via `@docs/README.md` dans CLAUDE.md). Une li
 | `decisions/ADR-010-migrations-production-par-ci.md` | Migrations de production par GitHub Actions ; aucun accès propriétaire de prod en local ni sur Vercel | Avant toute migration ou config d'environnement |
 | `runbooks/restauration-production.md` | Restaurer la production Neon, fenêtre de 6 h, test du 2026-11-18 | En cas de perte de données en production |
 | `runbooks/sentry.md` | Sentry : projet, activation, données personnelles, alerte e-mail, limite du chargement différé | Avant de toucher à Sentry, en cas d'erreur en production |
+| `runbooks/veille-base.md` | Écran d'erreur après une veille de la base (BRAIN-50) : cause, nouvelle tentative, script de reproduction, vérification sur preview | En cas de `DatabaseError` à l'ouverture, avant de toucher au pool |
 | `features/<nom>/` | `spec.md`, `plan.md`, `qa-report.md` d'une feature | Pendant la feature |
 | `features/_template/` | Modèles de spec et de plan | Au `/feature` |
 | `design/references/` | Visuels de référence (liquid glass, bento) | Avant DESIGN.md et toute UI |

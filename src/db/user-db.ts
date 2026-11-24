@@ -6,6 +6,11 @@ import { z } from "zod";
 
 import { DomainError } from "@/lib/errors";
 
+import { DatabaseError, sqlStateOf } from "./database-error";
+import { runTransaction, type TransactionDb } from "./transaction-retry";
+
+export { DatabaseError };
+
 // Seul point du code qui injecte une identité dans la base (ADR-002, plan socle).
 // Interne à src/db : l'app passe par withUserDb de ./client (garde eslint).
 
@@ -65,19 +70,6 @@ const TOKEN_REFUSAL_CODES = new Set([
 ]);
 
 /**
- * Échec d'une requête dans withUserDb. Message fixe, sans cause chaînée ni `query` / `params`
- * (Drizzle y met les valeurs liées, dont les claims) : on ne garde que le SQLSTATE.
- */
-export class DatabaseError extends Error {
-  readonly code: string | undefined;
-  constructor(code?: string) {
-    super("Erreur de base de données");
-    this.name = "DatabaseError";
-    this.code = code;
-  }
-}
-
-/**
  * Les claims posés ne sont pas ceux que lit la base (app.current_user_id() ≠ sub, ou NULL).
  * Garde-fou si pg_session_jwt change de comportement : jamais d'identité NULL en silence.
  * Message fixe, sans claims.
@@ -92,14 +84,6 @@ export class IdentityNotAppliedError extends Error {
 function codeOf(error: unknown, pattern: RegExp): string | undefined {
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === "string" && pattern.test(code) ? code : undefined;
-}
-
-function sqlStateOf(error: unknown): string | undefined {
-  // Drizzle enveloppe l'erreur du pilote : le SQLSTATE est sur l'erreur ou sur sa cause.
-  return (
-    codeOf(error, /^[0-9A-Z]{5}$/) ??
-    codeOf((error as { cause?: unknown } | null)?.cause, /^[0-9A-Z]{5}$/)
-  );
 }
 
 export function createTokenVerifier(
@@ -134,13 +118,18 @@ export function createTokenVerifier(
 
 export function createWithUserDb(deps: {
   verify: VerifyToken;
-  db: Pick<UserDb, "transaction">;
+  db: TransactionDb<UserTx>;
+  /** Purge du pool avant une nouvelle tentative (AppPool.evictIdle). */
+  evictIdle: () => Promise<void>;
+  /** Rôle du pool, seul détail de la trace d'une nouvelle tentative. */
+  poolName: string;
 }) {
   return async function withUserDb<T>(
     token: string,
     fn: (tx: UserTx, identity: UserIdentity) => Promise<T>,
   ): Promise<T> {
-    // Vérification AVANT toute connexion : un jeton refusé n'ouvre pas de transaction.
+    // Vérification AVANT toute connexion : un jeton refusé n'ouvre pas de transaction. Une seule fois : la
+    // nouvelle tentative (BRAIN-50) reprend ces claims déjà vérifiés, sans nouvelle entrée.
     const claims = await deps.verify(token);
     // Minimum utile aux policies : pas d'e-mail ni d'autre claim dans la session Postgres.
     // role constant : aucune policy ne le lit, et un jeton ne doit pas pouvoir en choisir la valeur.
@@ -149,23 +138,25 @@ export function createWithUserDb(deps: {
       role: "authenticated",
       ...(claims.exp !== undefined && { exp: claims.exp }),
     };
+    // Mise en place de l'identité, rejouée en entier sur la nouvelle connexion si la première tombe avant fn.
+    const setIdentity = async (tx: UserTx) => {
+      // Charge pg_session_jwt AVANT set_config : chargée plus tard dans la transaction, la bibliothèque
+      // redéfinit request.jwt.claims et efface la valeur locale (auth.uid() = NULL au premier appel
+      // d'un backend neuf). Constaté sur Neon le 2026-11-12.
+      await tx.execute(sql`select app.current_user_id()`);
+      // `true` = portée transaction : les claims disparaissent au COMMIT / ROLLBACK.
+      await tx.execute(
+        sql`select set_config('request.jwt.claims', ${JSON.stringify(injected)}, true)`,
+      );
+      const check = await tx.execute<{ applied: boolean | null }>(
+        sql`select app.current_user_id() = ${claims.sub}::uuid as applied`,
+      );
+      if (check.rows[0]?.applied !== true) throw new IdentityNotAppliedError();
+    };
     try {
-      return await deps.db.transaction(async (tx) => {
-        // Charge pg_session_jwt AVANT set_config : chargée plus tard dans la transaction, la bibliothèque
-        // redéfinit request.jwt.claims et efface la valeur locale (auth.uid() = NULL au premier appel
-        // d'un backend neuf). Constaté sur Neon le 2026-11-12.
-        await tx.execute(sql`select app.current_user_id()`);
-        // `true` = portée transaction : les claims disparaissent au COMMIT / ROLLBACK.
-        await tx.execute(
-          sql`select set_config('request.jwt.claims', ${JSON.stringify(injected)}, true)`,
-        );
-        const check = await tx.execute<{ applied: boolean | null }>(
-          sql`select app.current_user_id() = ${claims.sub}::uuid as applied`,
-        );
-        if (check.rows[0]?.applied !== true)
-          throw new IdentityNotAppliedError();
-        return fn(tx, { userId: claims.sub });
-      });
+      return await runTransaction(deps, setIdentity, (tx) =>
+        fn(tx, { userId: claims.sub }),
+      );
     } catch (error) {
       // Erreurs de contrôle de Next levées dans fn (redirect, notFound…) : relancées telles quelles,
       // sinon masquées en DatabaseError (doc Next « unstable_rethrow », 16.4).

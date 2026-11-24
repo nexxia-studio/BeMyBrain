@@ -329,7 +329,12 @@
       "undo": "Annuler",
       "restored": "Tâche restaurée",
       "trashFailed": "Tâche non mise à la corbeille. Réessaie.",
-      "restoreFailed": "Tâche non restaurée. Réessaie."
+      "restoreFailed": "Tâche non restaurée. Réessaie.",
+      "error": {
+        "title": "Détail indisponible",
+        "body": "Cette tâche n'a pas pu être chargée. Réessaie dans un instant.",
+        "retry": "Réessayer"
+      }
     },
     "trash": {
       "side": "Côté :",

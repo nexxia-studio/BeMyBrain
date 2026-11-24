@@ -329,7 +329,12 @@
       "undo": "Undo",
       "restored": "Task restored",
       "trashFailed": "Task not moved to trash. Try again.",
-      "restoreFailed": "Task not restored. Try again."
+      "restoreFailed": "Task not restored. Try again.",
+      "error": {
+        "title": "Details unavailable",
+        "body": "This task couldn't be loaded. Try again in a moment.",
+        "retry": "Try again"
+      }
     },
     "trash": {
       "side": "Side:",

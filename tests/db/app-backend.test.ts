@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { Pool } from "@neondatabase/serverless";
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-serverless";
 import { describe, expect, it } from "vitest";
 
+import { createPooledDb } from "@/db/transaction-retry";
 import { createWithUserDb, type VerifiedClaims } from "@/db/user-db";
 
 const url = process.env.DATABASE_TEST_AUTHENTICATED_URL;
@@ -39,7 +39,11 @@ async function withSingleConnection<T>(run: (pool: Pool) => Promise<T>) {
 function withUserDbOn(pool: Pool) {
   return createWithUserDb({
     verify: async () => claims,
-    db: drizzle({ client: pool }),
+    // Comme src/db/client.ts : connexion prise et rendue par transaction.
+    db: createPooledDb(pool),
+    // Pool à une connexion, jamais gelé : la nouvelle tentative est testée par pool-dead-after-freeze.
+    evictIdle: async () => undefined,
+    poolName: "test",
   });
 }
 

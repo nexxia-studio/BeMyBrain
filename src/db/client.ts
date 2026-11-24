@@ -1,12 +1,12 @@
 // Défense en plus : accès base, jamais dans un bundle client.
 import "server-only";
 
-import { drizzle } from "drizzle-orm/neon-serverless";
 import { createRemoteJWKSet } from "jose";
 
 import { getAppEnv } from "@/env";
 
 import { createPool } from "./pool";
+import { createPooledDb } from "./transaction-retry";
 import {
   createTokenVerifier,
   createWithUserDb,
@@ -29,14 +29,20 @@ function getInstance() {
   const env = getAppEnv();
   // Rôle app_backend : LOGIN, sans BYPASSRLS, soumis à la RLS.
   const pool = createPool(env.DATABASE_AUTHENTICATED_URL, "app_backend");
-  const db = drizzle({ client: pool });
+  // Connexion prise et rendue par transaction (createPooledDb) : une connexion morte sort du pool.
+  const db = createPooledDb(pool);
   const verify = createTokenVerifier(
     createRemoteJWKSet(new URL(env.NEON_AUTH_JWKS_URL)),
     // Neon Auth pose iss = aud = origine de l'URL Neon Auth de la branche (doc Neon « JWT »,
     // vérifiée le 2026-11-12) ; figés par variable d'environnement, une valeur par branche.
     { issuer: env.NEON_AUTH_ISSUER, audience: env.NEON_AUTH_AUDIENCE },
   );
-  instance = createWithUserDb({ verify, db });
+  instance = createWithUserDb({
+    verify,
+    db,
+    evictIdle: pool.evictIdle,
+    poolName: "app_backend",
+  });
   return instance;
 }
 
