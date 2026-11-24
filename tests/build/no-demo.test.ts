@@ -17,9 +17,7 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 const allowedSegments = ALLOWED_DEMOS.map((route) =>
   route.slice("/demo/".length),
 );
-const allowedDirs = allowedSegments.map((segment) =>
-  join(DEMO_DIR, segment),
-);
+const allowedDirs = allowedSegments.map((segment) => join(DEMO_DIR, segment));
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(join(ROOT, dir), { recursive: true, withFileTypes: true })
@@ -56,6 +54,13 @@ describe("démos fermées, sauf les démos temporaires listées", () => {
     expect(dirs.filter((name) => !allowedSegments.includes(name))).toEqual([]);
   });
 
+  it.each(allowedDirs)(
+    "démo admise %s présente : une démo supprimée vide la liste",
+    (dir) => {
+      expect(existsSync(join(ROOT, dir))).toBe(true);
+    },
+  );
+
   it.each(["fr", "en"])(
     "aucune clé glassDemo dans messages/%s.json",
     (locale) => {
@@ -75,11 +80,11 @@ describe("démos fermées, sauf les démos temporaires listées", () => {
     ).toEqual([]);
   });
 
-  it("aucune route /demo/ hors des démos admises ni cookie d'intensité du givre dans src/", () => {
+  it("route /demo/ citée seulement dans les fichiers de sa démo admise, aucun cookie d'intensité du givre dans src/", () => {
     const routes = src.flatMap(({ file, text }) =>
       [...text.matchAll(/\/demo\/[A-Za-z0-9_-]*/g)]
         .map(([route]) => route)
-        .filter((route) => !isAllowedRoute(route))
+        .filter((route) => !(isAllowedRoute(route) && inAllowedDemo(file)))
         .map((route) => `${file} : ${route}`),
     );
 

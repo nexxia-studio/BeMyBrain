@@ -147,7 +147,7 @@ test("@desktop une carte glissée à la souris de « À faire » vers « À plan
 }) => {
   await signIn(page);
   await openDemo(page);
-  await chooseSetting(page, DEMO.settings.latency, DEMO.settings.latencyOne);
+  await chooseSetting(page, DEMO.settings.latency, DEMO.settings.latencyThree);
   const status = page.getByRole("status").filter({ hasText: DEMO.saved });
   const from = await center(card(page, "unstarted-1"));
   const to = await center(card(column(page, "backlog"), "backlog-1"));
@@ -161,9 +161,10 @@ test("@desktop une carte glissée à la souris de « À faire » vers « À plan
 
   await expect(card(column(page, "backlog"), "unstarted-1")).toBeVisible();
   await expect(card(column(page, "unstarted"), "unstarted-1")).toHaveCount(0);
-  // Latence simulée de 1 s : la carte est déjà déposée pendant l'enregistrement, et y reste après.
+  // Latence simulée de 3 s (marge sous une machine chargée) : la carte est déjà déposée pendant
+  // l'enregistrement, et y reste après.
   await expect(status).toHaveCount(0);
-  await expect(status).toBeVisible();
+  await expect(status).toBeVisible({ timeout: 10_000 });
   await expect(overlay(page)).toHaveCount(0);
   await expect(card(column(page, "backlog"), "unstarted-1")).toBeVisible();
 });
