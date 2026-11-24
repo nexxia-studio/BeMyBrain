@@ -19,13 +19,16 @@ async function isDevelopmentServer(page: Page): Promise<boolean> {
   return csp.includes("'unsafe-eval'");
 }
 
-test("@desktop connecté, /demo/kanban répond 404 sur un build de production et s'ouvre sous pnpm dev", async ({
+test("@desktop connecté, /demo/kanban répond 404 sur un build de production et s'ouvre sous pnpm dev, /tasks répond 200", async ({
   page,
 }) => {
   await signIn(page);
   const development = await isDevelopmentServer(page);
 
-  const response = await page.goto("/demo/kanban");
+  const demo = await page.goto("/demo/kanban");
+  const other = await page.goto("/tasks");
 
-  expect(response?.status()).toBe(development ? 200 : 404);
+  expect(demo?.status()).toBe(development ? 200 : 404);
+  // Même session, même build : une autre page de (app) s'ouvre, le 404 vient donc de la garde de la démo.
+  expect(other?.status()).toBe(200);
 });

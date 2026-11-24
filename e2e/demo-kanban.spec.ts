@@ -136,22 +136,22 @@ test("la démo se charge sans avertissement ni erreur en console, hydratation co
   const messages = watchConsole(page);
 
   await openDemo(page);
-  // Rendu client terminé : la hauteur de la page ne bouge plus, plus rien ne doit s'écrire en console.
+  // Plus aucune requête en vol (morceaux JS différés compris) : leurs messages éventuels sont relevés.
   await page.waitForLoadState("networkidle");
 
   expect(messages).toEqual([]);
 });
 
-test("@desktop une carte glissée à la souris de « À faire » vers « À planifier » y apparaît et y reste", async ({
+test("@desktop une carte glissée à la souris de « À faire » vers « À planifier » y apparaît et y reste une fois enregistrée", async ({
   page,
 }) => {
   await signIn(page);
   await openDemo(page);
-  const moved = card(page, "unstarted-1");
-  const target = card(column(page, "backlog"), "backlog-1");
+  await chooseSetting(page, DEMO.settings.latency, DEMO.settings.latencyOne);
+  const status = page.getByRole("status").filter({ hasText: DEMO.saved });
+  const from = await center(card(page, "unstarted-1"));
+  const to = await center(card(column(page, "backlog"), "backlog-1"));
 
-  const from = await center(moved);
-  const to = await center(target);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(from.x + 10, from.y, { steps: 2 });
@@ -161,22 +161,44 @@ test("@desktop une carte glissée à la souris de « À faire » vers « À plan
 
   await expect(card(column(page, "backlog"), "unstarted-1")).toBeVisible();
   await expect(card(column(page, "unstarted"), "unstarted-1")).toHaveCount(0);
-  await expect(
-    page.getByRole("status").filter({ hasText: DEMO.saved }),
-  ).toBeVisible();
+  // Latence simulée de 1 s : la carte est déjà déposée pendant l'enregistrement, et y reste après.
+  await expect(status).toHaveCount(0);
+  await expect(status).toBeVisible();
   await expect(overlay(page)).toHaveCount(0);
   await expect(card(column(page, "backlog"), "unstarted-1")).toBeVisible();
 });
 
-test("@mobile en onglets, une carte gardée appuyée au-delà du délai puis déposée sur « À faire » change de colonne", async ({
+test("@mobile au doigt, la carte se saisit au bout du délai d'appui, pas avant", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.clock.install();
+  await openDemo(page);
+  await chooseSetting(page, DEMO.settings.delay, DEMO.settings.delayLong);
+  const finger = await Finger.on(page);
+  const from = await center(card(page, "unstarted-1"));
+  // Horloge arrêtée : seul `runFor` fait passer le temps de la page (minuterie du délai de dnd-kit).
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+  await finger.down(from);
+  await page.clock.runFor(399);
+  const overlayBefore = await overlay(page).count();
+  await page.clock.runFor(1);
+
+  expect(overlayBefore).toBe(0);
+  await expect(overlay(page)).toBeVisible();
+  await finger.up();
+  await page.clock.resume();
+  await expect(overlay(page)).toHaveCount(0);
+});
+
+test("@mobile en onglets, une carte saisie au doigt puis déposée sur l'onglet « À faire » change de colonne", async ({
   page,
 }) => {
   await signIn(page);
   await openDemo(page);
   await chooseSetting(page, DEMO.settings.layout, DEMO.settings.layoutTabs);
-  await chooseSetting(page, DEMO.settings.delay, DEMO.settings.delayLong);
-  const tabs = page.getByRole("tablist");
-  const todoTab = tabs.getByRole("tab", {
+  const todoTab = page.getByRole("tablist").getByRole("tab", {
     name: new RegExp(`^${STATUS.unstarted}`),
   });
   const todoCountBefore = Number(
@@ -186,15 +208,12 @@ test("@mobile en onglets, une carte gardée appuyée au-delà du délai puis dé
   const from = await center(card(page, "backlog-1"));
   const to = await center(todoTab);
 
-  const pressedAt = Date.now();
   await finger.down(from);
-  // La carte se saisit seule une fois le délai passé, sans bouger : on attend la saisie, pas une durée.
+  // Doigt immobile : la carte se saisit d'elle-même au bout du délai d'appui.
   await expect(overlay(page)).toBeVisible();
-  const heldMs = Date.now() - pressedAt;
   await finger.move(from, to);
   await finger.up();
 
-  expect(heldMs).toBeGreaterThanOrEqual(400);
   await expect(card(page, "backlog-1")).toHaveCount(0);
   await expect(todoTab).toContainText(String(todoCountBefore + 1));
   // dnd-kit avale tout clic dans les 50 ms qui suivent un glisser (pas de clic parasite au lâcher) : le
@@ -205,7 +224,6 @@ test("@mobile en onglets, une carte gardée appuyée au-delà du délai puis dé
       timeout: 500,
     });
   }).toPass();
-  await expect(card(column(page, "unstarted"), "backlog-1")).toBeVisible();
   await expect(
     column(page, "unstarted").locator("[data-board-card]").first(),
   ).toHaveAttribute("data-board-card", "backlog-1");
@@ -215,26 +233,26 @@ test("@mobile un glisser lancé sans attendre le délai ne saisit pas la carte e
   page,
 }) => {
   await signIn(page);
+  await page.clock.install();
   await openDemo(page);
   await chooseSetting(page, DEMO.settings.delay, DEMO.settings.delayLong);
   const board = page.locator("[data-board-column]").first().locator("..");
   const scrollBefore = await board.evaluate((el) => el.scrollLeft);
   const finger = await Finger.on(page);
   const from = await center(card(page, "unstarted-1"));
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
 
   await finger.down(from);
   await finger.move(from, { x: from.x - 200, y: from.y }, 8);
-  // Doigt immobile au-delà du délai d'appui (400 ms) : la saisie, annulée par le mouvement, ne vient jamais.
-  await page.waitForTimeout(600);
+  // Doigt immobile bien au-delà du délai d'appui (400 ms) : la saisie, annulée par le mouvement, ne vient pas.
+  await page.clock.runFor(600);
   const overlayWhileHeld = await overlay(page).count();
   await finger.up();
+  await page.clock.resume();
 
   expect(overlayWhileHeld).toBe(0);
   await expect
     .poll(() => board.evaluate((el) => el.scrollLeft))
     .toBeGreaterThan(scrollBefore);
   await expect(card(column(page, "unstarted"), "unstarted-1")).toBeVisible();
-  await expect(
-    page.getByRole("status").filter({ hasText: DEMO.saved }),
-  ).toBeVisible();
 });
