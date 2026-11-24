@@ -795,14 +795,16 @@ test("@desktop au survol d'une carte, main ouverte et relief ; pendant le glisse
   await expect
     .poll(() => overlay(page).evaluate((el) => el.style.transform))
     .toContain("rotate(2deg)");
-  await expect(page.locator("[data-board-footprint]")).toHaveAttribute(
-    "data-board-card",
-    "unstarted-1",
-  );
+  await expect(target.getByTestId("board-footprint")).toBeVisible();
+  await expect(page.getByTestId("board-footprint")).toHaveCount(1);
+  // L'empreinte garde son nom au lecteur d'écran (contenu transparent, pas retiré de l'arbre d'accessibilité).
+  await expect(
+    page.getByRole("button", { name: /Rappeler le plombier/ }),
+  ).toHaveCount(1);
   await page.mouse.up();
 
   await expect(overlay(page)).toHaveCount(0);
-  await expect(page.locator("[data-board-footprint]")).toHaveCount(0);
+  await expect(page.getByTestId("board-footprint")).toHaveCount(0);
   expect(messages).toEqual([]);
 });
 

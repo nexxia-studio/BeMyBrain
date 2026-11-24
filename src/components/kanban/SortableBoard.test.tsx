@@ -739,33 +739,59 @@ describe("SortableBoard", () => {
     it("la copie qui suit le pointeur est inclinée et soulevée", async () => {
       await pickWithKeyboard("a");
 
-      expect(overlay().style.transform).toContain("rotate(2deg)");
-      expect(overlay().style.transform).toContain("translateY(-2px)");
+      // Motion pose la valeur finale à la frame suivante, même animations coupées.
+      await vi.waitFor(() => {
+        expect(overlay().style.transform).toContain("rotate(2deg)");
+        expect(overlay().style.transform).toContain("translateY(-2px)");
+      });
     });
 
     it("en mouvement réduit, la copie n'est ni inclinée ni soulevée", async () => {
       reducedMotion.current = true;
       await pickWithKeyboard("a");
+      // Deux frames : le temps que Motion aurait posé une inclinaison.
+      for (let frame = 0; frame < 2; frame++) {
+        await act(
+          () => new Promise((resolve) => requestAnimationFrame(resolve)),
+        );
+      }
 
       expect(overlay()).not.toBeNull();
       expect(overlay().style.transform).not.toContain("rotate");
       expect(overlay().style.transform).not.toContain("translateY");
     });
 
-    it("une empreinte reste à la place d'origine, contenu masqué, pendant un glisser au clavier", async () => {
+    function footprints() {
+      return document.querySelectorAll('[data-testid="board-footprint"]');
+    }
+
+    it("une empreinte en pointillé reste à la place d'origine pendant un glisser au clavier", async () => {
       await pickWithKeyboard("b");
       await press(cardHandle("b"), "ArrowDown");
 
-      const footprint = document.querySelector("[data-board-footprint]");
-      expect(footprint?.getAttribute("data-board-card")).toBe("b");
-      // Un emplacement, pas une carte en double : contour en pointillé, contenu invisible mais à sa taille.
-      expect(footprint?.className).toContain("outline-dashed");
+      expect(footprints()).toHaveLength(1);
       expect(
-        footprint?.firstElementChild?.classList.contains("invisible"),
-      ).toBe(true);
-      expect(document.querySelectorAll("[data-board-footprint]")).toHaveLength(
-        1,
-      );
+        footprints()[0]
+          .closest("[data-board-card]")
+          ?.getAttribute("data-board-card"),
+      ).toBe("b");
+      expect(footprints()[0].className).toContain("outline-dashed");
+    });
+
+    it("la carte saisie au clavier garde le focus et son anneau : le pointillé est sur un enfant", async () => {
+      await pickWithKeyboard("b");
+      await press(cardHandle("b"), "ArrowDown");
+
+      expect(document.activeElement).toBe(cardHandle("b"));
+      expect(document.activeElement?.className).not.toContain("outline");
+      expect(document.activeElement?.contains(footprints()[0])).toBe(true);
+    });
+
+    it("pendant la saisie, la carte garde son nom pour le lecteur d'écran", async () => {
+      await pickWithKeyboard("b");
+      await press(cardHandle("b"), "ArrowDown");
+
+      expect(screen.getByRole("button", { name: "b" })).toBe(cardHandle("b"));
     });
 
     it("l'empreinte disparaît au dépôt", async () => {
@@ -773,10 +799,7 @@ describe("SortableBoard", () => {
       await press(cardHandle("b"), "ArrowDown");
       await press(cardHandle("b"), "Space");
 
-      expect(document.querySelector("[data-board-footprint]")).toBeNull();
-      expect(
-        cardHandle("b").firstElementChild?.classList.contains("invisible"),
-      ).toBe(false);
+      expect(footprints()).toHaveLength(0);
     });
   });
 });

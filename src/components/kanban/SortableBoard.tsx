@@ -34,9 +34,10 @@
 // s'incline de 2°, par le ressort du tiroir (`bounce` 0,2, 0,3 s, DESIGN.md § 7), avec `shadow-glass` (pas de token
 // d'ombre plus marquée). Au dépôt, elle revient à plat pendant l'animation de dépôt de dnd-kit : dnd-kit garde la
 // copie montée le temps du dépôt, et `LiftedContext` (hors de `DragOverlay`) lui dit que la saisie est finie. À sa
-// place d'origine, la carte laisse une empreinte : son contenu est masqué (la place est gardée) et l'emplacement est
-// dessiné en pointillé (`outline`, sans changer la taille) sur un fond `pill-track`, pour ne pas lire une carte en
-// double. Ordinateur (pointeur fin et survol, variantes `pointer-fine` et `hover`) : main ouverte et `shadow-raised`
+// place d'origine, la carte laisse une empreinte : son contenu devient transparent (la place est gardée, le nom reste
+// lu par le lecteur d'écran) et un calque enfant dessine l'emplacement en pointillé (`outline`, sans changer la
+// taille) sur un fond `pill-track`, pour ne pas lire une carte en double ; l'`outline` de la carte reste à l'anneau
+// de focus. Ordinateur (pointeur fin et survol, variantes `pointer-fine` et `hover`) : main ouverte et `shadow-raised`
 // au survol, main fermée sur la copie ; rien au doigt (pas de survol collé après un tap sur iOS).
 // Mouvement réduit : pas d'animation de dépôt ni de glissement des cartes voisines ; la copie n'est ni inclinée ni
 // soulevée (ombre et empreinte restent, sans transition).
@@ -665,17 +666,24 @@ function SortableCard({
         transition: reducedMotion ? undefined : transition,
         WebkitTouchCallout: "none",
       }}
-      data-board-footprint={isDragging ? "" : undefined}
       className={cn(
-        "touch-manipulation rounded-lg select-none pointer-fine:cursor-grab pointer-fine:hover:shadow-raised",
-        isDragging &&
-          "bg-pill-track outline outline-dashed -outline-offset-1 outline-input pointer-fine:hover:shadow-none",
+        "relative touch-manipulation rounded-lg select-none pointer-fine:cursor-grab",
+        !isDragging && "pointer-fine:hover:shadow-raised",
       )}
     >
-      {/* Empreinte : contenu invisible mais à sa taille, la colonne ne bouge pas. */}
-      <div className={cn(isDragging && "invisible")}>
+      {/* Empreinte : contenu transparent mais à sa taille (la colonne ne bouge pas) et toujours lu par le lecteur
+          d'écran, qui garde le nom de la carte focalisée (`invisible` le retirerait). */}
+      <div className={cn(isDragging && "opacity-0")}>
         {children(isDragging)}
       </div>
+      {/* Pointillé sur un enfant : l'`outline` de la carte reste à l'anneau de focus (saisie au clavier). */}
+      {isDragging ? (
+        <span
+          aria-hidden="true"
+          data-testid="board-footprint"
+          className="pointer-events-none absolute inset-0 rounded-lg bg-pill-track outline outline-dashed -outline-offset-1 outline-input"
+        />
+      ) : null}
     </div>
   );
 }
