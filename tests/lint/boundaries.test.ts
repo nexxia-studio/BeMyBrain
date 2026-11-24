@@ -636,6 +636,8 @@ const DND_KIT_INDIRECT_IMPORTS = {
   "typeof import()": 'export type X = typeof import("@dnd-kit/core");\n',
   "vi.mock": 'vi.mock("@dnd-kit/core");\n',
   "vi.doMock": 'vi.doMock("@dnd-kit/core", () => ({}));\n',
+  "vi.unmock": 'vi.unmock("@dnd-kit/core");\n',
+  "vi.doUnmock": 'vi.doUnmock("@dnd-kit/core");\n',
   "vi.importActual":
     'export const x = await vi.importActual("@dnd-kit/utilities");\n',
   "vi.importMock": 'export const x = await vi.importMock("@dnd-kit");\n',
@@ -701,6 +703,24 @@ describe("verrou d'import de dnd-kit", () => {
 
     expect(errors).toEqual([]);
   });
+
+  it.each([
+    [
+      "createRequire",
+      'import { createRequire } from "node:module";\nexport const x = createRequire;\n',
+    ],
+    ["require de src/db", 'export const x = require("@/db/client");\n'],
+  ])(
+    "SortableBoard.tsx garde le socle de syntaxe : %s y reste refusé",
+    async (_form, code) => {
+      const errors = await restrictedImportRules(
+        code,
+        "src/components/kanban/SortableBoard.tsx",
+      );
+
+      expect(errors.length).toBeGreaterThan(0);
+    },
+  );
 
   it("SortableBoard.tsx garde les autres frontières de l'UI", async () => {
     const code = 'import { db } from "@/db/client";\nexport const x = db;\n';

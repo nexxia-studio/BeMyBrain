@@ -267,6 +267,22 @@ describe("SortableBoard", () => {
     expect(document.activeElement).toBe(doing);
   });
 
+  it("en onglets, Fin choisit le dernier onglet et Début le premier", () => {
+    render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
+    const [todo, doing] = screen.getAllByRole("tab");
+    todo.focus();
+
+    fireEvent.keyDown(todo, { key: "End" });
+
+    expect(document.activeElement).toBe(doing);
+    expect(doing.getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(doing, { key: "Home" });
+
+    expect(document.activeElement).toBe(todo);
+    expect(todo.getAttribute("aria-selected")).toBe("true");
+  });
+
   it("en onglets, revient à la première colonne quand la colonne choisie disparaît", () => {
     const { rerender } = render(board(vi.fn(), COLUMNS, { layout: "tabs" }));
     fireEvent.click(screen.getByRole("tab", { name: /DOING/ }));

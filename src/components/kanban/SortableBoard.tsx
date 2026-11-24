@@ -177,7 +177,7 @@ export function SortableBoard<T extends BoardItem>({
   const reducedMotion = useReducedMotion() ?? false;
   const [draft, setDraft] = useState<Layout | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [chosenColumnId, setShownColumnId] = useState(columns[0]?.id);
+  const [chosenColumnId, setChosenColumnId] = useState(columns[0]?.id);
   // Colonne choisie retirée par le parent : retour à la première.
   const shownColumnId = columns.some((column) => column.id === chosenColumnId)
     ? chosenColumnId
@@ -308,7 +308,7 @@ export function SortableBoard<T extends BoardItem>({
       return;
     }
     event.preventDefault();
-    setShownColumnId(columns[next].id);
+    setChosenColumnId(columns[next].id);
     event.currentTarget
       .querySelectorAll<HTMLElement>('[role="tab"]')
       [next]?.focus();
@@ -349,7 +349,7 @@ export function SortableBoard<T extends BoardItem>({
               count={current[column.id]?.length ?? 0}
               selected={column.id === shownColumnId}
               panelId={`${tabsId}-panel`}
-              onSelect={() => setShownColumnId(column.id)}
+              onSelect={() => setChosenColumnId(column.id)}
             />
           ))}
         </div>

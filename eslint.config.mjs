@@ -53,6 +53,9 @@ const processImports = [
 // Imports statiques (dndKitImports) et chemins détournés (dndKitSyntax : import(), require, typeof import(),
 // vi.mock & co). Posé sur tout le dépôt (dndKitEverywhere), repris par chaque config de src qui pose la règle
 // (socles importSocle et syntaxSocle + dnd-kit), levé pour ce seul fichier en dernier (sortableBoardBoundaries).
+// Contournements délibérés non couverts (verrou de relecture, pas une barrière) : gabarit de chaîne dans import()
+// dans tests/, e2e/, scripts/ et src/db/ (ailleurs dans src/, commonSyntax refuse déjà toute source non
+// littérale) ; `vi` renommé (`const v = vi; v.mock(...)`) ou importé sous un autre nom.
 const SORTABLE_BOARD = "src/components/kanban/SortableBoard.tsx";
 const dndKitMessage =
   "dnd-kit est réservé à src/components/kanban/SortableBoard.tsx : passer par ce composant.";
