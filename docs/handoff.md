@@ -1,25 +1,26 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-23 — session : `/handoff` après fusion de `effets-de-verre` (BRAIN-33)
+**Dernière mise à jour** : 2026-11-24 — session : `/handoff` après PR #13 (BRAIN-50, BRAIN-47, BRAIN-54)
 
 ## Où on en est
-- Effets de verre (BRAIN-33) : terminé, fusionné dans `main` le 2026-11-23 (PR #11, commit `171e064`).
-- Tâches 1 à 9 et QA-1 à QA-6 faites. `/qa` : 7 scénarios PASS (`docs/features/effets-de-verre/qa-report.md`). Essais iPhone validés.
-- En production : migration verte, sans nouvelle migration ; build de production en ligne ; aucune erreur BeMyBrain dans Sentry depuis la mise en ligne.
-- Tests rouges : `e2e/todo-aujourdhui.spec.ts`, données restées sur le compte e2e (BRAIN-52). Rien d'autre.
+- PR #13 `fix/brain-50-veille-base` : fusionnée le 2026-11-24 (à corriger si la fusion a échoué). Reviewer et security-auditor OK, `/qa` PASS.
+- BRAIN-50 (connexions mortes après veille Neon) : solution C, une nouvelle tentative avant le travail métier (`src/db/transaction-retry.ts`). BRAIN-47 (erreur du détail) et BRAIN-54 (groupe `tasks/(list)/`) faits dans la même PR.
+- BRAIN-50 reste OUVERT « à confirmer en production » : sur preview, aucune ligne « Nouvelle tentative » (critère prouvé en local, `qa-report.md`).
+- Mot de passe `app_backend` de la branche `test` changé le 2026-11-23 (fuite dans une sortie d'agent). Règle « Secrets dans les sorties » ajoutée aux agents.
+- Tests rouges : BRAIN-52 (`e2e/todo-aujourdhui.spec.ts`). Rien d'autre.
 
 ## Prochaine étape
-Reproduire BRAIN-50 (écran d'erreur à l'ouverture après une mise en veille de la base, priorité haute), avec BRAIN-47 et BRAIN-54 (`@detail`, priorité moyenne, même cause).
-Commande de reprise : `Reproduis BRAIN-50 (écran d'erreur à l'ouverture après mise en veille de la base) sur une branche depuis main, puis demande à Antoine correctif direct ou spec courte + plan (pas /feature : c'est un correctif).`
+Surveiller dans les journaux Vercel de production la ligne « Nouvelle tentative sur le pool », suivie d'un affichage normal : c'est ce qui ferme BRAIN-50. Si elle n'apparaît pas, prendre BRAIN-51 (durcissements du pool), le plus proche du code.
+Commande de reprise : `Lis docs/runbooks/veille-base.md et docs/features/brain-50-veille-base/qa-report.md. Vérifie si la production a écrit « Nouvelle tentative sur le pool » (BRAIN-50). Si oui, ferme BRAIN-50. Si non, propose BRAIN-51 en spec courte + plan (pas /feature : correctif).`
 
-## Tickets ouverts par la feature
-- BRAIN-50 (haute), BRAIN-51 (durcissements du pool), BRAIN-52 (isolation de l'e2e), BRAIN-53 (cookies de préférences), BRAIN-54 (`@detail`).
+## Restes connus
+- BRAIN-50 : ~35 `rejects.toMatchObject` dans `tests/db` à passer sur `errorTag` ; e2e `todo-chargement` à prouver ; scénario 2 de `/qa` et mode `--suspend` non joués.
+- Ticket Linear « retour visible à l'ouverture d'un détail lent » (créé le 2026-11-24, priorité moyenne).
 
 ## Suite
-- BRAIN-47 : `error.tsx` et `loading.tsx` dans `tasks/@detail`.
-- Faible priorité : BRAIN-43 (relais iOS), BRAIN-44 (contrôles désactivés après un ajout), BRAIN-45 (pagination de la corbeille).
-- Design à trancher (plan, tâche 18) : menus Date et Tags sur mobile, Notes trop haut, « Demain » = « Ce week-end » le vendredi, place vide à 1440 px, survol, icônes de priorité (ticket proposé).
-- BRAIN-26 : essai Android, owner/member, choix du workspace. BRAIN-37 : ordre migration / mise en ligne. BRAIN-35 : source maps Sentry. BRAIN-36 : deux GET `/settings` par clic. BRAIN-49 : durcissements sécurité (existant).
+- BRAIN-51 (durcissements du pool), BRAIN-53, BRAIN-52. Faible priorité : BRAIN-43, BRAIN-44, BRAIN-45.
+- Design à trancher (`effets-de-verre`, tâche 18) : menus Date et Tags mobile, Notes, « Demain » le vendredi, place vide à 1440 px, survol, icônes de priorité.
+- BRAIN-26, BRAIN-37, BRAIN-35, BRAIN-36, BRAIN-49 (inchangés).
 
 ## Questions ouvertes
 - `SEED_OWNER_USER_ID` : secret GitHub en place, migration verte. Antoine supprime la variable GitHub.
