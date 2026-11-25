@@ -210,7 +210,9 @@
       "context_not_found": "Espace introuvable.",
       "subtask_depth": "Une sous-tâche ne peut pas avoir de sous-tâches.",
       "subtask_follows_parent": "Le côté et l'espace d'une sous-tâche suivent ceux de sa tâche parente.",
-      "parent_in_trash": "La tâche parente est à la corbeille. Restaure-la d'abord."
+      "parent_in_trash": "La tâche parente est à la corbeille. Restaure-la d'abord.",
+      "has_subtasks": "Cette tâche a des sous-tâches. Détache-les d'abord.",
+      "cross_side_parent": "La tâche parente est de l'autre côté. Choisis une parente du même côté."
     },
     "quickAdd": {
       "title": "Tâche",

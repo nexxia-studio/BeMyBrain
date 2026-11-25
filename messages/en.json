@@ -210,7 +210,9 @@
       "context_not_found": "Space not found.",
       "subtask_depth": "A subtask cannot have subtasks.",
       "subtask_follows_parent": "A subtask always has the side and space of its parent task.",
-      "parent_in_trash": "The parent task is in the trash. Restore it first."
+      "parent_in_trash": "The parent task is in the trash. Restore it first.",
+      "has_subtasks": "This task has subtasks. Detach them first.",
+      "cross_side_parent": "The parent task is on the other side. Pick a parent on the same side."
     },
     "quickAdd": {
       "title": "Task",

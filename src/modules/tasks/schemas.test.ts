@@ -7,6 +7,7 @@ import {
   listTasksFilterSchema,
   moveTaskInputSchema,
   parseTaskInput,
+  setTaskParentInputSchema,
   tagNameSchema,
   taskTitleSchema,
 } from "./schemas";
@@ -92,6 +93,34 @@ describe("schémas tasks", () => {
     }
   });
 
+  it("tâche parente : taskId et parentId obligatoires, null pour détacher, clé inconnue refusée", () => {
+    const taskId = "11111111-1111-4111-8111-111111111111";
+    const parentId = "22222222-2222-4222-8222-222222222222";
+    const ok = (value: unknown) =>
+      setTaskParentInputSchema.safeParse(value).success;
+
+    expect(ok({ taskId, parentId })).toBe(true);
+    expect(ok({ taskId, parentId: null })).toBe(true);
+    expect(ok({ taskId })).toBe(false);
+    expect(ok({ parentId })).toBe(false);
+    expect(ok({ taskId, parentId: "x" })).toBe(false);
+    expect(ok({ taskId, parentId, side: "pro" })).toBe(false);
+  });
+
+  it("tâche parente : chaque champ porte une description lisible par un modèle", () => {
+    const schema = setTaskParentInputSchema.toJSONSchema() as {
+      properties: Record<string, { description?: string }>;
+    };
+
+    expect(Object.keys(schema.properties).sort()).toEqual([
+      "parentId",
+      "taskId",
+    ]);
+    for (const property of Object.values(schema.properties)) {
+      expect(property.description).toMatch(/^[A-Z].+\.$/);
+    }
+  });
+
   it("parseTaskInput lève invalid_params sans la valeur reçue", () => {
     const error = (() => {
       try {
@@ -118,6 +147,8 @@ describe("erreurs tasks", () => {
       "subtask_depth",
       "subtask_follows_parent",
       "parent_in_trash",
+      "has_subtasks",
+      "cross_side_parent",
     ];
 
     expect(Object.keys(TASK_ERROR_MESSAGES).sort()).toEqual([...codes].sort());

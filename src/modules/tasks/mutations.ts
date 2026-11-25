@@ -32,10 +32,12 @@ import {
   moveTaskInputSchema,
   openStatusCategories,
   parseTaskInput,
+  setTaskParentInputSchema,
   taskIdSchema,
   updateTaskInputSchema,
   type CreateTaskInput,
   type MoveTaskInput,
+  type SetTaskParentInput,
   type StatusCategory,
   type UpdateTaskInput,
 } from "./schemas";
@@ -55,9 +57,10 @@ import { keyBetween, keysFor } from "./sort-key";
 //   1. lockBoardOrder (ordre du tableau du workspace), dès que l'écriture peut poser ou vider une clé, ou
 //      écrire plusieurs lignes de `tasks` : createTask dans une catégorie ouverte, updateTask avec
 //      `statusCategory` (completeTask compris), `side` ou `context` (famille écrite en une instruction),
-//      moveTask, moveTaskToTrash (famille), restoreTask (famille). Jamais pour un titre, des notes, des tags,
-//      une échéance ou une priorité : une seule ligne écrite, aucune clé ;
-//   2. la parente (lockTask) ;
+//      moveTask, moveTaskToTrash (famille), restoreTask (famille), setTaskParent (une ligne écrite, mais
+//      selon l'état de la parente et des sous-tâches). Jamais pour un titre, des notes, des tags, une
+//      échéance ou une priorité : une seule ligne écrite, aucune clé ;
+//   2. la parente (lockTask) : celle de la tâche, ou celle qu'on lui donne (setTaskParent) ;
 //   3. la tâche (lockTask), puis ses sous-tâches par l'instruction qui les écrit.
 // Jamais lockBoardOrder après un verrou de ligne.
 // Pourquoi les écritures de famille le prennent : la mise en ordre d'une colonne (moveTask) écrit toutes ses
@@ -562,6 +565,91 @@ export async function moveTask(
   return reload(workspace, taskId, tx);
 }
 
+/**
+ * Rattache une tâche active à une parente, la change de parente, ou la détache (`parentId: null`) ; renvoie
+ * son détail. Une seule ligne écrite, en une instruction, y compris pour un changement de parente (aucun
+ * détachement intermédiaire) : `parent_id` et `context_id` (espace de la parente). Côté, statut, place
+ * (`sort_key`), priorité, tags et relations ne changent pas ; détachée, la tâche garde aussi son espace.
+ * Refus, dans cet ordre : tâche absente, d'un autre workspace ou à la corbeille → not_found ; elle-même →
+ * invalid_params ; parente absente ou d'un autre workspace → not_found (même réponse, aucun oracle) ; à la
+ * corbeille → parent_in_trash ; elle-même sous-tâche → subtask_depth ; de l'autre côté → cross_side_parent
+ * (avant toute écriture : la clé étrangère (workspace_id, parent_id, side) n'est qu'un second verrou) ; la
+ * tâche a une sous-tâche active → has_subtasks (des sous-tâches à la corbeille ne comptent pas : elles ne se
+ * restaurent plus tant que la tâche est sous-tâche, voir restoreTask).
+ * Déjà dans l'état demandé (même parente, ou déjà de premier niveau) : rien n'est écrit.
+ *
+ * Verrous : lockBoardOrder, puis la parente visée, puis la tâche (ordre de l'en-tête).
+ * Pourquoi ni cycle ni profondeur 2, même avec deux appels croisés (A sous B pendant que B passe sous A) :
+ * - le verrou d'ordre met en série tous les setTaskParent du workspace, et avec eux toute écriture qui
+ *   change ce que les règles lisent : corbeille et restauration (deleted_at), côté et espace d'une famille
+ *   (updateTask). Aucune autre écriture ne modifie parent_id, deleted_at ni side ;
+ * - le second appel ne lit qu'après avoir obtenu ce verrou, donc après le COMMIT du premier (READ
+ *   COMMITTED : chaque instruction voit ce qui est validé). Il lit A déjà sous B : « B sous A » vise une
+ *   parente qui est sous-tâche → subtask_depth. De même, « T sous P » et « P sous Q » en parallèle : le
+ *   second lit soit P déjà sous-tâche (subtask_depth), soit P déjà parente de T (has_subtasks) ;
+ * - seule écriture de la famille hors verrou d'ordre : createTask d'une sous-tâche née terminée ou annulée.
+ *   Elle verrouille sa parente (lockTask) avant d'insérer, et setTaskParent verrouille les deux lignes dont
+ *   il juge l'état : l'un attend l'autre sur la ligne, puis la relit (FOR UPDATE rend la version validée).
+ *   Sous-tâche créée sous T d'abord → has_subtasks ; T rattachée d'abord → la création lit T sous-tâche →
+ *   subtask_depth.
+ * Pas d'interblocage : entre porteurs du verrou d'ordre, les verrous de ligne ne se croisent jamais (série) ;
+ * hors verrou d'ordre, une écriture ne tient qu'une ligne et n'en attend aucune autre.
+ */
+export async function setTaskParent(
+  workspaceId: string,
+  input: SetTaskParentInput,
+  tx: UserTx,
+): Promise<TaskDetail> {
+  const workspace = parseTaskInput(uuidSchema, workspaceId);
+  const i = parseTaskInput(setTaskParentInputSchema, input);
+  // Postgres rend les uuid en minuscules : mêmes identifiants pour les comparaisons faites ici.
+  const taskId = i.taskId.toLowerCase();
+  const parentId = i.parentId?.toLowerCase() ?? null;
+  const self = parentId === taskId;
+
+  await lockBoardOrder(workspace, tx);
+  const parent =
+    parentId === null || self ? null : await lockTask(workspace, parentId, tx);
+  const task = await lockTask(workspace, taskId, tx);
+  if (!task || task.deleted) throw new TaskError("not_found");
+  if (self) throw new TaskError("invalid_params");
+
+  let set: { parentId: string | null; contextId?: string | null } | null;
+  if (parentId === null) {
+    set = task.parentId === null ? null : { parentId: null };
+  } else {
+    if (!parent) throw new TaskError("not_found");
+    if (parent.deleted) throw new TaskError("parent_in_trash");
+    if (parent.parentId !== null) throw new TaskError("subtask_depth");
+    if (parent.side !== task.side) throw new TaskError("cross_side_parent");
+    const subtasks = await tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.workspaceId, workspace),
+          eq(tasks.parentId, taskId),
+          isActive,
+        ),
+      )
+      .limit(1);
+    if (subtasks.length > 0) throw new TaskError("has_subtasks");
+    set =
+      task.parentId === parent.id
+        ? null
+        : { parentId: parent.id, contextId: parent.contextId };
+  }
+  if (set !== null) {
+    await tx
+      .update(tasks)
+      .set(set)
+      .where(
+        and(eq(tasks.workspaceId, workspace), eq(tasks.id, taskId), isActive),
+      );
+  }
+  return reload(workspace, taskId, tx);
+}
+
 export type TrashResult = {
   id: string;
   /** Sous-tâches actives mises à la corbeille avec elle (même horodatage). */
@@ -600,7 +688,9 @@ export async function moveTaskToTrash(
 /**
  * Restaure une tâche de la corbeille et renvoie son détail. Parente : seulement les sous-tâches qui portent
  * son horodatage (mises à la corbeille avec elle). Sous-tâche dont la parente est à la corbeille →
- * parent_in_trash. Tâche active : rien à faire, détail renvoyé. Absente ou d'un autre workspace → not_found.
+ * parent_in_trash ; dont la parente est entre-temps devenue sous-tâche → subtask_depth (un seul niveau ; elle
+ * se restaure après détachement de sa parente). Tâche active : rien à faire, détail renvoyé. Absente ou d'un
+ * autre workspace → not_found.
  * Place dans le tableau : la clé d'avant la corbeille n'est jamais reprise (elle peut être devenue celle d'une
  * autre tâche). Chaque tâche restaurée est une arrivée hors dépôt dans sa colonne (arrivalKeys), la tâche
  * demandée devant ses sous-tâches quand elles partagent une colonne : jamais deux clés égales.
@@ -616,19 +706,32 @@ export async function restoreTask(
   // La catégorie et l'état (corbeille ou non) ne sont pas encore connus : verrou d'ordre pris d'office, avant
   // tout verrou de ligne.
   await lockBoardOrder(workspace, tx);
-  // parent_id n'est jamais modifié (aucun droit UPDATE) : lu sans verrou, pour verrouiller la parente avant
-  // la sous-tâche, dans l'ordre de moveTaskToTrash (pas d'interblocage avec une mise à la corbeille).
+  // parent_id est lu sans verrou, pour verrouiller la parente avant la sous-tâche, dans l'ordre de
+  // moveTaskToTrash (pas d'interblocage avec une mise à la corbeille). Il peut changer (setTaskParent) :
+  // sous le verrou d'ordre, plus entre cette lecture et le verrou de la tâche ; hors de lui (écriture d'un
+  // autre chemin), si. La parente qui compte est donc celle relue sur la ligne verrouillée.
   const [found] = await tx
     .select({ parentId: tasks.parentId })
     .from(tasks)
     .where(and(eq(tasks.workspaceId, workspace), eq(tasks.id, id)));
   if (!found) throw new TaskError("not_found");
-  if (found.parentId !== null) {
-    const parent = await lockTask(workspace, found.parentId, tx);
-    if (!parent || parent.deleted) throw new TaskError("parent_in_trash");
-  }
+  let parent =
+    found.parentId === null
+      ? null
+      : await lockTask(workspace, found.parentId, tx);
   const task = await lockTask(workspace, id, tx);
   if (!task) throw new TaskError("not_found");
+  if (task.parentId !== found.parentId) {
+    parent =
+      task.parentId === null
+        ? null
+        : await lockTask(workspace, task.parentId, tx);
+  }
+  if (task.parentId !== null) {
+    if (!parent || parent.deleted) throw new TaskError("parent_in_trash");
+    // Parente devenue sous-tâche pendant que celle-ci était à la corbeille : un seul niveau.
+    if (parent.parentId !== null) throw new TaskError("subtask_depth");
+  }
 
   if (task.deleted) {
     // Horodatage comparé en base (microsecondes), pas via un Date JS (millisecondes). La sous-requête voit

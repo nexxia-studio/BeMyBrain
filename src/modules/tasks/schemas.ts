@@ -264,6 +264,19 @@ export const moveTaskInputSchema = z
 
 export type MoveTaskInput = z.input<typeof moveTaskInputSchema>;
 
+export const setTaskParentInputSchema = z.strictObject({
+  taskId: taskIdSchema.describe(
+    "Id (UUID) of the active task to attach, move to another parent, or detach. It must have no active subtasks to be attached.",
+  ),
+  parentId: taskIdSchema
+    .nullable()
+    .describe(
+      "Id (UUID) of the new parent: an active top-level task on the same side, different from taskId. The task takes the space of the parent; its status, position, priority, tags and relations are kept. null detaches the task: it becomes a top-level task and keeps its side and space.",
+    ),
+});
+
+export type SetTaskParentInput = z.input<typeof setTaskParentInputSchema>;
+
 /** Valide une entrée ; refus → TaskError("invalid_params"), sans la valeur reçue (pas de ZodError masquée par withUserDb). */
 export function parseTaskInput<S extends z.ZodType>(
   schema: S,

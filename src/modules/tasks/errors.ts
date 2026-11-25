@@ -12,7 +12,11 @@ export type TaskErrorCode =
   /** Côté ou espace d'une sous-tâche modifié directement : ils suivent la parente. */
   | "subtask_follows_parent"
   /** Parente à la corbeille : restauration d'une de ses sous-tâches, ou création d'une sous-tâche sous elle. */
-  | "parent_in_trash";
+  | "parent_in_trash"
+  /** Rattachement d'une tâche qui a des sous-tâches actives : un seul niveau. */
+  | "has_subtasks"
+  /** Parente visée de l'autre côté (privé / pro) que la tâche. */
+  | "cross_side_parent";
 
 /**
  * Message anglais par code, lisible par un modèle (assistant, connecteur) : ce qui est refusé et quoi faire.
@@ -30,6 +34,10 @@ export const TASK_ERROR_MESSAGES = {
   subtask_follows_parent:
     "A subtask always has the side and space of its parent. Change them on the parent task instead.",
   parent_in_trash: "The parent task is in the trash. Restore the parent first.",
+  has_subtasks:
+    "The task has active subtasks, so it cannot become a subtask itself. Detach its subtasks or move them to the trash first, or choose another task.",
+  cross_side_parent:
+    "The parent task is on the other side (private or pro). A subtask must be on the same side as its parent: choose a parent on the same side, or change the side of the task first.",
 } as const satisfies Record<TaskErrorCode, string>;
 
 export class TaskError extends DomainError {
