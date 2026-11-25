@@ -34,7 +34,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : `sort-key.test.ts` — « la clé rendue est strictement entre ses voisines ; 1 000 insertions aléatoires gardent un ordre total ; 200 insertions au même endroit (tête, queue, entre deux mêmes voisines) restent ordonnées ; voisines égales ou inversées → erreur »
   - Fini quand : tests verts, dont le test aléatoire à graine fixe.
 
-- [ ] **3. Créer la table des relations** [security]
+- [x] **3. Créer la table des relations** [security] — terminée le 2026-11-25 (`7b09bc7`)
   - Fichiers : `src/db/schema/tasks.ts` (ou `task-relations.ts`), `drizzle/0009_*.sql`
   - Contenu : `task_relations` selon spec « Données et sécurité » : FK composites vers `tasks(workspace_id, id)`, CHECK `kind`, CHECK pas soi-même, CHECK ordre des identifiants pour `related`, unique, index `(workspace_id, to_task_id)`, RLS activée dans la même migration, policies SELECT, INSERT, DELETE (pas d'UPDATE), GRANT `app_backend` SELECT, INSERT (colonnes utiles), DELETE, trigger `updated_at`. Pas de colonne de côté (règle tenue par les mutations, tâche 8).
   - Test à écrire d'abord : `tests/db/isolation-task-relations.test.ts` (branche de test, `app_backend`, deux workspaces) — « B ne lit, n'insère ni ne supprime aucune relation de A ; une relation entre une tâche de A et une tâche de B est refusée ; relation avec soi-même refusée ; UPDATE refusé »
