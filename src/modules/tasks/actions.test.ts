@@ -225,6 +225,39 @@ describe("actions tasks.* : déclaration", () => {
     }
   });
 
+  it("les descriptions de tasks.setParent et tasks.addRelation citent leurs refus et la règle de l'espace", () => {
+    const { setParent, addRelation } = en.actions.tasks;
+
+    for (const code of [
+      "not_found",
+      "invalid_params",
+      "has_subtasks",
+      "subtask_depth",
+      "cross_side_parent",
+      "parent_in_trash",
+    ]) {
+      expect(setParent, code).toContain(code);
+    }
+    expect(setParent).toMatch(/loses its space when the parent has none/);
+    expect(setParent).toMatch(/detaching does not give it back/);
+    for (const code of [
+      "not_found",
+      "invalid_params",
+      "cross_side_relation",
+      "relation_conflict",
+    ]) {
+      expect(addRelation, code).toContain(code);
+    }
+  });
+
+  it("le message de not_found couvre aussi la relation absente de tasks.removeRelation, et dit quoi relire", () => {
+    const message = TASK_ERROR_MESSAGES.not_found;
+
+    expect(message).toMatch(/task does not exist or is in the trash/);
+    expect(message).toMatch(/relation to remove does not exist/);
+    expect(message).toMatch(/get the task/);
+  });
+
   it("la description de tasks.listBoard annonce les vraies limites du module", () => {
     const description = en.actions.tasks.listBoard;
 
@@ -294,7 +327,14 @@ describe("actions tasks.* : paramètres", () => {
       expect(action.params.safeParse(valid).success, action.name).toBe(true);
       expect(json.type, action.name).toBe("object");
       expect(json.additionalProperties, action.name).toBe(false);
-      for (const extra of ["workspaceId", "userId", "origin", "contextId"]) {
+      // `contextId` est un champ de tasks.listBoard, et `context` un champ de tasks.list, tasks.create et
+      // tasks.update : pour prouver le strictObject, la clé d'espace en trop est celle que l'action n'a pas.
+      const shape = (action.params as z.ZodObject).shape;
+      const spaceKey = "contextId" in shape ? "context" : "contextId";
+      expect(shape, `${action.name} : ${spaceKey}`).not.toHaveProperty(
+        spaceKey,
+      );
+      for (const extra of ["workspaceId", "userId", "origin", spaceKey]) {
         expect(
           action.params.safeParse({ ...valid, [extra]: "x" }).success,
           `${action.name} + ${extra}`,
@@ -542,7 +582,7 @@ describe("actions tasks.* : une seule fonction du module par action", () => {
     }
   });
 
-  it("chaque lecture appelle une seule lecture, une seule fois, et aucune mutation", async () => {
+  it("chaque lecture appelle une seule lecture, une seule fois, et aucune mutation (seule exception : tasks.list avec context, cas suivant)", async () => {
     const expected: Record<string, string> = {
       "tasks.list": "listTasks",
       "tasks.get": "getTask",
@@ -568,6 +608,19 @@ describe("actions tasks.* : une seule fonction du module par action", () => {
       ]);
       expect(calledIn(MODULE_WRITES), action.name).toEqual([]);
     }
+  });
+
+  it("tasks.list avec context fait deux lectures, la résolution du nom puis la liste, et aucune mutation", async () => {
+    findContextByName.mockResolvedValue({ id: CONTEXT, side: "pro" });
+    listTasks.mockResolvedValue({ tasks: [], truncated: false });
+
+    await run("tasks.list", { context: "Trustup" });
+
+    expect(calledIn(MODULE_READS)).toEqual(["listTasks", "findContextByName"]);
+    expect(findContextByName.mock.invocationCallOrder[0]).toBeLessThan(
+      listTasks.mock.invocationCallOrder[0],
+    );
+    expect(calledIn(MODULE_WRITES)).toEqual([]);
   });
 });
 

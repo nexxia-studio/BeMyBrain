@@ -30,7 +30,7 @@ export type TaskErrorCode =
 export const TASK_ERROR_MESSAGES = {
   invalid_params: INVALID_PARAMS_MESSAGE,
   not_found:
-    "The task does not exist or is in the trash. List the tasks to get a valid task id.",
+    "The task does not exist or is in the trash, or the relation to remove does not exist. List the tasks or get the task to check its ids and relations.",
   context_not_found:
     "No space has this name. List the spaces of the side and use one of their names.",
   subtask_depth:
