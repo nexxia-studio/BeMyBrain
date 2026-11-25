@@ -212,7 +212,9 @@
       "subtask_follows_parent": "A subtask always has the side and space of its parent task.",
       "parent_in_trash": "The parent task is in the trash. Restore it first.",
       "has_subtasks": "This task has subtasks. Detach them first.",
-      "cross_side_parent": "The parent task is on the other side. Pick a parent on the same side."
+      "cross_side_parent": "The parent task is on the other side. Pick a parent on the same side.",
+      "cross_side_relation": "These two tasks are not on the same side (Personal, Work). Pick a task on the same side.",
+      "relation_conflict": "A blocking relation already exists the other way round between these two tasks: a task cannot block the one that blocks it. Remove it first."
     },
     "quickAdd": {
       "title": "Task",

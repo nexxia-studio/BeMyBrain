@@ -277,6 +277,25 @@ export const setTaskParentInputSchema = z.strictObject({
 
 export type SetTaskParentInput = z.input<typeof setTaskParentInputSchema>;
 
+/** Types de relation à l'entrée ; la base n'en range que deux (`blocks` orienté, `related` symétrique). */
+export const taskRelationKinds = ["blocks", "blocked_by", "related"] as const;
+
+export const taskRelationInputSchema = z.strictObject({
+  taskId: taskIdSchema.describe(
+    "Id (UUID) of the active task the relation is read from. The result is the detail of this task.",
+  ),
+  kind: z
+    .enum(taskRelationKinds)
+    .describe(
+      "Relation type, read from taskId to otherTaskId: blocks (taskId blocks otherTaskId), blocked_by (taskId is blocked by otherTaskId), related (symmetric link, the order of the two ids does not matter). blocked_by from A to B is the same relation as blocks from B to A.",
+    ),
+  otherTaskId: taskIdSchema.describe(
+    "Id (UUID) of the other task: active, on the same side (private or pro) as taskId, and different from taskId. It may be a subtask, or the parent of taskId.",
+  ),
+});
+
+export type TaskRelationInput = z.input<typeof taskRelationInputSchema>;
+
 /** Valide une entrée ; refus → TaskError("invalid_params"), sans la valeur reçue (pas de ZodError masquée par withUserDb). */
 export function parseTaskInput<S extends z.ZodType>(
   schema: S,

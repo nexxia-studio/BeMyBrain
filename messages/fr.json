@@ -212,7 +212,9 @@
       "subtask_follows_parent": "Le côté et l'espace d'une sous-tâche suivent ceux de sa tâche parente.",
       "parent_in_trash": "La tâche parente est à la corbeille. Restaure-la d'abord.",
       "has_subtasks": "Cette tâche a des sous-tâches. Détache-les d'abord.",
-      "cross_side_parent": "La tâche parente est de l'autre côté. Choisis une parente du même côté."
+      "cross_side_parent": "La tâche parente est de l'autre côté. Choisis une parente du même côté.",
+      "cross_side_relation": "Ces deux tâches ne sont pas du même côté (Privé, Pro). Choisis une tâche du même côté.",
+      "relation_conflict": "Un blocage existe déjà dans l'autre sens entre ces deux tâches : une tâche ne bloque pas celle qui la bloque. Retire-le d'abord."
     },
     "quickAdd": {
       "title": "Tâche",

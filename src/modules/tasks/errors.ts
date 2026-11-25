@@ -16,7 +16,11 @@ export type TaskErrorCode =
   /** Rattachement d'une tâche qui a des sous-tâches actives : un seul niveau. */
   | "has_subtasks"
   /** Parente visée de l'autre côté (privé / pro) que la tâche. */
-  | "cross_side_parent";
+  | "cross_side_parent"
+  /** Relation demandée entre deux tâches de côtés différents (privé / pro). Jamais levé au retrait. */
+  | "cross_side_relation"
+  /** Blocage demandé alors que le blocage inverse existe déjà entre les deux tâches. */
+  | "relation_conflict";
 
 /**
  * Message anglais par code, lisible par un modèle (assistant, connecteur) : ce qui est refusé et quoi faire.
@@ -38,6 +42,10 @@ export const TASK_ERROR_MESSAGES = {
     "The task has active subtasks, so it cannot become a subtask itself. Detach its subtasks or move them to the trash first, or choose another task.",
   cross_side_parent:
     "The parent task is on the other side (private or pro). A subtask must be on the same side as its parent: choose a parent on the same side, or change the side of the task first.",
+  cross_side_relation:
+    "The two tasks are on different sides (private and pro). A relation only links tasks on the same side: choose another task on the same side.",
+  relation_conflict:
+    "The opposite blocking relation already exists between these two tasks: a task cannot block a task that blocks it. Remove the existing blocking relation first, or use the related type.",
 } as const satisfies Record<TaskErrorCode, string>;
 
 export class TaskError extends DomainError {

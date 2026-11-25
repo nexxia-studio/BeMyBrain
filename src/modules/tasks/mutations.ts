@@ -14,7 +14,7 @@ import {
 import { z } from "zod";
 
 import type { UserTx } from "@/db/client";
-import { tags, tasks, taskTags } from "@/db/schema/tasks";
+import { tags, taskRelations, tasks, taskTags } from "@/db/schema/tasks";
 import { actionOrigins, type ActionOrigin } from "@/modules/actions/types";
 import { sideSchema, uuidSchema } from "@/modules/core/schemas";
 import type { Side } from "@/modules/core/sides";
@@ -34,11 +34,13 @@ import {
   parseTaskInput,
   setTaskParentInputSchema,
   taskIdSchema,
+  taskRelationInputSchema,
   updateTaskInputSchema,
   type CreateTaskInput,
   type MoveTaskInput,
   type SetTaskParentInput,
   type StatusCategory,
+  type TaskRelationInput,
   type UpdateTaskInput,
 } from "./schemas";
 import { keyBetween, keysFor } from "./sort-key";
@@ -63,6 +65,9 @@ import { keyBetween, keysFor } from "./sort-key";
 //   2. la parente (lockTask) : celle de la tâche, ou celle qu'on lui donne (setTaskParent) ;
 //   3. la tâche (lockTask), puis ses sous-tâches par l'instruction qui les écrit.
 // Jamais lockBoardOrder après un verrou de ligne.
+// Relations (addTaskRelation, removeTaskRelation) : lockBoardOrder aussi, bien qu'aucune ligne de `tasks` ne
+// soit écrite (elles jugent l'état de deux tâches et lisent task_relations), puis les deux tâches par
+// identifiant croissant, sans égard à leur parenté. Sans croisement possible : voir lockRelationTasks.
 // Composition : cette règle vaut par mutation, chacune prenant le verrou d'ordre à son premier pas. Une
 // action qui enchaînerait plusieurs mutations dans UNE transaction (ex. un titre, puis un déplacement)
 // tiendrait déjà une ligne à l'entrée de la seconde : elle devra prendre le verrou d'ordre elle-même, en
@@ -786,4 +791,180 @@ export async function restoreTask(
     }
   }
   return reload(workspace, id, tx);
+}
+
+/** Ligne de task_relations : identifiants en minuscules, tels que Postgres les rend. */
+type RelationLine = { from: string; to: string; kind: "blocks" | "related" };
+
+/**
+ * Ligne rangée pour une relation lue de `taskId` vers `otherTaskId` (identifiants déjà en minuscules) :
+ * blocks → (tâche, autre) ; blocked_by → (autre, tâche), kind blocks ; related → plus petit identifiant en
+ * `from` (CHECK task_relations_related_order_check), donc une seule ligne par paire.
+ * Ordre des identifiants : un uuid se compare en base octet par octet (memcmp des 16 octets). Sa forme
+ * canonique en minuscules (celle que z.uuid() impose, tirets aux mêmes places) est l'hexadécimal de ces
+ * octets, et « 0-9 » précède « a-f » en ASCII comme en valeur : comparer les deux chaînes en JS donne le même
+ * ordre. Vrai seulement en minuscules des deux côtés (« B » précède « a » en ASCII), d'où le toLowerCase des
+ * appelants. Le CHECK reste le second verrou : une ligne mal ordonnée serait refusée, jamais rangée.
+ */
+function relationLine(
+  taskId: string,
+  kind: TaskRelationInput["kind"],
+  otherTaskId: string,
+): RelationLine {
+  if (kind === "blocks") return { from: taskId, to: otherTaskId, kind };
+  if (kind === "blocked_by") {
+    return { from: otherTaskId, to: taskId, kind: "blocks" };
+  }
+  return taskId < otherTaskId
+    ? { from: taskId, to: otherTaskId, kind }
+    : { from: otherTaskId, to: taskId, kind };
+}
+
+/**
+ * Tête commune à l'ajout et au retrait d'une relation : verrous, puis contrôles sur les deux tâches. Refus,
+ * dans cet ordre : tâche absente, d'un autre workspace ou à la corbeille → not_found ; autre tâche égale à la
+ * tâche (casse ignorée) → invalid_params ; autre tâche absente, d'un autre workspace ou à la corbeille →
+ * not_found, la même réponse dans les trois cas (aucun oracle d'existence).
+ *
+ * Verrous : lockBoardOrder, puis les deux tâches par identifiant croissant (lockTask). Jamais de verrou sur
+ * task_relations : SELECT … FOR UPDATE y est refusé à app_backend (aucun droit UPDATE, drizzle/0009), et une
+ * ligne absente ne se verrouille pas. C'est le verrou d'ordre qui protège la table :
+ * - il met en série tous les ajouts et retraits de relation du workspace, et avec eux ce que les contrôles
+ *   lisent : corbeille et restauration (deleted_at), changement de côté (side). Les verrous de ligne couvrent
+ *   en plus une écriture de ces colonnes faite hors verrou d'ordre (ancien déploiement) : l'ajout attend la
+ *   ligne, puis juge sa version validée (FOR UPDATE la relit) ;
+ * - pas d'interblocage : entre porteurs du verrou d'ordre, les verrous de ligne ne se croisent jamais
+ *   (série), quel que soit l'ordre dans lequel chacun prend ses lignes (parente puis tâche ailleurs,
+ *   identifiant croissant ici) ; hors verrou d'ordre, une écriture ne tient qu'une ligne et n'en attend
+ *   aucune autre.
+ */
+async function lockRelationTasks(
+  workspaceId: string,
+  input: TaskRelationInput,
+  tx: UserTx,
+): Promise<{
+  workspace: string;
+  taskId: string;
+  task: LockedTask;
+  other: LockedTask;
+  line: RelationLine;
+}> {
+  const workspace = parseTaskInput(uuidSchema, workspaceId);
+  const i = parseTaskInput(taskRelationInputSchema, input);
+  // Postgres rend les uuid en minuscules : mêmes identifiants pour les comparaisons faites ici.
+  const taskId = i.taskId.toLowerCase();
+  const otherTaskId = i.otherTaskId.toLowerCase();
+  const self = otherTaskId === taskId;
+
+  await lockBoardOrder(workspace, tx);
+  const locked = new Map<string, LockedTask | null>();
+  for (const id of self ? [taskId] : [taskId, otherTaskId].sort()) {
+    locked.set(id, await lockTask(workspace, id, tx));
+  }
+  const task = locked.get(taskId);
+  if (!task || task.deleted) throw new TaskError("not_found");
+  if (self) throw new TaskError("invalid_params");
+  const other = locked.get(otherTaskId);
+  if (!other || other.deleted) throw new TaskError("not_found");
+
+  return {
+    workspace,
+    taskId,
+    task,
+    other,
+    line: relationLine(taskId, i.kind, otherTaskId),
+  };
+}
+
+/** Prédicat « cette ligne exacte de task_relations, dans ce workspace ». */
+function isRelationLine(workspace: string, line: RelationLine) {
+  return and(
+    eq(taskRelations.workspaceId, workspace),
+    eq(taskRelations.fromTaskId, line.from),
+    eq(taskRelations.toTaskId, line.to),
+    eq(taskRelations.kind, line.kind),
+  );
+}
+
+/**
+ * Relie deux tâches actives du même côté et renvoie le détail de `taskId`. `kind` se lit de `taskId` vers
+ * `otherTaskId` : blocks, blocked_by (rangée comme le blocks inverse) ou related (relationLine). Sous-tâches
+ * comprises ; une sous-tâche et sa parente se relient dans les deux sens. blocks et related coexistent sur
+ * une même paire.
+ * Refus : ceux de lockRelationTasks, puis côtés différents → cross_side_relation (avant toute écriture, sans
+ * exception pour aucune origine ; la base ne porte pas cette règle, voir drizzle/0009), puis blocage dont
+ * l'inverse direct existe (A bloque B demandé alors que B bloque A), sous l'une ou l'autre formulation →
+ * relation_conflict. Seul l'inverse direct est refusé : un cycle plus long (A bloque B, B bloque C, C bloque
+ * A) ne l'est pas.
+ * Relation déjà présente : sans effet, sans erreur, une seule ligne (ON CONFLICT DO NOTHING).
+ *
+ * Pourquoi deux ajouts inverses simultanés (A bloque B pendant que B bloque A) ne passent jamais tous les
+ * deux, sans contrainte de base ni verrou sur task_relations :
+ * - chacun prend lockBoardOrder avant toute lecture ; le second ne l'obtient qu'au COMMIT (ou ROLLBACK) du
+ *   premier ;
+ * - en READ COMMITTED (niveau des transactions de withUserDb), chaque instruction voit ce qui est validé à
+ *   son départ : la lecture de l'inverse, faite après le verrou, voit donc la ligne du premier s'il a
+ *   validé → relation_conflict ; s'il a annulé, elle ne voit rien et le second passe seul ;
+ * - aucun autre chemin n'écrit task_relations (seules écritures : cette fonction et removeTaskRelation).
+ * Cet argument tombe si une écriture de task_relations oublie le verrou d'ordre, ou si l'isolation passe à
+ * REPEATABLE READ (instantané pris avant l'attente du verrou).
+ */
+export async function addTaskRelation(
+  workspaceId: string,
+  input: TaskRelationInput,
+  tx: UserTx,
+): Promise<TaskDetail> {
+  const { workspace, taskId, task, other, line } = await lockRelationTasks(
+    workspaceId,
+    input,
+    tx,
+  );
+  if (task.side !== other.side) throw new TaskError("cross_side_relation");
+  if (line.kind === "blocks") {
+    const inverse = await tx
+      .select({ id: taskRelations.id })
+      .from(taskRelations)
+      .where(
+        isRelationLine(workspace, {
+          from: line.to,
+          to: line.from,
+          kind: "blocks",
+        }),
+      )
+      .limit(1);
+    if (inverse.length > 0) throw new TaskError("relation_conflict");
+  }
+  // INSERT en SQL écrit : droit INSERT sur ces quatre colonnes seulement (voir en tête du fichier).
+  await tx.execute(sql`
+    insert into ${taskRelations} (workspace_id, from_task_id, to_task_id, kind)
+    values (${workspace}, ${line.from}, ${line.to}, ${line.kind})
+    on conflict do nothing`);
+  return reload(workspace, taskId, tx);
+}
+
+/**
+ * Retire une relation entre deux tâches actives et renvoie le détail de `taskId`. Retire exactement la ligne
+ * que le même appel d'addTaskRelation aurait rangée (relationLine) : `blocked_by` de A vers B retire « B
+ * bloque A », jamais « A bloque B » ; `related` se retire dans les deux ordres.
+ * Refus : ceux de lockRelationTasks ; relation absente → not_found.
+ * Pas de contrôle de côté, exprès : une relation devenue transversale après un changement de côté reste en
+ * base, masquée à la lecture ; qui connaît les deux identifiants doit pouvoir la retirer. cross_side_relation
+ * n'est donc jamais levé ici.
+ */
+export async function removeTaskRelation(
+  workspaceId: string,
+  input: TaskRelationInput,
+  tx: UserTx,
+): Promise<TaskDetail> {
+  const { workspace, taskId, line } = await lockRelationTasks(
+    workspaceId,
+    input,
+    tx,
+  );
+  const removed = await tx
+    .delete(taskRelations)
+    .where(isRelationLine(workspace, line))
+    .returning({ id: taskRelations.id });
+  if (removed.length === 0) throw new TaskError("not_found");
+  return reload(workspace, taskId, tx);
 }

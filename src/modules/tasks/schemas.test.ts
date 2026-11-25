@@ -9,6 +9,7 @@ import {
   parseTaskInput,
   setTaskParentInputSchema,
   tagNameSchema,
+  taskRelationInputSchema,
   taskTitleSchema,
 } from "./schemas";
 
@@ -121,6 +122,40 @@ describe("schémas tasks", () => {
     }
   });
 
+  it("relation : tâche, type et autre tâche obligatoires, trois types, clé inconnue refusée", () => {
+    const taskId = "11111111-1111-4111-8111-111111111111";
+    const otherTaskId = "22222222-2222-4222-8222-222222222222";
+    const ok = (value: unknown) =>
+      taskRelationInputSchema.safeParse(value).success;
+
+    for (const kind of ["blocks", "blocked_by", "related"]) {
+      expect(ok({ taskId, kind, otherTaskId })).toBe(true);
+    }
+    expect(ok({ taskId, kind: "duplicates", otherTaskId })).toBe(false);
+    expect(ok({ taskId, otherTaskId })).toBe(false);
+    expect(ok({ taskId, kind: "blocks" })).toBe(false);
+    expect(ok({ kind: "blocks", otherTaskId })).toBe(false);
+    expect(ok({ taskId, kind: "blocks", otherTaskId: "x" })).toBe(false);
+    expect(ok({ taskId, kind: "blocks", otherTaskId, side: "pro" })).toBe(
+      false,
+    );
+  });
+
+  it("relation : chaque champ porte une description lisible par un modèle", () => {
+    const schema = taskRelationInputSchema.toJSONSchema() as {
+      properties: Record<string, { description?: string }>;
+    };
+
+    expect(Object.keys(schema.properties).sort()).toEqual([
+      "kind",
+      "otherTaskId",
+      "taskId",
+    ]);
+    for (const property of Object.values(schema.properties)) {
+      expect(property.description).toMatch(/^[A-Z].+\.$/);
+    }
+  });
+
   it("parseTaskInput lève invalid_params sans la valeur reçue", () => {
     const error = (() => {
       try {
@@ -149,6 +184,8 @@ describe("erreurs tasks", () => {
       "parent_in_trash",
       "has_subtasks",
       "cross_side_parent",
+      "cross_side_relation",
+      "relation_conflict",
     ];
 
     expect(Object.keys(TASK_ERROR_MESSAGES).sort()).toEqual([...codes].sort());
