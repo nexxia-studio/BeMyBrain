@@ -72,7 +72,7 @@ Règles communes à toutes les tâches :
   - Fini quand : tests verts.
 
 - [x] **9. Lire le tableau, les relations et « bloquée »** — terminée le 2026-11-25 (`b5857f2`)
-  - Fichiers : `src/modules/tasks/queries.ts`, `schemas.ts` (`boardFilterSchema`, `topLevelOnly` dans `listTasksFilterSchema`), `load.ts` (`loadBoard`), `view.ts`, `queries.test.ts`
+  - Fichiers : `src/modules/tasks/queries.ts`, `schemas.ts` (`boardFilterSchema`, `topLevelOnly` dans `listTasksFilterSchema`), `load.ts` (`loadBoard`), `queries-board.test.ts` (tests de la tâche)
   - Contenu : `listBoard` : sous-tâches en cartes avec `parentTitle`, `includeSubtasks` (vrai) et `hideCompletedSubtasks` (faux) ; colonnes ouvertes ordonnées, plafond 200 et drapeau de dépassement ; Terminée et Annulée par `completed_at` décroissant, limites 20 par défaut, totaux qui suivent les options ; `Task.blocked` (bloquante active, ouverte, du même côté ; tâche ouverte) ; `Task.subtaskOpen` ; `TaskDetail.relations` groupées (`blocks`, `blockedBy`, `related`), autre bout actif et du même côté, avec titre et statut ; `topLevelOnly`.
   - Test à écrire d'abord : « ordre par clé puis ordre de la liste pour les sans-clé, sous-tâche entre deux tâches ; corbeille absente ; `includeSubtasks: false` → premier niveau seulement ; `hideCompletedSubtasks` retire les sous-tâches terminées et corrige le total, pas les annulées ; 20 terminées, 20 annulées et les totaux ; `blocked` faux quand la bloquante est terminée, annulée, à la corbeille ou passée de l'autre côté ; relation masquée puis revenue (corbeille, côté) ; filtre côté et espace ; `topLevelOnly` »
   - Fini quand : tests verts ; `sortKey` absent des types exportés.
@@ -167,7 +167,7 @@ Règles communes à toutes les tâches :
 
 - [ ] **24. Écrire la liste de sélection de tâche**
   - Fichiers : `src/components/tasks/TaskPicker.tsx` + test, `src/app/(app)/tasks/actions.ts` (lecture par `tasks.list`), `messages/{fr,en}.json`
-  - Contenu : `Autocomplete` de Base UI, recherche par titre avec délai, 20 résultats, toujours limitée au côté de la tâche ouverte, exclusions passées en props, chaque ligne : titre + icône de statut + pastille d'espace ; états vide / chargement / erreur, clavier, focus rendu, relais de focus iOS si la liste s'ouvre dans un popup.
+  - Contenu : `Autocomplete` de Base UI, recherche par titre avec délai, 20 résultats, toujours limitée au côté de la tâche ouverte, exclusions passées en props, chaque ligne : titre + icône de statut + pastille d'espace ; états vide / chargement / erreur, clavier, focus rendu, relais de focus iOS si la liste s'ouvre dans un popup. Recherche : statuts ouverts d'abord ; `tasks.list` trie par échéance, donc deux lectures (ouvertes, puis closes pour compléter jusqu'à 20) ou un tri dédié, à décider dans la tâche.
   - Test à écrire d'abord : « filtre par titre ; demande le côté de la tâche ; exclut la tâche et les identifiants donnés ; `topLevelOnly` demandé pour une parente ; espace affiché ; Entrée choisit ; Échap rend le focus »
   - Fini quand : tests verts ; essai clavier iPhone demandé à Antoine.
 

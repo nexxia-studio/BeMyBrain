@@ -33,6 +33,7 @@ import {
   listBoard,
   listDueToday,
   listTasks,
+  listTrashedTasks,
   listUpcomingTasks,
   type Board,
 } from "./queries";
@@ -534,6 +535,21 @@ describe("blocked : dérivé à la lecture", () => {
     expect(back).toBe(true);
   });
 
+  it("faux pour une tâche à la corbeille, même ouverte et avec une bloquante ouverte", async () => {
+    const { blocked } = await blockedPair();
+    const before = await isBlocked(blocked);
+
+    await asA((tx) => moveTaskToTrash(f.workspaceA, blocked, tx));
+    const trash = await asA((tx) => listTrashedTasks(f.workspaceA, tx));
+
+    const trashed = trash.find((x) => x.id === blocked);
+    expect(before).toBe(true);
+    expect(trashed).toMatchObject({
+      statusCategory: "unstarted",
+      blocked: false,
+    });
+  });
+
   it("faux pour une tâche elle-même terminée, même avec une bloquante ouverte", async () => {
     const { blocked } = await blockedPair();
 
@@ -604,6 +620,25 @@ describe("getTask : relations", () => {
       blockedBy: [item(task, "Tâche")],
       related: [],
     });
+  });
+
+  it("dans un groupe, les relations sont triées par titre, pas par identifiant ni par ordre d'ajout", async () => {
+    // Identifiants en ordre inverse des titres : un tri par identifiant seul rendrait Charlie, Bravo, Alpha.
+    const [task, bravo, alpha, charlie] = await seed([
+      { title: "Tâche" },
+      { title: "Bravo", id: withFirst("5") },
+      { title: "Alpha", id: withFirst("9") },
+      { title: "Charlie", id: withFirst("1") },
+    ]);
+    for (const other of [bravo, charlie, alpha]) await blocks(task, other);
+
+    const read = await detail(task);
+
+    expect(read?.relations.blocks.map((x) => x.title)).toEqual([
+      "Alpha",
+      "Bravo",
+      "Charlie",
+    ]);
   });
 
   it("une relation vers la corbeille est masquée, puis revient à la restauration", async () => {
