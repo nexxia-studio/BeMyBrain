@@ -28,7 +28,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : `tests/db/tasks-sort-key.test.ts` (connexion `app_backend`) — « `app_backend` écrit `sort_key` et `parent_id`, toujours pas `workspace_id` ni `origin` ; "B" se range avant "a" (ordre octet) ; une insertion sans `sort_key` passe (ancien code) ; une parente de l'autre côté est refusée par la clé étrangère »
   - Fini quand : migration appliquée sur la branche de test, test vert, `pnpm test` vert.
 
-- [ ] **2. Écrire les clés d'ordre fractionnaires**
+- [x] **2. Écrire les clés d'ordre fractionnaires** — terminée le 2026-11-25 (`400c76d`)
   - Fichiers : `src/modules/tasks/sort-key.ts`, `src/modules/tasks/sort-key.test.ts`
   - Contenu : fonctions pures `keyBetween(before | null, after | null)` et `keysFor(count)` ; alphabet en ordre ASCII, jamais de clé finissant par le plus petit caractère, longueur bornée raisonnablement. Sans zod, sans base.
   - Test à écrire d'abord : `sort-key.test.ts` — « la clé rendue est strictement entre ses voisines ; 1 000 insertions aléatoires gardent un ordre total ; 200 insertions au même endroit (tête, queue, entre deux mêmes voisines) restent ordonnées ; voisines égales ou inversées → erreur »
