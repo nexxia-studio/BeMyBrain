@@ -22,7 +22,7 @@ Règles communes à toutes les tâches :
 
 ### A. Données et registre (PR A)
 
-- [ ] **1. Ajouter la clé d'ordre et ouvrir la parente en écriture** [security]
+- [x] **1. Ajouter la clé d'ordre et ouvrir la parente en écriture** [security] — terminée le 2026-11-25 (`fff30aa`)
   - Fichiers : `src/db/schema/tasks.ts`, `drizzle/0008_*.sql` (générée, complétée pour `COLLATE "C"`, l'index partiel et les GRANT)
   - Contenu : `tasks.sort_key text COLLATE "C"` nullable ; index partiel `(workspace_id, status_category, sort_key)` sur `deleted_at IS NULL` ; `GRANT INSERT (sort_key)`, `GRANT UPDATE (sort_key, parent_id)` à `app_backend`. Rien d'autre.
   - Test à écrire d'abord : `tests/db/tasks-sort-key.test.ts` (connexion `app_backend`) — « `app_backend` écrit `sort_key` et `parent_id`, toujours pas `workspace_id` ni `origin` ; "B" se range avant "a" (ordre octet) ; une insertion sans `sort_key` passe (ancien code) ; une parente de l'autre côté est refusée par la clé étrangère »
