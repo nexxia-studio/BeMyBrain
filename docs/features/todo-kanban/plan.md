@@ -91,7 +91,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : `priority-icons.test.ts` — « chaque niveau 1 à 4 a une icône et une teinte distinctes, 0 n'a rien ; chaque token existe dans `globals.css` » ; contraste texte et icône ≥ 4,5:1 calculé dans le test à partir des valeurs.
   - Fini quand : tests verts ; planche des quatre teintes visible sur la preview, dans les réglages repliés de la démo (badge, pastille du détail, voisinages avec l'espace chaud et une date en retard). **Arrêt : validation à l'œil par Antoine avant la tâche 12.**
 
-- [ ] **12. Appliquer la teinte de priorité partout**
+- [x] **12. Appliquer la teinte de priorité partout** — terminée le 2026-11-26 (`8292307`), teintes et badge validés par Antoine sur iPhone le même jour
   - Fichiers : `src/components/tasks/TaskLegendItems.tsx`, `TaskRow.tsx`, `ChoiceChip.tsx` (fond par option), `TaskDetail.tsx`, tuiles (`SideTodoTile`), tests associés
   - Contenu : badge teinté avec icône sur carte, ligne et tuile ; pastille et menu teintés dans le détail ; libellé gardé pour le lecteur d'écran ; badge toujours accroché à la dernière information.
   - Test à écrire d'abord : `TaskList.test.tsx`, `ChoiceChip.test.tsx` — « priorité 2 : classe de teinte haute et icône ; priorité 0 : ni teinte ni icône ; menu : une teinte par option »
