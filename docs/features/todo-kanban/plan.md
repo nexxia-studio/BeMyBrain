@@ -65,7 +65,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « rattachée, elle prend l'espace de la parente ; parente de l'autre côté → `cross_side_parent`, rien d'écrit ; parente déjà sous-tâche → `subtask_depth` ; tâche avec sous-tâches actives → `has_subtasks` (avec seulement des sous-tâches à la corbeille → accepté) ; elle-même → `invalid_params` ; parente à la corbeille → `parent_in_trash` ; parente d'un autre workspace → `not_found` ; détachée, elle garde côté, espace et place ; restauration refusée en profondeur 2 »
   - Fini quand : tests verts ; messages anglais des nouveaux codes dans `TASK_ERROR_MESSAGES`.
 
-- [ ] **8. Ajouter et retirer une relation** [security]
+- [x] **8. Ajouter et retirer une relation** [security] — terminée le 2026-11-25 (`5b8a46f`)
   - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`relation_conflict`, `cross_side_relation`), `mutations.test.ts`, `messages/{fr,en}.json`
   - Contenu : `addTaskRelation`, `removeTaskRelation` ; `kind` d'entrée `blocks | blocked_by | related` ramené à `blocks` orienté ou `related` normalisé ; les deux tâches verrouillées, actives et du même côté ; doublon sans effet ; inverse direct d'un blocage refusé ; sous-tâche et parente reliables.
   - Test à écrire d'abord : « `blocked_by` range la relation dans l'autre sens ; `related` rangée une fois quel que soit l'ordre ; doublon → une seule ligne ; inverse → `relation_conflict` ; côtés différents → `cross_side_relation`, rien d'écrit ; une sous-tâche bloque sa parente ; soi-même → `invalid_params` ; tâche à la corbeille ou d'un autre workspace → `not_found` ; retrait d'une relation absente → `not_found` »
