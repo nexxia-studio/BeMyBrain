@@ -53,7 +53,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « tâche créée dans une colonne ordonnée → première ; dans une colonne sans clé → sans clé ; réouverte → première de À faire ; sous-tâche créée → première »
   - Fini quand : tests verts, aucun test existant de `mutations.test.ts` modifié dans son intention.
 
-- [ ] **6. Faire hériter la priorité à la création d'une sous-tâche**
+- [x] **6. Faire hériter la priorité à la création d'une sous-tâche** — terminée le 2026-11-25 (`b0531ab`)
   - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts` (description de `priority` et de `parentId`), `mutations.test.ts`, `messages/en.json` (description de `tasks.create`)
   - Contenu : `createTask` avec `parentId` et sans `priority` → priorité de la parente (lue sous le verrou existant) ; `priority` donnée → respectée, 0 compris ; tags jamais hérités ; aucun suivi ensuite.
   - Test à écrire d'abord : « sous-tâche sans priorité sous une parente Haute → Haute ; avec `priority: 0` → Aucune ; tags de la parente absents ; changer la parente ensuite ne change pas la sous-tâche »
