@@ -3,7 +3,7 @@
 // planifier), vide (à faire), point au centre (en cours), coche (terminée), croix (annulée).
 // Couleur, tokens de DESIGN.md § 2 seulement : l'accent indigo (`link`, celui de l'onglet actif et des icônes
 // d'état vide) pour ce qui avance ou a abouti ; l'encre pour « à faire » ; l'encre secondaire pour ce qui n'est pas
-// engagé ou est abandonné. Jamais la braise, réservée aux erreurs et au retard. Sur `secondary` posé sur
+// engagé ou est abandonné. La braise reste le texte du retard et des erreurs ; les statuts n'en portent pas. Sur `secondary` posé sur
 // `popover` : indigo profond ≥ 7,42:1, encre secondaire 6,83:1 (seuil d'une icône : 3:1).
 import {
   Circle,

@@ -38,8 +38,9 @@ export const PRIORITY_TINT_CLASSES: Record<PriorityLevel, string> = {
 
 /**
  * Forme du badge de priorité d'une carte, d'une ligne ou d'une tuile : carré arrondi de 20 px, icône seule (16 px),
- * sans libellé visible. Jamais la forme d'une pastille d'espace (pilule à nom, sans icône) : l'orangé de « Haute »
- * voisine la pastille d'espace chaude, c'est la forme qui les sépare. Même hauteur qu'une pastille.
+ * sans libellé visible. À 8 px de rayon sur 20 px, il est presque rond : ce qui le sépare d'une pastille d'espace
+ * (l'orangé de « Haute » voisine la pastille chaude), c'est l'icône sans nom contre le nom sans icône. Même hauteur
+ * qu'une pastille. Forme à valider par Antoine sur iPhone (DESIGN.md § 5).
  */
 export const PRIORITY_BADGE_CLASSES =
   "flex size-5 shrink-0 items-center justify-center rounded-sm";

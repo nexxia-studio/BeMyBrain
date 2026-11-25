@@ -125,6 +125,14 @@ describe("charte dans globals.css", () => {
     }
   });
 
+  it("chaque teinte de priorité n'apparaît qu'une fois dans globals.css : sa déclaration de token", () => {
+    const uses = declaredColors(css).filter((rgb) => PRIORITY_RGB.has(rgb));
+
+    // Ni dégradé, ni ombre, ni propriété ordinaire : les composants passent par les tokens.
+    expect(uses).toHaveLength(PRIORITY_RGB.size);
+    expect(new Set(uses).size).toBe(PRIORITY_RGB.size);
+  });
+
   it("ne garde ni les neutres oklch du scaffold ni de valeurs sombres inventées", () => {
     expect(css).not.toMatch(/oklch\(/);
     expect(css).not.toMatch(/\.dark\s*\{/);

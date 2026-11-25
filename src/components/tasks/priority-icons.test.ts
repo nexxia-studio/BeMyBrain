@@ -107,6 +107,11 @@ function hueGap(a: Rgba["rgb"], b: Rgba["rgb"]): number {
   return Math.min(gap, 360 - gap);
 }
 
+function chroma(rgb: Rgba["rgb"]): number {
+  const [, a, b] = oklab(rgb);
+  return Math.hypot(a, b);
+}
+
 function distance(a: Rgba["rgb"], b: Rgba["rgb"]): number {
   const [x, y] = [oklab(a), oklab(b)];
   return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
@@ -136,13 +141,11 @@ describe("icônes et teintes de priorité", () => {
     expect(new Set(icons).size).toBe(4);
   });
 
-  it("chaque niveau 1 à 4 a une icône et une teinte distinctes, 0 n'a rien", () => {
-    expect(new Set(LEVELS.map((level) => PRIORITY_ICONS[level])).size).toBe(4);
+  it("chaque niveau 1 à 4 a sa teinte, 0 n'a ni teinte ni icône", () => {
     expect(
       new Set(LEVELS.map((level) => PRIORITY_TINT_CLASSES[level])).size,
     ).toBe(4);
     for (const level of LEVELS) {
-      expect(PRIORITY_ICONS[level]).toBeDefined();
       expect(PRIORITY_TINT_CLASSES[level]).toBe(
         `bg-${TOKEN[level]} text-${TOKEN[level]}-foreground`,
       );
@@ -191,6 +194,29 @@ describe("icônes et teintes de priorité", () => {
     }
   });
 
+  // « Jaune, pas ocre » (demande d'Antoine du 2026-11-25) : la teinte seule ne suffit pas, l'ocre de la première
+  // palette est à la même teinte (101°). Ce qui fait lire un jaune : un fond clair et assez coloré. Planchers posés
+  // entre l'ocre refusé (C 0,024, L 0,955 sur blanc) et le jaune retenu (C 0,041, L 0,972).
+  const isYellow = (bg: Rgba["rgb"]) =>
+    hue(bg) > 90 &&
+    hue(bg) < 110 &&
+    chroma(bg) >= 0.035 &&
+    oklab(bg)[0] >= 0.965;
+
+  it("le fond de « Moyenne » se lit jaune, pas ocre : assez clair et assez coloré sur blanc", () => {
+    const yellow = over(color("priority-medium-bg"), SURFACES.popover);
+
+    expect(isYellow(yellow)).toBe(true);
+  });
+
+  it("témoin : l'ocre de la première palette ne passe pas pour un jaune", () => {
+    const ochre = over({ rgb: [166, 147, 11], alpha: 0.13 }, SURFACES.popover);
+
+    expect(hue(ochre)).toBeGreaterThan(90);
+    expect(hue(ochre)).toBeLessThan(110);
+    expect(isYellow(ochre)).toBe(false);
+  });
+
   it("l'échelle se lit rouge, orangé, jaune, vert : teintes des fonds dans cet ordre", () => {
     const hues = LEVELS.map((level) =>
       hue(over(color(`${TOKEN[level]}-bg`), SURFACES.popover)),
@@ -208,14 +234,14 @@ describe("icônes et teintes de priorité", () => {
     const high = color("priority-high-bg");
     const warm = color("chip-warm-bg");
 
-    // Seuil : 0,015 en OKLab, l'écart le plus faible déjà admis entre deux fonds voisins de la charte
-    // (pastilles neutre et chaude : 0,025 sur blanc). En dessous, deux fonds pastel côte à côte se lisent
-    // comme un seul. La forme fait le reste (badge carré à icône, pastille à nom).
-    for (const name of ["popover", "row", "pill-track"]) {
-      const surface = SURFACES[name];
+    // Écarts OKLab calculés : 0,026 sur carte, 0,025 sur ligne, 0,021 sur colonne, 0,024 sur ligne au cœur du
+    // halo, 0,016 sur colonne au cœur du halo. Seuils : 0,02 sur la brume, 0,015 au cœur du halo, où la marge est
+    // mince et assumée (les deux fonds s'y assombrissent ensemble). Ces écarts restent faibles : ce qui sépare
+    // vraiment les deux, c'est l'icône sans nom contre le nom sans icône.
+    for (const [name, surface] of Object.entries(SURFACES)) {
       expect(
         distance(over(high, surface), over(warm, surface)),
-      ).toBeGreaterThanOrEqual(0.015);
+      ).toBeGreaterThanOrEqual(name.includes("halo") ? 0.015 : 0.02);
     }
   });
 
@@ -230,11 +256,16 @@ describe("icônes et teintes de priorité", () => {
     expect(distance(fg, ember)).toBeGreaterThanOrEqual(0.06);
   });
 
-  it("le badge de priorité a sa forme propre, jamais celle d'une pastille d'espace", () => {
-    expect(PRIORITY_BADGE_CLASSES).not.toContain("rounded-full");
-    expect(PRIORITY_BADGE_CLASSES).toContain("rounded-sm");
-    expect(PRIORITY_BADGE_CLASSES).toContain("size-5");
+  it("le badge n'est pas une pilule et ne porte pas de libellé : classes d'un carré de taille fixe, sans texte", () => {
+    const badge = PRIORITY_BADGE_CLASSES.split(" ");
+
+    // Ne prouve que les classes ; le rendu (presque rond à 20 px) se juge sur la planche de la démo.
+    expect(badge).toContain("size-5");
+    expect(badge).toContain("rounded-sm");
+    expect(badge).not.toContain("rounded-full");
+    expect(badge.some((name) => /^(px|text)-/.test(name))).toBe(false);
     expect(CHIP_SHAPE_CLASSES).toContain("rounded-full");
+    expect(CHIP_SHAPE_CLASSES).toMatch(/\bpx-/);
   });
 
   it("les quatre fonds diffèrent deux à deux et des trois fonds de pastille d'espace", () => {
