@@ -75,7 +75,7 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Même côté uniquement, sans exception pour l'assistant : lier deux tâches de côtés différents est refusé (`cross_side_relation`). Règle tenue par la mutation (les deux tâches verrouillées), pas par une contrainte de base.
 - Une tâche qui change de côté garde ses relations en base ; celles qui traversent alors les côtés sont masquées à la lecture (détail, « Bloquée », listes), comme une relation vers la corbeille, et reviennent si les côtés coïncident de nouveau.
 - Ajouter une relation qui existe déjà : sans effet, sans erreur. Ajouter l'inverse direct d'un blocage existant : refus `relation_conflict`.
-- Une relation vers une tâche à la corbeille est masquée partout, pas supprimée ; elle réapparaît à la restauration.
+- Une relation vers une tâche à la corbeille est masquée partout, pas supprimée ; elle réapparaît à la restauration. Elle ne se retire qu'après restauration de cette tâche (`tasks.removeRelation` répond `not_found` tant que l'une des deux tâches est à la corbeille) ; une relation devenue transversale, elle, reste retirable.
 - « Bloquée » (carte, ligne de liste) : la tâche est ouverte et a au moins une bloquante active, ouverte et du même côté. Dérivé à la lecture, pas un statut. Remplace le libellé « En attente » réservé par `todo-unifiee/spec.md`.
 - Dans le détail, chaque relation est un lien vers l'autre tâche, avec son statut (icône) et un bouton « Retirer ».
 
