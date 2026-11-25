@@ -2,7 +2,11 @@ import { render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it } from "vitest";
 
-import { PRIORITY_TINT_CLASSES } from "@/components/tasks/priority-icons";
+import {
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "@/components/tasks/priority-icons";
+import { getUserTimeZone } from "@/modules/core/time-zone";
 
 import en from "../../../../../messages/en.json";
 import fr from "../../../../../messages/fr.json";
@@ -14,6 +18,7 @@ function renderTints(locale: "fr" | "en" = "fr") {
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "fr" ? fr : en}
+      timeZone={getUserTimeZone()}
     >
       <KanbanDemoPriorityTints />
     </NextIntlClientProvider>,
@@ -35,7 +40,10 @@ describe("planche des teintes de priorité (démo)", () => {
         [3, "Moyenne", "Priorité moyenne"],
         [4, "Basse", "Priorité basse"],
       ] as const) {
-        const badge = within(surface).getByText(full).parentElement!;
+        const badge = within(surface).getAllByText(full)[0].parentElement!;
+        for (const shape of PRIORITY_BADGE_CLASSES.split(" ")) {
+          expect(badge.classList.contains(shape)).toBe(true);
+        }
         const pill = within(surface).getByText(label);
         for (const tinted of [badge, pill.parentElement!]) {
           expect(tinted.querySelector("svg")).not.toBeNull();
@@ -52,7 +60,9 @@ describe("planche des teintes de priorité (démo)", () => {
 
     for (const name of SURFACES_FR) {
       const surface = screen.getByRole("group", { name });
-      const chips = [...surface.querySelectorAll("[data-space-chip]")];
+      const chips = [
+        ...surface.querySelectorAll("[data-scale] [data-space-chip]"),
+      ];
 
       expect(chips.map((chip) => chip.getAttribute("data-space-chip"))).toEqual(
         ["neutral", "warm", "indigo"],
@@ -62,6 +72,45 @@ describe("planche des teintes de priorité (démo)", () => {
         expect.stringContaining("bg-chip-warm"),
         expect.stringContaining("bg-chip-indigo"),
       ]);
+    }
+  });
+
+  it("montre « Haute » à côté de la pastille d'espace chaude, sur chaque surface", () => {
+    renderTints();
+
+    for (const name of SURFACES_FR) {
+      const row = screen
+        .getByRole("group", { name })
+        .querySelector<HTMLElement>('[data-neighbors="high-warm"]')!;
+
+      expect(
+        within(row).getByText("Haute à côté d'un espace chaud"),
+      ).toBeDefined();
+      const badge = within(row).getByText("Priorité haute").parentElement!;
+      expect(badge.classList.contains("bg-priority-high")).toBe(true);
+      expect(badge.querySelector("svg")).not.toBeNull();
+      const chip = row.querySelector('[data-space-chip="warm"]')!;
+      expect(chip.className).toContain("bg-chip-warm");
+      expect(chip.querySelector("svg")).toBeNull();
+    }
+  });
+
+  it("montre « Urgente » à côté d'une date en retard, en braise et sans fond", () => {
+    renderTints();
+
+    for (const name of SURFACES_FR) {
+      const row = screen
+        .getByRole("group", { name })
+        .querySelector<HTMLElement>('[data-neighbors="urgent-overdue"]')!;
+
+      expect(
+        within(row).getByText("Urgente à côté d'une date en retard"),
+      ).toBeDefined();
+      const badge = within(row).getByText("Priorité urgente").parentElement!;
+      expect(badge.classList.contains("bg-priority-urgent")).toBe(true);
+      const overdue = within(row).getByText("En retard").parentElement!;
+      expect(overdue.classList.contains("text-destructive")).toBe(true);
+      expect(overdue.className).not.toMatch(/\bbg-/);
     }
   });
 
@@ -86,13 +135,23 @@ describe("planche des teintes de priorité (démo)", () => {
       for (const label of ["Urgent", "High", "Medium", "Low"]) {
         expect(within(surface).getByText(label)).toBeDefined();
       }
-      expect(within(surface).getByText("Urgent priority")).toBeDefined();
+      expect(within(surface).getAllByText("Urgent priority")).toHaveLength(2);
+      expect(
+        within(surface).getByText("High next to a warm space"),
+      ).toBeDefined();
+      expect(
+        within(surface).getByText("Urgent next to an overdue date"),
+      ).toBeDefined();
     }
   });
 
   it("est rangée dans les réglages repliés de la démo, jamais au-dessus du tableau", () => {
     render(
-      <NextIntlClientProvider locale="fr" messages={fr}>
+      <NextIntlClientProvider
+        locale="fr"
+        messages={fr}
+        timeZone={getUserTimeZone()}
+      >
         <KanbanDemoSettings
           latency={0}
           onLatencyChange={() => {}}

@@ -401,7 +401,9 @@
       "title": "Teintes de priorité",
       "card": "Carte",
       "row": "Ligne de liste",
-      "column": "Colonne"
+      "column": "Colonne",
+      "highWarm": "Haute à côté d'un espace chaud",
+      "urgentOverdue": "Urgente à côté d'une date en retard"
     },
     "saving": "{count, plural, one {# déplacement en cours d'enregistrement…} other {# déplacements en cours d'enregistrement…}}",
     "saved": "Tout est enregistré.",

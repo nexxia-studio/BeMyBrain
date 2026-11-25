@@ -2,10 +2,11 @@
 // détail. Formes distinctes à 16 px : alerte dans un carré pour urgente, barres de signal pour haute, moyenne,
 // basse. Aucune icône pour 0, partout (spec, « Ligne ») : `SignalZero` se réduit à un point isolé ; la pastille
 // du détail garde alors l'icône du champ (drapeau), le menu laisse la place vide.
-// Couleur (décision d'Antoine du 2026-11-25, DESIGN.md § 2 et § 5) : chaque niveau a sa teinte pastel, et l'icône
-// prend l'encre du token de cette teinte (`text-priority-*-foreground`) sur son fond (`bg-priority-*`). Jamais la
-// couleur seule : l'icône du niveau reste, avec son libellé pour le lecteur d'écran. La braise reste réservée aux
-// erreurs et au retard.
+// Couleur (décisions d'Antoine du 2026-11-25, DESIGN.md § 2 et § 5) : échelle rouge, orangé, jaune, vert, en pastel ;
+// l'icône prend l'encre du token de sa teinte (`text-priority-*-foreground`) sur son fond (`bg-priority-*`). Jamais
+// la couleur seule (rouge et vert se confondent pour certains) : l'icône du niveau reste, avec son libellé pour le
+// lecteur d'écran. La braise reste le texte du retard et des erreurs, sans fond ; le rouge d'« Urgente » est un
+// badge teinté à icône.
 import {
   type LucideIcon,
   SignalHigh,
@@ -34,6 +35,14 @@ export const PRIORITY_TINT_CLASSES: Record<PriorityLevel, string> = {
   3: "bg-priority-medium text-priority-medium-foreground",
   4: "bg-priority-low text-priority-low-foreground",
 };
+
+/**
+ * Forme du badge de priorité d'une carte, d'une ligne ou d'une tuile : carré arrondi de 20 px, icône seule (16 px),
+ * sans libellé visible. Jamais la forme d'une pastille d'espace (pilule à nom, sans icône) : l'orangé de « Haute »
+ * voisine la pastille d'espace chaude, c'est la forme qui les sépare. Même hauteur qu'une pastille.
+ */
+export const PRIORITY_BADGE_CLASSES =
+  "flex size-5 shrink-0 items-center justify-center rounded-sm";
 
 /** Priorité affichée dans une ligne de liste (1 à 4) ; 0 = aucune priorité, rien d'affiché. */
 export function isRowPriority(priority: number): priority is PriorityLevel {

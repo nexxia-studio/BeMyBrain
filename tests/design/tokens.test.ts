@@ -31,14 +31,14 @@ const REFERENCE_RGB = new Set([
 // Teintes de priorité : seules couleurs hors de la référence, entrées par DESIGN.md § 2 (décision d'Antoine du
 // 2026-11-25). Base du fond pastel, puis encre, par niveau.
 const PRIORITY_RGB = new Set([
-  "216,99,160", // urgente, fond (à 16 %)
-  "115,37,80", // #732550 urgente, encre
-  "166,147,11", // haute, fond (à 13 %)
-  "79,69,2", // #4F4502 haute, encre
-  "16,174,101", // moyenne, fond (à 13 %)
-  "0,81,43", // #00512B moyenne, encre
-  "1,162,197", // basse, fond (à 14 %)
-  "1,76,94", // #014C5E basse, encre
+  "236,71,100", // urgente, fond rouge (à 11 %)
+  "127,31,49", // #7F1F31 urgente, encre
+  "236,137,4", // haute, fond orangé (à 10 %)
+  "102,62,6", // #663E06 haute, encre
+  "236,210,25", // moyenne, fond jaune (à 17 %)
+  "86,75,1", // #564B01 moyenne, encre
+  "16,174,101", // basse, fond vert (à 10 %)
+  "1,82,44", // #01522C basse, encre
 ]);
 
 function hexToRgb(hex: string): string {

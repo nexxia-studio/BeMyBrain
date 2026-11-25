@@ -240,17 +240,18 @@
   --chip-warm-fg: var(--ember);
   --chip-indigo-bg: rgb(61 79 214 / 0.13);
   --chip-indigo-fg: var(--indigo-deep);
-  /* Teintes de priorité (DESIGN.md § 2 et § 5, 2026-11-25) : seules couleurs hors de la référence. Fond pastel à
-     la clarté et à la saturation des pastilles d'espace, encre de la même teinte. Toujours avec l'icône du
-     niveau, jamais la couleur seule. Contrastes verrouillés par src/components/tasks/priority-icons.test.ts. */
-  --priority-urgent-bg: rgb(216 99 160 / 0.16);
-  --priority-urgent-fg: #732550;
-  --priority-high-bg: rgb(166 147 11 / 0.13);
-  --priority-high-fg: #4f4502;
-  --priority-medium-bg: rgb(16 174 101 / 0.13);
-  --priority-medium-fg: #00512b;
-  --priority-low-bg: rgb(1 162 197 / 0.14);
-  --priority-low-fg: #014c5e;
+  /* Teintes de priorité (DESIGN.md § 2 et § 5, 2026-11-25) : seules couleurs hors de la référence. Échelle rouge,
+     orangé, jaune, vert ; fond pastel un cran plus léger que les pastilles d'espace, encre foncée de la même
+     famille. Toujours avec l'icône du niveau, jamais la couleur seule. Le rouge n'est pas la braise, qui reste le
+     texte du retard et des erreurs. Contrastes verrouillés par src/components/tasks/priority-icons.test.ts. */
+  --priority-urgent-bg: rgb(236 71 100 / 0.11);
+  --priority-urgent-fg: #7f1f31;
+  --priority-high-bg: rgb(236 137 4 / 0.1);
+  --priority-high-fg: #663e06;
+  --priority-medium-bg: rgb(236 210 25 / 0.17);
+  --priority-medium-fg: #564b01;
+  --priority-low-bg: rgb(16 174 101 / 0.1);
+  --priority-low-fg: #01522c;
 
   /* Verre et ombres (mobile d'abord). */
   --glass-bg: rgb(255 255 255 / 0.58);

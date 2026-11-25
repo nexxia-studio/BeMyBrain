@@ -23,14 +23,14 @@ colors:
   on-primary-muted: "rgb(255 255 255 / 0.86)"
   on-primary-lead: "rgb(255 255 255 / 0.9)"
   on-primary-surface: "rgb(255 255 255 / 0.16)"
-  priority-urgent-bg: "rgb(216 99 160 / 0.16)"
-  priority-urgent-fg: "#732550"
-  priority-high-bg: "rgb(166 147 11 / 0.13)"
-  priority-high-fg: "#4F4502"
-  priority-medium-bg: "rgb(16 174 101 / 0.13)"
-  priority-medium-fg: "#00512B"
-  priority-low-bg: "rgb(1 162 197 / 0.14)"
-  priority-low-fg: "#014C5E"
+  priority-urgent-bg: "rgb(236 71 100 / 0.11)"
+  priority-urgent-fg: "#7F1F31"
+  priority-high-bg: "rgb(236 137 4 / 0.1)"
+  priority-high-fg: "#663E06"
+  priority-medium-bg: "rgb(236 210 25 / 0.17)"
+  priority-medium-fg: "#564B01"
+  priority-low-bg: "rgb(16 174 101 / 0.1)"
+  priority-low-fg: "#01522C"
 typography:
   display:
     fontFamily: "Space Grotesk, Inter, sans-serif"
@@ -244,19 +244,21 @@ Contrastes WCAG calculés sur le cas le plus défavorable. Pour le verre : verre
 | `chip-neutral` | encre 8 % + `--ink` | Pastille d'espace neutre (défaut ; Privé à la migration 0007) | ≥ 11,16 |
 | `chip-warm` | braise claire 16 % + `--ember` | Pastille d'espace chaude (Trustup à la migration 0007) | ≥ 5,52 |
 | `chip-indigo` | indigo 13 % + `--indigo-deep` | Pastille d'espace indigo (Nexxia à la migration 0007) | ≥ 6,21 |
-| `priority-urgent` | `rgb(216 99 160 / 0.16)` + `#732550` (framboise) | Priorité urgente (1) : badge, pastille et menu du détail | texte sur fond : 8,35 sur carte, 8,11 sur ligne, 6,38 sur colonne ; fond sur surface : 1,19 / 1,19 / 1,16 |
-| `priority-high` | `rgb(166 147 11 / 0.13)` + `#4F4502` (ocre) | Priorité haute (2) | texte sur fond : 8,45 / 8,17 / 6,43 ; fond sur surface : 1,14 / 1,14 / 1,11 |
-| `priority-medium` | `rgb(16 174 101 / 0.13)` + `#00512B` (jade) | Priorité moyenne (3) | texte sur fond : 8,28 / 8,05 / 6,35 ; fond sur surface : 1,15 / 1,14 / 1,11 |
-| `priority-low` | `rgb(1 162 197 / 0.14)` + `#014C5E` (sarcelle) | Priorité basse (4) | texte sur fond : 8,22 / 7,99 / 6,31 ; fond sur surface : 1,16 / 1,16 / 1,12 |
+| `priority-urgent` | `rgb(236 71 100 / 0.11)` + `#7F1F31` (rouge rosé) | Priorité urgente (1) : badge, pastille et menu du détail | texte sur fond : 8,54 sur carte, 8,23 sur ligne, 6,43 sur colonne, 4,56 au pire ; fond sur surface : 1,15 / 1,15 / 1,13 |
+| `priority-high` | `rgb(236 137 4 / 0.1)` + `#663E06` (orangé, encre brune) | Priorité haute (2) | texte sur fond : 8,48 / 8,25 / 6,46, 4,56 au pire ; fond sur surface : 1,10 / 1,09 / 1,07 |
+| `priority-medium` | `rgb(236 210 25 / 0.17)` + `#564B01` (jaune, encre brun-olive) | Priorité moyenne (3) | texte sur fond : 8,09 / 7,87 / 6,29, 4,59 au pire ; fond sur surface : 1,08 / 1,07 / 1,03 |
+| `priority-low` | `rgb(16 174 101 / 0.1)` + `#01522C` (vert jade) | Priorité basse (4) | texte sur fond : 8,45 / 8,16 / 6,39, 4,57 au pire ; fond sur surface : 1,11 / 1,11 / 1,09 |
 | `chart-1` à `chart-5` | indigo, indigo profond, braise claire, encre secondaire, encre | Provisoire, à fixer au premier graphique | — |
 
 États dérivés : survol d'un élément de liste ou de navigation = `accent` (le fond « ouvert » de la référence) ; élément actif = blanc + `shadow-raised` ; pression = `scale(0.97)` ; désactivé = opacité 60 % et `cursor: not-allowed` (exempté de contraste par WCAG, mais le libellé reste lisible). La couleur d'une pastille de contexte (neutre, chaude, indigo) est attribuée par contexte ; quand les contextes deviendront configurables, la couleur sera choisie parmi ces trois, jamais saisie.
 
-### Teintes de priorité (décision d'Antoine du 2026-11-25, à valider à l'œil sur la preview avant application)
-Seules couleurs hors de la référence. Une teinte par niveau, fond pastel + encre de la même teinte ; « Aucune » (0) n'a ni teinte ni icône propre. Surfaces des contrastes ci-dessus : carte (`popover`), ligne (`row` sur verre sur brume), colonne creusée (`pill-track` sur brume) ; mesurés sur le rendu le 2026-11-25 : 8,22 à 8,45 sur carte, 7,93 à 8,20 sur ligne. Pire cas, colonne au cœur du halo bleu : 4,55 à 4,61. Le fond ne porte aucune information seul (1,11 à 1,19, comme les pastilles d'espace : 1,16 à 1,21).
-- **Choix** : quatre teintes à écarts réguliers, du chaud au froid dans l'ordre de l'urgence (framboise 350°, ocre 100°, jade 155°, sarcelle 220° en OKLCH), placées dans les intervalles laissés libres par la braise (43°) et l'indigo (271°) : une priorité ne se lit ni comme un espace ni comme un retard.
-- **Poids** : fonds à la clarté et à la saturation des pastilles d'espace (L 0,94 à 0,955, C 0,024 sur blanc ; pastilles : L 0,935 à 0,947, C 0,023), encres à la clarté de l'indigo profond (L 0,38 à 0,40) : priorité et espace cohabitent sur une carte sans que l'une crie plus que l'autre.
-- **Jamais la couleur seule** : l'icône du niveau reste, avec son libellé pour le lecteur d'écran. En deutéranopie et protanopie, les fonds framboise et jade se rapprochent du gris neutre, l'encre ocre de la braise : c'est l'icône (alerte, puis trois, deux, une barre) qui porte l'ordre, et la forme qui sépare (badge à icône pour une priorité, pastille à nom pour un espace, date en texte pour un retard).
+### Teintes de priorité (décisions d'Antoine du 2026-11-25, à valider à l'œil sur la preview avant application)
+Seules couleurs hors de la référence. Une teinte par niveau, fond pastel + encre foncée de la même famille ; « Aucune » (0) n'a ni teinte ni icône propre. Surfaces des contrastes ci-dessus : carte (`popover`), ligne (`row` sur verre sur brume), colonne creusée (`pill-track` sur brume) ; « au pire » : colonne au cœur du halo bleu. Mesurés sur le rendu le 2026-11-25 : 8,09 à 8,54 sur carte, 7,81 à 8,23 sur ligne. Le fond ne porte aucune information seul (1,03 à 1,15).
+- **Échelle que tout le monde lit** : rouge pour urgente, orangé pour haute, jaune pour moyenne, vert pour basse (teintes des fonds en OKLCH : 6°, 75°, 100°, 168°). Le jaune garde plus de couleur que les trois autres (C 0,041 contre 0,020) : plus pâle, il se lit crème et se confond avec l'orangé ; son encre est un brun-olive foncé, jamais un jaune.
+- **Un cran plus pastel que les pastilles d'espace** : fonds à L 0,955 à 0,972 sur blanc (pastilles : 0,935 à 0,947), C 0,020 pour le rouge, l'orangé et le vert (pastilles : 0,023). Encres à la clarté de l'indigo profond (L 0,39 à 0,41).
+- **Urgente en rouge pastel, décision d'Antoine du 2026-11-25 ; la braise reste le texte du retard et des erreurs ; les deux se distinguent par la forme : badge teinté à icône pour la priorité, texte sans fond pour le retard.** Le rouge est plus rosé et plus sombre que la braise : encre à 15° contre 43° (28° d'écart), L 0,40 contre 0,45.
+- **Haute et pastille d'espace chaude** : les deux fonds sont voisins (0,025 d'écart en OKLab sur blanc, 26° de teinte, 1,07:1 entre eux), l'orangé plus clair et plus jaune. C'est la forme qui les sépare : le badge de priorité est un carré arrondi à icône, sans libellé ; la pastille d'espace est une pilule à nom, sans icône (§ 5).
+- **Jamais la couleur seule** : l'icône du niveau est toujours présente, la couleur ne porte jamais seule l'information. En deutéranopie, les fonds rouge et vert se confondent (écart 0,006, contre 0,039 en vision ordinaire), et les encres orangée et jaune aussi ; en protanopie, les encres orangée, jaune et verte se rapprochent de la braise. L'ordre se lit alors à l'icône (alerte, puis trois, deux, une barre), verrouillée distincte par niveau (`priority-icons.test.ts`).
 
 ## 3. Typographie
 Inter pour le texte, Space Grotesk pour les titres et les chiffres, toutes deux par `next/font/google` (variables `--font-inter`, `--font-space-grotesk` ; utilitaires `font-sans`, `font-heading`). Graisses : 400, 500, 600 ; jamais 700. `h1`–`h3` prennent Space Grotesk par défaut.
@@ -315,7 +317,7 @@ Sourcing : primitives shadcn/ui (base-nova) réalignées sur ces tokens, sinon c
 - **Cases à cocher** : 18 px, `accent-color: primary`, ligne entière cliquable (`label` `min-h-11`).
 - **Barres de progression** : piste `bg-track h-2.5 rounded-full`, remplissage `bg-primary` ; elles portent une donnée, jamais décoratives.
 - **Pastilles d'espace** : `rounded-full px-2.5 py-0.5 text-chip`, couleur `chip-*` choisie par `contexts.color` (`neutral`, `warm`, `indigo`).
-- **Priorité** (décision d'Antoine du 2026-11-25 ; application : tâche 12 du plan todo-kanban, après validation des teintes) : niveaux 1 à 4, teinte `priority-*` (§ 2) et icône du niveau (`priority-icons.ts`), toujours ensemble. Carte, ligne et tuile : badge `rounded-full px-2 py-0.5`, icône 16 px seule sur le fond teinté, à l'encre de la teinte, libellé en `sr-only` ; même hauteur qu'une pastille d'espace, accroché à la dernière information de la légende. Détail : la pastille Priorité (forme des pastilles de champ, 44 px) prend le fond et l'encre de la teinte choisie, icône et libellé ; dans son menu, chaque option porte l'icône à l'encre de sa teinte. « Aucune » : pastille ordinaire, icône du champ, pas de teinte. La braise reste réservée aux erreurs et au retard.
+- **Priorité** (décisions d'Antoine du 2026-11-25 ; application : tâche 12 du plan todo-kanban, après validation des teintes) : niveaux 1 à 4, teinte `priority-*` (§ 2) et icône du niveau (`priority-icons.ts`), toujours ensemble. Carte, ligne et tuile : badge carré arrondi `size-5 rounded-sm` (20 px, la hauteur d'une pastille d'espace), icône 16 px seule sur le fond teinté, à l'encre de la teinte, libellé en `sr-only` ; jamais en pilule ni avec un libellé visible, pour ne pas se lire comme une pastille d'espace (pilule à nom, sans icône) ; accroché à la dernière information de la légende. Détail : la pastille Priorité (forme des pastilles de champ, 44 px) prend le fond et l'encre de la teinte choisie, icône et libellé ; dans son menu, chaque option porte l'icône à l'encre de sa teinte. « Aucune » : pastille ordinaire, icône du champ, pas de teinte. La braise reste le texte du retard et des erreurs, sans fond.
 - **Tableau et liste, surfaces « Creux »** (décision d'Antoine du 2026-11-25, variante retenue de la démo) : colonne `bg-pill-track`, posée à nu sur la brume, sans verre ni ombre ; en-tête de colonne à l'encre (`text-foreground`) ; jamais de texte secondaire sur la colonne (3,51:1 au cœur d'un halo). Carte `bg-popover border border-border shadow-raised`, opaque. Calque du glisser : même carte, `shadow-glass`. Jamais deux verres empilés ; la barre d'onglets mobile reste en verre. La liste des tâches suit la même règle : lignes claires et bordées sur un fond teinté, aucun texte secondaire hors des lignes.
 - **Exceptions gardées du détail** (décisions d'Antoine du 2026-11-25, issues de la démo) : ligne « Ajouter une sous-tâche » sans libellé visible (voir **Champs**) ; libellé « Notes » en semi-gras (`font-semibold`, à la taille d'un titre de section, au lieu du `font-medium` des **Champs**) ; notes vides repliées à 46 px de haut (44 px + bord) ; ombre de saisie d'une carte (calque du glisser) en `shadow-glass`, sans token d'ombre plus marquée ni agrandissement.
 - **Pastille de côté (Privé / Pro)** : même forme, contour `border border-border`, texte `text-foreground`, aucun fond `chip-*` (jamais confondue avec un espace). Seulement dans la corbeille, qui mêle les deux côtés.
@@ -379,7 +381,7 @@ Chaque module peut proposer ses propres moments signature, validés à sa spec, 
 8. **Icônes Lucide** (le skill cite Phosphor, Tabler ou Radix) : déjà fournie par shadcn, et les icônes de la référence en ont le dessin (trait 2, bouts arrondis).
 9. **Mobile en une colonne avec une paire « chiffre »** : la spec dit une colonne, la référence mobile montre deux petites tuiles côte à côte. Retenu : une colonne, sauf la paire de tuiles chiffre.
 10. **Voile `scrim` sous les fenêtres modales** (décision d'Antoine, 2026-11-16) : la référence n'a pas de fenêtre modale. Encre à 20 % (`rgb(27 32 51 / 0.2)`), à plat, jamais flouté (pas de verre sous une fenêtre opaque), posé à `--z-overlay` ; il apparaît et disparaît en fondu d'opacité 0,2 s, même courbe que la palette, sans échelle. Décoratif : aucun texte ne s'y pose.
-11. **Teintes de priorité** (décision d'Antoine, 2026-11-25) : la référence n'a que l'indigo et la braise. Quatre teintes pastel, une par niveau, entrent dans la charte (§ 2) ; l'icône reste, jamais la couleur seule. Valeurs à valider à l'œil sur la preview avant application (tâche 12 du plan todo-kanban).
+11. **Teintes de priorité** (décisions d'Antoine, 2026-11-25) : la référence n'a que l'indigo et la braise. Quatre teintes pastel entrent dans la charte (§ 2), sur une échelle que tout le monde lit : rouge, orangé, jaune, vert. Urgente en rouge pastel : la décision 1 est amendée, la braise n'est plus la seule couleur chaude, mais elle reste le texte du retard et des erreurs ; les deux se distinguent par la forme (badge teinté à icône pour la priorité, texte sans fond pour le retard). L'icône du niveau reste, jamais la couleur seule. Valeurs à valider à l'œil sur la preview avant application (tâche 12 du plan todo-kanban).
 
 ## 9. PWA (tâche 13)
 - `theme_color` et `background_color` : `#E8ECF5` (brume ; `THEME_COLOR` et `BACKGROUND_COLOR` dans `src/lib/theme.ts`, lus par le `viewport` et par `src/app/manifest.ts`). `apple-mobile-web-app-status-bar-style` : `default` (barre sombre sur fond clair).
