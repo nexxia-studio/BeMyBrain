@@ -7,16 +7,22 @@ import { uuidSchema } from "@/modules/core/schemas";
 
 import {
   getTask,
+  listBoard,
   listDueToday,
   listTasks,
   listTrashedTasks,
   listUpcomingTasks,
+  type Board,
   type Task,
   type TaskDetail,
   type TaskList,
   type TrashedTask,
 } from "./queries";
-import type { ListTasksFilter, UpcomingTasksFilter } from "./schemas";
+import type {
+  BoardFilter,
+  ListTasksFilter,
+  UpcomingTasksFilter,
+} from "./schemas";
 
 /**
  * Tâches du workspace de la session, lues avec son jeton (RLS active) et filtrées sur `workspaceId`
@@ -28,6 +34,15 @@ export function loadTaskList(
   filter: ListTasksFilter,
 ): Promise<TaskList> {
   return withUserDb(token, (tx) => listTasks(workspaceId, filter, tx));
+}
+
+/** Tableau `/tasks` (vue Tableau) : colonnes du côté demandé, même double verrou. */
+export function loadBoard(
+  token: string,
+  workspaceId: string,
+  filter: BoardFilter,
+): Promise<Board> {
+  return withUserDb(token, (tx) => listBoard(workspaceId, filter, tx));
 }
 
 /**

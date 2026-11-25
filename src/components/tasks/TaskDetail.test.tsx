@@ -59,6 +59,7 @@ function buildDetail(overrides: Partial<TaskDetailData> = {}): TaskDetailData {
     }),
     notes: "Appeler avant midi",
     subtasks: [],
+    relations: { blocks: [], blockedBy: [], related: [] },
     ...overrides,
   };
 }

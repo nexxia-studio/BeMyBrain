@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { TASK_ERROR_MESSAGES, TaskError, type TaskErrorCode } from "./errors";
 import {
+  boardFilterSchema,
   dueTimeSchema,
   listTasksFilterSchema,
   moveTaskInputSchema,
@@ -42,6 +43,46 @@ describe("schémas tasks", () => {
     });
     expect(listTasksFilterSchema.safeParse({ workspaceId: "x" }).success).toBe(
       false,
+    );
+  });
+
+  it("filtre de liste : topLevelOnly en option, absent par défaut, booléen seulement", () => {
+    expect(listTasksFilterSchema.parse({ topLevelOnly: true })).toMatchObject({
+      topLevelOnly: true,
+    });
+    expect(listTasksFilterSchema.parse({})).not.toHaveProperty("topLevelOnly");
+    expect(
+      listTasksFilterSchema.safeParse({ topLevelOnly: "oui" }).success,
+    ).toBe(false);
+  });
+
+  it("filtre du tableau : côté obligatoire, sous-tâches visibles, terminées non masquées et 20 cartes closes par défaut", () => {
+    const ok = (value: unknown) => boardFilterSchema.safeParse(value).success;
+
+    expect(boardFilterSchema.parse({ side: "pro" })).toEqual({
+      side: "pro",
+      includeSubtasks: true,
+      hideCompletedSubtasks: false,
+      completedLimit: 20,
+      canceledLimit: 20,
+    });
+    expect(ok({})).toBe(false);
+    expect(ok({ side: "pro", completedLimit: 200, canceledLimit: 1 })).toBe(
+      true,
+    );
+    expect(ok({ side: "pro", completedLimit: 201 })).toBe(false);
+    expect(ok({ side: "pro", canceledLimit: 0 })).toBe(false);
+    expect(ok({ side: "pro", contextId: "pas-un-uuid" })).toBe(false);
+    expect(ok({ side: "pro", workspaceId: "x" })).toBe(false);
+    expect(ok({ side: "pro", sortKey: "V" })).toBe(false);
+  });
+
+  it("filtre du tableau et topLevelOnly : chaque champ est décrit pour un modèle", () => {
+    for (const field of Object.values(boardFilterSchema.shape)) {
+      expect(field.description ?? "").not.toBe("");
+    }
+    expect(listTasksFilterSchema.shape.topLevelOnly.description).toMatch(
+      /top-level/,
     );
   });
 

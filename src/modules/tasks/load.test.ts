@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const withUserDb = vi.hoisted(() => vi.fn());
 vi.mock("@/db/client", () => ({ withUserDb }));
 const getTask = vi.hoisted(() => vi.fn());
+const listBoard = vi.hoisted(() => vi.fn());
 const listDueToday = vi.hoisted(() => vi.fn());
 const listUpcomingTasks = vi.hoisted(() => vi.fn());
 const listTrashedTasks = vi.hoisted(() => vi.fn());
 vi.mock("./queries", () => ({
   getTask,
+  listBoard,
   listTasks: vi.fn(),
   listDueToday,
   listUpcomingTasks,
@@ -15,6 +17,7 @@ vi.mock("./queries", () => ({
 }));
 
 import {
+  loadBoard,
   loadDueToday,
   loadTask,
   loadTrashedTasks,
@@ -44,6 +47,21 @@ describe("loadTask", () => {
 
     expect(task).toBeNull();
     expect(withUserDb).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadBoard", () => {
+  it("lit le tableau dans le workspace de la session, avec son jeton", async () => {
+    const tx = {};
+    withUserDb.mockImplementation((_token, run) => run(tx));
+    listBoard.mockResolvedValue({ columns: [] });
+    const filter = { side: "pro" as const, includeSubtasks: false };
+
+    const board = await loadBoard("jeton", WORKSPACE, filter);
+
+    expect(withUserDb).toHaveBeenCalledWith("jeton", expect.any(Function));
+    expect(listBoard).toHaveBeenCalledWith(WORKSPACE, filter, tx);
+    expect(board).toEqual({ columns: [] });
   });
 });
 

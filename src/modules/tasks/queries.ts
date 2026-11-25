@@ -14,7 +14,7 @@ import {
 
 import type { UserTx } from "@/db/client";
 import { contexts } from "@/db/schema/core";
-import { tags, tasks, taskTags } from "@/db/schema/tasks";
+import { tags, taskRelations, tasks, taskTags } from "@/db/schema/tasks";
 import type { ContextColor } from "@/modules/core/context-colors";
 import {
   contextColorSchema,
@@ -24,17 +24,21 @@ import {
 import type { Side } from "@/modules/core/sides";
 
 import {
+  boardFilterSchema,
   contextNameSchema,
   dueDateSchema,
   listTasksFilterSchema,
   openStatusCategories,
   parseTaskInput,
+  statusCategories,
   statusCategorySchema,
   upcomingTasksFilterSchema,
+  type BoardFilter,
   type ListTasksFilter,
   type StatusCategory,
   type UpcomingTasksFilter,
 } from "./schemas";
+import { TASK_LIST_MAX_LIMIT } from "./sides";
 
 // Lectures du module tasks (ADR-004) : nommées, typées, réutilisables par l'assistant.
 // Chaque fonction prend workspaceId en premier et la transaction de withUserDb (RLS active) en dernier,
@@ -71,17 +75,58 @@ export type Task = {
   subtaskTotal: number;
   /** Parmi elles, les terminées : numérateur du compteur. */
   subtaskDone: number;
+  /** Sous-tâches actives encore ouvertes (backlog, unstarted, started). */
+  subtaskOpen: number;
+  /**
+   * « Bloquée », dérivé à la lecture : la tâche est active et ouverte, et une tâche active, ouverte et du même
+   * côté la bloque. Faux dès que la bloquante est terminée, annulée, à la corbeille ou de l'autre côté.
+   */
+  blocked: boolean;
+};
+
+/** L'autre tâche d'une relation, telle qu'une ligne du détail ou d'une liste de sélection la montre. */
+export type TaskRelationItem = {
+  /** Identifiant de l'autre tâche. */
+  id: string;
+  title: string;
+  statusCategory: StatusCategory;
+  contextName: string | null;
+  contextColor: ContextColor | null;
+};
+
+/** Relations lues depuis la tâche ; l'autre bout est toujours actif et du même côté, par titre puis identifiant. */
+export type TaskRelations = {
+  /** Tâches que celle-ci bloque. */
+  blocks: TaskRelationItem[];
+  /** Tâches qui bloquent celle-ci (lecture inverse de `blocks`). */
+  blockedBy: TaskRelationItem[];
+  /** « Liée à », symétrique. */
+  related: TaskRelationItem[];
 };
 
 export type TaskDetail = Task & {
   notes: string | null;
   /** Sous-tâches actives, par date de création. */
   subtasks: Task[];
+  relations: TaskRelations;
 };
 
 export type TrashedTask = Task & { deletedAt: Date };
 
 export type TaskList = { tasks: Task[]; truncated: boolean };
+
+export type BoardColumn = {
+  category: StatusCategory;
+  /** Cartes dans l'ordre d'affichage, bornées par le plafond ou la limite de la colonne. */
+  tasks: Task[];
+  /** Nombre réel de tâches de la colonne dans le périmètre lu (côté, espace, options de sous-tâches). */
+  total: number;
+  /** Il existe d'autres tâches que celles rendues (`total` > cartes lues). */
+  truncated: boolean;
+};
+
+/** Tableau : une colonne par catégorie de statut, dans l'ordre de `statusCategories`. */
+export type Board = { columns: BoardColumn[] };
 
 export type Tag = { id: string; name: string };
 
@@ -120,6 +165,24 @@ const tagNames = sql<string[]>`coalesce((
 const countedSubtask = sql`s.status_category <> 'canceled'`;
 const doneSubtask = sql`s.status_category = 'completed'`;
 
+// Catégories ouvertes, en liste SQL : constantes du module (jamais une saisie), d'où sql.raw.
+const openCategoriesSql = sql.raw(
+  `(${openStatusCategories.map((category) => `'${category}'`).join(", ")})`,
+);
+
+// « Bloquée » : tâche active et ouverte, avec au moins une relation blocks dont la bloquante (b) est active,
+// ouverte et du même côté. Workspace filtré des deux côtés de la jointure : une ligne de task_relations ne
+// peut désigner qu'une bloquante du workspace de la tâche lue.
+const blocked = sql<boolean>`(
+  tasks.deleted_at is null and tasks.status_category in ${openCategoriesSql} and exists (
+    select 1 from ${taskRelations} as r
+    join ${tasks} as b on b.workspace_id = r.workspace_id and b.id = r.from_task_id
+    where r.workspace_id = tasks.workspace_id and r.to_task_id = tasks.id and r.kind = 'blocks'
+      and b.workspace_id = tasks.workspace_id and b.deleted_at is null
+      and b.status_category in ${openCategoriesSql} and b.side = tasks.side
+  )
+)`;
+
 function subtaskCount(condition: SQL) {
   return sql<number>`(
     select count(*)::int from ${tasks} as s
@@ -146,6 +209,8 @@ const taskColumns = {
   tags: tagNames,
   subtaskTotal: subtaskCount(countedSubtask),
   subtaskDone: subtaskCount(sql`${countedSubtask} and ${doneSubtask}`),
+  subtaskOpen: subtaskCount(sql`s.status_category in ${openCategoriesSql}`),
+  blocked,
 };
 
 // Ligne telle que la base la renvoie : side, statusCategory et contextColor en text.
@@ -209,6 +274,7 @@ export async function listTasks(
     f.dueOnOrBefore === undefined
       ? undefined
       : lte(tasks.dueDate, f.dueOnOrBefore),
+    f.topLevelOnly === true ? isNull(tasks.parentId) : undefined,
     f.query === undefined
       ? undefined
       : sql`${tasks.title} ilike ${likeContains(f.query)} escape '\\'`,
@@ -265,7 +331,140 @@ export async function listUpcomingTasks(
   return rows.map(toTask);
 }
 
-/** Une tâche active avec ses notes, ses tags et ses sous-tâches actives ; null si absente ou à la corbeille. */
+// Total d'une colonne, porté par chaque ligne : compté avant la limite, dans la même requête que les cartes.
+const columnTotal = sql<number>`(count(*) over ())::int`;
+
+/** La ligne sans son total de colonne, qui ne sort pas dans la carte. */
+function withoutTotal<T extends { total: number }>(row: T): Omit<T, "total"> {
+  const copy: Omit<T, "total"> & { total?: number } = { ...row };
+  delete copy.total;
+  return copy;
+}
+
+/**
+ * Tableau d'un côté : une colonne par catégorie, tâches actives seulement, sous-tâches en cartes (avec
+ * `parentTitle`) sauf `includeSubtasks: false`. Une requête par colonne, total compris (fenêtre `count(*)
+ * over ()`, calculée avant la limite) ; compteurs, tags et « bloquée » par sous-requêtes, comme `listTasks`.
+ * - Colonnes ouvertes : clé d'ordre croissante (ordre octet de la colonne, COLLATE "C"), tâches sans clé
+ *   ensuite dans l'ordre de la liste ; plafond de `TASK_LIST_MAX_LIMIT` cartes.
+ * - Terminée, Annulée : clôture décroissante puis identifiant, `completedLimit` / `canceledLimit` cartes.
+ * La clé d'ordre ne sort jamais : l'ordre est celui des tableaux rendus.
+ */
+export async function listBoard(
+  workspaceId: string,
+  filter: BoardFilter,
+  tx: UserTx,
+): Promise<Board> {
+  const workspace = workspaceOf(workspaceId);
+  const f = parseTaskInput(boardFilterSchema, filter);
+  const limits: Record<StatusCategory, number> = {
+    backlog: TASK_LIST_MAX_LIMIT,
+    unstarted: TASK_LIST_MAX_LIMIT,
+    started: TASK_LIST_MAX_LIMIT,
+    completed: f.completedLimit,
+    canceled: f.canceledLimit,
+  };
+  const columns: BoardColumn[] = [];
+  for (const category of statusCategories) {
+    const open = (openStatusCategories as readonly string[]).includes(category);
+    const topLevelOnly =
+      !f.includeSubtasks ||
+      (f.hideCompletedSubtasks && category === "completed");
+    const rows = await tx
+      .select({ ...taskColumns, total: columnTotal })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.workspaceId, workspace),
+          isActive,
+          eq(tasks.statusCategory, category),
+          eq(tasks.side, f.side),
+          f.contextId === undefined
+            ? undefined
+            : eq(tasks.contextId, f.contextId),
+          topLevelOnly ? isNull(tasks.parentId) : undefined,
+        ),
+      )
+      .orderBy(
+        ...(open
+          ? [sql`${tasks.sortKey} asc nulls last`, ...listOrder]
+          : [sql`${tasks.completedAt} desc nulls last`, asc(tasks.id)]),
+      )
+      .limit(limits[category]);
+    const total = rows[0]?.total ?? 0;
+    columns.push({
+      category,
+      tasks: rows.map((row) => toTask(withoutTotal(row))),
+      total,
+      truncated: total > rows.length,
+    });
+  }
+  return { columns };
+}
+
+/**
+ * Relations d'une tâche active (`side` : son côté), groupées. Une seule requête : la relation est lue par ses
+ * deux bouts, l'autre tâche est jointe dans le même workspace, active et du même côté (une relation vers la
+ * corbeille ou devenue transversale reste en base, masquée ici).
+ */
+async function listRelations(
+  workspace: string,
+  taskId: string,
+  side: Side,
+  tx: UserTx,
+): Promise<TaskRelations> {
+  const rows = await tx
+    .select({
+      kind: taskRelations.kind,
+      outgoing: sql<boolean>`${taskRelations.fromTaskId} = ${taskId}`,
+      id: tasks.id,
+      title: tasks.title,
+      statusCategory: tasks.statusCategory,
+      contextName,
+      contextColor,
+    })
+    .from(taskRelations)
+    .innerJoin(
+      tasks,
+      and(
+        eq(tasks.workspaceId, taskRelations.workspaceId),
+        sql`${tasks.id} = case when ${taskRelations.fromTaskId} = ${taskId}
+          then ${taskRelations.toTaskId} else ${taskRelations.fromTaskId} end`,
+      ),
+    )
+    .where(
+      and(
+        eq(taskRelations.workspaceId, workspace),
+        or(
+          eq(taskRelations.fromTaskId, taskId),
+          eq(taskRelations.toTaskId, taskId),
+        ),
+        eq(tasks.workspaceId, workspace),
+        isActive,
+        eq(tasks.side, side),
+      ),
+    )
+    .orderBy(asc(tasks.title), asc(tasks.id));
+  const relations: TaskRelations = { blocks: [], blockedBy: [], related: [] };
+  for (const { kind, outgoing, ...row } of rows) {
+    const group =
+      kind === "related" ? "related" : outgoing ? "blocks" : "blockedBy";
+    relations[group].push({
+      ...row,
+      statusCategory: statusCategorySchema.parse(row.statusCategory),
+      contextColor:
+        row.contextColor === null
+          ? null
+          : contextColorSchema.parse(row.contextColor),
+    });
+  }
+  return relations;
+}
+
+/**
+ * Une tâche active avec ses notes, ses tags, ses sous-tâches actives et ses relations ; null si absente ou à
+ * la corbeille.
+ */
 export async function getTask(
   workspaceId: string,
   taskId: string,
@@ -287,8 +486,14 @@ export async function getTask(
       and(eq(tasks.workspaceId, workspace), eq(tasks.parentId, id), isActive),
     )
     .orderBy(asc(tasks.createdAt), asc(tasks.id));
-  const { notes, ...task } = row;
-  return { ...toTask(task), notes, subtasks: subtasks.map(toTask) };
+  const { notes, ...rest } = row;
+  const task = toTask(rest);
+  return {
+    ...task,
+    notes,
+    subtasks: subtasks.map(toTask),
+    relations: await listRelations(workspace, task.id, task.side, tx),
+  };
 }
 
 /**

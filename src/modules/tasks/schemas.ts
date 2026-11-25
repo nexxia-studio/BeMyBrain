@@ -4,6 +4,7 @@ import { sideSchema } from "@/modules/core/schemas";
 
 import { TaskError } from "./errors";
 import {
+  BOARD_CLOSED_DEFAULT_LIMIT,
   CONTEXT_NAME_MAX,
   openStatusCategories,
   statusCategories,
@@ -107,6 +108,12 @@ export const listTasksFilterSchema = z.strictObject({
     .describe(
       `Text searched in task titles, case-insensitive, 1 to ${TASK_QUERY_MAX} characters. Accents must match.`,
     ),
+  topLevelOnly: z
+    .boolean()
+    .optional()
+    .describe(
+      "true: only top-level tasks (tasks that are not subtasks), e.g. to pick a parent task. Default false: subtasks are included.",
+    ),
   limit: z
     .number()
     .int()
@@ -119,6 +126,44 @@ export const listTasksFilterSchema = z.strictObject({
 });
 
 export type ListTasksFilter = z.input<typeof listTasksFilterSchema>;
+
+const closedColumnLimit = (column: "completed" | "canceled") =>
+  z
+    .number()
+    .int()
+    .min(1)
+    .max(TASK_LIST_MAX_LIMIT)
+    .default(BOARD_CLOSED_DEFAULT_LIMIT)
+    .describe(
+      `Maximum number of cards returned in the ${column} column, most recently closed first, 1 to ${TASK_LIST_MAX_LIMIT}, default ${BOARD_CLOSED_DEFAULT_LIMIT}. The column total always counts every task.`,
+    );
+
+/** Lecture du tableau (`listBoard`) : une colonne par catégorie de statut, pour un côté. */
+export const boardFilterSchema = z.strictObject({
+  side: sideSchema.describe(
+    "Side of life shown on the board: private (personal life) or pro (work). Required.",
+  ),
+  contextId: z
+    .uuid()
+    .optional()
+    .describe("Only tasks of this space (UUID). Omit for all spaces."),
+  includeSubtasks: z
+    .boolean()
+    .default(true)
+    .describe(
+      "true (default): a subtask is a card of its own, in the column of its own status. false: top-level tasks only, in every column and every total.",
+    ),
+  hideCompletedSubtasks: z
+    .boolean()
+    .default(false)
+    .describe(
+      "true: completed subtasks are left out of the completed column and of its total; canceled and open subtasks stay. Default false. No effect when includeSubtasks is false.",
+    ),
+  completedLimit: closedColumnLimit("completed"),
+  canceledLimit: closedColumnLimit("canceled"),
+});
+
+export type BoardFilter = z.input<typeof boardFilterSchema>;
 
 /** Lecture des tuiles par côté (`listUpcomingTasks`) : côté obligatoire, espace et limite comme `listTasks`. */
 export const upcomingTasksFilterSchema = listTasksFilterSchema

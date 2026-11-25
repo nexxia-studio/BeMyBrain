@@ -25,6 +25,8 @@ export function buildTask(overrides: Partial<Task> = {}): Task {
     tags: [],
     subtaskTotal: 0,
     subtaskDone: 0,
+    subtaskOpen: 0,
+    blocked: false,
     ...overrides,
   };
 }
