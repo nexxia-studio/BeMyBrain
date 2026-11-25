@@ -50,8 +50,18 @@ import { keyBetween, keysFor } from "./sort-key";
 // espace commun à toute la famille laisse passer le ON UPDATE CASCADE d'un changement de kind de l'espace.
 // INSERT en SQL écrit : Drizzle liste toutes les colonnes de la table (DEFAULT pour les absentes), or
 // app_backend n'a le droit INSERT que sur certaines (created_by, id, created_at… sont posés par la base).
-// Ordre du tableau (sort_key) : toute écriture de clé se fait sous lockBoardOrder, pris AVANT tout verrou
-// de ligne. Une clé ne sort jamais du module (absente de Task et de TaskDetail).
+// Ordre du tableau (sort_key) : une clé ne sort jamais du module (absente de Task et de TaskDetail).
+// Ordre des verrous, le même dans toutes les écritures :
+//   1. lockBoardOrder (ordre du tableau du workspace), seulement si l'écriture peut poser ou vider une clé :
+//      createTask dans une catégorie ouverte, updateTask avec `statusCategory` (completeTask compris),
+//      moveTask, restoreTask. Jamais pour un titre, des notes, des tags, une échéance, une priorité, un côté,
+//      un espace, ni pour moveTaskToTrash (la clé d'une tâche à la corbeille reste, ignorée, puis remplacée
+//      à la restauration) ;
+//   2. la parente (lockTask) ;
+//   3. la tâche (lockTask), puis ses sous-tâches par l'instruction qui les écrit.
+// Jamais lockBoardOrder après un verrou de ligne.
+// Arrivée dans une colonne ouverte autrement que par un dépôt (création, changement de catégorie,
+// réouverture, restauration) : en tête si la colonne a déjà des clés, sans clé sinon (arrivalKeys).
 
 const originSchema = z.enum(actionOrigins);
 
@@ -125,6 +135,58 @@ async function lockBoardOrder(workspace: string, tx: UserTx): Promise<void> {
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${name}, 0))`,
   );
+}
+
+function isOpenCategory(statusCategory: string): boolean {
+  return (openStatusCategories as readonly string[]).includes(statusCategory);
+}
+
+/**
+ * Tête d'une colonne : la plus petite clé des tâches actives de cette catégorie dans le workspace (hors
+ * `exceptId`, la carte qu'on déplace), null si aucune n'a de clé. Seule lecture de la tête, pour un dépôt
+ * (moveTask) comme pour une arrivée hors dépôt (arrivalKeys). À lire sous lockBoardOrder.
+ */
+async function columnHead(
+  workspace: string,
+  statusCategory: string,
+  tx: UserTx,
+  exceptId?: string,
+): Promise<string | null> {
+  const [row] = await tx
+    .select({ key: sql<string | null>`min(${tasks.sortKey})` })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.workspaceId, workspace),
+        eq(tasks.statusCategory, statusCategory),
+        isActive,
+        exceptId === undefined ? undefined : ne(tasks.id, exceptId),
+      ),
+    );
+  return row?.key ?? null;
+}
+
+/**
+ * Clés de `count` arrivées hors dépôt dans une colonne, dans l'ordre voulu (la première sera en tête) :
+ * devant la tête si la colonne ouverte a déjà des clés, null sinon (colonne sans clé, Terminée, Annulée).
+ * À appeler sous lockBoardOrder, avant que les arrivantes soient actives dans la colonne avec une clé.
+ */
+async function arrivalKeys(
+  workspace: string,
+  statusCategory: string,
+  count: number,
+  tx: UserTx,
+): Promise<(string | null)[]> {
+  let head = isOpenCategory(statusCategory)
+    ? await columnHead(workspace, statusCategory, tx)
+    : null;
+  if (head === null) return Array.from({ length: count }, () => null);
+  const keys: string[] = [];
+  for (let index = 0; index < count; index++) {
+    head = keyBetween(null, head);
+    keys.unshift(head);
+  }
+  return keys;
 }
 
 /** Espace désigné par son nom (findContextByName) ; absent → context_not_found. */
@@ -204,6 +266,7 @@ async function reload(
  * serveur (ActionContext.origin), jamais des paramètres ; `created_by` est posé par la base.
  * Tâche de premier niveau : côté donné, ou pris de l'espace (`context`, nom exact). Sous-tâche : côté et
  * espace de la parente ; les passer → subtask_follows_parent. Tags par nom, créés s'ils n'existent pas.
+ * Place dans le tableau : arrivée hors dépôt (arrivalKeys).
  */
 export async function createTask(
   workspaceId: string,
@@ -214,6 +277,10 @@ export async function createTask(
   const workspace = parseTaskInput(uuidSchema, workspaceId);
   const taskOrigin = parseTaskInput(originSchema, origin);
   const i = parseTaskInput(createTaskInputSchema, input);
+
+  const status = i.statusCategory ?? "unstarted";
+  // Avant le verrou de la parente (ordre des verrous en tête du fichier).
+  if (isOpenCategory(status)) await lockBoardOrder(workspace, tx);
 
   let side: Side;
   let contextId: string | null = null;
@@ -238,13 +305,13 @@ export async function createTask(
     throw new TaskError("invalid_params");
   }
 
-  const status = i.statusCategory ?? "unstarted";
+  const [sortKey] = await arrivalKeys(workspace, status, 1, tx);
   const result = await tx.execute<{ id: string }>(sql`
     insert into ${tasks} (workspace_id, side, context_id, parent_id, title, notes, status_category, priority,
-      due_date, due_time, completed_at, origin)
+      due_date, due_time, completed_at, origin, sort_key)
     values (${workspace}, ${side}, ${contextId}, ${i.parentId ?? null}, ${i.title}, ${i.notes ?? null},
       ${status}, ${i.priority ?? 0}, ${i.dueDate ?? null}, ${i.dueTime ?? null},
-      case when ${status} in ${closedCategories} then now() end, ${taskOrigin})
+      case when ${status} in ${closedCategories} then now() end, ${taskOrigin}, ${sortKey ?? null})
     returning id`);
   const id = result.rows[0].id;
   if (i.tags !== undefined) await addTags(workspace, id, i.tags, tx);
@@ -256,6 +323,8 @@ export async function createTask(
  * Côté et espace (refusés sur une sous-tâche) : un espace donne son côté ; un côté seul qui change retire
  * l'espace (un espace n'a qu'un côté). La parente et ses sous-tâches changent ensemble.
  * `completed_at` : posé au passage à completed ou canceled (gardé entre les deux), vidé sinon (statusChange).
+ * Place dans le tableau : catégorie inchangée ou absente → clé inchangée ; autre catégorie → arrivée hors
+ * dépôt (arrivalKeys : tête d'une colonne ouverte ordonnée, sans clé sinon, Terminée et Annulée comprises).
  */
 export async function updateTask(
   workspaceId: string,
@@ -276,6 +345,8 @@ export async function updateTask(
     throw new TaskError("invalid_params");
   }
 
+  // Une catégorie donnée peut changer la clé : verrou d'ordre avant le verrou de ligne.
+  if (fields.statusCategory !== undefined) await lockBoardOrder(workspace, tx);
   const task = await lockTask(workspace, taskId, tx);
   if (!task || task.deleted) throw new TaskError("not_found");
   if (task.parentId !== null && (side !== undefined || context !== undefined)) {
@@ -312,11 +383,16 @@ export async function updateTask(
   }
 
   const { statusCategory, dueTime, ...rest } = fields;
+  const arrival =
+    statusCategory !== undefined && statusCategory !== task.statusCategory
+      ? await arrivalKeys(workspace, statusCategory, 1, tx)
+      : [];
   const set = {
     ...rest,
     // Date retirée → heure retirée (CHECK tasks_due_time_check).
     dueTime: fields.dueDate === null && dueTime === undefined ? null : dueTime,
     ...(statusCategory === undefined ? {} : statusChange(statusCategory)),
+    ...(arrival.length === 0 ? {} : { sortKey: arrival[0] }),
   };
   if (Object.values(set).some((value) => value !== undefined)) {
     await tx
@@ -381,7 +457,7 @@ export async function moveTask(
         and(eq(tasks.workspaceId, workspace), eq(tasks.id, taskId), isActive),
       );
 
-  if (!(openStatusCategories as readonly string[]).includes(target)) {
+  if (!isOpenCategory(target)) {
     await write(null);
     return reload(workspace, taskId, tx);
   }
@@ -448,7 +524,7 @@ export async function moveTask(
   } else if (high !== null) {
     low = await edge("max", lt(tasks.sortKey, high));
   } else {
-    high = await edge("min");
+    high = await columnHead(workspace, target, tx, taskId);
   }
 
   // Comparaison JS = ordre de la colonne (COLLATE "C") : l'alphabet des clés est en ASCII croissant.
@@ -499,6 +575,9 @@ export async function moveTaskToTrash(
  * Restaure une tâche de la corbeille et renvoie son détail. Parente : seulement les sous-tâches qui portent
  * son horodatage (mises à la corbeille avec elle). Sous-tâche dont la parente est à la corbeille →
  * parent_in_trash. Tâche active : rien à faire, détail renvoyé. Absente ou d'un autre workspace → not_found.
+ * Place dans le tableau : la clé d'avant la corbeille n'est jamais reprise (elle peut être devenue celle d'une
+ * autre tâche). Chaque tâche restaurée est une arrivée hors dépôt dans sa colonne (arrivalKeys), la tâche
+ * demandée devant ses sous-tâches quand elles partagent une colonne : jamais deux clés égales.
  */
 export async function restoreTask(
   workspaceId: string,
@@ -508,6 +587,9 @@ export async function restoreTask(
   const workspace = parseTaskInput(uuidSchema, workspaceId);
   const id = parseTaskInput(taskIdSchema, taskId);
 
+  // La catégorie et l'état (corbeille ou non) ne sont pas encore connus : verrou d'ordre pris d'office, avant
+  // tout verrou de ligne.
+  await lockBoardOrder(workspace, tx);
   // parent_id n'est jamais modifié (aucun droit UPDATE) : lu sans verrou, pour verrouiller la parente avant
   // la sous-tâche, dans l'ordre de moveTaskToTrash (pas d'interblocage avec une mise à la corbeille).
   const [found] = await tx
@@ -525,11 +607,50 @@ export async function restoreTask(
   if (task.deleted) {
     // Horodatage comparé en base (microsecondes), pas via un Date JS (millisecondes). La sous-requête voit
     // l'état d'avant l'instruction, et le verrou posé juste avant par lockTask rend la valeur stable.
-    await tx.execute(sql`
-      update ${tasks} set deleted_at = null
+    // Clé vidée dans la même instruction : aucune restaurée ne compte dans la tête de sa colonne avant
+    // d'y être placée.
+    const restored = await tx.execute<{
+      id: string;
+      status_category: string;
+    }>(sql`
+      update ${tasks} set deleted_at = null, sort_key = null
       where workspace_id = ${workspace} and (id = ${id} or (parent_id = ${id} and deleted_at = (
         select deleted_at from ${tasks} where workspace_id = ${workspace} and id = ${id}
-      )))`);
+      )))
+      returning id, status_category`);
+    // La tâche demandée d'abord, puis ses sous-tâches par identifiant (ordre stable).
+    const arrivals = restored.rows
+      .map((row) => ({ ...row, id: row.id.toLowerCase() }))
+      .sort(
+        (a, b) =>
+          Number(b.id === task.id) - Number(a.id === task.id) ||
+          (a.id < b.id ? -1 : 1),
+      );
+    const placed: { id: string; key: string }[] = [];
+    for (const statusCategory of openStatusCategories) {
+      const rows = arrivals.filter(
+        (row) => row.status_category === statusCategory,
+      );
+      if (rows.length === 0) continue;
+      const keys = await arrivalKeys(
+        workspace,
+        statusCategory,
+        rows.length,
+        tx,
+      );
+      for (const [index, row] of rows.entries()) {
+        const key = keys[index];
+        if (typeof key === "string") placed.push({ id: row.id, key });
+      }
+    }
+    if (placed.length > 0) {
+      // Même forme que la mise en ordre de moveTask : deux paramètres quel que soit le nombre de lignes.
+      await tx.execute(sql`
+        update ${tasks} set sort_key = v.key
+        from unnest(string_to_array(${placed.map((row) => row.id).join(",")}, ',')::uuid[],
+          string_to_array(${placed.map((row) => row.key).join(",")}, ',')) as v(id, key)
+        where tasks.workspace_id = ${workspace} and tasks.id = v.id and tasks.deleted_at is null`);
+    }
   }
   return reload(workspace, id, tx);
 }

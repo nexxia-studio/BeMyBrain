@@ -18,9 +18,16 @@ import {
 } from "../../../tests/factories/core";
 import { insertTasks, type TaskRow } from "../../../tests/factories/tasks";
 import { TaskError, type TaskErrorCode } from "./errors";
-import { moveTask } from "./mutations";
+import {
+  completeTask,
+  createTask,
+  moveTask,
+  moveTaskToTrash,
+  restoreTask,
+  updateTask,
+} from "./mutations";
 
-// moveTask contre la branche Neon test : withUserDb réel en rôle app_backend (RLS et droits de colonne
+// Ordre du tableau (moveTask, puis arrivées hors dépôt) contre la branche Neon test : withUserDb réel en rôle app_backend (RLS et droits de colonne
 // actifs), fixture préparée et relue par le propriétaire. L'ordre d'une colonne se lit ici en SQL
 // (`order by sort_key`), jamais par une fonction du module. Chaque test repart de workspaces sans tâche :
 // l'ordre est global par workspace et par catégorie.
@@ -153,6 +160,20 @@ async function one(id: string): Promise<Snapshot> {
 
 function move(input: Parameters<typeof moveTask>[1], workspace = f.workspaceA) {
   return asA((tx) => moveTask(workspace, input, tx));
+}
+
+/** Attend qu'une transaction patiente sur un verrou consultatif de cette base (lu par le propriétaire). */
+async function waitForBlockedAdvisoryLock(): Promise<boolean> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { rows } = await owner.query<{ waiting: number }>(
+      `select count(*)::int as waiting from pg_locks
+       where locktype = 'advisory' and not granted
+         and database = (select oid from pg_database where datname = current_database())`,
+    );
+    if (rows[0]!.waiting > 0) return true;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
 }
 
 describe("moveTask : place dans une colonne ouverte déjà ordonnée", () => {
@@ -521,20 +542,6 @@ describe("moveTask : tâche introuvable et isolation", () => {
 });
 
 describe("moveTask : déplacements concurrents", () => {
-  /** Attend qu'une transaction patiente sur un verrou consultatif de cette base (lu par le propriétaire). */
-  async function waitForBlockedAdvisoryLock(): Promise<boolean> {
-    for (let attempt = 0; attempt < 100; attempt++) {
-      const { rows } = await owner.query<{ waiting: number }>(
-        `select count(*)::int as waiting from pg_locks
-         where locktype = 'advisory' and not granted
-           and database = (select oid from pg_database where datname = current_database())`,
-      );
-      if (rows[0]!.waiting > 0) return true;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    return false;
-  }
-
   it("deux connexions, mêmes voisines : le second attend le premier, deux clés distinctes, ordre total", async () => {
     const [a, b, m1, m2] = await seed([
       { title: "a", sortKey: "B" },
@@ -578,5 +585,371 @@ describe("moveTask : déplacements concurrents", () => {
     expect(new Set(keys).size).toBe(4);
     // Le second, validé après le premier, se range juste après beforeId.
     expect(await columnOf("unstarted")).toEqual([a, m2, m1, b]);
+  });
+});
+
+// Arrivées hors dépôt : création, changement de statut, réouverture, restauration.
+
+function create(
+  input: Parameters<typeof createTask>[1],
+  workspace = f.workspaceA,
+) {
+  return asA((tx) => createTask(workspace, input, "app", tx));
+}
+
+function update(input: Parameters<typeof updateTask>[1]) {
+  return asA((tx) => updateTask(f.workspaceA, input, tx));
+}
+
+function restore(taskId: string, workspace = f.workspaceA) {
+  return asA((tx) => restoreTask(workspace, taskId, tx));
+}
+
+async function keysOf(ids: string[]): Promise<(string | null)[]> {
+  return (await snapshot(ids)).map((row) => row.sort_key);
+}
+
+describe("createTask : place dans le tableau", () => {
+  it("tâche créée dans une colonne ordonnée : première, sans clé dans le détail", async () => {
+    const { a, b, c } = await orderedColumn();
+
+    const detail = await create({ title: "Nouvelle", side: "private" });
+
+    expect(await columnOf("unstarted")).toEqual([detail.id, a, b, c]);
+    expect((await one(detail.id)).sort_key).not.toBeNull();
+    expect(detail).not.toHaveProperty("sortKey");
+  });
+
+  it("ne réécrit aucune autre ligne de la colonne, corbeille comprise", async () => {
+    const { a, b, c, trashed } = await orderedColumn();
+    const others = [a, b, c, trashed];
+    const before = await snapshot(others);
+
+    await create({ title: "Nouvelle", side: "private" });
+
+    expect(await snapshot(others)).toEqual(before);
+  });
+
+  it("tâche créée dans une colonne sans clé : sans clé, même si une tâche à la corbeille en porte une", async () => {
+    const [other] = await seed([
+      { title: "Sans clé" },
+      { ...TRASHED, sortKey: "V" },
+    ]);
+
+    const detail = await create({ title: "Nouvelle", side: "private" });
+
+    expect(await keysOf([detail.id, other!])).toEqual([null, null]);
+  });
+
+  it("tâche créée dans une autre colonne ouverte ordonnée : première de cette colonne", async () => {
+    await orderedColumn();
+    const [x] = await seed([
+      { title: "x", statusCategory: "started", sortKey: "V" },
+    ]);
+
+    const detail = await create({
+      title: "Nouvelle",
+      side: "pro",
+      statusCategory: "started",
+    });
+
+    expect(await columnOf("started")).toEqual([detail.id, x]);
+  });
+
+  it("tâche créée terminée : sans clé", async () => {
+    await seed([
+      { title: "Terminée", statusCategory: "completed", sortKey: "V" },
+      { ...TRASHED, statusCategory: "completed" },
+    ]);
+
+    const detail = await create({
+      title: "Déjà faite",
+      side: "private",
+      statusCategory: "completed",
+    });
+
+    expect((await one(detail.id)).sort_key).toBeNull();
+  });
+
+  it("sous-tâche créée : première de sa colonne, parente non réécrite", async () => {
+    const { a, b, c } = await orderedColumn();
+    const before = await one(a!);
+
+    const detail = await create({ title: "Sous-tâche", parentId: a });
+
+    expect(await columnOf("unstarted")).toEqual([detail.id, a, b, c]);
+    expect(detail.parentId).toBe(a);
+    expect(await one(a!)).toEqual(before);
+  });
+});
+
+describe("updateTask et completeTask : place dans le tableau", () => {
+  it("vers « En cours » ordonnée : première d'« En cours », la corbeille ne compte pas", async () => {
+    const { a, b, c } = await orderedColumn();
+    const [x] = await seed([
+      { title: "x", statusCategory: "started", sortKey: "V" },
+      { ...TRASHED, statusCategory: "started", sortKey: "B" },
+    ]);
+
+    const detail = await update({ taskId: c!, statusCategory: "started" });
+
+    expect(await columnOf("started")).toEqual([c, x]);
+    expect(await columnOf("unstarted")).toEqual([a, b]);
+    expect(detail).not.toHaveProperty("sortKey");
+  });
+
+  it("vers une colonne ouverte sans clé : la clé est retirée", async () => {
+    const { a } = await orderedColumn();
+    await seed([
+      { title: "Sans clé", statusCategory: "started" },
+      { ...TRASHED, statusCategory: "started", sortKey: "V" },
+    ]);
+
+    await update({ taskId: a!, statusCategory: "started" });
+
+    expect((await one(a!)).sort_key).toBeNull();
+  });
+
+  it("vers Terminée : clé vidée", async () => {
+    const { a } = await orderedColumn();
+
+    await update({ taskId: a!, statusCategory: "completed" });
+
+    expect(await one(a!)).toMatchObject({
+      status_category: "completed",
+      sort_key: null,
+    });
+  });
+
+  it("titre modifié : clé inchangée, aucune autre ligne réécrite", async () => {
+    const { a, b, c, trashed } = await orderedColumn();
+    const before = await snapshot([b, c, trashed] as string[]);
+
+    await update({ taskId: a!, title: "Renommée" });
+
+    expect((await one(a!)).sort_key).toBe("B");
+    expect(await snapshot([b, c, trashed] as string[])).toEqual(before);
+  });
+
+  it("statut redonné à l'identique : clé inchangée", async () => {
+    const { a, b, c } = await orderedColumn();
+
+    await update({ taskId: b!, statusCategory: "unstarted", priority: 2 });
+
+    expect(await columnOf("unstarted")).toEqual([a, b, c]);
+    expect((await one(b!)).sort_key).toBe("V");
+  });
+
+  it("completeTask : clé vidée", async () => {
+    const { b } = await orderedColumn();
+
+    await asA((tx) => completeTask(f.workspaceA, b!, tx));
+
+    expect(await one(b!)).toMatchObject({
+      status_category: "completed",
+      sort_key: null,
+    });
+  });
+
+  it("tâche terminée réouverte : première de « À faire »", async () => {
+    const { a, b, c } = await orderedColumn();
+    const [done] = await seed([
+      {
+        title: "Terminée",
+        statusCategory: "completed",
+        completedAt: "2026-11-01T10:00:00Z",
+      },
+    ]);
+
+    await update({ taskId: done!, statusCategory: "unstarted" });
+
+    expect(await columnOf("unstarted")).toEqual([done, a, b, c]);
+    expect((await one(done!)).completed_at).toBeNull();
+  });
+});
+
+describe("restoreTask et moveTaskToTrash : place dans le tableau", () => {
+  it("mise à la corbeille : la clé n'est pas réécrite", async () => {
+    const { a, b, c } = await orderedColumn();
+
+    await asA((tx) => moveTaskToTrash(f.workspaceA, b!, tx));
+
+    expect((await one(b!)).sort_key).toBe("V");
+    expect(await columnOf("unstarted")).toEqual([a, c]);
+  });
+
+  it("tâche restaurée dont l'ancienne clé est celle d'une autre : première de sa colonne, jamais deux clés égales", async () => {
+    const [a, b, trashed] = await seed([
+      { title: "a", sortKey: "B" },
+      { title: "b", sortKey: "V" },
+      { ...TRASHED, sortKey: "V" },
+    ]);
+    const before = await snapshot([a, b] as string[]);
+
+    const detail = await restore(trashed!);
+
+    expect(await columnOf("unstarted")).toEqual([trashed, a, b]);
+    expect(new Set(await keysOf([a, b, trashed] as string[])).size).toBe(3);
+    expect(await snapshot([a, b] as string[])).toEqual(before);
+    expect(detail).not.toHaveProperty("sortKey");
+  });
+
+  it("tâche restaurée dans une colonne sans clé : son ancienne clé est retirée", async () => {
+    const [, trashed] = await seed([
+      { title: "Sans clé" },
+      { ...TRASHED, sortKey: "V" },
+      { ...TRASHED, title: "Autre jetée", sortKey: "j" },
+    ]);
+
+    await restore(trashed!);
+
+    expect((await one(trashed!)).sort_key).toBeNull();
+  });
+
+  it("tâche terminée restaurée : sans clé", async () => {
+    const [trashed] = await seed([
+      { ...TRASHED, statusCategory: "completed", sortKey: "V" },
+      { title: "Terminée", statusCategory: "completed", sortKey: "B" },
+    ]);
+
+    await restore(trashed!);
+
+    expect(await one(trashed!)).toMatchObject({
+      deleted_at: null,
+      sort_key: null,
+    });
+  });
+
+  it("parente restaurée avec deux sous-tâches : trois clés distinctes en tête, parente d'abord ; la sous-tâche jetée avant reste à la corbeille", async () => {
+    const { a, b, c } = await orderedColumn();
+    const [parent] = await seed([{ ...TRASHED, sortKey: "B" }]);
+    const [sub1, sub2, started, earlier] = await seed([
+      { ...TRASHED, title: "Sous 1", parentId: parent, sortKey: "V" },
+      { ...TRASHED, title: "Sous 2", parentId: parent },
+      {
+        ...TRASHED,
+        title: "Sous en cours",
+        parentId: parent,
+        statusCategory: "started",
+        sortKey: "V",
+      },
+      {
+        title: "Sous jetée avant",
+        parentId: parent,
+        deletedAt: "2026-11-17T10:00:00Z",
+        sortKey: "j",
+      },
+    ]);
+    const beforeEarlier = await one(earlier!);
+
+    await restore(parent!);
+
+    const column = await columnOf("unstarted");
+    expect(column.slice(0, 3).sort()).toEqual([parent, sub1, sub2].sort());
+    expect(column[0]).toBe(parent);
+    expect(column.slice(3)).toEqual([a, b, c]);
+    const keys = await keysOf(column);
+    expect(keys.every((key) => key !== null)).toBe(true);
+    expect(new Set(keys).size).toBe(6);
+    // « En cours » n'a aucune clé : la sous-tâche restaurée y arrive sans clé.
+    expect(await one(started!)).toMatchObject({
+      deleted_at: null,
+      sort_key: null,
+    });
+    expect(await one(earlier!)).toEqual(beforeEarlier);
+  });
+});
+
+describe("arrivées hors dépôt : isolation et concurrence", () => {
+  it("les clés d'un autre workspace ne sont ni lues ni réécrites", async () => {
+    const [other, trashed] = await seed([{ title: "Sans clé" }, TRASHED]);
+    const [taskB, trashedB] = await seed(
+      [
+        { title: "Tâche de B", side: "pro", sortKey: "V" },
+        { ...TRASHED, side: "pro", sortKey: "j" },
+      ],
+      f.workspaceB,
+      f.userB,
+    );
+    const before = await snapshot([taskB, trashedB] as string[]);
+
+    const created = await create({ title: "Nouvelle", side: "private" });
+    await update({ taskId: other!, statusCategory: "started" });
+    await update({ taskId: other!, statusCategory: "unstarted" });
+    await restore(trashed!);
+
+    expect(await keysOf([created.id, other!, trashed!])).toEqual([
+      null,
+      null,
+      null,
+    ]);
+    expect(await snapshot([taskB, trashedB] as string[])).toEqual(before);
+  });
+
+  it("tâche d'un autre workspace : changement de statut et restauration → not_found, B inchangée", async () => {
+    await orderedColumn();
+    const [taskB, trashedB] = await seed(
+      [
+        { title: "Tâche de B", side: "pro", sortKey: "V" },
+        { ...TRASHED, side: "pro", sortKey: "j" },
+      ],
+      f.workspaceB,
+      f.userB,
+    );
+    const before = await snapshot([taskB, trashedB] as string[]);
+
+    for (const workspace of [f.workspaceA, f.workspaceB]) {
+      await expectCode(
+        asA((tx) =>
+          updateTask(
+            workspace,
+            { taskId: taskB!, statusCategory: "started" },
+            tx,
+          ),
+        ),
+        "not_found",
+      );
+      await expectCode(restore(trashedB!, workspace), "not_found");
+    }
+
+    expect(await snapshot([taskB, trashedB] as string[])).toEqual(before);
+  });
+
+  it("création et déplacement en tête de la même colonne, deux connexions : le déplacement attend, clés distinctes", async () => {
+    const { a, b, c, m } = await orderedColumn();
+    let commitFirst = () => {};
+    const gate = new Promise<void>((resolve) => (commitFirst = resolve));
+    let firstCreated = () => {};
+    const created = new Promise<void>((resolve) => (firstCreated = resolve));
+
+    // Première transaction : crée, puis reste ouverte (non validée) jusqu'à l'ouverture de la porte.
+    const first = asA(async (tx) => {
+      const detail = await createTask(
+        f.workspaceA,
+        { title: "Nouvelle", side: "private" },
+        "app",
+        tx,
+      );
+      firstCreated();
+      await gate;
+      return detail.id;
+    });
+    let secondBlocked = false;
+    let second: Promise<unknown> = Promise.resolve();
+    try {
+      await Promise.race([created, first]);
+      second = move({ taskId: m!, statusCategory: "unstarted" });
+      second.catch(() => undefined);
+      secondBlocked = await waitForBlockedAdvisoryLock();
+    } finally {
+      commitFirst();
+    }
+    const [createdId] = await Promise.all([first, second]);
+
+    expect(secondBlocked).toBe(true);
+    expect(await columnOf("unstarted")).toEqual([m, createdId, a, b, c]);
+    expect(
+      new Set(await keysOf([a, b, c, m, createdId] as string[])).size,
+    ).toBe(5);
   });
 });
