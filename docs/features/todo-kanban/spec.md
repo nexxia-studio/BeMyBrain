@@ -52,7 +52,8 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Lecture d'une colonne ouverte : `sort_key` croissant, tâches sans clé ensuite dans l'ordre de la liste (échéance, priorité, création).
 - Premier déplacement dans une colonne qui contient des tâches sans clé : la mutation donne d'abord une clé à toutes les tâches actives de cette catégorie dans le workspace, dans l'ordre affiché, puis place la carte. Une fois par colonne, dans la même transaction.
 - Arrivée dans une colonne ouverte autrement que par un dépôt (création, changement de statut depuis le détail ou la liste, réouverture, restauration) : en tête de colonne si la colonne a déjà des clés, sans clé sinon. Rattacher ou détacher une tâche ne change ni son statut ni sa place.
-- Les voisines (`beforeId`, `afterId`) sont relues et verrouillées par la mutation : voisine absente, à la corbeille ou d'une autre catégorie → la carte va en tête de la colonne visée, sans erreur (le tableau affiché était périmé).
+- Les écritures d'ordre d'un workspace sont mises en série par un verrou d'ordre (verrou consultatif de transaction, pris avant tout verrou de ligne) ; toute mutation qui écrit plusieurs lignes de `tasks` ou une clé le prend en premier.
+- Les voisines (`beforeId`, `afterId`) sont relues sous ce verrou d'ordre : voisine absente, à la corbeille ou d'une autre catégorie → la carte va en tête de la colonne visée, sans erreur (le tableau affiché était périmé).
 
 ### Sous-tâches
 - À la création, une sous-tâche hérite du côté et de l'espace de sa parente (existant) et de sa priorité quand aucune priorité n'est donnée ; la priorité se modifie ensuite librement. Les tags ne sont pas hérités. Un changement de priorité de la parente ne touche pas ses sous-tâches.
@@ -172,7 +173,7 @@ Retrait de la démo
 - RLS : activée dans la migration de création ; policies SELECT, INSERT, DELETE par appartenance au workspace (`app.is_workspace_member`) ; pas d'UPDATE (une relation s'ajoute ou se retire) ; droits `app_backend` SELECT, INSERT (colonnes utiles), DELETE.
 - Deux migrations additives (0008 ordre et droits, 0009 relations), appliquées en production par la CI (ADR-010). Antoine relit les migrations avant la fusion de la PR A.
 - Lectures dans `src/modules/tasks/queries.ts` seulement (ADR-004) : tableau, relations du détail, « bloquée », candidates. Toutes partent du prédicat `isActive`, y compris pour l'autre bout d'une relation.
-- Écritures dans `mutations.ts`, tâche et voisines verrouillées (`lockTask`) ; parente et espace en une instruction.
+- Écritures dans `mutations.ts` : tâche verrouillée (`lockTask`), ordre sérialisé par workspace (`lockBoardOrder`) ; parente et espace en une instruction.
 - Le `workspaceId` vient de la session ; aucun identifiant de workspace dans un paramètre d'action.
 - Aucune donnée métier dans un message d'erreur ou de console (`.claude/rules/sentry.md`).
 - Préférences d'affichage (vue, sous-tâches, sous-tâches terminées, Annulée dépliée) : cookies, comme le côté ; aucune donnée métier.
