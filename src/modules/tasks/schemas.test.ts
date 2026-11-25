@@ -228,6 +228,7 @@ describe("erreurs tasks", () => {
       "subtask_follows_parent",
       "parent_in_trash",
       "has_subtasks",
+      "has_trashed_subtasks",
       "cross_side_parent",
       "cross_side_relation",
       "relation_conflict",
@@ -240,11 +241,24 @@ describe("erreurs tasks", () => {
     }
     // Lisibles par un modèle : la règle et la sortie.
     expect(TASK_ERROR_MESSAGES.has_subtasks).toMatch(
-      /including subtasks in the trash.+restore.+detach/i,
+      /active subtasks.+detach.+tasks\.setParent.+has_trashed_subtasks/i,
+    );
+    // Pas de suppression définitive dans l'app : le remède est restaurer puis détacher, jamais « vider ».
+    expect(TASK_ERROR_MESSAGES.has_trashed_subtasks).toMatch(
+      /subtasks in the trash.+cannot be emptied.+tasks\.listTrash.+tasks\.restore.+tasks\.setParent.+parentId null/i,
     );
     expect(TASK_ERROR_MESSAGES.subtask_depth).toMatch(/detach the parent/i);
     expect(TASK_ERROR_MESSAGES.parent_in_trash).toBe(
       "The parent task is in the trash. Restore the parent first.",
     );
+  });
+});
+
+describe("setTaskParentInputSchema", () => {
+  it("la description de taskId cite les deux refus liés aux sous-tâches", () => {
+    const description = setTaskParentInputSchema.shape.taskId.description;
+
+    expect(description).toContain("has_subtasks");
+    expect(description).toContain("has_trashed_subtasks");
   });
 });

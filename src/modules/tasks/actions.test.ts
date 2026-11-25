@@ -232,12 +232,16 @@ describe("actions tasks.* : déclaration", () => {
       "not_found",
       "invalid_params",
       "has_subtasks",
+      "has_trashed_subtasks",
       "subtask_depth",
       "cross_side_parent",
       "parent_in_trash",
     ]) {
       expect(setParent, code).toContain(code);
     }
+    // Remède réel d'une sous-tâche à la corbeille : la restaurer puis la détacher (aucune suppression définitive).
+    expect(setParent).toMatch(/tasks\.restore/);
+    expect(setParent).toMatch(/cannot be emptied/);
     expect(setParent).toMatch(/loses its space when the parent has none/);
     expect(setParent).toMatch(/detaching does not give it back/);
     for (const code of [
@@ -758,6 +762,7 @@ describe("actions tasks.* : messages d'erreur", () => {
       subtask_follows_parent: true,
       parent_in_trash: true,
       has_subtasks: true,
+      has_trashed_subtasks: true,
       cross_side_parent: true,
       cross_side_relation: true,
       relation_conflict: true,

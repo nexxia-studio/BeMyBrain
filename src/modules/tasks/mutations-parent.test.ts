@@ -379,7 +379,7 @@ describe("setTaskParent : refus, rien n'est écrit", () => {
     expect(await row(task!)).toEqual(before);
   });
 
-  it("tâche sans espace avec une sous-tâche jetée seule, parente dans un espace : has_subtasks, la famille garde son espace", async () => {
+  it("tâche sans espace dont la seule sous-tâche est à la corbeille, parente dans un espace : has_trashed_subtasks, la famille garde son espace", async () => {
     const [parent, task] = await seed([
       { title: "Parente", contextId: f.contextA },
       { title: "Tâche" },
@@ -389,9 +389,46 @@ describe("setTaskParent : refus, rien n'est écrit", () => {
     ]);
     const before = [await row(task!), await row(sub!)];
 
-    await expectCode(setParent(task!, parent!), "has_subtasks");
+    await expectCode(setParent(task!, parent!), "has_trashed_subtasks");
 
     expect([await row(task!), await row(sub!)]).toEqual(before);
+  });
+
+  it("tâche avec une sous-tâche active et une à la corbeille : has_subtasks, l'active d'abord", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente" },
+      { title: "Tâche" },
+    ]);
+    await seed([
+      { title: "Sous-tâche jetée", parentId: task, deletedAt: TRASHED_AT },
+      { title: "Sous-tâche active", parentId: task },
+    ]);
+    const before = await row(task!);
+
+    await expectCode(setParent(task!, parent!), "has_subtasks");
+
+    expect(await row(task!)).toEqual(before);
+  });
+
+  it("après has_trashed_subtasks, la sous-tâche restaurée puis détachée : le rattachement est accepté", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente" },
+      { title: "Tâche" },
+    ]);
+    const [sub] = await seed([
+      { title: "Sous-tâche jetée", parentId: task, deletedAt: TRASHED_AT },
+    ]);
+    await expectCode(setParent(task!, parent!), "has_trashed_subtasks");
+
+    await restore(sub!);
+    await setParent(sub!, null);
+    const detail = await setParent(task!, parent!);
+
+    expect(detail).toMatchObject({ id: task, parentId: parent });
+    expect(await row(sub!)).toMatchObject({
+      parent_id: null,
+      deleted_at: null,
+    });
   });
 
   it("après ce refus, la parente visée change de côté sans erreur : aucune sous-tâche à la corbeille ne retient l'ancien côté", async () => {

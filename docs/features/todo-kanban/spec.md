@@ -66,7 +66,7 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Changer de parente = une seule écriture (pas de détachement intermédiaire).
 - Une tâche à la corbeille n'est jamais proposée ni acceptée comme parente (`parent_in_trash`).
 - Une parente ne peut donc jamais devenir sous-tâche tant qu'elle a une sous-tâche, même à la corbeille ; `restoreTask` refuse quand même, par sécurité, une sous-tâche dont la parente serait sous-tâche (`subtask_depth`).
-- Refus : `subtask_depth` (parente visée déjà sous-tâche), `has_subtasks` (la tâche a des sous-tâches, corbeille comprise), `cross_side_parent`, `invalid_params` (elle-même), `not_found`, `parent_in_trash`.
+- Refus : `subtask_depth` (parente visée déjà sous-tâche), `has_subtasks` (la tâche a au moins une sous-tâche active), `has_trashed_subtasks` (aucune sous-tâche active, mais au moins une à la corbeille : la restaurer puis la détacher, la corbeille ne se vide pas), `cross_side_parent`, `invalid_params` (elle-même), `not_found`, `parent_in_trash`.
 
 ### Relations
 - Trois types à l'écran : « Bloque », « Bloquée par », « Liée à ». Deux en base : `blocks` (de la bloquante vers la bloquée) et `related` (symétrique, rangée une fois, plus petit identifiant en premier). « Bloquée par » est la lecture inverse de `blocks`.
@@ -100,7 +100,7 @@ Toutes les écritures ci-dessus passent par le registre, canaux web et assistant
 | `tasks.create` (existante) | write | inchangés | Une sous-tâche sans priorité prend celle de sa parente. |
 | `tasks.get` (existante) | read | inchangés | Le détail gagne `relations` et `blocked`. |
 
-Nouveaux codes : `has_subtasks`, `cross_side_parent`, `cross_side_relation`, `relation_conflict`. `Task` gagne `blocked` et `subtaskOpen` ; `sortKey` n'est jamais exposé hors du module (l'ordre est celui du tableau renvoyé).
+Nouveaux codes : `has_subtasks`, `has_trashed_subtasks`, `cross_side_parent`, `cross_side_relation`, `relation_conflict`. `has_trashed_subtasks` dit à l'écran comme à un assistant quoi faire d'une sous-tâche restée à la corbeille : `tasks.restore`, puis `tasks.setParent` avec `parentId: null`. `Task` gagne `blocked` et `subtaskOpen` ; `sortKey` n'est jamais exposé hors du module (l'ordre est celui du tableau renvoyé).
 
 ## Critères d'acceptation
 

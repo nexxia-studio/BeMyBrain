@@ -54,8 +54,9 @@ import { keyBetween, keysFor, SORT_KEY_MAX_LENGTH } from "./sort-key";
 // espace commun à toute la famille laisse passer le ON UPDATE CASCADE d'un changement de kind de l'espace.
 // Cet invariant (côté et espace communs à la parente et à TOUTES ses sous-tâches, corbeille comprise) tient
 // aussi au rattachement : setTaskParent écrit une seule ligne, donc refuse une tâche qui a une sous-tâche,
-// même à la corbeille (has_subtasks) ; elle garderait l'ancien espace, hors de portée de l'instruction de
-// famille de sa nouvelle grand-parente, et retiendrait l'ancien côté (23503 au changement de côté suivant).
+// active (has_subtasks) ou seulement à la corbeille (has_trashed_subtasks) ; elle garderait l'ancien espace,
+// hors de portée de l'instruction de famille de sa nouvelle grand-parente, et retiendrait l'ancien côté
+// (23503 au changement de côté suivant).
 // INSERT en SQL écrit : Drizzle liste toutes les colonnes de la table (DEFAULT pour les absentes), or
 // app_backend n'a le droit INSERT que sur certaines (created_by, id, created_at… sont posés par la base).
 // Ordre du tableau (sort_key) : une clé ne sort jamais du module (absente de Task et de TaskDetail).
@@ -608,8 +609,10 @@ export async function moveTask(
  * invalid_params ; parente absente ou d'un autre workspace → not_found (même réponse, aucun oracle) ; à la
  * corbeille → parent_in_trash ; elle-même sous-tâche → subtask_depth ; de l'autre côté → cross_side_parent
  * (avant toute écriture : la clé étrangère (workspace_id, parent_id, side) n'est qu'un second verrou) ; la
- * tâche a une sous-tâche, corbeille comprise → has_subtasks (une sous-tâche à la corbeille garderait un autre
- * espace que sa famille, voir en tête du fichier ; sortie : la restaurer, la détacher, puis rattacher).
+ * tâche a une sous-tâche active → has_subtasks (sortie : les détacher) ; aucune active mais une à la
+ * corbeille → has_trashed_subtasks (elle garderait un autre espace que sa famille, voir en tête du fichier ;
+ * sortie : la restaurer, la détacher, puis rattacher ; la corbeille ne se vide pas). Active et corbeille à la
+ * fois : has_subtasks, puis has_trashed_subtasks à l'essai suivant, une fois les actives détachées.
  * Déjà dans l'état demandé (même parente, ou déjà de premier niveau) : rien n'est écrit.
  *
  * Verrous : lockBoardOrder, puis la parente visée, puis la tâche (ordre de l'en-tête).
@@ -656,13 +659,19 @@ export async function setTaskParent(
     if (parent.deleted) throw new TaskError("parent_in_trash");
     if (parent.parentId !== null) throw new TaskError("subtask_depth");
     if (parent.side !== task.side) throw new TaskError("cross_side_parent");
-    // Corbeille comprise (voir en tête du fichier) : pas de filtre isActive.
-    const subtasks = await tx
-      .select({ id: tasks.id })
+    // Corbeille comprise (voir en tête du fichier) : pas de filtre isActive. Une active d'abord (false
+    // avant true) : elle décide du code.
+    const [subtask] = await tx
+      .select({ deleted: sql<boolean>`${tasks.deletedAt} is not null` })
       .from(tasks)
       .where(and(eq(tasks.workspaceId, workspace), eq(tasks.parentId, taskId)))
+      .orderBy(sql`${tasks.deletedAt} is not null`)
       .limit(1);
-    if (subtasks.length > 0) throw new TaskError("has_subtasks");
+    if (subtask) {
+      throw new TaskError(
+        subtask.deleted ? "has_trashed_subtasks" : "has_subtasks",
+      );
+    }
     set =
       task.parentId === parent.id
         ? null

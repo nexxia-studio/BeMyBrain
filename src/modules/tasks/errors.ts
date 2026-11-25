@@ -13,8 +13,18 @@ export type TaskErrorCode =
   | "subtask_follows_parent"
   /** Parente à la corbeille : restauration d'une de ses sous-tâches, ou création d'une sous-tâche sous elle. */
   | "parent_in_trash"
-  /** Rattachement d'une tâche qui a des sous-tâches, corbeille comprise : un seul niveau. */
+  /**
+   * Rattachement d'une tâche qui a au moins une sous-tâche active : un seul niveau. Si elle en a aussi à la
+   * corbeille, c'est ce code qui sort ; une fois les actives détachées, l'essai suivant répond
+   * has_trashed_subtasks (deux messages l'un après l'autre : assumé).
+   */
   | "has_subtasks"
+  /**
+   * Rattachement d'une tâche sans sous-tâche active, mais avec au moins une sous-tâche à la corbeille.
+   * Remède : la restaurer puis la détacher. Il n'y a pas de suppression définitive (aucun droit DELETE sur
+   * tasks) : ne jamais promettre de « vider la corbeille ».
+   */
+  | "has_trashed_subtasks"
   /** Parente visée de l'autre côté (privé / pro) que la tâche. */
   | "cross_side_parent"
   /** Relation demandée entre deux tâches de côtés différents (privé / pro). Jamais levé au retrait. */
@@ -39,7 +49,9 @@ export const TASK_ERROR_MESSAGES = {
     "A subtask always has the side and space of its parent. Change them on the parent task instead.",
   parent_in_trash: "The parent task is in the trash. Restore the parent first.",
   has_subtasks:
-    "The task has subtasks, including subtasks in the trash, so it cannot become a subtask itself. Restore the ones in the trash and detach them all first (set their parent to null), then retry.",
+    "The task has active subtasks, so it cannot become a subtask itself. Detach them all first (tasks.setParent with parentId null on each subtask), then retry. If the task also has subtasks in the trash, the retry returns has_trashed_subtasks.",
+  has_trashed_subtasks:
+    "The task has no active subtask left but still has subtasks in the trash, so it cannot become a subtask itself. The trash cannot be emptied: find them with tasks.listTrash, restore each one with tasks.restore, then detach it with tasks.setParent (parentId null), and retry.",
   cross_side_parent:
     "The parent task is on the other side (private or pro). A subtask must be on the same side as its parent: choose a parent on the same side, or change the side of the task first.",
   cross_side_relation:
