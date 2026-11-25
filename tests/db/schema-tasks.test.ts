@@ -253,7 +253,7 @@ describe("tasks : droits d'app_backend", () => {
     ["created_by", "gen_random_uuid()"],
     ["updated_at", "now()"],
     ["workspace_id", "workspace_id"],
-    ["parent_id", "null"],
+    // parent_id : modifiable depuis 0008 (tests/db/tasks-sort-key.test.ts).
   ])("refuse la modification de %s", async (column, value) => {
     const update = asUser(f.userA, async (db) => {
       const id = await insertTask(db);

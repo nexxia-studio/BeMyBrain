@@ -31,3 +31,6 @@ export const TASK_TAGS_PER_WRITE_MAX = 20;
 /** `limit` de `listTasks` : défaut et plafond. */
 export const TASK_LIST_DEFAULT_LIMIT = 50;
 export const TASK_LIST_MAX_LIMIT = 200;
+
+/** Tableau : cartes lues par défaut dans Terminée et dans Annulée (« Tout voir » va jusqu'au plafond de liste). */
+export const BOARD_CLOSED_DEFAULT_LIMIT = 20;

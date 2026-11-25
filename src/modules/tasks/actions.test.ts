@@ -18,6 +18,11 @@ const updateTask = vi.hoisted(() => vi.fn());
 const completeTask = vi.hoisted(() => vi.fn());
 const moveTaskToTrash = vi.hoisted(() => vi.fn());
 const restoreTask = vi.hoisted(() => vi.fn());
+const listBoard = vi.hoisted(() => vi.fn());
+const moveTask = vi.hoisted(() => vi.fn());
+const setTaskParent = vi.hoisted(() => vi.fn());
+const addTaskRelation = vi.hoisted(() => vi.fn());
+const removeTaskRelation = vi.hoisted(() => vi.fn());
 
 vi.mock("./queries", () => ({
   listTasks,
@@ -26,6 +31,7 @@ vi.mock("./queries", () => ({
   listTrashedTasks,
   listTags,
   findContextByName,
+  listBoard,
 }));
 vi.mock("./mutations", () => ({
   createTask,
@@ -33,6 +39,10 @@ vi.mock("./mutations", () => ({
   completeTask,
   moveTaskToTrash,
   restoreTask,
+  moveTask,
+  setTaskParent,
+  addTaskRelation,
+  removeTaskRelation,
 }));
 
 import {
@@ -41,13 +51,16 @@ import {
   registry,
   toToolDefinitions,
 } from "../actions/registry";
-import { TASK_ERROR_MESSAGES } from "./errors";
+import { TASK_ERROR_MESSAGES, type TaskErrorCode } from "./errors";
 import { tasksActions } from "./actions";
+import { BOARD_CLOSED_DEFAULT_LIMIT, TASK_LIST_MAX_LIMIT } from "./sides";
 
 const WORKSPACE = "0f9e8d7c-6b5a-4493-8271-605f4e3d2c1b";
 const USER = "dc42fa70-09a7-4038-a3bb-f61dda854910";
 const TASK = "3a1f5c2e-8b7d-4e6f-9a0b-1c2d3e4f5a6b";
 const CONTEXT = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b";
+const OTHER_TASK = "7c8d9e0f-1a2b-4c3d-9e4f-5a6b7c8d9e0f";
+const OTHER_WORKSPACE = "9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const tx = {} as UserTx;
 const CTX = {
   workspaceId: WORKSPACE,
@@ -67,7 +80,47 @@ const TASK_ACTIONS = [
   "tasks.complete",
   "tasks.moveToTrash",
   "tasks.restore",
+  "tasks.move",
+  "tasks.setParent",
+  "tasks.addRelation",
+  "tasks.removeRelation",
+  "tasks.listBoard",
 ];
+
+/** Les actions du tableau, de la parente et des relations (todo-kanban, tâche 10). */
+const KANBAN_ACTIONS = [
+  "tasks.move",
+  "tasks.setParent",
+  "tasks.addRelation",
+  "tasks.removeRelation",
+  "tasks.listBoard",
+];
+
+/** Tout ce que le module expose aux actions : une action n'en appelle qu'une, une seule fois. */
+const MODULE_READS = {
+  listTasks,
+  getTask,
+  listDueToday,
+  listTrashedTasks,
+  listTags,
+  findContextByName,
+  listBoard,
+};
+const MODULE_WRITES = {
+  createTask,
+  updateTask,
+  completeTask,
+  moveTaskToTrash,
+  restoreTask,
+  moveTask,
+  setTaskParent,
+  addTaskRelation,
+  removeTaskRelation,
+};
+
+/** Fonctions du module appelées depuis le dernier `vi.clearAllMocks()`, une entrée par appel. */
+const calledIn = (fns: Record<string, ReturnType<typeof vi.fn>>) =>
+  Object.entries(fns).flatMap(([name, fn]) => fn.mock.calls.map(() => name));
 
 /** Paramètres minimaux valides par action. */
 const VALID: Record<string, Record<string, unknown>> = {
@@ -81,6 +134,19 @@ const VALID: Record<string, Record<string, unknown>> = {
   "tasks.complete": { taskId: TASK },
   "tasks.moveToTrash": { taskId: TASK },
   "tasks.restore": { taskId: TASK },
+  "tasks.move": { taskId: TASK, statusCategory: "started" },
+  "tasks.setParent": { taskId: TASK, parentId: OTHER_TASK },
+  "tasks.addRelation": {
+    taskId: TASK,
+    kind: "blocks",
+    otherTaskId: OTHER_TASK,
+  },
+  "tasks.removeRelation": {
+    taskId: TASK,
+    kind: "blocks",
+    otherTaskId: OTHER_TASK,
+  },
+  "tasks.listBoard": { side: "pro" },
 };
 
 function run(name: string, params: unknown) {
@@ -100,7 +166,7 @@ afterEach(() => {
 });
 
 describe("actions tasks.* : déclaration", () => {
-  it("déclare les dix actions, sur les canaux web et assistant", () => {
+  it("déclare les quinze actions, sur les canaux web et assistant", () => {
     const names = tasksActions.map((action) => action.name);
 
     expect(names).toEqual(TASK_ACTIONS);
@@ -126,15 +192,133 @@ describe("actions tasks.* : déclaration", () => {
       "tasks.complete": "write",
       "tasks.moveToTrash": "write",
       "tasks.restore": "write",
+      "tasks.move": "write",
+      "tasks.setParent": "write",
+      "tasks.addRelation": "write",
+      "tasks.removeRelation": "write",
+      "tasks.listBoard": "read",
     });
   });
 
-  it("toToolDefinitions('assistant') renvoie les dix actions tasks.*", () => {
+  it("toToolDefinitions('assistant') renvoie les quinze actions tasks.*", () => {
     const names = toToolDefinitions("assistant")
       .map((tool) => tool.name)
       .filter((name) => name.startsWith("tasks."));
 
     expect(names.sort()).toEqual([...TASK_ACTIONS].sort());
+  });
+
+  it("chaque outil tasks.* a une description anglaise non vide, lue dans messages/en.json", () => {
+    const tools = toToolDefinitions("assistant").filter((tool) =>
+      tool.name.startsWith("tasks."),
+    );
+    const english = en.actions.tasks as Record<string, string>;
+    const french = fr.actions.tasks as Record<string, string>;
+
+    expect(tools).toHaveLength(TASK_ACTIONS.length);
+    for (const tool of tools) {
+      const key = tool.name.slice("tasks.".length);
+      expect(tool.description.trim(), tool.name).not.toBe("");
+      expect(tool.description, tool.name).toBe(english[key]);
+      expect(french[key]?.trim() ?? "", `${tool.name} (fr)`).not.toBe("");
+      expect(french[key], `${tool.name} (fr)`).not.toBe(english[key]);
+    }
+  });
+
+  it("les descriptions de tasks.setParent et tasks.addRelation citent leurs refus et la règle de l'espace", () => {
+    const { setParent, addRelation } = en.actions.tasks;
+
+    for (const code of [
+      "not_found",
+      "invalid_params",
+      "has_subtasks",
+      "has_trashed_subtasks",
+      "subtask_depth",
+      "cross_side_parent",
+      "parent_in_trash",
+    ]) {
+      expect(setParent, code).toContain(code);
+    }
+    // Remède réel d'une sous-tâche à la corbeille : la restaurer puis la détacher (aucune suppression définitive).
+    expect(setParent).toMatch(/tasks\.restore/);
+    expect(setParent).toMatch(/cannot be emptied/);
+    expect(setParent).toMatch(/loses its space when the parent has none/);
+    expect(setParent).toMatch(/detaching does not give it back/);
+    for (const code of [
+      "not_found",
+      "invalid_params",
+      "cross_side_relation",
+      "relation_conflict",
+    ]) {
+      expect(addRelation, code).toContain(code);
+    }
+  });
+
+  it("le message de not_found couvre aussi la relation absente de tasks.removeRelation, et dit quoi relire", () => {
+    const message = TASK_ERROR_MESSAGES.not_found;
+
+    expect(message).toMatch(/task does not exist or is in the trash/);
+    expect(message).toMatch(/relation to remove does not exist/);
+    expect(message).toMatch(/get the task/);
+  });
+
+  it("la description de tasks.listBoard annonce les vraies limites du module", () => {
+    const description = en.actions.tasks.listBoard;
+
+    expect(description).toContain(`up to ${TASK_LIST_MAX_LIMIT} cards`);
+    expect(description).toContain(`the ${BOARD_CLOSED_DEFAULT_LIMIT} most`);
+  });
+
+  it("chaque propriété du schéma JSON de chaque outil tasks.* a une description non vide", () => {
+    const tools = toToolDefinitions("assistant").filter((tool) =>
+      tool.name.startsWith("tasks."),
+    );
+
+    for (const tool of tools) {
+      const declared = Object.keys(
+        (registry.get(tool.name)!.params as z.ZodObject).shape ?? {},
+      );
+      const properties = (tool.inputSchema.properties ?? {}) as Record<
+        string,
+        { description?: string }
+      >;
+
+      expect(Object.keys(properties).sort(), tool.name).toEqual(
+        declared.sort(),
+      );
+      for (const [key, property] of Object.entries(properties)) {
+        expect(
+          (property.description ?? "").trim(),
+          `${tool.name}.${key}`,
+        ).not.toBe("");
+      }
+    }
+  });
+
+  it("les schémas des actions du tableau, de la parente et des relations exposent exactement les champs de la spec", () => {
+    const keys = Object.fromEntries(
+      toToolDefinitions("assistant")
+        .filter((tool) => KANBAN_ACTIONS.includes(tool.name))
+        .map((tool) => [
+          tool.name,
+          Object.keys(tool.inputSchema.properties ?? {}).sort(),
+        ]),
+    );
+
+    expect(keys).toEqual({
+      "tasks.move": ["afterId", "beforeId", "statusCategory", "taskId"],
+      "tasks.setParent": ["parentId", "taskId"],
+      "tasks.addRelation": ["kind", "otherTaskId", "taskId"],
+      "tasks.removeRelation": ["kind", "otherTaskId", "taskId"],
+      "tasks.listBoard": [
+        "canceledLimit",
+        "completedLimit",
+        "contextId",
+        "hideCompletedSubtasks",
+        "includeSubtasks",
+        "side",
+      ],
+    });
   });
 });
 
@@ -147,13 +331,69 @@ describe("actions tasks.* : paramètres", () => {
       expect(action.params.safeParse(valid).success, action.name).toBe(true);
       expect(json.type, action.name).toBe("object");
       expect(json.additionalProperties, action.name).toBe(false);
-      for (const extra of ["workspaceId", "userId", "origin", "contextId"]) {
+      // `contextId` est un champ de tasks.listBoard, et `context` un champ de tasks.list, tasks.create et
+      // tasks.update : pour prouver le strictObject, la clé d'espace en trop est celle que l'action n'a pas.
+      const shape = (action.params as z.ZodObject).shape;
+      const spaceKey = "contextId" in shape ? "context" : "contextId";
+      expect(shape, `${action.name} : ${spaceKey}`).not.toHaveProperty(
+        spaceKey,
+      );
+      for (const extra of ["workspaceId", "userId", "origin", spaceKey]) {
         expect(
           action.params.safeParse({ ...valid, [extra]: "x" }).success,
           `${action.name} + ${extra}`,
         ).toBe(false);
       }
     }
+  });
+
+  it("workspaceId, userId ou origin en paramètre d'une action du tableau, de la parente ou des relations → invalid_params, rien d'appelé, valeur absente du message", () => {
+    for (const name of KANBAN_ACTIONS) {
+      for (const [extra, value] of [
+        ["workspaceId", OTHER_WORKSPACE],
+        ["workspace_id", OTHER_WORKSPACE],
+        ["userId", USER],
+        ["origin", "assistant"],
+      ]) {
+        let caught: unknown;
+        try {
+          prepareAction(
+            registry,
+            name,
+            { ...VALID[name], [extra]: value },
+            "web",
+          );
+        } catch (error) {
+          caught = error;
+        }
+
+        expect(caught, `${name} + ${extra}`).toMatchObject({
+          code: "invalid_params",
+          message: "invalid_params",
+        });
+      }
+    }
+    expect(calledIn({ ...MODULE_READS, ...MODULE_WRITES })).toEqual([]);
+  });
+
+  it("tasks.move refuse une voisine égale à la tâche, tasks.setParent un parentId absent, tasks.addRelation un type inconnu (invalid_params)", () => {
+    const attempts: [string, Record<string, unknown>][] = [
+      ["tasks.move", { ...VALID["tasks.move"], beforeId: TASK }],
+      ["tasks.move", { taskId: TASK }],
+      ["tasks.setParent", { taskId: TASK }],
+      ["tasks.addRelation", { ...VALID["tasks.addRelation"], kind: "parent" }],
+      ["tasks.removeRelation", { taskId: TASK, kind: "blocks" }],
+      ["tasks.listBoard", {}],
+      ["tasks.listBoard", { side: "pro", completedLimit: 500 }],
+    ];
+
+    for (const [name, params] of attempts) {
+      expect(
+        prepare(name, params),
+        `${name} ${JSON.stringify(params)}`,
+      ).toThrow(expect.objectContaining({ code: "invalid_params" }));
+    }
+    expect(calledIn({ ...MODULE_READS, ...MODULE_WRITES })).toEqual([]);
   });
 
   it("tasks.list refuse limit: 500 (invalid_params) sans rien lire", () => {
@@ -288,7 +528,182 @@ describe("actions tasks.* : lectures", () => {
   });
 });
 
+describe("actions tasks.* : tableau", () => {
+  it("tasks.listBoard lit le tableau du workspace de la session, avec les options par défaut", async () => {
+    const board = { columns: [] };
+    listBoard.mockResolvedValue(board);
+
+    const result = await run("tasks.listBoard", {
+      side: "pro",
+      contextId: CONTEXT,
+    });
+
+    expect(result).toBe(board);
+    expect(listBoard).toHaveBeenCalledExactlyOnceWith(
+      WORKSPACE,
+      {
+        side: "pro",
+        contextId: CONTEXT,
+        includeSubtasks: true,
+        hideCompletedSubtasks: false,
+        completedLimit: 20,
+        canceledLimit: 20,
+      },
+      tx,
+    );
+  });
+});
+
+describe("actions tasks.* : une seule fonction du module par action", () => {
+  it("chaque écriture appelle une seule mutation, une seule fois, et aucune lecture", async () => {
+    const expected: Record<string, string> = {
+      "tasks.create": "createTask",
+      "tasks.update": "updateTask",
+      "tasks.complete": "completeTask",
+      "tasks.moveToTrash": "moveTaskToTrash",
+      "tasks.restore": "restoreTask",
+      "tasks.move": "moveTask",
+      "tasks.setParent": "setTaskParent",
+      "tasks.addRelation": "addTaskRelation",
+      "tasks.removeRelation": "removeTaskRelation",
+    };
+    const writes = tasksActions.filter((action) => action.access === "write");
+
+    expect(writes.map((action) => action.name).sort()).toEqual(
+      Object.keys(expected).sort(),
+    );
+    for (const action of writes) {
+      vi.clearAllMocks();
+      for (const fn of Object.values(MODULE_WRITES))
+        fn.mockResolvedValue({ id: TASK });
+
+      await run(action.name, VALID[action.name]);
+
+      expect(calledIn(MODULE_WRITES), action.name).toEqual([
+        expected[action.name],
+      ]);
+      expect(calledIn(MODULE_READS), action.name).toEqual([]);
+    }
+  });
+
+  it("chaque lecture appelle une seule lecture, une seule fois, et aucune mutation (seule exception : tasks.list avec context, cas suivant)", async () => {
+    const expected: Record<string, string> = {
+      "tasks.list": "listTasks",
+      "tasks.get": "getTask",
+      "tasks.listDueToday": "listDueToday",
+      "tasks.listTrash": "listTrashedTasks",
+      "tasks.listTags": "listTags",
+      "tasks.listBoard": "listBoard",
+    };
+    const reads = tasksActions.filter((action) => action.access === "read");
+
+    expect(reads.map((action) => action.name).sort()).toEqual(
+      Object.keys(expected).sort(),
+    );
+    for (const action of reads) {
+      vi.clearAllMocks();
+      for (const fn of Object.values(MODULE_READS))
+        fn.mockResolvedValue({ id: TASK });
+
+      await run(action.name, VALID[action.name]);
+
+      expect(calledIn(MODULE_READS), action.name).toEqual([
+        expected[action.name],
+      ]);
+      expect(calledIn(MODULE_WRITES), action.name).toEqual([]);
+    }
+  });
+
+  it("tasks.list avec context fait deux lectures, la résolution du nom puis la liste, et aucune mutation", async () => {
+    findContextByName.mockResolvedValue({ id: CONTEXT, side: "pro" });
+    listTasks.mockResolvedValue({ tasks: [], truncated: false });
+
+    await run("tasks.list", { context: "Trustup" });
+
+    expect(calledIn(MODULE_READS)).toEqual(["listTasks", "findContextByName"]);
+    expect(findContextByName.mock.invocationCallOrder[0]).toBeLessThan(
+      listTasks.mock.invocationCallOrder[0],
+    );
+    expect(calledIn(MODULE_WRITES)).toEqual([]);
+  });
+});
+
 describe("actions tasks.* : écritures", () => {
+  it("tasks.move, tasks.setParent, tasks.addRelation et tasks.removeRelation passent le workspace et la transaction du contexte, les paramètres tels quels, et renvoient le détail", async () => {
+    const neighbours = { beforeId: OTHER_TASK, afterId: CONTEXT };
+    const cases = [
+      ["tasks.move", moveTask, { ...VALID["tasks.move"], ...neighbours }],
+      ["tasks.setParent", setTaskParent, { taskId: TASK, parentId: null }],
+      ["tasks.setParent", setTaskParent, VALID["tasks.setParent"]],
+      [
+        "tasks.addRelation",
+        addTaskRelation,
+        { taskId: TASK, kind: "blocked_by", otherTaskId: OTHER_TASK },
+      ],
+      [
+        "tasks.removeRelation",
+        removeTaskRelation,
+        { taskId: TASK, kind: "related", otherTaskId: OTHER_TASK },
+      ],
+    ] as const;
+
+    for (const [name, fn, params] of cases) {
+      const detail = { id: TASK };
+      fn.mockReset();
+      fn.mockResolvedValue(detail);
+
+      const result = await run(name, params);
+
+      expect(result, name).toBe(detail);
+      expect(fn, name).toHaveBeenCalledExactlyOnceWith(WORKSPACE, params, tx);
+      expect(fn.mock.calls[0][2], name).toBe(tx);
+    }
+  });
+
+  it("le workspace et l'origine viennent du contexte : un autre contexte change le workspace transmis, aucun paramètre ne le peut", async () => {
+    const otherTx = {} as UserTx;
+    const otherCtx = {
+      workspaceId: OTHER_WORKSPACE,
+      userId: USER,
+      origin: "assistant" as const,
+      tx: otherTx,
+    };
+    const fns: Record<string, ReturnType<typeof vi.fn>> = {
+      "tasks.move": moveTask,
+      "tasks.setParent": setTaskParent,
+      "tasks.addRelation": addTaskRelation,
+      "tasks.removeRelation": removeTaskRelation,
+      "tasks.listBoard": listBoard,
+    };
+
+    for (const name of KANBAN_ACTIONS) {
+      fns[name].mockResolvedValue({ id: TASK });
+
+      await invokeAction(
+        prepareAction(registry, name, VALID[name], "assistant"),
+        otherCtx,
+      );
+
+      const [workspaceId, params, usedTx] = fns[name].mock.calls[0];
+      expect(workspaceId, name).toBe(OTHER_WORKSPACE);
+      expect(usedTx, name).toBe(otherTx);
+      expect(JSON.stringify(params), name).not.toContain(OTHER_WORKSPACE);
+      expect(JSON.stringify(params), name).not.toContain("assistant");
+      expect(fns[name].mock.calls[0], name).toHaveLength(3);
+    }
+  });
+
+  it("le refus d'une mutation remonte tel quel : un code, sans donnée de la tâche", async () => {
+    const { TaskError } = await import("./errors");
+    const refusal = new TaskError("has_subtasks");
+    setTaskParent.mockRejectedValue(refusal);
+
+    const attempt = run("tasks.setParent", VALID["tasks.setParent"]);
+
+    await expect(attempt).rejects.toBe(refusal);
+    expect(refusal.message).toBe("has_subtasks");
+  });
+
   it("tasks.create passe l'origine du contexte, jamais un paramètre", async () => {
     createTask.mockResolvedValue({ id: TASK });
 
@@ -337,6 +752,34 @@ describe("actions tasks.* : écritures", () => {
 });
 
 describe("actions tasks.* : messages d'erreur", () => {
+  it("chaque code de TaskErrorCode a son message anglais et sa clé tasks.errors.<code> en français et en anglais", () => {
+    // Liste exhaustive vérifiée par le compilateur : un code ajouté au type sans entrée ici ne compile pas.
+    const codes = Object.keys({
+      invalid_params: true,
+      not_found: true,
+      context_not_found: true,
+      subtask_depth: true,
+      subtask_follows_parent: true,
+      parent_in_trash: true,
+      has_subtasks: true,
+      has_trashed_subtasks: true,
+      cross_side_parent: true,
+      cross_side_relation: true,
+      relation_conflict: true,
+    } satisfies Record<TaskErrorCode, true>) as TaskErrorCode[];
+    const french = fr.tasks.errors as Record<string, string>;
+    const english = en.tasks.errors as Record<string, string>;
+
+    expect(Object.keys(TASK_ERROR_MESSAGES).sort()).toEqual([...codes].sort());
+    for (const code of codes) {
+      expect(TASK_ERROR_MESSAGES[code].trim(), code).not.toBe("");
+      expect(TASK_ERROR_MESSAGES[code], code).toMatch(/^[A-Z][^{}]*\.$/);
+      expect((french[code] ?? "").trim(), `${code} (fr)`).not.toBe("");
+      expect((english[code] ?? "").trim(), `${code} (en)`).not.toBe("");
+      expect(french[code], `${code} (fr)`).not.toBe(english[code]);
+    }
+  });
+
   it("chaque code d'erreur a un message anglais non vide, sans gabarit", () => {
     for (const [code, message] of Object.entries(TASK_ERROR_MESSAGES)) {
       expect(message.trim().length, code).toBeGreaterThan(0);

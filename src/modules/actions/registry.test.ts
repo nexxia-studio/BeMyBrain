@@ -40,6 +40,8 @@ const translateInEnglish = (key: string) => t(key as Parameters<typeof t>[0]);
  * Une action ajoutée au registre sans entrée ici fait échouer le test (tâche 8 : actions tasks.*).
  */
 const TASK = "3a1f5c2e-8b7d-4e6f-9a0b-1c2d3e4f5a6b";
+const OTHER_TASK = "7c8d9e0f-1a2b-4c3d-9e4f-5a6b7c8d9e0f";
+const THIRD_TASK = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b";
 const VALID_PARAMS: Record<string, Record<string, unknown>> = {
   "core.listContexts": { side: "pro" },
   "core.setLocale": { locale: "en" },
@@ -78,6 +80,31 @@ const VALID_PARAMS: Record<string, Record<string, unknown>> = {
   "tasks.complete": { taskId: TASK },
   "tasks.moveToTrash": { taskId: TASK },
   "tasks.restore": { taskId: TASK },
+  "tasks.move": {
+    taskId: TASK,
+    statusCategory: "started",
+    beforeId: OTHER_TASK,
+    afterId: THIRD_TASK,
+  },
+  "tasks.setParent": { taskId: TASK, parentId: null },
+  "tasks.addRelation": {
+    taskId: TASK,
+    kind: "blocked_by",
+    otherTaskId: OTHER_TASK,
+  },
+  "tasks.removeRelation": {
+    taskId: TASK,
+    kind: "related",
+    otherTaskId: OTHER_TASK,
+  },
+  "tasks.listBoard": {
+    side: "pro",
+    contextId: THIRD_TASK,
+    includeSubtasks: false,
+    hideCompletedSubtasks: true,
+    completedLimit: 50,
+    canceledLimit: 5,
+  },
 };
 
 /**
@@ -87,12 +114,37 @@ const VALID_PARAMS: Record<string, Record<string, unknown>> = {
  */
 const ASSISTANT_WRITE_ACTIONS = [
   "core.setLocale",
+  "tasks.addRelation",
   "tasks.complete",
   "tasks.create",
+  "tasks.move",
   "tasks.moveToTrash",
+  "tasks.removeRelation",
   "tasks.restore",
+  "tasks.setParent",
   "tasks.update",
 ];
+
+/** Table exhaustive du registre : nom → accès. Une action ajoutée ou retirée sans passer ici fait échouer le test. */
+const REGISTRY_ACCESS = {
+  "core.listContexts": "read",
+  "core.setLocale": "write",
+  "tasks.list": "read",
+  "tasks.get": "read",
+  "tasks.listDueToday": "read",
+  "tasks.listTrash": "read",
+  "tasks.listTags": "read",
+  "tasks.listBoard": "read",
+  "tasks.create": "write",
+  "tasks.update": "write",
+  "tasks.complete": "write",
+  "tasks.moveToTrash": "write",
+  "tasks.restore": "write",
+  "tasks.move": "write",
+  "tasks.setParent": "write",
+  "tasks.addRelation": "write",
+  "tasks.removeRelation": "write",
+};
 
 function fakeAction(
   name: string,
@@ -175,6 +227,17 @@ describe("registre d'actions : déclaration", () => {
       "core.listContexts": "read",
       "core.setLocale": "write",
     });
+  });
+
+  it("le registre contient exactement les actions de la table, chacune avec son accès", () => {
+    const access = Object.fromEntries(
+      [...registry.values()].map((a) => [a.name, a.access]),
+    );
+
+    expect(access).toEqual(REGISTRY_ACCESS);
+    expect(Object.keys(VALID_PARAMS).sort()).toEqual(
+      Object.keys(REGISTRY_ACCESS).sort(),
+    );
   });
 
   it("les écritures exposées au canal assistant sont exactement celles de la liste blanche", () => {

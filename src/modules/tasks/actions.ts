@@ -5,32 +5,45 @@ import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 
 import { TaskError } from "./errors";
 import {
+  addTaskRelation,
   completeTask,
   createTask,
+  moveTask,
   moveTaskToTrash,
+  removeTaskRelation,
   restoreTask,
+  setTaskParent,
   updateTask,
 } from "./mutations";
 import {
   findContextByName,
   getTask,
+  listBoard,
   listDueToday,
   listTags,
   listTasks,
   listTrashedTasks,
 } from "./queries";
 import {
+  boardFilterSchema,
   contextNameSchema,
   createTaskInputSchema,
   listTasksFilterSchema,
+  moveTaskInputSchema,
+  setTaskParentInputSchema,
   taskIdSchema,
+  taskRelationInputSchema,
   updateTaskInputSchema,
 } from "./schemas";
 
 // Actions du module tasks (ADR-009), canaux web et assistant. Le workspace, l'utilisateur et l'origine
 // viennent du contexte (session, point d'entrée serveur), jamais des paramètres : `z.strictObject` partout.
 // Un espace se désigne par son nom (`context`), résolu dans le workspace de la session : aucun id d'espace
-// en paramètre (spec « Identifiants »).
+// en paramètre (spec « Identifiants »). Seule exception, voulue par la spec du kanban : `tasks.listBoard`
+// prend `contextId`, l'identifiant que l'écran tient déjà ; `listBoard` le filtre dans le workspace de la
+// session, l'espace d'un autre workspace rend des colonnes vides, comme un espace inexistant.
+// Une action d'écriture = UNE mutation : l'ordre des verrous de mutations.ts ne vaut que par mutation
+// (en-tête « Composition »). Ne jamais en enchaîner deux dans la transaction d'une action.
 
 const channels = ["web", "assistant"] as const;
 
@@ -158,6 +171,54 @@ export const restoreTaskAction = defineAction({
   run: (ctx, { taskId }) => restoreTask(ctx.workspaceId, taskId, ctx.tx),
 });
 
+// Tableau, parente et relations (todo-kanban). Les règles (même côté, un seul niveau, voisines relues sous
+// le verrou d'ordre) sont celles des mutations : les mêmes pour l'écran et pour un assistant.
+
+export const listBoardAction = defineAction({
+  name: "tasks.listBoard",
+  description: "actions.tasks.listBoard",
+  params: boardFilterSchema,
+  access: "read",
+  channels,
+  run: (ctx, filter) => listBoard(ctx.workspaceId, filter, ctx.tx),
+});
+
+export const moveTaskAction = defineAction({
+  name: "tasks.move",
+  description: "actions.tasks.move",
+  params: moveTaskInputSchema,
+  access: "write",
+  channels,
+  run: (ctx, input) => moveTask(ctx.workspaceId, input, ctx.tx),
+});
+
+export const setTaskParentAction = defineAction({
+  name: "tasks.setParent",
+  description: "actions.tasks.setParent",
+  params: setTaskParentInputSchema,
+  access: "write",
+  channels,
+  run: (ctx, input) => setTaskParent(ctx.workspaceId, input, ctx.tx),
+});
+
+export const addTaskRelationAction = defineAction({
+  name: "tasks.addRelation",
+  description: "actions.tasks.addRelation",
+  params: taskRelationInputSchema,
+  access: "write",
+  channels,
+  run: (ctx, input) => addTaskRelation(ctx.workspaceId, input, ctx.tx),
+});
+
+export const removeTaskRelationAction = defineAction({
+  name: "tasks.removeRelation",
+  description: "actions.tasks.removeRelation",
+  params: taskRelationInputSchema,
+  access: "write",
+  channels,
+  run: (ctx, input) => removeTaskRelation(ctx.workspaceId, input, ctx.tx),
+});
+
 export const tasksActions = [
   listTasksAction,
   getTaskAction,
@@ -169,4 +230,9 @@ export const tasksActions = [
   completeTaskAction,
   moveToTrashAction,
   restoreTaskAction,
+  moveTaskAction,
+  setTaskParentAction,
+  addTaskRelationAction,
+  removeTaskRelationAction,
+  listBoardAction,
 ] as const;
