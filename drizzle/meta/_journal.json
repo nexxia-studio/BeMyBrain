@@ -64,6 +64,13 @@
       "when": 1795605236405,
       "tag": "0008_tasks_sort_key",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795605828963,
+      "tag": "0009_task_relations",
+      "breakpoints": true
     }
   ]
 }

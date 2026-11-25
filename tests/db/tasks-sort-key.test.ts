@@ -10,7 +10,12 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../factories/core";
-import { errorTag } from "../factories/error-tag";
+import {
+  FOREIGN_KEY_VIOLATION,
+  GRANT_REFUSAL,
+  outcome,
+  tagged,
+} from "../factories/refusal";
 import {
   insertTasks,
   insertTasksFixture,
@@ -29,10 +34,6 @@ if (!ownerUrl || !backendUrl) {
     "tests/db/tasks-sort-key.test.ts : DATABASE_TEST_URL et DATABASE_TEST_AUTHENTICATED_URL requises (branche Neon test). Voir .env.example.",
   );
 }
-
-const OK = "ok";
-const GRANT_REFUSAL = "42501:droit";
-const FOREIGN_KEY_VIOLATION = "23503";
 
 const owner = new Pool({ connectionString: ownerUrl, max: 1 });
 const backend = new Pool({ connectionString: backendUrl, max: 2 });
@@ -60,38 +61,8 @@ afterAll(async () => {
   }
 });
 
-/**
- * Étiquette d'un refus, sans l'erreur brute du pilote (elle porte hôte et mot de passe) : le SQLSTATE.
- * 42501 couvre deux couches : « 42501:droit » (GRANT absent) ou « 42501:rls » (policy).
- */
-function refusalTag(error: unknown): string {
-  const tag = errorTag(error);
-  if (tag !== "42501") return tag;
-  const message = String((error as { message?: unknown }).message);
-  return /permission denied/.test(message) ? `${tag}:droit` : `${tag}:rls`;
-}
-
-/** Ne laisse jamais sortir l'erreur brute : un test qui échoue n'affiche que l'étiquette. */
-async function tagged<T>(query: Promise<T>): Promise<T> {
-  try {
-    return await query;
-  } catch (error) {
-    throw new Error(refusalTag(error));
-  }
-}
-
 const rawAsUser = createAsUser(backend);
 const asUser: typeof rawAsUser = (sub, run) => tagged(rawAsUser(sub, run));
-
-/** Issue d'une écriture : « ok », ou l'étiquette du refus. */
-async function outcome(write: Promise<unknown>): Promise<string> {
-  try {
-    await write;
-    return OK;
-  } catch (error) {
-    return (error as Error).message;
-  }
-}
 
 function insertWithKeys(db: PoolClient, keys: string[]) {
   return db.query(
