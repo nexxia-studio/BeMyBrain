@@ -22,7 +22,8 @@ import { appBackend, contexts, workspaces } from "./core";
 // To-do unifiée, tranche 1 (spec docs/features/todo-unifiee/spec.md, migration drizzle/0006_tasks.sql).
 // Complété à la main dans 0006 (Drizzle ne l'exprime pas) : ON DELETE SET NULL (context_id) de la FK
 // vers contexts, triggers updated_at, GRANT par colonne d'app_backend. Pas de DELETE sur tasks ni tags :
-// ni GRANT ni policy (corbeille = deleted_at). Toute FK vers une ligne métier est composite avec
+// ni GRANT ni policy (corbeille = deleted_at). Complété à la main dans 0008 : COLLATE "C" de sort_key,
+// GRANT INSERT (sort_key) et UPDATE (sort_key, parent_id). Toute FK vers une ligne métier est composite avec
 // workspace_id : la base refuse un lien entre workspaces, quelle que soit la RLS.
 
 const isMember = (workspaceId: AnyPgColumn) =>
@@ -48,6 +49,9 @@ export const tasks = pgTable(
     // Posée par le point d'entrée serveur de l'action, jamais modifiable (pas de GRANT UPDATE).
     origin: text("origin").notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // Clé d'ordre fractionnaire du tableau, par workspace et par catégorie. COLLATE "C" en base (0008,
+    // Drizzle ne l'exprime pas) : comparée octet par octet. NULL = tâche jamais placée à la main.
+    sortKey: text("sort_key"),
     // Posé par la base, hors GRANT de l'app.
     createdBy: uuid("created_by")
       .notNull()
@@ -88,6 +92,9 @@ export const tasks = pgTable(
       .where(sql`deleted_at is null`),
     index("tasks_workspace_parent_idx")
       .on(t.workspaceId, t.parentId)
+      .where(sql`deleted_at is null`),
+    index("tasks_workspace_status_sort_key_idx")
+      .on(t.workspaceId, t.statusCategory, t.sortKey)
       .where(sql`deleted_at is null`),
     index("tasks_workspace_trash_idx")
       .on(t.workspaceId, t.deletedAt)
