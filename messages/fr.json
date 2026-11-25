@@ -151,7 +151,7 @@
     },
     "tasks": {
       "list": "Lister les tâches actives, sous-tâches comprises, filtrées par côté, espace, statut, tag, échéance ou texte du titre",
-      "get": "Afficher une tâche avec ses notes, ses tags et ses sous-tâches",
+      "get": "Afficher une tâche avec ses notes, ses tags, ses sous-tâches et ses relations",
       "listDueToday": "Lister les tâches en retard ou dues aujourd'hui, des deux côtés",
       "listTrash": "Lister les tâches de la corbeille",
       "listTags": "Lister les tags",
@@ -159,7 +159,12 @@
       "update": "Modifier une tâche : titre, notes, côté, espace, statut, priorité, échéance, tags",
       "complete": "Marquer une tâche comme faite",
       "moveToTrash": "Mettre une tâche et ses sous-tâches à la corbeille",
-      "restore": "Restaurer une tâche de la corbeille avec ses sous-tâches"
+      "restore": "Restaurer une tâche de la corbeille avec ses sous-tâches",
+      "move": "Déplacer une tâche dans le tableau : statut et place dans la colonne",
+      "setParent": "Rattacher une tâche à une tâche parente, changer de parente ou la détacher",
+      "addRelation": "Relier deux tâches du même côté : bloque, bloquée par ou liée à",
+      "removeRelation": "Retirer une relation entre deux tâches",
+      "listBoard": "Afficher le tableau d'un côté : les tâches par statut, colonne par colonne"
     }
   },
   "palette": {
