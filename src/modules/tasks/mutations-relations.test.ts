@@ -265,6 +265,30 @@ describe("addTaskRelation : refus, rien n'est écrit", () => {
     expect(await lines()).toEqual([{ from: a, to: b, kind: "blocks" }]);
   });
 
+  // Limite assumée (spec, « Hors périmètre ») : seul l'inverse direct est refusé. Ce test documente l'état
+  // d'aujourd'hui ; détection des cycles longs : ticket BRAIN-63. À retourner quand le ticket sera fait.
+  it("boucle de trois (A bloque B, B bloque C, C bloque A) : acceptée aujourd'hui, trois lignes", async () => {
+    const [a, b, c] = await seed([
+      { title: "A" },
+      { title: "B" },
+      { title: "C" },
+    ]);
+    await add(a!, "blocks", b!);
+    await add(b!, "blocks", c!);
+
+    const closing = await codeOf(add(c!, "blocks", a!));
+
+    expect(closing).toBeNull();
+    expect(await lines()).toHaveLength(3);
+    expect(await lines()).toEqual(
+      expect.arrayContaining([
+        { from: a, to: b, kind: "blocks" },
+        { from: b, to: c, kind: "blocks" },
+        { from: c, to: a, kind: "blocks" },
+      ]),
+    );
+  });
+
   it("côtés différents : cross_side_relation, pour les trois types", async () => {
     const [task, other] = await seed([
       { title: "Tâche privée" },
@@ -536,6 +560,33 @@ describe("relations : deux connexions", () => {
         addTaskRelation(
           f.workspaceA,
           { taskId: b!, kind: "blocks", otherTaskId: a! },
+          tx,
+        ),
+      "advisory",
+    );
+
+    expect(outcome).toEqual({
+      first: null,
+      second: "relation_conflict",
+      blocked: true,
+    });
+    expect(await lines()).toEqual([{ from: a, to: b, kind: "blocks" }]);
+  });
+
+  it("A bloque B pendant que A est bloquée par B : le second attend, un seul passe, l'autre reçoit relation_conflict", async () => {
+    const [a, b] = await seed([{ title: "A" }, { title: "B" }]);
+
+    const outcome = await race(
+      (tx) =>
+        addTaskRelation(
+          f.workspaceA,
+          { taskId: a!, kind: "blocks", otherTaskId: b! },
+          tx,
+        ),
+      (tx) =>
+        addTaskRelation(
+          f.workspaceA,
+          { taskId: a!, kind: "blocked_by", otherTaskId: b! },
           tx,
         ),
       "advisory",
