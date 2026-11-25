@@ -59,7 +59,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « sous-tâche sans priorité sous une parente Haute → Haute ; avec `priority: 0` → Aucune ; tags de la parente absents ; changer la parente ensuite ne change pas la sous-tâche »
   - Fini quand : tests verts ; la description lue par un modèle dit la règle.
 
-- [ ] **7. Rattacher, changer de parente, détacher (`setTaskParent`)** [security]
+- [x] **7. Rattacher, changer de parente, détacher (`setTaskParent`)** [security] — terminée le 2026-11-25 (`2111ba3`)
   - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`has_subtasks`, `cross_side_parent`), `mutations.test.ts`, `messages/{fr,en}.json` (`tasks.errors.*`)
   - Contenu : règles de spec « Tâche parente » ; même côté exigé, refus avant l'écriture ; espace aligné dans la même instruction que `parent_id` ; statut, place, priorité, tags et relations inchangés ; `restoreTask` refuse une sous-tâche dont la parente est devenue sous-tâche (`subtask_depth`). `restoreTask` relit `parent_id` après le verrou de la tâche (la parente peut désormais changer entre la lecture et le verrou) ; le commentaire « parent_id n'est jamais modifié » de `mutations.ts` est corrigé.
   - Test à écrire d'abord : « rattachée, elle prend l'espace de la parente ; parente de l'autre côté → `cross_side_parent`, rien d'écrit ; parente déjà sous-tâche → `subtask_depth` ; tâche avec sous-tâches actives → `has_subtasks` (avec seulement des sous-tâches à la corbeille → accepté) ; elle-même → `invalid_params` ; parente à la corbeille → `parent_in_trash` ; parente d'un autre workspace → `not_found` ; détachée, elle garde côté, espace et place ; restauration refusée en profondeur 2 »
