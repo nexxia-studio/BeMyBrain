@@ -22,6 +22,10 @@ const setContextSelection = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/preferences-actions", () => ({ setContextSelection }));
 
 import {
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "./priority-icons";
+import {
   TASK_LIST_TILE_CLASSES,
   TASK_ROW_CLASSES,
   TASK_ROW_LEGEND_CLASSES,
@@ -291,7 +295,7 @@ describe("liste des tâches : tags", () => {
 });
 
 describe("liste des tâches : priorité", () => {
-  it("une icône distincte par niveau (modèle Linear), 16 px à l'encre, libellé lu inchangé", () => {
+  it("un badge teinté par niveau : forme du badge, teinte et icône du niveau (16 px), libellé lu inchangé", () => {
     renderList(
       [1, 2, 3, 4].map((priority) =>
         buildTask({ title: `Tâche ${priority}`, priority }),
@@ -308,14 +312,30 @@ describe("liste des tâches : priorité", () => {
       const link = screen.getByRole("link", {
         name: new RegExp(`Tâche ${priority}`),
       });
-      const svg = link.querySelector(`svg.${icon}`);
+      const badge = within(link).getByText(label).parentElement!;
+      expectClasses(badge, PRIORITY_BADGE_CLASSES);
+      expectClasses(badge, PRIORITY_TINT_CLASSES[priority]);
+      const svg = badge.querySelector(`svg.${icon}`);
       expect(svg?.getAttribute("class")).toContain("size-4");
-      expect(svg?.getAttribute("class")).toContain("text-foreground");
-      expect(within(link).getByText(label)).toBeTruthy();
+      // L'icône prend l'encre de la teinte, plus l'encre ordinaire.
+      expect(svg?.getAttribute("class")).not.toContain("text-foreground");
     }
   });
 
-  it("accroche l'icône de priorité à la dernière information qui la précède (groupe insécable), compteur à part", () => {
+  it("priorité 2 : classe de teinte haute et icône de signal haute dans le badge", () => {
+    renderList([buildTask({ title: "Haute", priority: 2 })]);
+
+    const link = screen.getByRole("link", { name: /Haute/ });
+    const badge = within(link).getByText("Priorité haute").parentElement!;
+
+    expectClasses(
+      badge,
+      "bg-priority-high text-priority-high-foreground size-5 rounded-sm",
+    );
+    expect(badge.querySelector("svg.lucide-signal-high")).not.toBeNull();
+  });
+
+  it("accroche le badge de priorité à la dernière information qui le précède (groupe insécable), compteur à part", () => {
     renderList([
       buildTask({
         title: "Groupée",
@@ -334,12 +354,14 @@ describe("liste des tâches : priorité", () => {
     );
     expect(group.children).toHaveLength(2);
     expect(within(group).getByText("client")).toBeTruthy();
-    expect(within(group).getByText("Priorité haute")).toBeTruthy();
+    const badge = within(group).getByText("Priorité haute").parentElement!;
+    expect(badge.parentElement).toBe(group);
+    expectClasses(badge, PRIORITY_TINT_CLASSES[2]);
     expect(group.querySelector("svg.lucide-list-checks")).toBeNull();
     expect(link.querySelector("svg.lucide-list-checks")).not.toBeNull();
   });
 
-  it("sans information avant elle, l'icône de priorité reste seule, sans groupe", () => {
+  it("sans information avant lui, le badge de priorité reste seul, sans groupe", () => {
     renderList([buildTask({ title: "Seule", priority: 2 })], {
       showContext: false,
     });
@@ -350,7 +372,7 @@ describe("liste des tâches : priorité", () => {
     expect(within(link).getByText("Priorité haute")).toBeTruthy();
   });
 
-  it("variante tile : légende sur une ligne inchangée, aucun groupe", () => {
+  it("variante tile : légende sur une ligne inchangée, aucun groupe, badge teinté du niveau", () => {
     render(
       <NextIntlClientProvider
         locale="fr"
@@ -370,14 +392,45 @@ describe("liste des tâches : priorité", () => {
     const link = screen.getByRole("link", { name: /Tuile/ });
 
     expect(link.querySelector("[data-legend-group]")).toBeNull();
-    expect(within(link).getByText("Priorité haute")).toBeTruthy();
+    const badge = within(link).getByText("Priorité haute").parentElement!;
+    expectClasses(badge, PRIORITY_BADGE_CLASSES);
+    expectClasses(badge, PRIORITY_TINT_CLASSES[2]);
+    expect(badge.querySelector("svg.lucide-signal-high")).not.toBeNull();
+    const legend = badge.parentElement!;
+    // Coupée au bord en largeur seulement : la hauteur du badge n'est pas rognée par la cale.
+    expectClasses(legend, "flex-nowrap overflow-x-clip whitespace-nowrap");
+    expect(legend.className.split(/\s+/)).not.toContain("overflow-hidden");
   });
 
-  it("aucune icône de priorité pour 0", () => {
+  it("variante tile : ni badge ni icône pour 0", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TaskRow
+          task={buildTask({ title: "Tuile", priority: 0, tags: ["client"] })}
+          overdue={false}
+          showDate
+          showContext={false}
+          layout="tile"
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const link = screen.getByRole("link", { name: /Tuile/ });
+
+    expect(link.querySelector("[class*='bg-priority-']")).toBeNull();
+    expect(link.querySelector("svg[class*='lucide-signal']")).toBeNull();
+  });
+
+  it("ni badge ni icône de priorité pour 0", () => {
     renderList([buildTask({ title: "Sans priorité", priority: 0 })]);
 
     const link = screen.getByRole("link", { name: /Sans priorité/ });
 
+    expect(link.querySelector("[class*='bg-priority-']")).toBeNull();
     expect(link.querySelector("svg[class*='lucide-signal']")).toBeNull();
     expect(
       link.querySelector("svg.lucide-square-exclamation-point"),

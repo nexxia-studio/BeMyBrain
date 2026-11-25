@@ -2,8 +2,8 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, app) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Carte de la démo du kanban : titre (deux lignes au plus), puis légende reprise de la ligne de liste (`TaskRow`) :
-// « Bloquée », pastille d'espace, échéance (braise en retard), tags, icône de priorité (accrochée à l'information
-// qui la précède, jamais seule sur une ligne). Surface `popover` opaque à fin contour `border` dans les deux
+// « Bloquée », pastille d'espace, échéance (braise en retard), tags, badge de priorité teinté (`PriorityBadge`,
+// accroché à l'information qui le précède, jamais seul sur une ligne). Surface `popover` opaque à fin contour `border` dans les deux
 // variantes (`demo-looks.ts`, D7) : la carte se détache du creux teinté de la colonne ; ombre `shadow-raised` dans
 // la variante « creux » seulement. Calque du glisser : même carte, sans ombre propre ; ombre, inclinaison et
 // empreinte viennent de `SortableBoard`.
@@ -18,10 +18,8 @@ import {
   CHIP_SHAPE_CLASSES,
   contextChipClass,
 } from "@/components/tasks/context-chip-class";
-import {
-  isRowPriority,
-  PRIORITY_ICONS,
-} from "@/components/tasks/priority-icons";
+import { isRowPriority } from "@/components/tasks/priority-icons";
+import { PriorityBadge } from "@/components/tasks/PriorityBadge";
 import { TaskLegendItems } from "@/components/tasks/TaskLegendItems";
 import { cn } from "@/lib/utils";
 import { dueDateInstant, tagList } from "@/modules/tasks/view";
@@ -52,9 +50,6 @@ export function KanbanDemoCard({
   const open = OPEN_STATUSES.has(task.status);
   const overdue = open && task.dueDate !== null && task.dueDate < today;
   const dueToday = task.dueDate === today;
-  const PriorityIcon = isRowPriority(task.priority)
-    ? PRIORITY_ICONS[task.priority]
-    : null;
 
   return (
     <div
@@ -79,18 +74,9 @@ export function KanbanDemoCard({
       <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-muted-foreground">
         <TaskLegendItems
           priority={
-            PriorityIcon === null ? null : (
-              <span className="flex items-center">
-                <PriorityIcon
-                  aria-hidden="true"
-                  className="size-4 text-foreground"
-                  strokeWidth={2}
-                />
-                <span className="sr-only">
-                  {t(`priority.${task.priority}`)}
-                </span>
-              </span>
-            )
+            isRowPriority(task.priority) ? (
+              <PriorityBadge priority={task.priority} />
+            ) : null
           }
         >
           {task.blocked && (

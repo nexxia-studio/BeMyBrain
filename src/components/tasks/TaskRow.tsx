@@ -4,7 +4,7 @@
 // Ligne de la liste (spec todo-unifiee, « Liste ») : case à cocher (zone 44 px, libellé sur la case seule),
 // puis un lien vers le détail qui couvre le reste de la ligne : titre (deux lignes au plus), puis légende
 // (parente, espace, échéance, heure, tags, priorité, compteur de sous-tâches). Une seule colonne à toutes les
-// largeurs : la légende passe à la ligne sous 390 px, l'icône de priorité jamais seule (accrochée à l'information
+// largeurs : la légende passe à la ligne sous 390 px, le badge de priorité jamais seul (accrochée à l'information
 // qui la précède). Variante `tile` (tuiles To-do du tableau de bord, hauteur
 // fixe, DESIGN.md § 6) : titre tronqué sur une ligne, légende sur une ligne coupée au bord ; la liste et le détail
 // gardent le titre complet.
@@ -22,7 +22,8 @@ import { dueDateInstant, subtaskCounter, tagList } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
 import { CHIP_SHAPE_CLASSES, contextChipClass } from "./context-chip-class";
-import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
+import { isRowPriority } from "./priority-icons";
+import { PriorityBadge } from "./PriorityBadge";
 import {
   TASK_ROW_CLASSES,
   TASK_ROW_LEGEND_CELL_CLASSES,
@@ -38,8 +39,8 @@ import { useTaskToggle } from "./use-task-toggle";
 
 const MotionLink = motion.create(Link);
 
-// Priorité (ordre Linear : 1 urgente … 4 basse) : une icône distincte par niveau (`priority-icons.ts`, la même
-// que la pastille Priorité du détail), rien pour 0. Le libellé lu par les lecteurs d'écran porte le niveau.
+// Priorité (ordre Linear : 1 urgente … 4 basse) : badge teinté à icône (`PriorityBadge`, teinte et icône du niveau,
+// les mêmes que la pastille Priorité du détail), rien pour 0. Le libellé lu par les lecteurs d'écran porte le niveau.
 
 type TaskRowProps = {
   task: Task;
@@ -72,9 +73,7 @@ export function TaskRow({
   const locale = useLocale();
   const { closed, canceled, pending, failure, toggle } = useTaskToggle(task);
   const counter = subtaskCounter(task);
-  const PriorityIcon = isRowPriority(task.priority)
-    ? PRIORITY_ICONS[task.priority]
-    : null;
+  const hasPriority = isRowPriority(task.priority);
   // Éléments de la légende : sans aucun, ni légende ni cale (la ligne garde 44 px).
   const hasParent = task.parentTitle !== null;
   const showChip = showContext && task.contextName !== null;
@@ -88,21 +87,13 @@ export function TaskRow({
     shownDueDate !== null ||
     hasTime ||
     hasTags ||
-    PriorityIcon !== null ||
+    hasPriority ||
     counter !== null;
 
   // Liste : accrochée à l'information qui la précède (`TaskLegendItems`). Tuile : légende sur une ligne, à la suite.
-  const priority =
-    PriorityIcon === null ? null : (
-      <span className="flex items-center">
-        <PriorityIcon
-          aria-hidden="true"
-          className="size-4 text-foreground"
-          strokeWidth={2}
-        />
-        <span className="sr-only">{t(`list.priority.${task.priority}`)}</span>
-      </span>
-    );
+  const priority = hasPriority ? (
+    <PriorityBadge priority={task.priority} />
+  ) : null;
 
   return (
     // Survol du lien de la ligne : fond `accent` sur toute la ligne (DESIGN.md § 2, états dérivés).
@@ -163,7 +154,8 @@ export function TaskRow({
                   TASK_ROW_LEGEND_CELL_CLASSES,
                   "flex min-w-0 items-center gap-x-2.5",
                   oneLine
-                    ? "flex-nowrap overflow-hidden whitespace-nowrap"
+                    ? // Coupée au bord en largeur seulement : le badge (20 px) dépasse de 0,2 px la cale (19,6 px).
+                      "flex-nowrap overflow-x-clip whitespace-nowrap"
                     : "flex-wrap gap-y-1",
                 )}
               >

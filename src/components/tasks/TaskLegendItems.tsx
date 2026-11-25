@@ -3,13 +3,13 @@ import { Children, type ReactNode } from "react";
 type TaskLegendItemsProps = {
   /** Informations de la légende qui précèdent la priorité ; les absentes (`false`, `null`) sont ignorées. */
   children: ReactNode;
-  /** Icône de priorité, `null` sans priorité. */
+  /** Badge de priorité (`PriorityBadge`), `null` sans priorité. */
   priority: ReactNode;
 };
 
 /**
- * Éléments d'une légende de tâche qui passe à la ligne (ligne de liste, carte du kanban) : l'icône de priorité
- * forme un groupe insécable avec la dernière information qui la précède, pour ne jamais se retrouver seule sur
+ * Éléments d'une légende de tâche qui passe à la ligne (ligne de liste, carte du kanban) : le badge de priorité
+ * forme un groupe insécable avec la dernière information qui le précède, pour ne jamais se retrouver seul sur
  * une ligne. Sans information avant elle, ou sans priorité : rendu tel quel, sans groupe.
  */
 export function TaskLegendItems({ children, priority }: TaskLegendItemsProps) {

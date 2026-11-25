@@ -36,7 +36,7 @@ import { ChoiceChip } from "./ChoiceChip";
 import { ContextChip } from "./ContextChip";
 import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
-import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
+import { priorityChoiceStyle } from "./priority-icons";
 import { STATUS_ICONS } from "./status-icons";
 import { SubtaskList } from "./SubtaskList";
 import { loadWorkspaceTags } from "./load-workspace-tags";
@@ -204,14 +204,12 @@ export function TaskDetail({
     label: t(`detail.status.${value}`),
     ...STATUS_ICONS[value],
   }));
-  const priorityOptions = PRIORITIES.map((value) => {
-    const level = Number(value);
-    return {
-      value,
-      label: t(`detail.priority.${value}`),
-      icon: isRowPriority(level) ? PRIORITY_ICONS[level] : undefined,
-    };
-  });
+  // Niveaux 1 à 4 : pastille et badge du menu à la teinte du niveau ; « Aucune » : pastille ordinaire au drapeau.
+  const priorityOptions = PRIORITIES.map((value) => ({
+    value,
+    label: t(`detail.priority.${value}`),
+    ...priorityChoiceStyle(Number(value)),
+  }));
   const sideOptions = sides.map((value) => ({ value, label: tSide(value) }));
   const describedBy = (update: TaskUpdate, id: string) =>
     update.failure !== null ? id : undefined;

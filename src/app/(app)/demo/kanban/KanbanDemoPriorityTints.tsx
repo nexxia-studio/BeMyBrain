@@ -1,9 +1,9 @@
 "use client";
 
 // Curseurs nexxia-design (DESIGN.md § 1, app) : VARIANCE 3 · MOTION 4 · DENSITY 6.
-// Planche de validation des teintes de priorité (tâche 11 du plan todo-kanban, DESIGN.md § 2 et § 5) : Antoine
-// juge l'échelle rouge, orangé, jaune, vert à l'œil avant son application partout (tâche 12). Les cartes et le
-// détail de la démo restent à l'encre, pour comparer. Sur chacune des trois surfaces où une priorité se posera
+// Planche des teintes de priorité (tâche 11 du plan todo-kanban, DESIGN.md § 2 et § 5) : l'échelle rouge, orangé,
+// jaune, vert, validée par Antoine sur iPhone le 2026-11-26 et appliquée partout (tâche 12) ; elle reste jusqu'au
+// retrait de la démo, avec le badge de l'app (`PriorityBadge`). Sur chacune des trois surfaces où une priorité se posera
 // (carte `popover`, ligne `row` sur le verre, colonne creusée `pill-track`) :
 // - l'échelle : le badge d'une carte (carré arrondi, icône seule, libellé pour le lecteur d'écran) à côté d'une
 //   pastille d'espace de chaque couleur, puis la pastille du détail (icône et libellé) ;
@@ -17,11 +17,11 @@ import { useFormatter, useTranslations } from "next-intl";
 import { chipTriggerClass } from "@/components/tasks/chip-styles";
 import { contextChipClass } from "@/components/tasks/context-chip-class";
 import {
-  PRIORITY_BADGE_CLASSES,
   PRIORITY_ICONS,
   PRIORITY_TINT_CLASSES,
   type PriorityLevel,
 } from "@/components/tasks/priority-icons";
+import { PriorityBadge } from "@/components/tasks/PriorityBadge";
 import { cn } from "@/lib/utils";
 import type { ContextColor } from "@/modules/core/context-colors";
 
@@ -44,18 +44,10 @@ export function KanbanDemoPriorityTints() {
   const tDetail = useTranslations("tasks.detail.priority");
   const format = useFormatter();
 
-  const badge = (level: PriorityLevel) => {
-    const Icon = PRIORITY_ICONS[level];
-    return (
-      <span
-        key={level}
-        className={cn(PRIORITY_BADGE_CLASSES, PRIORITY_TINT_CLASSES[level])}
-      >
-        <Icon aria-hidden="true" className="size-4" strokeWidth={2} />
-        <span className="sr-only">{tList(`priority.${level}`)}</span>
-      </span>
-    );
-  };
+  // Le badge de l'app (`PriorityBadge`), pas un rendu propre à la planche.
+  const badge = (level: PriorityLevel) => (
+    <PriorityBadge key={level} priority={level} />
+  );
   const spaceChip = ([name, color]: readonly [string, ContextColor]) => (
     // Contenu saisi : jamais traduit.
     <span

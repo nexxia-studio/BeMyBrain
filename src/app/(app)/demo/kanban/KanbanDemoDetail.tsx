@@ -25,10 +25,7 @@ import { DetailField } from "@/components/tasks/DetailField";
 import { DueDateChip } from "@/components/tasks/DueDateChip";
 import { STATUS_ICONS } from "@/components/tasks/status-icons";
 import { SubtaskAddField } from "@/components/tasks/SubtaskAddField";
-import {
-  isRowPriority,
-  PRIORITY_ICONS,
-} from "@/components/tasks/priority-icons";
+import { priorityChoiceStyle } from "@/components/tasks/priority-icons";
 import { TagsChip } from "@/components/tasks/TagsChip";
 import {
   TASK_ROW_LINE_CLASSES,
@@ -98,14 +95,12 @@ export function KanbanDemoDetail({
     label: t(`detail.status.${value}`),
     ...(isNew ? STATUS_ICONS[value] : {}),
   }));
-  const priorityOptions = PRIORITIES.map((value) => {
-    const level = Number(value);
-    return {
-      value,
-      label: t(`detail.priority.${value}`),
-      icon: isRowPriority(level) ? PRIORITY_ICONS[level] : undefined,
-    };
-  });
+  // Niveaux 1 à 4 : pastille et badge du menu à la teinte du niveau ; « Aucune » : pastille ordinaire au drapeau.
+  const priorityOptions = PRIORITIES.map((value) => ({
+    value,
+    label: t(`detail.priority.${value}`),
+    ...priorityChoiceStyle(Number(value)),
+  }));
 
   return (
     <TaskDetailSheet onClose={onClose}>

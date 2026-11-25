@@ -76,6 +76,12 @@ vi.mock("next/navigation", async (importOriginal) => ({
 
 import { getUserTimeZone } from "@/modules/core/time-zone";
 
+import {
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "@/components/tasks/priority-icons";
+
+import { demoTasks } from "./demo-fixtures";
 import { KanbanDemo } from "./KanbanDemo";
 
 const TODAY = "2026-11-24";
@@ -491,6 +497,40 @@ describe("démo du kanban", () => {
     expect(within(group).getByText("Priorité haute")).toBeDefined();
   });
 
+  it("montre la priorité d'une carte en badge teinté à icône, rien pour une carte sans priorité", () => {
+    renderDemo();
+    const cards = [
+      ...document.querySelectorAll<HTMLElement>("[data-demo-card]"),
+    ];
+    const tinted = cards.filter(
+      (card) => card.querySelector("[class*='bg-priority-']") !== null,
+    );
+
+    // `unstarted-3` : priorité Haute.
+    const card = document.querySelector(
+      '[data-demo-card="unstarted-3"]',
+    ) as HTMLElement;
+    const badge = within(card).getByText("Priorité haute").parentElement!;
+
+    expect(badge.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        ...PRIORITY_BADGE_CLASSES.split(" "),
+        ...PRIORITY_TINT_CLASSES[2].split(" "),
+      ]),
+    );
+    const svg = badge.querySelector("svg.lucide-signal-high")!;
+    expect(svg.classList.contains("text-foreground")).toBe(false);
+    // Un badge sur chaque carte à priorité 1 à 4, aucun pour 0.
+    const priorities = new Map(
+      demoTasks(TODAY).map((task) => [task.id, task.priority]),
+    );
+    for (const each of cards) {
+      const priority = priorities.get(each.dataset.demoCard!)!;
+      expect(tinted.includes(each)).toBe(priority >= 1 && priority <= 4);
+    }
+    expect(tinted.length).toBeLessThan(cards.length);
+  });
+
   it("affiche ses réglages et ses colonnes en anglais", () => {
     renderDemo("en");
 
@@ -603,6 +643,58 @@ describe("démo du kanban : détail d'une carte", () => {
 
     const card = document.querySelector(`[data-demo-card="${DEMO_PREP}"]`)!;
     expect(card.textContent).toContain(fr.tasks.list.priority["1"]);
+  });
+
+  it("la pastille Priorité du détail prend la teinte du niveau, et la pastille neutre au drapeau pour « Aucune »", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+
+    const tinted = within(detail()).getByRole("button", {
+      name: "Priorité : Haute",
+    });
+    expect(tinted.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(PRIORITY_TINT_CLASSES[2].split(" ")),
+    );
+    expect(tinted.querySelector("svg.lucide-signal-high")).not.toBeNull();
+
+    await choose(/^Priorité :/, "Aucune");
+
+    const neutral = within(detail()).getByRole("button", {
+      name: "Priorité : Aucune",
+    });
+    expect(neutral.className).not.toContain("priority");
+    expect(neutral.querySelector("svg.lucide-flag")).not.toBeNull();
+  });
+
+  it("le menu Priorité du détail porte un badge teinté par niveau", async () => {
+    renderDemo();
+    await openCard(DEMO_PREP);
+
+    fireEvent.click(
+      within(detail()).getByRole("button", { name: /^Priorité :/ }),
+    );
+    await wait(0);
+
+    for (const [name, level] of [
+      ["Urgente", 1],
+      ["Haute", 2],
+      ["Moyenne", 3],
+      ["Basse", 4],
+    ] as const) {
+      const item = screen.getByRole("menuitemradio", { name });
+      const badge = item.querySelector("[class*='bg-priority-']")!;
+      expect(badge.className.split(/\s+/)).toEqual(
+        expect.arrayContaining([
+          ...PRIORITY_BADGE_CLASSES.split(" "),
+          ...PRIORITY_TINT_CLASSES[level].split(" "),
+        ]),
+      );
+    }
+    expect(
+      screen
+        .getByRole("menuitemradio", { name: "Aucune" })
+        .querySelector("[class*='bg-priority-']"),
+    ).toBeNull();
   });
 
   it("garde notes et sous-tâches cochées après fermeture puis réouverture", async () => {

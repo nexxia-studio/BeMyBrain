@@ -26,6 +26,10 @@ vi.mock("next/navigation", async (importOriginal) => ({
   usePathname: () => pathname.current,
 }));
 
+import {
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "./priority-icons";
 import { TaskDetail } from "./TaskDetail";
 import { TaskTrashProvider } from "./TaskTrashProvider";
 
@@ -919,41 +923,92 @@ describe("détail : mise en page", () => {
   });
 });
 
-describe("détail : icônes de priorité", () => {
-  it("la pastille Priorité prend l'icône du niveau, la même que dans la liste", () => {
-    renderDetail(buildDetail({ priority: 2 }));
+describe("détail : priorité teintée", () => {
+  it.each([
+    [1, "lucide-square-exclamation-point"],
+    [2, "lucide-signal-high"],
+    [3, "lucide-signal-medium"],
+    [4, "lucide-signal-low"],
+  ] as const)(
+    "niveau %i : la pastille Priorité prend l'icône du niveau sur son fond teinté, libellé à l'encre de la teinte",
+    (priority, icon) => {
+      renderDetail(buildDetail({ priority }));
 
-    const trigger = chip(/^Priorité :/);
+      const trigger = chip(/^Priorité :/);
+      const classes = trigger.className.split(/\s+/);
 
-    expect(trigger.querySelector("svg.lucide-signal-high")).not.toBeNull();
-  });
+      expect(classes).toEqual(
+        expect.arrayContaining(PRIORITY_TINT_CLASSES[priority].split(" ")),
+      );
+      expect(classes).not.toContain("bg-secondary");
+      expect(classes).not.toContain("text-foreground");
+      // Forme des pastilles de champ gardée (44 px, pilule).
+      expect(classes).toEqual(
+        expect.arrayContaining(["min-h-11", "rounded-full", "text-small"]),
+      );
+      const svg = trigger.querySelector(`svg.${icon}`)!;
+      expect(svg.getAttribute("class")).not.toMatch(/\btext-/);
+    },
+  );
 
-  it("sans priorité, la pastille garde l'icône du champ, sans point isolé", () => {
+  it("sans priorité, la pastille reste neutre et garde l'icône du champ, sans point isolé", () => {
     renderDetail(buildDetail({ priority: 0 }));
 
     const trigger = chip(/^Priorité :/);
 
     expect(trigger.querySelector("svg.lucide-flag")).not.toBeNull();
     expect(trigger.querySelector("svg.lucide-signal-zero")).toBeNull();
+    expect(trigger.className).not.toContain("priority");
+    expect(trigger.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["bg-secondary", "text-foreground"]),
+    );
   });
 
-  it("le menu montre une icône distincte pour chaque niveau, aucune pour « Aucune »", async () => {
+  it("le menu montre un badge teinté à icône distincte devant chaque niveau, rien devant « Aucune »", async () => {
     renderDetail();
 
     fireEvent.click(chip(/^Priorité :/));
 
-    const levelIcon = async (name: string) => {
+    const levels = [
+      ["Urgente", 1],
+      ["Haute", 2],
+      ["Moyenne", 3],
+      ["Basse", 4],
+    ] as const;
+    const icons: string[] = [];
+    for (const [name, level] of levels) {
       const item = await screen.findByRole("menuitemradio", { name });
-      return [...item.querySelectorAll("svg")]
-        .map((svg) => svg.getAttribute("class") ?? "")
-        .find((cls) => !cls.includes("lucide-check"));
-    };
-    const icons = await Promise.all(
-      ["Urgente", "Haute", "Moyenne", "Basse"].map(levelIcon),
-    );
+      const svg = [...item.querySelectorAll("svg")].find(
+        (each) => !each.classList.contains("lucide-check"),
+      )!;
+      icons.push(svg.getAttribute("class") ?? "");
+      const badge = svg.parentElement!;
+      expect(badge.className.split(/\s+/)).toEqual(
+        expect.arrayContaining([
+          ...PRIORITY_BADGE_CLASSES.split(" "),
+          ...PRIORITY_TINT_CLASSES[level].split(" "),
+        ]),
+      );
+      expect(badge.getAttribute("aria-hidden")).toBe("true");
+      // Le libellé du menu reste à l'encre ordinaire, hors du badge.
+      expect(badge.textContent).toBe("");
+    }
     expect(new Set(icons).size).toBe(4);
-    expect(icons.every(Boolean)).toBe(true);
-    expect(await levelIcon("Aucune")).toBeUndefined();
+    const none = await screen.findByRole("menuitemradio", { name: "Aucune" });
+    expect(none.querySelector("svg:not(.lucide-check)")).toBeNull();
+    expect(none.querySelector("[class*='bg-priority-']")).toBeNull();
+  });
+
+  it("Statut et Côté gardent la pastille ordinaire", () => {
+    renderDetail();
+
+    for (const field of [/^Statut :/, /^Côté :/]) {
+      const classes = chip(field).className.split(/\s+/);
+      expect(classes).toEqual(
+        expect.arrayContaining(["bg-secondary", "text-foreground"]),
+      );
+      expect(chip(field).className).not.toContain("priority");
+    }
   });
 });
 

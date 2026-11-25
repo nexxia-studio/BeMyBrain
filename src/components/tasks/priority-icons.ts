@@ -40,7 +40,7 @@ export const PRIORITY_TINT_CLASSES: Record<PriorityLevel, string> = {
  * Forme du badge de priorité d'une carte, d'une ligne ou d'une tuile : carré arrondi de 20 px, icône seule (16 px),
  * sans libellé visible. À 8 px de rayon sur 20 px, il est presque rond : ce qui le sépare d'une pastille d'espace
  * (l'orangé de « Haute » voisine la pastille chaude), c'est l'icône sans nom contre le nom sans icône. Même hauteur
- * qu'une pastille. Forme à valider par Antoine sur iPhone (DESIGN.md § 5).
+ * qu'une pastille. Forme validée par Antoine sur iPhone le 2026-11-26 (DESIGN.md § 5). Rendu : `PriorityBadge`.
  */
 export const PRIORITY_BADGE_CLASSES =
   "flex size-5 shrink-0 items-center justify-center rounded-sm";
@@ -48,4 +48,23 @@ export const PRIORITY_BADGE_CLASSES =
 /** Priorité affichée dans une ligne de liste (1 à 4) ; 0 = aucune priorité, rien d'affiché. */
 export function isRowPriority(priority: number): priority is PriorityLevel {
   return priority >= 1 && priority <= 4;
+}
+
+/**
+ * Habillage d'un choix de la pastille Priorité du détail (`ChoiceChip`, vrai détail et démo), à étaler dans le
+ * choix : icône du niveau, pastille au fond et à l'encre de la teinte quand il est choisi, badge teinté devant le
+ * libellé dans le menu. Rien pour 0 : pastille ordinaire à l'icône du champ, place vide dans le menu.
+ */
+export function priorityChoiceStyle(priority: number): {
+  icon?: LucideIcon;
+  chipClass?: string;
+  iconBadgeClass?: string;
+} {
+  if (!isRowPriority(priority)) return {};
+  const tint = PRIORITY_TINT_CLASSES[priority];
+  return {
+    icon: PRIORITY_ICONS[priority],
+    chipClass: tint,
+    iconBadgeClass: `${PRIORITY_BADGE_CLASSES} ${tint}`,
+  };
 }

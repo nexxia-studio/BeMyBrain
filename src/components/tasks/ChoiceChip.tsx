@@ -22,12 +22,17 @@ import {
  * Un choix ; `icon` (facultatif) remplace l'icône de la pastille quand il est choisi et s'affiche dans le menu.
  * Sans `icon`, la pastille garde l'icône du champ. `iconClass` : couleur de l'icône (token de la charte), dans la
  * pastille et dans le menu ; à l'encre par défaut.
+ * Choix teinté (tokens de la charte, donnés par l'appelant) : `chipClass` remplace le fond et l'encre de la
+ * pastille quand ce choix est le choix courant (icône et libellé à cette encre) ; `iconBadgeClass` pose l'icône du
+ * menu dans un badge de ces classes (forme, fond, encre), devant le libellé resté à l'encre.
  */
 export type Choice<V extends string> = {
   value: V;
   label: string;
   icon?: LucideIcon;
   iconClass?: string;
+  chipClass?: string;
+  iconBadgeClass?: string;
 };
 
 type ChoiceChipProps<V extends string> = {
@@ -55,6 +60,10 @@ export function ChoiceChip<V extends string>({
   const TriggerIcon = current?.icon ?? Icon;
   // Menu à icônes : un choix sans icône (Priorité « Aucune ») garde la place vide, libellés alignés.
   const iconSlot = options.some((option) => option.icon !== undefined);
+  // Menu à badges : la place vide prend la largeur d'un badge (20 px) au lieu de celle d'une icône (16 px).
+  const badgeSlot = options.some(
+    (option) => option.iconBadgeClass !== undefined,
+  );
 
   return (
     <Menu.Root>
@@ -68,7 +77,7 @@ export function ChoiceChip<V extends string>({
         disabled={disabled}
         aria-label={label}
         aria-describedby={describedBy}
-        className={cn(chipTriggerClass, "text-foreground")}
+        className={cn(chipTriggerClass, "text-foreground", current?.chipClass)}
       >
         <TriggerIcon
           aria-hidden="true"
@@ -106,7 +115,14 @@ export function ChoiceChip<V extends string>({
                       />
                     </Menu.RadioItemIndicator>
                   </span>
-                  {option.icon ? (
+                  {option.icon && option.iconBadgeClass !== undefined ? (
+                    <span aria-hidden="true" className={option.iconBadgeClass}>
+                      <option.icon
+                        className="size-4 shrink-0"
+                        strokeWidth={2}
+                      />
+                    </span>
+                  ) : option.icon ? (
                     <option.icon
                       aria-hidden="true"
                       className={cn(
@@ -120,7 +136,10 @@ export function ChoiceChip<V extends string>({
                       <span
                         aria-hidden="true"
                         data-icon-slot=""
-                        className="size-4 shrink-0"
+                        className={cn(
+                          "shrink-0",
+                          badgeSlot ? "size-5" : "size-4",
+                        )}
                       />
                     )
                   )}
