@@ -41,7 +41,7 @@ Règles communes à toutes les tâches :
   - Complément de relecture de la tâche 1 : `tests/db/isolation-tasks.test.ts` — « depuis B, `update tasks set sort_key` et `set parent_id = null` sur une tâche de A touchent 0 ligne ; rattacher une sous-tâche de B à une tâche de A est refusé (23503) »
   - Fini quand : migration appliquée sur la branche de test, RLS + une policy par verbe, test vert.
 
-- [ ] **4. Déplacer une tâche ou une sous-tâche dans le tableau (`moveTask`)** [security]
+- [x] **4. Déplacer une tâche ou une sous-tâche dans le tableau (`moveTask`)** [security] — terminée le 2026-11-25 (`42119a3`)
   - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts` (`moveTaskInputSchema`), `mutations.test.ts`
   - Contenu : statut + place selon spec « Ordre manuel » : verrou de la tâche et des voisines, clés données une fois à toutes les tâches actives de la catégorie (sous-tâches comprises) si la colonne en manque, voisine périmée → tête de colonne, `completed_at` comme `updateTask`, position ignorée dans Terminée et Annulée. Une sous-tâche se déplace comme une tâche, sans effet sur sa parente.
   - Test à écrire d'abord : `mutations.test.ts` — « entre deux voisines ; en tête ; en queue ; colonne sans clés normalisée dans l'ordre de la liste, sous-tâches comprises ; voisine à la corbeille → tête ; vers Terminée ou Annulée pose la date ; en sortir la vide ; sous-tâche déplacée, parente inchangée ; tâche d'un autre workspace → `not_found` »
