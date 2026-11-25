@@ -59,14 +59,14 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - À la création, une sous-tâche hérite du côté et de l'espace de sa parente (existant) et de sa priorité quand aucune priorité n'est donnée ; la priorité se modifie ensuite librement. Les tags ne sont pas hérités. Un changement de priorité de la parente ne touche pas ses sous-tâches.
 
 ### Tâche parente
-- Un seul niveau. Devenir sous-tâche de P exige : P active, de premier niveau, différente de la tâche, du même côté ; la tâche n'a aucune sous-tâche active.
+- Un seul niveau. Devenir sous-tâche de P exige : P active, de premier niveau, différente de la tâche, du même côté ; la tâche n'a aucune sous-tâche, corbeille comprise (une sous-tâche à la corbeille garderait un autre espace que sa famille et bloquerait ensuite un changement de côté ; pour rattacher quand même : restaurer la sous-tâche, la détacher, puis rattacher).
 - Même côté uniquement : une parente de l'autre côté est refusée (`cross_side_parent`), à l'écran comme pour un assistant. La base le garantit déjà (clé étrangère `(workspace_id, parent_id, side)`) ; la mutation le refuse avant, avec un code clair.
-- La sous-tâche prend l'espace de sa nouvelle parente, dans la même instruction. Sa priorité, ses tags, son statut, sa place et ses relations ne changent pas.
+- La sous-tâche prend l'espace de sa nouvelle parente, dans la même instruction ; sous une parente sans espace, elle perd le sien, et le détachement ne le rend pas. Sa priorité, ses tags, son statut, sa place et ses relations ne changent pas.
 - Détacher (`parentId: null`) : la tâche redevient de premier niveau et garde côté et espace.
 - Changer de parente = une seule écriture (pas de détachement intermédiaire).
 - Une tâche à la corbeille n'est jamais proposée ni acceptée comme parente (`parent_in_trash`).
-- Restaurer une sous-tâche dont la parente est entre-temps devenue sous-tâche est refusé (`subtask_depth`) ; elle se restaure après détachement de sa parente. Limite assumée.
-- Refus : `subtask_depth` (parente visée déjà sous-tâche), `has_subtasks` (la tâche a des sous-tâches actives), `cross_side_parent`, `invalid_params` (elle-même), `not_found`, `parent_in_trash`.
+- Une parente ne peut donc jamais devenir sous-tâche tant qu'elle a une sous-tâche, même à la corbeille ; `restoreTask` refuse quand même, par sécurité, une sous-tâche dont la parente serait sous-tâche (`subtask_depth`).
+- Refus : `subtask_depth` (parente visée déjà sous-tâche), `has_subtasks` (la tâche a des sous-tâches, corbeille comprise), `cross_side_parent`, `invalid_params` (elle-même), `not_found`, `parent_in_trash`.
 
 ### Relations
 - Trois types à l'écran : « Bloque », « Bloquée par », « Liée à ». Deux en base : `blocks` (de la bloquante vers la bloquée) et `related` (symétrique, rangée une fois, plus petit identifiant en premier). « Bloquée par » est la lecture inverse de `blocks`.
@@ -142,7 +142,7 @@ Détail
 - [ ] Ligne « Ajouter une sous-tâche » toujours visible, Entrée valide, prête pour la suivante.
 
 Données et registre
-- [ ] `tasks.setParent` refuse : parente sous-tâche, tâche avec sous-tâches actives, elle-même, parente à la corbeille, parente de l'autre côté (`cross_side_parent`), parente d'un autre workspace (`not_found`).
+- [ ] `tasks.setParent` refuse : parente sous-tâche, tâche avec sous-tâches (corbeille comprise), elle-même, parente à la corbeille, parente de l'autre côté (`cross_side_parent`), parente d'un autre workspace (`not_found`).
 - [ ] `tasks.addRelation` refuse : elle-même, tâche à la corbeille ou d'un autre workspace (`not_found`), tâche de l'autre côté (`cross_side_relation`), inverse direct d'un blocage (`relation_conflict`) ; un doublon ne crée rien.
 - [ ] Après un changement de côté, une relation devenue transversale n'apparaît plus nulle part et ne bloque plus ; elle revient si les côtés coïncident de nouveau.
 - [ ] `tasks.move` déplace une sous-tâche comme une tâche.
