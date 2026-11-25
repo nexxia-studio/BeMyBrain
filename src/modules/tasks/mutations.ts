@@ -81,6 +81,7 @@ type LockedTask = {
   parentId: string | null;
   dueDate: string | null;
   statusCategory: string;
+  priority: number;
   /** Clé d'ordre : interne au module, jamais renvoyée. */
   sortKey: string | null;
   deleted: boolean;
@@ -100,6 +101,7 @@ async function lockTask(
       parentId: tasks.parentId,
       dueDate: tasks.dueDate,
       statusCategory: tasks.statusCategory,
+      priority: tasks.priority,
       sortKey: tasks.sortKey,
       deleted: sql<boolean>`${tasks.deletedAt} is not null`,
     })
@@ -273,6 +275,8 @@ async function reload(
  * serveur (ActionContext.origin), jamais des paramètres ; `created_by` est posé par la base.
  * Tâche de premier niveau : côté donné, ou pris de l'espace (`context`, nom exact). Sous-tâche : côté et
  * espace de la parente ; les passer → subtask_follows_parent. Tags par nom, créés s'ils n'existent pas.
+ * Priorité absente : 0, ou celle de la parente pour une sous-tâche (copiée à la création, aucun suivi
+ * ensuite) ; donnée, elle est respectée, 0 compris. Les tags de la parente ne sont jamais hérités.
  * Place dans le tableau : arrivée hors dépôt (arrivalKeys).
  */
 export async function createTask(
@@ -291,17 +295,19 @@ export async function createTask(
 
   let side: Side;
   let contextId: string | null = null;
+  let priority = i.priority ?? 0;
   if (i.parentId !== undefined) {
     if (i.side !== undefined || i.context !== undefined) {
       throw new TaskError("subtask_follows_parent");
     }
-    // Verrou : la parente ne change ni de côté ni d'espace avant l'insertion.
+    // Verrou : la parente ne change ni de côté, ni d'espace, ni de priorité avant l'insertion.
     const parent = await lockTask(workspace, i.parentId, tx);
     if (!parent) throw new TaskError("not_found");
     if (parent.deleted) throw new TaskError("parent_in_trash");
     if (parent.parentId !== null) throw new TaskError("subtask_depth");
     side = parent.side;
     contextId = parent.contextId;
+    priority = i.priority ?? parent.priority;
   } else if (i.context !== undefined) {
     const context = await resolveContext(workspace, i.context, i.side, tx);
     side = context.side;
@@ -317,7 +323,7 @@ export async function createTask(
     insert into ${tasks} (workspace_id, side, context_id, parent_id, title, notes, status_category, priority,
       due_date, due_time, completed_at, origin, sort_key)
     values (${workspace}, ${side}, ${contextId}, ${i.parentId ?? null}, ${i.title}, ${i.notes ?? null},
-      ${status}, ${i.priority ?? 0}, ${i.dueDate ?? null}, ${i.dueTime ?? null},
+      ${status}, ${priority}, ${i.dueDate ?? null}, ${i.dueTime ?? null},
       case when ${status} in ${closedCategories} then now() end, ${taskOrigin}, ${sortKey ?? null})
     returning id`);
   const id = result.rows[0].id;

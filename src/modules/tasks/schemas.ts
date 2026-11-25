@@ -157,10 +157,14 @@ export const createTaskInputSchema = z
     parentId: taskIdSchema
       .optional()
       .describe(
-        "Parent task id (UUID) to create a subtask. The parent must be a top-level task.",
+        "Parent task id (UUID) to create a subtask. The parent must be a top-level task. The subtask takes its side and space, and its priority when priority is omitted; tags are not inherited.",
       ),
     statusCategory: statusCategorySchema.optional(),
-    priority: prioritySchema.optional(),
+    priority: prioritySchema
+      .optional()
+      .describe(
+        "Priority: 0 none, 1 urgent, 2 high, 3 medium, 4 low. Omitted: 0 for a top-level task, the parent's priority for a subtask (copied once at creation). Pass 0 to create a subtask with no priority.",
+      ),
     dueDate: dueDateSchema.optional(),
     dueTime: dueTimeSchema.optional(),
     tags: tagNamesSchema
