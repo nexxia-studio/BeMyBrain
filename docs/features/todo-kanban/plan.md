@@ -1,0 +1,183 @@
+# Plan — Kanban des tâches, parente et relations (BRAIN-46)
+
+**Spec** : `spec.md` · **Branche** : `feat/todo-kanban` (PR #14) · **Créé le** : 2026-11-25 · **Démo préalable** : `demo-plan.md` (D1–D9 faites)
+
+<!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
+<!-- [security] = security-auditor passe après le reviewer. -->
+
+Règles communes à toutes les tâches :
+- Appui long, capteurs, délai de 250 ms, soulèvement et inclinaison de `SortableBoard` : validés, intouchés. `@dnd-kit/*` importé par `SortableBoard.tsx` seul.
+- Aucune nouvelle dépendance (les clés d'ordre sont écrites dans le module, tâche 2 ; la liste de sélection reprend `Autocomplete` de Base UI, déjà là).
+- Migrations additives, générées par `pnpm db:generate`, appliquées sur la branche de test ; jamais sur `production` à la main (ADR-010).
+- Chaque test de lecture place une tâche à la corbeille dans sa fixture et vérifie qu'elle n'apparaît pas.
+- Constats de `/impeccable critique` du 2026-11-25 (24/40) repris dans les tâches 10 à 13, 20 et 22 ; archive `.impeccable/critique/`.
+- Commits de chemins précis, jamais `git commit -a` ; sorties de commandes qui touchent une base masquées par `sed`.
+
+## Tâches
+
+### A. Données et registre
+
+- [ ] **1. Ajouter la clé d'ordre et ouvrir la parente en écriture** [security]
+  - Fichiers : `src/db/schema/tasks.ts`, `drizzle/0008_*.sql` (générée, complétée pour `COLLATE "C"`, l'index partiel et les GRANT)
+  - Contenu : `tasks.sort_key text COLLATE "C"` nullable ; index partiel `(workspace_id, status_category, sort_key)` sur `deleted_at IS NULL` ; `GRANT INSERT (sort_key)`, `GRANT UPDATE (sort_key, parent_id)` à `app_backend`. Rien d'autre.
+  - Test à écrire d'abord : `tests/db/tasks-sort-key.test.ts` (connexion `app_backend`) — « `app_backend` écrit `sort_key` et `parent_id`, toujours pas `workspace_id` ni `origin` ; "B" se range avant "a" (ordre octet) ; une insertion sans `sort_key` passe (ancien code) »
+  - Fini quand : migration appliquée sur la branche de test, test vert, `pnpm test` vert.
+
+- [ ] **2. Écrire les clés d'ordre fractionnaires**
+  - Fichiers : `src/modules/tasks/sort-key.ts`, `src/modules/tasks/sort-key.test.ts`
+  - Contenu : fonctions pures `keyBetween(before | null, after | null)` et `keysFor(count)` ; alphabet en ordre ASCII, jamais de clé finissant par le plus petit caractère, longueur bornée raisonnablement. Sans zod, sans base.
+  - Test à écrire d'abord : `sort-key.test.ts` — « la clé rendue est strictement entre ses voisines ; 1 000 insertions aléatoires gardent un ordre total ; 200 insertions au même endroit (tête, queue, entre deux mêmes voisines) restent ordonnées ; voisines égales ou inversées → erreur »
+  - Fini quand : tests verts, dont le test aléatoire à graine fixe.
+
+- [ ] **3. Créer la table des relations** [security]
+  - Fichiers : `src/db/schema/tasks.ts` (ou `task-relations.ts`), `drizzle/0009_*.sql`
+  - Contenu : `task_relations` selon spec « Données et sécurité » : FK composites vers `tasks(workspace_id, id)`, CHECK `kind`, CHECK pas soi-même, CHECK ordre des identifiants pour `related`, unique, index `(workspace_id, to_task_id)`, RLS activée dans la même migration, policies SELECT, INSERT, DELETE (pas d'UPDATE), GRANT `app_backend` SELECT, INSERT (colonnes utiles), DELETE, trigger `updated_at`.
+  - Test à écrire d'abord : `tests/db/isolation-task-relations.test.ts` (branche de test, `app_backend`, deux workspaces) — « B ne lit, n'insère ni ne supprime aucune relation de A ; une relation entre une tâche de A et une tâche de B est refusée ; relation avec soi-même refusée ; UPDATE refusé »
+  - Fini quand : migration appliquée sur la branche de test, RLS + une policy par verbe, test vert.
+
+- [ ] **4. Déplacer une tâche dans le tableau (`moveTask`)** [security]
+  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts` (`moveTaskInputSchema`), `mutations.test.ts`
+  - Contenu : statut + place selon spec « Ordre manuel » : verrou de la tâche et des voisines, clés données une fois à toute la colonne si elle en manque, voisine périmée → tête de colonne, `completed_at` comme `updateTask`, position ignorée dans Terminée et Annulée, sous-tâche refusée (`invalid_params`).
+  - Test à écrire d'abord : `mutations.test.ts` — « entre deux voisines ; en tête ; en queue ; colonne sans clés normalisée dans l'ordre de la liste ; voisine à la corbeille → tête ; vers Terminée pose la clôture ; hors de Terminée la vide ; tâche d'un autre workspace → `not_found` »
+  - Fini quand : tests verts sur la branche de test.
+
+- [ ] **5. Placer en tête de colonne les arrivées hors dépôt**
+  - Fichiers : `src/modules/tasks/mutations.ts`, `mutations.test.ts`
+  - Contenu : création, changement de statut par `updateTask`, `completeTask` puis réouverture, restauration : en tête si la colonne ouverte d'arrivée a déjà des clés, sans clé sinon. Une seule fonction interne partagée avec la tâche 4.
+  - Test à écrire d'abord : « tâche créée dans une colonne ordonnée → première ; dans une colonne sans clé → sans clé ; réouverte → première de À faire »
+  - Fini quand : tests verts, aucun test existant de `mutations.test.ts` modifié dans son intention.
+
+- [ ] **6. Rattacher, changer de parente, détacher (`setTaskParent`)** [security]
+  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`has_subtasks`), `mutations.test.ts`, `messages/{fr,en}.json` (`tasks.errors.has_subtasks`)
+  - Contenu : règles de spec « Tâche parente » ; côté et espace alignés dans la même instruction que `parent_id` ; détachement en tête de colonne (tâche 5) ; `restoreTask` refuse une sous-tâche dont la parente est devenue sous-tâche (`subtask_depth`).
+  - Test à écrire d'abord : « rattachée, elle prend côté et espace de la parente ; parente déjà sous-tâche → `subtask_depth` ; tâche avec sous-tâches actives → `has_subtasks` (avec seulement des sous-tâches à la corbeille → accepté) ; elle-même → `invalid_params` ; parente à la corbeille → `parent_in_trash` ; parente d'un autre workspace → `not_found` ; détachée, elle garde côté et espace ; restauration refusée en profondeur 2 »
+  - Fini quand : tests verts ; message anglais du nouveau code dans `TASK_ERROR_MESSAGES`.
+
+- [ ] **7. Ajouter et retirer une relation** [security]
+  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`relation_conflict`), `mutations.test.ts`, `messages/{fr,en}.json`
+  - Contenu : `addTaskRelation`, `removeTaskRelation` ; `kind` d'entrée `blocks | blocked_by | related` ramené à `blocks` orienté ou `related` normalisé ; doublon sans effet ; inverse direct d'un blocage refusé ; les deux tâches verrouillées et actives.
+  - Test à écrire d'abord : « `blocked_by` range la relation dans l'autre sens ; `related` rangée une fois quel que soit l'ordre ; doublon → une seule ligne ; inverse → `relation_conflict` ; soi-même → `invalid_params` ; tâche à la corbeille ou d'un autre workspace → `not_found` ; retrait d'une relation absente → `not_found` »
+  - Fini quand : tests verts.
+
+- [ ] **8. Lire le tableau, les relations et « bloquée »**
+  - Fichiers : `src/modules/tasks/queries.ts`, `schemas.ts` (`boardFilterSchema`, `topLevelOnly` dans `listTasksFilterSchema`), `load.ts` (`loadBoard`), `view.ts`, `queries.test.ts`
+  - Contenu : `listBoard` (colonnes ouvertes ordonnées, plafond 200 et drapeau de dépassement ; Terminée par clôture décroissante, `completedLimit` 20 par défaut, total ; Annulée : compteur seul ; premier niveau seulement) ; `Task.blocked` (bloquante active et ouverte, tâche ouverte) ; `TaskDetail.relations` groupées (`blocks`, `blockedBy`, `related`), autre bout actif seulement, avec titre et statut ; `topLevelOnly`.
+  - Test à écrire d'abord : « ordre par clé puis ordre de la liste pour les sans-clé ; sous-tâche et corbeille absentes ; 20 terminées et le total ; `blocked` faux quand la bloquante est terminée, annulée ou à la corbeille ; relation vers une tâche à la corbeille masquée puis revenue à la restauration ; filtre côté et espace ; `topLevelOnly` »
+  - Fini quand : tests verts ; `sortKey` absent des types exportés.
+
+- [ ] **9. Déclarer les actions au registre** [security]
+  - Fichiers : `src/modules/tasks/actions.ts`, `actions.test.ts`, `src/modules/actions/registry.test.ts`, `src/modules/actions/isolation.test.ts`, `messages/{fr,en}.json` (`actions.tasks.*`)
+  - Contenu : `tasks.move`, `tasks.setParent`, `tasks.addRelation`, `tasks.removeRelation` (write), `tasks.listBoard` (read), canaux web et assistant ; description anglaise qui dit quand utiliser l'action et ses refus ; `describe` sur chaque champ.
+  - Test à écrire d'abord : `actions.test.ts` — « les cinq actions sont dans `toToolDefinitions` avec un schéma JSON où chaque propriété a une description ; l'origine vient du contexte » ; `isolation.test.ts` — « depuis la session B, aucune des cinq n'agit sur une tâche de A »
+  - Fini quand : tables exhaustives de `registry.test.ts` à jour, tests verts.
+
+### B. Charte et tableau
+
+- [ ] **10. Amender la charte : teintes de priorité, Creux, exceptions**
+  - Fichiers : `DESIGN.md` (frontmatter, § 2, § 5), `src/app/globals.css`, `src/lib/utils.ts` et son test si un token de taille change, `src/components/tasks/priority-icons.ts` (teinte par niveau), test de verrou des tokens
+  - Contenu : quatre paires fond et texte `priority-urgent | high | medium | low`, pastel très léger, même clarté que les pastilles d'espace, teintes hors de celles des espaces et de la braise ; règle « jamais la couleur seule » ; surfaces Creux (colonne, carte, survol, empreinte) ; exceptions gardées (ligne d'ajout de sous-tâche, « Notes » semi-gras, 46 px, ombre de saisie) ; « icônes de priorité à l'encre » remplacée.
+  - Test à écrire d'abord : `priority-icons.test.ts` — « chaque niveau 1 à 4 a une icône et une teinte distinctes, 0 n'a rien ; chaque token existe dans `globals.css` » ; contraste texte et icône ≥ 4,5:1 calculé dans le test à partir des valeurs.
+  - Fini quand : tests verts ; planche des quatre teintes visible sur la preview (pastille du détail de la démo) pour validation à l'œil par Antoine avant la tâche 11.
+
+- [ ] **11. Appliquer la teinte de priorité partout**
+  - Fichiers : `src/components/tasks/TaskLegendItems.tsx`, `TaskRow.tsx`, `ChoiceChip.tsx` (fond par option), `TaskDetail.tsx`, tuiles (`SideTodoTile`), tests associés
+  - Contenu : badge teinté avec icône sur carte, ligne et tuile ; pastille et menu teintés dans le détail ; libellé gardé pour le lecteur d'écran ; badge toujours accroché à la dernière information.
+  - Test à écrire d'abord : `TaskList.test.tsx`, `ChoiceChip.test.tsx` — « priorité 2 : classe de teinte haute et icône ; priorité 0 : ni teinte ni icône ; menu : une teinte par option »
+  - Fini quand : tests verts ; captures 390 px et 1280 px regardées.
+
+- [ ] **12. Renforcer survol et empreinte, Creux par défaut**
+  - Fichiers : `src/components/kanban/SortableBoard.tsx`, `SortableBoard.test.tsx`, `e2e/demo-kanban.spec.ts`
+  - Contenu : surface Creux par défaut de `SortableBoard` (la variante Verre disparaît) ; survol (pointeur fin) : contour `input`, `shadow-glass`, translation de 2 px par le ressort du survol de tuile, rien en mouvement réduit ni au doigt ; empreinte : fond distinct de la colonne et pointillé 2 px ; légende d'une carte fermée atténuée. Capteurs, délai, soulèvement non touchés.
+  - Test à écrire d'abord : e2e ordinateur — « ombre et contour calculés diffèrent entre repos et survol ; pointillé de l'empreinte ≥ 3:1 contre la colonne (lecture de pixels) »
+  - Fini quand : e2e de la démo verts (desktop, mobile), unitaires verts.
+
+- [ ] **13. Rendre la cible de dépôt lisible sur mobile et alléger les colonnes**
+  - Fichiers : `src/components/kanban/SortableBoard.tsx`, `SortableBoard.test.tsx`, `e2e/demo-kanban.spec.ts`, `messages/{fr,en}.json`
+  - Contenu : onglet survolé pendant un glisser = état actif complet et amené dans le champ ; amorce visible quand des onglets sont hors écran ; en-tête de colonne masqué visuellement sous 768 px (l'onglet le dit déjà) ; colonne repliée étroite au-delà de 768 px ; emplacement de pied pour une colonne repliée (lien fourni par l'appelant).
+  - Test à écrire d'abord : unitaire — « onglet cible marqué pendant le glisser, colonne repliée avec pied » ; e2e mobile au doigt — « l'onglet visé est visible et marqué pendant le glisser »
+  - Fini quand : e2e de la démo verts ; les e2e D4 (pas de saut du tableau) toujours verts.
+
+- [ ] **14. Écrire la carte d'une tâche réelle**
+  - Fichiers : `src/components/tasks/TaskCard.tsx`, `TaskCard.test.tsx`, `messages/{fr,en}.json` (`tasks.blocked`)
+  - Contenu : reprise de `KanbanDemoCard` sur le type `Task` : titre, « Bloquée », espace (selon `showContext`), échéance, tags, compteur de sous-tâches, priorité teintée ; aucun appel serveur.
+  - Test à écrire d'abord : « tâche bloquée ; en retard ; terminée (titre et légende atténués) ; sans légende ; EN »
+  - Fini quand : tests verts.
+
+- [ ] **15. Extraire la file des déplacements optimistes**
+  - Fichiers : `src/components/kanban/use-board-moves.ts`, `use-board-moves.test.ts`, `src/modules/tasks/view.ts` (application d'un déplacement à un tableau)
+  - Contenu : logique de `KanbanDemo` rendue générique : affiché = enregistré + déplacements en attente, envois en série, échec → retour et message, échec dépassé ignoré, Réessayer ; l'enregistrement est une fonction passée en paramètre.
+  - Test à écrire d'abord : tests de `KanbanDemo.test.tsx` portés — « dépôt optimiste ; deux dépôts en série ; échec puis retour ; échec dépassé sans message ; Réessayer »
+  - Fini quand : tests verts ; la démo utilise le hook sans changer de comportement.
+
+- [ ] **16. Mémoriser la vue Liste ou Tableau**
+  - Fichiers : `src/lib/preferences.ts`, `src/components/tasks/ViewSwitch.tsx` + test, `src/app/(app)/tasks/actions.ts`, `messages/{fr,en}.json`
+  - Contenu : cookie `bmb_tasks_view` (`list` par défaut, valeur inconnue → `list`) ; pilule à deux segments du modèle de la bascule Privé / Pro, `aria-pressed`, zones ≥ 44 px.
+  - Test à écrire d'abord : « valeur lue, défaut, valeur inconnue ; clic sur Tableau enregistre et rafraîchit »
+  - Fini quand : tests verts ; le sélecteur n'est pas encore branché sur une vue.
+
+- [ ] **17. Afficher le tableau sur `/tasks`**
+  - Fichiers : `src/app/(app)/tasks/(list)/page.tsx`, `(list)/loading.tsx`, `src/components/tasks/TaskBoard.tsx` + test, `src/components/tasks/list-query.ts`
+  - Contenu : vue Tableau = `loadBoard` + `SortableBoard` + `TaskCard` + `use-board-moves` branché sur `tasks.move` ; « Tout voir » (`?done=all`) ; pied de la colonne Annulée : lien vers la liste avec « Terminées » ; ouverture du détail par la route existante, requête gardée ; givre de chargement du tableau ; interrupteur « Terminées » en vue liste seulement ; message de plafond.
+  - Test à écrire d'abord : `TaskBoard.test.tsx` — « cinq colonnes ; dépôt → `tasks.move` avec les voisines ; échec → message ; Tout voir » ; `loading.test.tsx` du tableau
+  - Fini quand : tests verts ; tableau utilisable sur `pnpm dev` avec de vraies tâches.
+
+- [ ] **18. Prouver le tableau en e2e**
+  - Fichiers : `e2e/todo-kanban.spec.ts`, `e2e/todo.ts` (aides)
+  - Contenu : scénarios 1 à 5 de la spec : déplacement gardé au rechargement (souris et doigt), ordre gardé à travers un changement de filtre, Terminée et Annulée, échec réseau puis Réessayer, clavier ; console sans avertissement.
+  - Test à écrire d'abord : ce fichier, rouge tant que la tâche 17 n'est pas complète sur un point.
+  - Fini quand : verts en `--project=desktop --project=mobile --workers=1`, tâches créées remises à la corbeille.
+
+- [ ] **19. Porter le contraste Creux dans la vue liste**
+  - Fichiers : `src/components/tasks/TaskList.tsx`, `TaskRow.tsx`, `task-list-layout.ts`, givre de la liste, tests et `e2e/effets-de-verre.spec.ts`
+  - Contenu : lignes `popover` bordées sur fond `pill-track`, en-têtes de section à l'encre ; les tuiles du tableau de bord gardent leurs lignes actuelles ; hauteurs du givre identiques au pixel.
+  - Test à écrire d'abord : `TaskList.test.tsx` — « surface des lignes de la liste, variante `tile` inchangée » ; e2e du givre inchangés et verts
+  - Fini quand : tests et e2e du givre verts ; captures regardées.
+
+### C. Détail
+
+- [ ] **20. Rendre le titre éditable d'un tap**
+  - Fichiers : `src/components/tasks/TaskDetail.tsx`, `TaskTitleField.tsx` + test, `TaskNotesField.tsx`, `TaskDetail.test.tsx`
+  - Contenu : titre au style de titre, libellé `sr-only`, repère d'édition visible au repos, survol `pill-track`, focus en champ net, `text-balance` ; Entrée ou sortie du champ enregistre (inchangé) ; restes de D9 : notes faites de retours à la ligne (plus de rétrécissement au départ du champ), compte d'appels asserté.
+  - Test à écrire d'abord : « repère présent ; Entrée enregistre une fois ; vide → erreur et valeur d'avant ; notes "\n\n\n\n" puis clic sur la corbeille en un clic (e2e `todo-detail-notes`) »
+  - Fini quand : tests et e2e du détail verts ; essai sur iPhone demandé à Antoine (clavier au tap).
+
+- [ ] **21. Écrire la liste de sélection de tâche**
+  - Fichiers : `src/components/tasks/TaskPicker.tsx` + test, `src/app/(app)/tasks/actions.ts` (lecture par `tasks.list`), `messages/{fr,en}.json`
+  - Contenu : `Autocomplete` de Base UI, recherche par titre avec délai, 20 résultats, exclusions passées en props, titre + icône de statut + pastille d'espace, états vide / chargement / erreur, clavier, focus rendu, relais de focus iOS si la liste s'ouvre dans un popup.
+  - Test à écrire d'abord : « filtre par titre ; exclut la tâche et les identifiants donnés ; `topLevelOnly` demandé pour une parente ; Entrée choisit ; Échap rend le focus »
+  - Fini quand : tests verts ; essai clavier iPhone demandé à Antoine.
+
+- [ ] **22. Ajouter la propriété « Tâche parente »**
+  - Fichiers : `src/components/tasks/TaskDetail.tsx`, `ParentField.tsx` + test, `TaskDetail.test.tsx`, `e2e/todo-parente.spec.ts`, `messages/{fr,en}.json`
+  - Contenu : ligne de propriété après Tags ; une seule mention de la parente (le lien du haut disparaît, « Comme la tâche parente » rejoint cette ligne) ; lien vers la parente, « Détacher », changer ; désactivée avec la raison si la tâche a des sous-tâches ; erreurs du registre sous le champ.
+  - Test à écrire d'abord : « rattacher appelle `tasks.setParent` ; détacher ; désactivée avec sous-tâches ; `subtask_depth` traduit » ; e2e scénario 7
+  - Fini quand : tests et e2e verts (desktop, mobile).
+
+- [ ] **23. Ajouter la section « Relations » et « Bloquée » dans la liste**
+  - Fichiers : `src/components/tasks/RelationList.tsx` + test, `TaskDetail.tsx`, `TaskRow.tsx` (pastille « Bloquée »), `e2e/todo-relations.spec.ts`, `messages/{fr,en}.json`
+  - Contenu : section sous les sous-tâches ; groupes non vides seulement ; ligne « + Ajouter une relation » : type puis tâche (`TaskPicker`) ; chaque relation : lien, icône de statut, « Retirer » ; vide = la seule ligne d'ajout.
+  - Test à écrire d'abord : « ajout `blocked_by` → `tasks.addRelation` ; affichée inversée chez l'autre ; retirer ; `relation_conflict` traduit ; ligne de liste bloquée » ; e2e scénarios 8 et 9
+  - Fini quand : tests et e2e verts.
+
+### D. Clôture
+
+- [ ] **24. Retirer la démo et aligner les docs**
+  - Fichiers : suppression de `src/app/(app)/demo/kanban/`, `e2e/demo-kanban*.spec.ts`, messages `kanbanDemo` ; `tests/build/no-demo.test.ts` (`ALLOWED_DEMOS` vide), `tests/lint/boundaries.test.ts` ; `docs/features/todo-unifiee/spec.md` (tranche 2 renvoyée ici, « En attente » remplacé par « Bloquée », parente modifiable), `docs/roadmap.md`
+  - Test à écrire d'abord : `no-demo.test.ts` — « aucune démo admise »
+  - Fini quand : `pnpm test`, `pnpm test:build`, `pnpm lint`, `pnpm typecheck` verts ; les e2e utiles de la démo (saut du tableau D4, tap contre appui long D5, curseur D6) vivent dans `e2e/todo-kanban.spec.ts`.
+
+- [ ] **25. Passer la revue de design et la suite complète**
+  - Fichiers : aucun prévu ; corrections ciblées si la revue en demande
+  - Contenu : anti-slop (`nexxia-design`), `/impeccable critique` sur le tableau et le détail (objectif : au-dessus de 24/40, aucun P1), suite e2e complète, e2e `todo-chargement` sur `next start`, langue EN.
+  - Fini quand : rapport de critique archivé, e2e verts hors BRAIN-52, prêt pour `/qa todo-kanban`.
+
+## Limites connues, hors plan
+- Clavier : une carte = un arrêt de tabulation (44 arrêts sur un grand tableau) ; pas de raccourci de statut ou de priorité depuis la carte.
+- Aucune aide visible au glisser pour le voyant (les consignes existent pour le lecteur d'écran).
+- Libellés des propriétés du détail à largeur fixe (disposition validée par Antoine).
+
+## Corrections QA
+<!-- Alimenté par /qa. Même format que les tâches. -->
+
+## Terminé
+<!-- scribe déplace ici les tâches cochées avec la date. -->
