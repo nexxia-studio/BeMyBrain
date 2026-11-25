@@ -85,7 +85,7 @@ Règles communes à toutes les tâches :
 
 ### B. Charte et tableau (PR B)
 
-- [x] **11. Amender la charte : teintes de priorité, Creux, exceptions** — terminée le 2026-11-25 (`d765194`)
+- [x] **11. Amender la charte : teintes de priorité, Creux, exceptions** — terminée le 2026-11-25 (`d765194`), teintes refaites le même jour sur l'échelle rouge, orangé, jaune, vert (`70259ea`)
   - Fichiers : `DESIGN.md` (frontmatter, § 2, § 5), `src/app/globals.css`, `src/lib/utils.ts` et son test si un token de taille change, `src/components/tasks/priority-icons.ts` (teinte par niveau), test de verrou des tokens
   - Contenu : quatre paires fond et texte `priority-urgent | high | medium | low`, pastel très léger, même clarté que les pastilles d'espace, teintes hors de celles des espaces et de la braise ; règle « jamais la couleur seule » ; surfaces Creux (colonne, carte, survol, empreinte) ; exceptions gardées (ligne d'ajout de sous-tâche, « Notes » semi-gras, 46 px, ombre de saisie) ; « icônes de priorité à l'encre » remplacée.
   - Test à écrire d'abord : `priority-icons.test.ts` — « chaque niveau 1 à 4 a une icône et une teinte distinctes, 0 n'a rien ; chaque token existe dans `globals.css` » ; contraste texte et icône ≥ 4,5:1 calculé dans le test à partir des valeurs.
