@@ -485,6 +485,8 @@ describe("setTaskParent : deux connexions", () => {
       blocked = await waitForLockWait(owner, await pid, "advisory");
     } finally {
       commitFirst();
+      // Toujours attendues (elles ne rejettent pas) : aucune transaction ne déborde sur le test suivant.
+      await Promise.all([first, second]);
     }
 
     expect(await first).toBeNull();
@@ -589,6 +591,7 @@ describe("restoreTask : parente", () => {
       await outside.query("rollback").catch(() => undefined);
       outside.release();
       await outsidePool.end();
+      await restoring;
     }
 
     expect(await restoring).toBe("parent_in_trash");

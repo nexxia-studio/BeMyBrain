@@ -42,13 +42,13 @@ Règles communes à toutes les tâches :
   - Fini quand : migration appliquée sur la branche de test, RLS + une policy par verbe, test vert.
 
 - [x] **4. Déplacer une tâche ou une sous-tâche dans le tableau (`moveTask`)** [security] — terminée le 2026-11-25 (`42119a3`)
-  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts` (`moveTaskInputSchema`), `mutations.test.ts`
-  - Contenu : statut + place selon spec « Ordre manuel » : verrou de la tâche et des voisines, clés données une fois à toutes les tâches actives de la catégorie (sous-tâches comprises) si la colonne en manque, voisine périmée → tête de colonne, `completed_at` comme `updateTask`, position ignorée dans Terminée et Annulée. Une sous-tâche se déplace comme une tâche, sans effet sur sa parente.
+  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts` (`moveTaskInputSchema`), `mutations-move.test.ts` (tests de la tâche)
+  - Contenu : statut + place selon spec « Ordre manuel » : verrou d'ordre du workspace, tâche verrouillée, voisines relues sous ce verrou, clés données une fois à toutes les tâches actives de la catégorie (sous-tâches comprises) si la colonne en manque, voisine périmée → tête de colonne, `completed_at` comme `updateTask`, position ignorée dans Terminée et Annulée. Une sous-tâche se déplace comme une tâche, sans effet sur sa parente.
   - Test à écrire d'abord : `mutations.test.ts` — « entre deux voisines ; en tête ; en queue ; colonne sans clés normalisée dans l'ordre de la liste, sous-tâches comprises ; voisine à la corbeille → tête ; vers Terminée ou Annulée pose la date ; en sortir la vide ; sous-tâche déplacée, parente inchangée ; tâche d'un autre workspace → `not_found` »
   - Fini quand : tests verts sur la branche de test.
 
 - [x] **5. Placer en tête de colonne les arrivées hors dépôt** — terminée le 2026-11-25 (`6cf755a`)
-  - Fichiers : `src/modules/tasks/mutations.ts`, `mutations.test.ts`
+  - Fichiers : `src/modules/tasks/mutations.ts`, `mutations-move.test.ts` (tests de la tâche)
   - Contenu : création (tâche ou sous-tâche), changement de statut par `updateTask`, `completeTask` puis réouverture, restauration : en tête si la colonne ouverte d'arrivée a déjà des clés, sans clé sinon. Une seule fonction interne partagée avec la tâche 4.
   - Test à écrire d'abord : « tâche créée dans une colonne ordonnée → première ; dans une colonne sans clé → sans clé ; réouverte → première de À faire ; sous-tâche créée → première »
   - Fini quand : tests verts, aucun test existant de `mutations.test.ts` modifié dans son intention.
@@ -60,7 +60,7 @@ Règles communes à toutes les tâches :
   - Fini quand : tests verts ; la description lue par un modèle dit la règle.
 
 - [x] **7. Rattacher, changer de parente, détacher (`setTaskParent`)** [security] — terminée le 2026-11-25 (`2111ba3`)
-  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`has_subtasks`, `cross_side_parent`), `mutations.test.ts`, `messages/{fr,en}.json` (`tasks.errors.*`)
+  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`has_subtasks`, `cross_side_parent`), `mutations-parent.test.ts` (tests de la tâche), `messages/{fr,en}.json` (`tasks.errors.*`)
   - Contenu : règles de spec « Tâche parente » ; même côté exigé, refus avant l'écriture ; espace aligné dans la même instruction que `parent_id` ; statut, place, priorité, tags et relations inchangés ; `restoreTask` refuse une sous-tâche dont la parente est devenue sous-tâche (`subtask_depth`). `restoreTask` relit `parent_id` après le verrou de la tâche (la parente peut désormais changer entre la lecture et le verrou) ; le commentaire « parent_id n'est jamais modifié » de `mutations.ts` est corrigé.
   - Test à écrire d'abord : « rattachée, elle prend l'espace de la parente ; parente de l'autre côté → `cross_side_parent`, rien d'écrit ; parente déjà sous-tâche → `subtask_depth` ; tâche avec sous-tâches actives → `has_subtasks` (avec seulement des sous-tâches à la corbeille → accepté) ; elle-même → `invalid_params` ; parente à la corbeille → `parent_in_trash` ; parente d'un autre workspace → `not_found` ; détachée, elle garde côté, espace et place ; restauration refusée en profondeur 2 »
   - Fini quand : tests verts ; messages anglais des nouveaux codes dans `TASK_ERROR_MESSAGES`.

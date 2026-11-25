@@ -63,6 +63,10 @@ import { keyBetween, keysFor } from "./sort-key";
 //   2. la parente (lockTask) : celle de la tâche, ou celle qu'on lui donne (setTaskParent) ;
 //   3. la tâche (lockTask), puis ses sous-tâches par l'instruction qui les écrit.
 // Jamais lockBoardOrder après un verrou de ligne.
+// Composition : cette règle vaut par mutation, chacune prenant le verrou d'ordre à son premier pas. Une
+// action qui enchaînerait plusieurs mutations dans UNE transaction (ex. un titre, puis un déplacement)
+// tiendrait déjà une ligne à l'entrée de la seconde : elle devra prendre le verrou d'ordre elle-même, en
+// tête de transaction, avant la première mutation (le reprendre ensuite est sans effet, il est réentrant).
 // Pourquoi les écritures de famille le prennent : la mise en ordre d'une colonne (moveTask) écrit toutes ses
 // lignes après avoir verrouillé la carte déplacée. Hors du verrou d'ordre, une écriture de famille qui tient
 // la parente et attend la sous-tâche déplacée s'interbloquerait avec elle (40P01). Sous le verrou, toutes

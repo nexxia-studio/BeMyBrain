@@ -17,6 +17,7 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../../../tests/factories/core";
+import { waitForLockWait } from "../../../tests/factories/lock-wait";
 import { insertTasks, type TaskRow } from "../../../tests/factories/tasks";
 import { TaskError, type TaskErrorCode } from "./errors";
 import {
@@ -178,27 +179,6 @@ function tracked<T>(fn: Parameters<typeof db.asUser<T>>[1]) {
   return { pid, done };
 }
 
-/**
- * Attend que CETTE connexion patiente sur un verrou (lu par le propriétaire) : `advisory` = verrou d'ordre,
- * `transactionid` = ligne tenue par une autre transaction. Filtré par pid : un autre fichier de test en
- * parallèle ne donne pas de faux « bloqué ».
- */
-async function waitForLockWait(
-  pid: number,
-  locktype: "advisory" | "transactionid",
-): Promise<boolean> {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const { rows } = await owner.query<{ waiting: number }>(
-      `select count(*)::int as waiting from pg_locks
-       where pid = $1 and locktype = $2 and not granted`,
-      [pid, locktype],
-    );
-    if (rows[0]!.waiting > 0) return true;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  return false;
-}
-
 /** `first` reste ouverte après son écriture ; dit si `second`, lancée ensuite, attend le verrou d'ordre. */
 async function secondWaitsForOrderLock<A, B>(
   first: Parameters<typeof db.asUser<A>>[1],
@@ -220,7 +200,7 @@ async function secondWaitsForOrderLock<A, B>(
     await Promise.race([written, one]);
     const started = tracked(second);
     two = started.done;
-    blocked = await waitForLockWait(await started.pid, "advisory");
+    blocked = await waitForLockWait(owner, await started.pid, "advisory");
   } finally {
     commitFirst();
   }
@@ -646,12 +626,19 @@ describe("moveTask : mise en ordre et autres écritures", () => {
         moveTask(f.workspaceA, { taskId: m!, statusCategory: "unstarted" }, tx),
       );
       moving = started.done;
-      waitedForRow = await waitForLockWait(await started.pid, "transactionid");
+      waitedForRow = await waitForLockWait(
+        owner,
+        await started.pid,
+        "transactionid",
+      );
       await outside.query("commit");
     } finally {
       await outside.query("rollback").catch(() => undefined);
       outside.release();
       await outsidePool.end();
+      // Toujours attendue, même si une étape a levé avant le commit : aucune transaction ne déborde sur le
+      // test suivant, aucun rejet non attrapé.
+      await moving.catch(() => undefined);
     }
     await moving;
 
@@ -1134,5 +1121,122 @@ describe("arrivées hors dépôt : isolation et concurrence", () => {
     expect(
       new Set(await keysOf([a, b, c, m, createdId] as string[])).size,
     ).toBe(5);
+  });
+});
+
+// Garde de l'ordre des verrous (en-tête de mutations.ts) : la première transaction tient le verrou d'ordre ET
+// la ligne que la seconde verrouillerait en premier. La seconde doit patienter sur le verrou d'ordre
+// (`advisory`). Si lockBoardOrder redescend sous lockTask dans la mutation visée, elle patiente sur la ligne
+// (`transactionid`) et le test devient rouge.
+describe("ordre des verrous : verrou d'ordre avant tout verrou de ligne", () => {
+  /** Déplace `taskId` vers « En cours » : tient le verrou d'ordre et le verrou de cette ligne. */
+  const holdOrderAndRow =
+    (taskId: string) => (tx: Parameters<typeof moveTask>[2]) =>
+      moveTask(f.workspaceA, { taskId, statusCategory: "started" }, tx);
+
+  it("createTask d'une sous-tâche dans une catégorie ouverte : attend le verrou d'ordre, pas la ligne de la parente", async () => {
+    const [parent] = await seed([{ title: "Parente" }, TRASHED]);
+
+    const {
+      blocked,
+      results: [, created],
+    } = await secondWaitsForOrderLock(holdOrderAndRow(parent!), (tx) =>
+      createTask(
+        f.workspaceA,
+        { title: "Sous-tâche", parentId: parent },
+        "app",
+        tx,
+      ),
+    );
+
+    expect(blocked).toBe(true);
+    expect(created).toMatchObject({ parentId: parent });
+  });
+
+  it("updateTask avec statusCategory : attend le verrou d'ordre, pas la ligne de la tâche", async () => {
+    const [task] = await seed([{ title: "Tâche" }, TRASHED]);
+
+    const { blocked } = await secondWaitsForOrderLock(
+      holdOrderAndRow(task!),
+      (tx) =>
+        updateTask(
+          f.workspaceA,
+          { taskId: task!, statusCategory: "backlog" },
+          tx,
+        ),
+    );
+
+    expect(blocked).toBe(true);
+    expect((await one(task!)).status_category).toBe("backlog");
+  });
+
+  it("updateTask avec context : attend le verrou d'ordre, pas la ligne de la tâche", async () => {
+    const [task] = await seed([{ title: "Tâche" }, TRASHED]);
+
+    const {
+      blocked,
+      results: [, updated],
+    } = await secondWaitsForOrderLock(holdOrderAndRow(task!), (tx) =>
+      updateTask(
+        f.workspaceA,
+        { taskId: task!, context: `ctx-A-${f.run}` },
+        tx,
+      ),
+    );
+
+    expect(blocked).toBe(true);
+    expect(updated).toMatchObject({ contextId: f.contextA });
+  });
+
+  it("restoreTask d'une sous-tâche : attend le verrou d'ordre, pas la ligne de la parente", async () => {
+    const [parent] = await seed([{ title: "Parente" }]);
+    const [sub] = await seed([{ ...TRASHED, parentId: parent }]);
+
+    const { blocked } = await secondWaitsForOrderLock(
+      holdOrderAndRow(parent!),
+      (tx) => restoreTask(f.workspaceA, sub!, tx),
+    );
+
+    expect(blocked).toBe(true);
+    expect((await one(sub!)).deleted_at).toBeNull();
+  });
+
+  it("updateTask avec un titre seul : se termine pendant qu'une autre transaction tient le verrou d'ordre", async () => {
+    const [held, task] = await seed([
+      { title: "Tenue" },
+      { title: "Tâche" },
+      TRASHED,
+    ]);
+    let commitFirst = () => {};
+    const gate = new Promise<void>((resolve) => (commitFirst = resolve));
+    let firstWritten = () => {};
+    const written = new Promise<void>((resolve) => (firstWritten = resolve));
+    const first = asA(async (tx) => {
+      await holdOrderAndRow(held!)(tx);
+      firstWritten();
+      await gate;
+    });
+    let outcome = "non lancée";
+    let second: Promise<unknown> = Promise.resolve();
+
+    try {
+      await Promise.race([written, first]);
+      const started = tracked((tx) =>
+        updateTask(f.workspaceA, { taskId: task!, title: "Renommée" }, tx),
+      );
+      second = started.done;
+      // Première transaction encore ouverte : soit la seconde finit, soit la sonde la voit patienter.
+      outcome = await Promise.race([
+        started.done.then(() => "terminée"),
+        started.pid
+          .then((pid) => waitForLockWait(owner, pid, "advisory"))
+          .then((waiting) => (waiting ? "attend le verrou d'ordre" : "rien")),
+      ]);
+    } finally {
+      commitFirst();
+      await Promise.all([first, second].map((p) => p.catch(() => undefined)));
+    }
+
+    expect(outcome).toBe("terminée");
   });
 });
