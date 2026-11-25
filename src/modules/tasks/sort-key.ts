@@ -35,7 +35,8 @@ export const KEYS_FOR_MAX = 10_000;
 /**
  * Longueur maximale d'une clé rangée. Même valeur que la contrainte `tasks_sort_key_check`
  * (drizzle/0010_tasks_order_and_parent_checks.sql) : un test compare les deux. Large : 200 insertions au
- * même endroit donnent 41 caractères au plus, `keysFor` 4 au plus.
+ * même endroit donnent 41 caractères au plus, `keysFor` 4 au plus (mesurés par sort-key.test.ts : « 200
+ * insertions juste après la même voisine », « le plafond de clés (10 000) en 4 caractères au plus »).
  */
 export const SORT_KEY_MAX_LENGTH = 64;
 
