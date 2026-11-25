@@ -47,7 +47,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : `mutations.test.ts` — « entre deux voisines ; en tête ; en queue ; colonne sans clés normalisée dans l'ordre de la liste, sous-tâches comprises ; voisine à la corbeille → tête ; vers Terminée ou Annulée pose la date ; en sortir la vide ; sous-tâche déplacée, parente inchangée ; tâche d'un autre workspace → `not_found` »
   - Fini quand : tests verts sur la branche de test.
 
-- [ ] **5. Placer en tête de colonne les arrivées hors dépôt**
+- [x] **5. Placer en tête de colonne les arrivées hors dépôt** — terminée le 2026-11-25 (`6cf755a`)
   - Fichiers : `src/modules/tasks/mutations.ts`, `mutations.test.ts`
   - Contenu : création (tâche ou sous-tâche), changement de statut par `updateTask`, `completeTask` puis réouverture, restauration : en tête si la colonne ouverte d'arrivée a déjà des clés, sans clé sinon. Une seule fonction interne partagée avec la tâche 4.
   - Test à écrire d'abord : « tâche créée dans une colonne ordonnée → première ; dans une colonne sans clé → sans clé ; réouverte → première de À faire ; sous-tâche créée → première »
