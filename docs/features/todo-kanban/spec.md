@@ -52,20 +52,21 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Lecture d'une colonne ouverte : `sort_key` croissant, tâches sans clé ensuite dans l'ordre de la liste (échéance, priorité, création).
 - Premier déplacement dans une colonne qui contient des tâches sans clé : la mutation donne d'abord une clé à toutes les tâches actives de cette catégorie dans le workspace, dans l'ordre affiché, puis place la carte. Une fois par colonne, dans la même transaction.
 - Arrivée dans une colonne ouverte autrement que par un dépôt (création, changement de statut depuis le détail ou la liste, réouverture, restauration) : en tête de colonne si la colonne a déjà des clés, sans clé sinon. Rattacher ou détacher une tâche ne change ni son statut ni sa place.
-- Les voisines (`beforeId`, `afterId`) sont relues et verrouillées par la mutation : voisine absente, à la corbeille ou d'une autre catégorie → la carte va en tête de la colonne visée, sans erreur (le tableau affiché était périmé).
+- Les écritures d'ordre d'un workspace sont mises en série par un verrou d'ordre (verrou consultatif de transaction, pris avant tout verrou de ligne) ; toute mutation qui écrit plusieurs lignes de `tasks` ou une clé le prend en premier.
+- Les voisines (`beforeId`, `afterId`) sont relues sous ce verrou d'ordre : voisine absente, à la corbeille ou d'une autre catégorie → la carte va en tête de la colonne visée, sans erreur (le tableau affiché était périmé).
 
 ### Sous-tâches
 - À la création, une sous-tâche hérite du côté et de l'espace de sa parente (existant) et de sa priorité quand aucune priorité n'est donnée ; la priorité se modifie ensuite librement. Les tags ne sont pas hérités. Un changement de priorité de la parente ne touche pas ses sous-tâches.
 
 ### Tâche parente
-- Un seul niveau. Devenir sous-tâche de P exige : P active, de premier niveau, différente de la tâche, du même côté ; la tâche n'a aucune sous-tâche active.
+- Un seul niveau. Devenir sous-tâche de P exige : P active, de premier niveau, différente de la tâche, du même côté ; la tâche n'a aucune sous-tâche, corbeille comprise (une sous-tâche à la corbeille garderait un autre espace que sa famille et bloquerait ensuite un changement de côté ; pour rattacher quand même : restaurer la sous-tâche, la détacher, puis rattacher).
 - Même côté uniquement : une parente de l'autre côté est refusée (`cross_side_parent`), à l'écran comme pour un assistant. La base le garantit déjà (clé étrangère `(workspace_id, parent_id, side)`) ; la mutation le refuse avant, avec un code clair.
-- La sous-tâche prend l'espace de sa nouvelle parente, dans la même instruction. Sa priorité, ses tags, son statut, sa place et ses relations ne changent pas.
+- La sous-tâche prend l'espace de sa nouvelle parente, dans la même instruction ; sous une parente sans espace, elle perd le sien, et le détachement ne le rend pas. Sa priorité, ses tags, son statut, sa place et ses relations ne changent pas.
 - Détacher (`parentId: null`) : la tâche redevient de premier niveau et garde côté et espace.
 - Changer de parente = une seule écriture (pas de détachement intermédiaire).
 - Une tâche à la corbeille n'est jamais proposée ni acceptée comme parente (`parent_in_trash`).
-- Restaurer une sous-tâche dont la parente est entre-temps devenue sous-tâche est refusé (`subtask_depth`) ; elle se restaure après détachement de sa parente. Limite assumée.
-- Refus : `subtask_depth` (parente visée déjà sous-tâche), `has_subtasks` (la tâche a des sous-tâches actives), `cross_side_parent`, `invalid_params` (elle-même), `not_found`, `parent_in_trash`.
+- Une parente ne peut donc jamais devenir sous-tâche tant qu'elle a une sous-tâche, même à la corbeille ; `restoreTask` refuse quand même, par sécurité, une sous-tâche dont la parente serait sous-tâche (`subtask_depth`).
+- Refus : `subtask_depth` (parente visée déjà sous-tâche), `has_subtasks` (la tâche a au moins une sous-tâche active), `has_trashed_subtasks` (aucune sous-tâche active, mais au moins une à la corbeille : la restaurer puis la détacher, la corbeille ne se vide pas), `cross_side_parent`, `invalid_params` (elle-même), `not_found`, `parent_in_trash`.
 
 ### Relations
 - Trois types à l'écran : « Bloque », « Bloquée par », « Liée à ». Deux en base : `blocks` (de la bloquante vers la bloquée) et `related` (symétrique, rangée une fois, plus petit identifiant en premier). « Bloquée par » est la lecture inverse de `blocks`.
@@ -74,7 +75,7 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Même côté uniquement, sans exception pour l'assistant : lier deux tâches de côtés différents est refusé (`cross_side_relation`). Règle tenue par la mutation (les deux tâches verrouillées), pas par une contrainte de base.
 - Une tâche qui change de côté garde ses relations en base ; celles qui traversent alors les côtés sont masquées à la lecture (détail, « Bloquée », listes), comme une relation vers la corbeille, et reviennent si les côtés coïncident de nouveau.
 - Ajouter une relation qui existe déjà : sans effet, sans erreur. Ajouter l'inverse direct d'un blocage existant : refus `relation_conflict`.
-- Une relation vers une tâche à la corbeille est masquée partout, pas supprimée ; elle réapparaît à la restauration.
+- Une relation vers une tâche à la corbeille est masquée partout, pas supprimée ; elle réapparaît à la restauration. Elle ne se retire qu'après restauration de cette tâche (`tasks.removeRelation` répond `not_found` tant que l'une des deux tâches est à la corbeille) ; une relation devenue transversale, elle, reste retirable.
 - « Bloquée » (carte, ligne de liste) : la tâche est ouverte et a au moins une bloquante active, ouverte et du même côté. Dérivé à la lecture, pas un statut. Remplace le libellé « En attente » réservé par `todo-unifiee/spec.md`.
 - Dans le détail, chaque relation est un lien vers l'autre tâche, avec son statut (icône) et un bouton « Retirer ».
 
@@ -99,7 +100,7 @@ Toutes les écritures ci-dessus passent par le registre, canaux web et assistant
 | `tasks.create` (existante) | write | inchangés | Une sous-tâche sans priorité prend celle de sa parente. |
 | `tasks.get` (existante) | read | inchangés | Le détail gagne `relations` et `blocked`. |
 
-Nouveaux codes : `has_subtasks`, `cross_side_parent`, `cross_side_relation`, `relation_conflict`. `Task` gagne `blocked` et `subtaskOpen` ; `sortKey` n'est jamais exposé hors du module (l'ordre est celui du tableau renvoyé).
+Nouveaux codes : `has_subtasks`, `has_trashed_subtasks`, `cross_side_parent`, `cross_side_relation`, `relation_conflict`. `has_trashed_subtasks` dit à l'écran comme à un assistant quoi faire d'une sous-tâche restée à la corbeille : `tasks.restore`, puis `tasks.setParent` avec `parentId: null`. `Task` gagne `blocked` et `subtaskOpen` ; `sortKey` n'est jamais exposé hors du module (l'ordre est celui du tableau renvoyé).
 
 ## Critères d'acceptation
 
@@ -141,7 +142,7 @@ Détail
 - [ ] Ligne « Ajouter une sous-tâche » toujours visible, Entrée valide, prête pour la suivante.
 
 Données et registre
-- [ ] `tasks.setParent` refuse : parente sous-tâche, tâche avec sous-tâches actives, elle-même, parente à la corbeille, parente de l'autre côté (`cross_side_parent`), parente d'un autre workspace (`not_found`).
+- [ ] `tasks.setParent` refuse : parente sous-tâche, tâche avec sous-tâches (corbeille comprise), elle-même, parente à la corbeille, parente de l'autre côté (`cross_side_parent`), parente d'un autre workspace (`not_found`).
 - [ ] `tasks.addRelation` refuse : elle-même, tâche à la corbeille ou d'un autre workspace (`not_found`), tâche de l'autre côté (`cross_side_relation`), inverse direct d'un blocage (`relation_conflict`) ; un doublon ne crée rien.
 - [ ] Après un changement de côté, une relation devenue transversale n'apparaît plus nulle part et ne bloque plus ; elle revient si les côtés coïncident de nouveau.
 - [ ] `tasks.move` déplace une sous-tâche comme une tâche.
@@ -172,7 +173,7 @@ Retrait de la démo
 - RLS : activée dans la migration de création ; policies SELECT, INSERT, DELETE par appartenance au workspace (`app.is_workspace_member`) ; pas d'UPDATE (une relation s'ajoute ou se retire) ; droits `app_backend` SELECT, INSERT (colonnes utiles), DELETE.
 - Deux migrations additives (0008 ordre et droits, 0009 relations), appliquées en production par la CI (ADR-010). Antoine relit les migrations avant la fusion de la PR A.
 - Lectures dans `src/modules/tasks/queries.ts` seulement (ADR-004) : tableau, relations du détail, « bloquée », candidates. Toutes partent du prédicat `isActive`, y compris pour l'autre bout d'une relation.
-- Écritures dans `mutations.ts`, tâche et voisines verrouillées (`lockTask`) ; parente et espace en une instruction.
+- Écritures dans `mutations.ts` : tâche verrouillée (`lockTask`), ordre sérialisé par workspace (`lockBoardOrder`) ; parente et espace en une instruction.
 - Le `workspaceId` vient de la session ; aucun identifiant de workspace dans un paramètre d'action.
 - Aucune donnée métier dans un message d'erreur ou de console (`.claude/rules/sentry.md`).
 - Préférences d'affichage (vue, sous-tâches, sous-tâches terminées, Annulée dépliée) : cookies, comme le côté ; aucune donnée métier.

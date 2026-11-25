@@ -8,6 +8,7 @@ import {
   newCoreFixture,
 } from "../factories/core";
 import { createAsUser } from "../factories/backend-tx";
+import { OK, outcome, tagged } from "../factories/refusal";
 import { insertTasksFixture, newTasksFixture } from "../factories/tasks";
 
 // Isolation de la to-do au niveau de la base (ADR-002) : tasks, tags, task_tags, en app_backend,
@@ -268,6 +269,16 @@ describe("isolation de tasks, tags, task_tags : modification et suppression", ()
       t.taskA,
     ],
     [
+      "déplacer une tâche dans le tableau (clé d'ordre)",
+      "update tasks set sort_key = 'a1' where id = $1",
+      t.taskA,
+    ],
+    [
+      "détacher une sous-tâche",
+      "update tasks set parent_id = null where id = $1",
+      t.subtaskA,
+    ],
+    [
       "renommer un tag",
       "update tags set name = 'piraté' where id = $1",
       t.tagA,
@@ -345,6 +356,54 @@ describe("isolation de tasks, tags, task_tags : modification et suppression", ()
       });
     },
   );
+});
+
+describe("isolation de tasks : parente modifiable (drizzle/0008)", () => {
+  // taskA est privée, les tâches de la fixture de B sont pro : une tâche privée est créée dans B, pour
+  // que le refus vienne du workspace et non du côté (tasks_parent_fk porte les deux).
+  /** Dans B : une tâche privée, puis son rattachement à `parentId`. */
+  function attachPrivateTaskOfB(parentId: (db: PoolClient) => Promise<string>) {
+    const insertPrivate = async (db: PoolClient) =>
+      (
+        await db.query(
+          "insert into tasks (workspace_id, side, title, origin) values ($1, 'private', 'privée de B', 'app') returning id",
+          [f.workspaceB],
+        )
+      ).rows[0].id as string;
+
+    return outcome(
+      tagged(
+        asUser(f.userB, async (db) => {
+          const child = await insertPrivate(db);
+          const parent = await parentId(db);
+          // WHERE sur workspace_id : c'est bien une ligne de B qui est modifiée.
+          const result = await db.query(
+            "update tasks set parent_id = $2 where id = $1 and workspace_id = $3",
+            [child, parent, f.workspaceB],
+          );
+          if (result.rowCount !== 1) throw new Error("aucune ligne modifiée");
+        }),
+      ),
+    );
+  }
+
+  it("rattacher une sous-tâche de B à une tâche de A est refusé (clé étrangère composite), à une tâche de B du même côté est accepté", async () => {
+    const outcomes = {
+      parentInA: await attachPrivateTaskOfB(async () => t.taskA),
+      parentInB: await attachPrivateTaskOfB(async (db) => {
+        const result = await db.query(
+          "insert into tasks (workspace_id, side, title, origin) values ($1, 'private', 'parente de B', 'app') returning id",
+          [f.workspaceB],
+        );
+        return result.rows[0].id as string;
+      }),
+    };
+
+    expect(outcomes).toEqual({
+      parentInA: FOREIGN_KEY_VIOLATION,
+      parentInB: OK,
+    });
+  });
 });
 
 describe("limite documentée : espace de la sous-tâche non lié à celui de la parente", () => {

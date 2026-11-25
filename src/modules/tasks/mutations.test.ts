@@ -280,6 +280,110 @@ describe("createTask", () => {
     });
   });
 
+  describe("priorité d'une sous-tâche", () => {
+    /** Parente privée de priorité Haute (2), avec un tag. */
+    function highParent() {
+      return asA((tx) =>
+        createTask(
+          f.workspaceA,
+          {
+            title: "Parente haute",
+            side: "private",
+            priority: 2,
+            tags: ["Client"],
+          },
+          "app",
+          tx,
+        ),
+      );
+    }
+
+    it("sans priorité sous une parente Haute : elle prend Haute", async () => {
+      const parent = await highParent();
+
+      const sub = await asA((tx) =>
+        createTask(
+          f.workspaceA,
+          { title: "Sous", parentId: parent.id },
+          "app",
+          tx,
+        ),
+      );
+
+      expect(sub.priority).toBe(2);
+      expect((await rowOf(sub.id)).priority).toBe(2);
+    });
+
+    it.each([
+      ["0 (Aucune)", 0],
+      ["4 (Basse)", 4],
+    ])(
+      "avec la priorité %s : respectée, pas celle de la parente",
+      async (_label, priority) => {
+        const parent = await highParent();
+
+        const sub = await asA((tx) =>
+          createTask(
+            f.workspaceA,
+            { title: "Sous", parentId: parent.id, priority },
+            "app",
+            tx,
+          ),
+        );
+
+        expect((await rowOf(sub.id)).priority).toBe(priority);
+      },
+    );
+
+    it("les tags de la parente ne sont pas hérités", async () => {
+      const parent = await highParent();
+
+      const sub = await asA((tx) =>
+        createTask(
+          f.workspaceA,
+          { title: "Sous", parentId: parent.id },
+          "app",
+          tx,
+        ),
+      );
+
+      expect(await tagsOf(parent.id)).toEqual(["Client"]);
+      expect(await tagsOf(sub.id)).toEqual([]);
+    });
+
+    it("changer ensuite la priorité de la parente ne touche pas la sous-tâche", async () => {
+      const parent = await highParent();
+      const sub = await asA((tx) =>
+        createTask(
+          f.workspaceA,
+          { title: "Sous", parentId: parent.id },
+          "app",
+          tx,
+        ),
+      );
+
+      await asA((tx) =>
+        updateTask(f.workspaceA, { taskId: parent.id, priority: 1 }, tx),
+      );
+
+      expect((await rowOf(parent.id)).priority).toBe(1);
+      expect((await rowOf(sub.id)).priority).toBe(2);
+    });
+
+    it("tâche de premier niveau sans priorité : 0", async () => {
+      const task = await asA((tx) =>
+        createTask(
+          f.workspaceA,
+          { title: "Premier niveau", side: "private" },
+          "app",
+          tx,
+        ),
+      );
+
+      expect((await rowOf(task.id)).priority).toBe(0);
+    });
+  });
+
   it.each([
     ["un côté", { side: "private" as const }],
     ["un espace", { context: names.perso }],

@@ -79,8 +79,11 @@ export async function deleteCoreFixture(
   f: CoreFixture,
 ): Promise<void> {
   const ids = [f.workspaceA, f.workspaceB];
-  // To-do d'abord (FK vers workspaces et contexts) : liens, tâches (sous-tâches comprises, une seule
-  // requête pour la FK parente), tags.
+  // To-do d'abord (FK vers workspaces et contexts) : relations et liens, tâches (sous-tâches comprises,
+  // une seule requête pour la FK parente), tags.
+  await owner.query("delete from task_relations where workspace_id = any($1)", [
+    ids,
+  ]);
   await owner.query("delete from task_tags where workspace_id = any($1)", [
     ids,
   ]);
