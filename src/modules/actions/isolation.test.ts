@@ -667,61 +667,78 @@ describe("registre d'actions : tableau, parente et relations, session de B sur s
     expect(await stateOf(f.workspaceA)).toEqual(before);
   });
 
-  it("tasks.setParent d'une tâche de A, ou d'une tâche de B sous une parente de A → not_found, comme un identifiant inexistant ; A et B inchangés", async () => {
-    const before = [await stateOf(f.workspaceA), await stateOf(f.workspaceB)];
+  // Un cas par test (les identifiants ne sont connus qu'après beforeAll, d'où les fonctions) : chaque test
+  // reste court devant le délai du fichier, même sur la base éphémère de la CI.
+  it.each<[string, () => Record<string, unknown>, string]>([
+    [
+      "d'une tâche de A sous une tâche de B",
+      () => ({ taskId: board.childA, parentId: board.loneB }),
+      "taskId",
+    ],
+    [
+      "d'une sous-tâche de A, pour la détacher",
+      () => ({ taskId: t.subtaskA, parentId: null }),
+      "taskId",
+    ],
+    [
+      "d'une tâche de B sous une parente de A",
+      () => ({ taskId: board.childB, parentId: board.parentA }),
+      "parentId",
+    ],
+  ])(
+    "tasks.setParent %s → not_found, comme un identifiant inexistant ; A et B inchangés",
+    async (_case, params, key) => {
+      const before = [await stateOf(f.workspaceA), await stateOf(f.workspaceB)];
 
-    await expectNotFoundLikeUnknown([
-      [
-        "tasks.setParent",
-        { taskId: board.childA, parentId: board.loneB },
-        "taskId",
-      ],
-      ["tasks.setParent", { taskId: t.subtaskA, parentId: null }, "taskId"],
-      [
-        "tasks.setParent",
-        { taskId: board.childB, parentId: board.parentA },
-        "parentId",
-      ],
-    ]);
+      await expectNotFoundLikeUnknown([["tasks.setParent", params(), key]]);
 
-    expect([await stateOf(f.workspaceA), await stateOf(f.workspaceB)]).toEqual(
-      before,
-    );
-  });
+      expect([
+        await stateOf(f.workspaceA),
+        await stateOf(f.workspaceB),
+      ]).toEqual(before);
+    },
+  );
 
-  it("tasks.addRelation et tasks.removeRelation depuis ou vers une tâche de A, et sur la relation existante de A → not_found, comme un identifiant inexistant ; A et B inchangés", async () => {
-    const before = [await stateOf(f.workspaceA), await stateOf(f.workspaceB)];
-    const attempts: [string, Record<string, unknown>, string][] = [];
-    for (const name of ["tasks.addRelation", "tasks.removeRelation"]) {
-      for (const kind of ["blocks", "blocked_by", "related"]) {
-        attempts.push(
-          [
-            name,
-            { taskId: board.blockerA, kind, otherTaskId: board.loneB },
-            "taskId",
-          ],
-          [
-            name,
-            { taskId: board.loneB, kind, otherTaskId: board.blockedA },
-            "otherTaskId",
-          ],
-          [
-            name,
-            { taskId: board.blockerA, kind, otherTaskId: board.blockedA },
-            "taskId",
-          ],
-        );
-      }
-    }
+  const relationCases: [string, () => Record<string, unknown>, string][] = [
+    [
+      "depuis une tâche de A vers une tâche de B",
+      () => ({ taskId: board.blockerA, otherTaskId: board.loneB }),
+      "taskId",
+    ],
+    [
+      "d'une tâche de B vers une tâche de A",
+      () => ({ taskId: board.loneB, otherTaskId: board.blockedA }),
+      "otherTaskId",
+    ],
+    [
+      "sur la relation existante de A",
+      () => ({ taskId: board.blockerA, otherTaskId: board.blockedA }),
+      "taskId",
+    ],
+  ];
 
-    await expectNotFoundLikeUnknown(attempts);
+  describe.each(["tasks.addRelation", "tasks.removeRelation"])("%s", (name) => {
+    describe.each(["blocks", "blocked_by", "related"])("type %s", (kind) => {
+      it.each(relationCases)(
+        "%s → not_found, comme un identifiant inexistant ; A et B inchangés",
+        async (_case, pair, key) => {
+          const before = [
+            await stateOf(f.workspaceA),
+            await stateOf(f.workspaceB),
+          ];
 
-    expect([await stateOf(f.workspaceA), await stateOf(f.workspaceB)]).toEqual(
-      before,
-    );
-    expect(await relationsBetween(board.blockerA, board.blockedA)).toHaveLength(
-      1,
-    );
+          await expectNotFoundLikeUnknown([[name, { ...pair(), kind }, key]]);
+
+          expect([
+            await stateOf(f.workspaceA),
+            await stateOf(f.workspaceB),
+          ]).toEqual(before);
+          expect(
+            await relationsBetween(board.blockerA, board.blockedA),
+          ).toHaveLength(1);
+        },
+      );
+    });
   });
 
   it("tasks.listBoard de B ne rend aucune carte de A, ni du côté de A, ni avec l'espace de A (même réponse qu'un espace inexistant)", async () => {
