@@ -52,14 +52,21 @@ import { keyBetween, keysFor } from "./sort-key";
 // app_backend n'a le droit INSERT que sur certaines (created_by, id, created_at… sont posés par la base).
 // Ordre du tableau (sort_key) : une clé ne sort jamais du module (absente de Task et de TaskDetail).
 // Ordre des verrous, le même dans toutes les écritures :
-//   1. lockBoardOrder (ordre du tableau du workspace), seulement si l'écriture peut poser ou vider une clé :
-//      createTask dans une catégorie ouverte, updateTask avec `statusCategory` (completeTask compris),
-//      moveTask, restoreTask. Jamais pour un titre, des notes, des tags, une échéance, une priorité, un côté,
-//      un espace, ni pour moveTaskToTrash (la clé d'une tâche à la corbeille reste, ignorée, puis remplacée
-//      à la restauration) ;
+//   1. lockBoardOrder (ordre du tableau du workspace), dès que l'écriture peut poser ou vider une clé, ou
+//      écrire plusieurs lignes de `tasks` : createTask dans une catégorie ouverte, updateTask avec
+//      `statusCategory` (completeTask compris), `side` ou `context` (famille écrite en une instruction),
+//      moveTask, moveTaskToTrash (famille), restoreTask (famille). Jamais pour un titre, des notes, des tags,
+//      une échéance ou une priorité : une seule ligne écrite, aucune clé ;
 //   2. la parente (lockTask) ;
 //   3. la tâche (lockTask), puis ses sous-tâches par l'instruction qui les écrit.
 // Jamais lockBoardOrder après un verrou de ligne.
+// Pourquoi les écritures de famille le prennent : la mise en ordre d'une colonne (moveTask) écrit toutes ses
+// lignes après avoir verrouillé la carte déplacée. Hors du verrou d'ordre, une écriture de famille qui tient
+// la parente et attend la sous-tâche déplacée s'interbloquerait avec elle (40P01). Sous le verrou, toutes
+// les écritures de plusieurs lignes passent en série ; une écriture d'une seule ligne ne tient qu'un verrou
+// de ligne et n'en attend aucun autre.
+// moveTaskToTrash ne touche pas aux clés : celle d'une tâche à la corbeille reste, ignorée, puis remplacée à
+// la restauration.
 // Arrivée dans une colonne ouverte autrement que par un dépôt (création, changement de catégorie,
 // réouverture, restauration) : en tête si la colonne a déjà des clés, sans clé sinon (arrivalKeys).
 
@@ -345,8 +352,15 @@ export async function updateTask(
     throw new TaskError("invalid_params");
   }
 
-  // Une catégorie donnée peut changer la clé : verrou d'ordre avant le verrou de ligne.
-  if (fields.statusCategory !== undefined) await lockBoardOrder(workspace, tx);
+  // Catégorie (clé) ou côté et espace (famille écrite en une instruction) : verrou d'ordre avant le verrou
+  // de ligne (voir en tête du fichier).
+  if (
+    fields.statusCategory !== undefined ||
+    side !== undefined ||
+    context !== undefined
+  ) {
+    await lockBoardOrder(workspace, tx);
+  }
   const task = await lockTask(workspace, taskId, tx);
   if (!task || task.deleted) throw new TaskError("not_found");
   if (task.parentId !== null && (side !== undefined || context !== undefined)) {
@@ -427,10 +441,11 @@ export function completeTask(
  *   affiché périmé), sans erreur et sans rien en dire. L'autre borne est toujours la clé réellement voisine
  *   en base, jamais celle de l'identifiant reçu.
  * - Déjà à la place demandée : rien n'est écrit.
- * Voisines : relues sous le verrou d'ordre du workspace (lockBoardOrder), qui fige leurs clés, sans verrou de
- * ligne : seule la carte déplacée est écrite, et verrouiller d'autres lignes après elle croiserait l'ordre
- * « parente d'abord » des autres écritures. Une voisine jetée ou déplacée par une transaction encore
- * ouverte est lue à son état validé : même résultat que si ce déplacement était passé juste avant.
+ * - Déjà dans la colonne fermée visée, sans clé : rien n'est écrit.
+ * Voisines : relues sous le verrou d'ordre du workspace (lockBoardOrder), sans verrou de ligne. Ce verrou fige
+ * leurs clés, leur catégorie et leur présence : toute écriture de clé, de catégorie, de corbeille ou de
+ * famille le prend (voir en tête du fichier). Reste hors verrou l'écriture d'un ancien déploiement, lue à son
+ * état validé.
  */
 export async function moveTask(
   workspaceId: string,
@@ -458,7 +473,9 @@ export async function moveTask(
       );
 
   if (!isOpenCategory(target)) {
-    await write(null);
+    if (task.statusCategory !== target || task.sortKey !== null) {
+      await write(null);
+    }
     return reload(workspace, taskId, tx);
   }
 
@@ -489,11 +506,12 @@ export async function moveTask(
     await tx.execute(sql`
       update ${tasks} set sort_key = v.key
       from unnest(string_to_array(${ids}, ',')::uuid[], string_to_array(${keys.join(",")}, ',')) as v(id, key)
-      where tasks.workspace_id = ${workspace} and tasks.id = v.id and tasks.deleted_at is null`);
+      where tasks.workspace_id = ${workspace} and tasks.id = v.id and tasks.deleted_at is null
+        and tasks.status_category = ${target}`);
   }
 
   const wanted = [beforeId, afterId].filter((id) => id !== undefined);
-  // Voisine sans clé : arrivée entre-temps par une écriture hors verrou d'ordre ; ignorée comme une périmée.
+  // Voisine sans clé : écrite hors verrou d'ordre par un ancien déploiement ; ignorée comme une périmée.
   const neighbours =
     wanted.length === 0
       ? []
@@ -560,6 +578,8 @@ export async function moveTaskToTrash(
   const workspace = parseTaskInput(uuidSchema, workspaceId);
   const id = parseTaskInput(taskIdSchema, taskId);
 
+  // Famille écrite en une instruction : verrou d'ordre d'abord (voir en tête du fichier).
+  await lockBoardOrder(workspace, tx);
   // Verrou sur la tâche : même ordre que createTask (parente d'abord), aucune sous-tâche créée entre-temps.
   const task = await lockTask(workspace, id, tx);
   if (!task || task.deleted) throw new TaskError("not_found");

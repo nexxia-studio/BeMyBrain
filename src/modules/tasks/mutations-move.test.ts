@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { sql } from "drizzle-orm";
 import {
   afterAll,
   beforeAll,
@@ -162,18 +163,68 @@ function move(input: Parameters<typeof moveTask>[1], workspace = f.workspaceA) {
   return asA((tx) => moveTask(workspace, input, tx));
 }
 
-/** Attend qu'une transaction patiente sur un verrou consultatif de cette base (lu par le propriétaire). */
-async function waitForBlockedAdvisoryLock(): Promise<boolean> {
+/** Transaction de A dont on connaît la connexion (`pid`, -1 si elle échoue avant de l'avoir lue). */
+function tracked<T>(fn: Parameters<typeof db.asUser<T>>[1]) {
+  let setPid: (pid: number) => void = () => {};
+  const pid = new Promise<number>((resolve) => (setPid = resolve));
+  const done = asA<T>(async (tx, identity) => {
+    const { rows } = await tx.execute<{ pid: number }>(
+      sql`select pg_backend_pid() as pid`,
+    );
+    setPid(rows[0]!.pid);
+    return fn(tx, identity);
+  });
+  done.catch(() => setPid(-1));
+  return { pid, done };
+}
+
+/**
+ * Attend que CETTE connexion patiente sur un verrou (lu par le propriétaire) : `advisory` = verrou d'ordre,
+ * `transactionid` = ligne tenue par une autre transaction. Filtré par pid : un autre fichier de test en
+ * parallèle ne donne pas de faux « bloqué ».
+ */
+async function waitForLockWait(
+  pid: number,
+  locktype: "advisory" | "transactionid",
+): Promise<boolean> {
   for (let attempt = 0; attempt < 100; attempt++) {
     const { rows } = await owner.query<{ waiting: number }>(
       `select count(*)::int as waiting from pg_locks
-       where locktype = 'advisory' and not granted
-         and database = (select oid from pg_database where datname = current_database())`,
+       where pid = $1 and locktype = $2 and not granted`,
+      [pid, locktype],
     );
     if (rows[0]!.waiting > 0) return true;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   return false;
+}
+
+/** `first` reste ouverte après son écriture ; dit si `second`, lancée ensuite, attend le verrou d'ordre. */
+async function secondWaitsForOrderLock<A, B>(
+  first: Parameters<typeof db.asUser<A>>[1],
+  second: Parameters<typeof db.asUser<B>>[1],
+): Promise<{ blocked: boolean; results: [A, B] }> {
+  let commitFirst = () => {};
+  const gate = new Promise<void>((resolve) => (commitFirst = resolve));
+  let firstWritten = () => {};
+  const written = new Promise<void>((resolve) => (firstWritten = resolve));
+  const one = asA<A>(async (tx, identity) => {
+    const result = await first(tx, identity);
+    firstWritten();
+    await gate;
+    return result;
+  });
+  let blocked = false;
+  let two: Promise<B> | null = null;
+  try {
+    await Promise.race([written, one]);
+    const started = tracked(second);
+    two = started.done;
+    blocked = await waitForLockWait(await started.pid, "advisory");
+  } finally {
+    commitFirst();
+  }
+  return { blocked, results: [await one, await two!] };
 }
 
 describe("moveTask : place dans une colonne ouverte déjà ordonnée", () => {
@@ -242,6 +293,34 @@ describe("moveTask : place dans une colonne ouverte déjà ordonnée", () => {
     });
 
     expect(await snapshot(others)).toEqual(before);
+  });
+
+  it("identifiants en majuscules : même place qu'en minuscules", async () => {
+    const { a, b, c, m } = await orderedColumn();
+
+    const detail = await move({
+      taskId: m!.toUpperCase(),
+      statusCategory: "unstarted",
+      beforeId: a!.toUpperCase(),
+      afterId: b!.toUpperCase(),
+    });
+
+    expect(await columnOf("unstarted")).toEqual([a, m, b, c]);
+    expect(detail.id).toBe(m);
+  });
+
+  it("identifiant en majuscules d'une carte déjà à sa place : rien n'est écrit", async () => {
+    const { a, b, c, trashed } = await orderedColumn();
+    const all = [a, b, c, trashed];
+    const before = await snapshot(all);
+
+    await move({
+      taskId: b!.toUpperCase(),
+      statusCategory: "unstarted",
+      beforeId: a!.toUpperCase(),
+    });
+
+    expect(await snapshot(all)).toEqual(before);
   });
 
   it("déplacement sur place entre les mêmes voisines : rien n'est écrit", async () => {
@@ -412,6 +491,47 @@ describe("moveTask : Terminée et Annulée", () => {
     },
   );
 
+  it.each(["completed", "canceled"] as const)(
+    "dépôt dans sa propre colonne %s : rien n'est écrit",
+    async (statusCategory) => {
+      const [closed, other] = await seed([
+        {
+          title: "Déjà là",
+          statusCategory,
+          completedAt: "2026-11-01T10:00:00Z",
+        },
+        { title: "Voisine", statusCategory },
+        { ...TRASHED, statusCategory },
+      ]);
+      const before = await one(closed!);
+
+      const detail = await move({
+        taskId: closed!,
+        statusCategory,
+        beforeId: other,
+      });
+
+      expect(await one(closed!)).toEqual(before);
+      expect(detail.id).toBe(closed);
+    },
+  );
+
+  it("dépôt dans sa propre colonne fermée avec une clé restée : la clé est vidée", async () => {
+    const [closed] = await seed([
+      {
+        title: "Clé restée",
+        statusCategory: "completed",
+        sortKey: "V",
+        completedAt: "2026-11-01T10:00:00Z",
+      },
+      { ...TRASHED, statusCategory: "completed" },
+    ]);
+
+    await move({ taskId: closed!, statusCategory: "completed" });
+
+    expect((await one(closed!)).sort_key).toBeNull();
+  });
+
   it("de Terminée à Annulée : la date de clôture est gardée", async () => {
     const [done] = await seed([
       {
@@ -451,6 +571,95 @@ describe("moveTask : Terminée et Annulée", () => {
     expect(row.sort_key).not.toBeNull();
     expect(detail.completedAt).toBeNull();
     expect(await columnOf("unstarted")).toEqual([a, b, done, c]);
+  });
+});
+
+describe("moveTask : mise en ordre et autres écritures", () => {
+  /** Parente et sous-tâche sans clé dans « À faire » : les déplacer met toute la colonne en ordre. */
+  async function keylessFamily() {
+    const [parent] = await seed([{ title: "Parente" }, TRASHED]);
+    const [sub] = await seed([{ title: "Sous-tâche", parentId: parent }]);
+    return { parent: parent!, sub: sub! };
+  }
+
+  it("changement de côté de la parente pendant la mise en ordre : il attend le verrou d'ordre, puis passe", async () => {
+    const { parent, sub } = await keylessFamily();
+
+    const { blocked } = await secondWaitsForOrderLock(
+      (tx) =>
+        moveTask(
+          f.workspaceA,
+          { taskId: sub, statusCategory: "unstarted" },
+          tx,
+        ),
+      (tx) => updateTask(f.workspaceA, { taskId: parent, side: "pro" }, tx),
+    );
+
+    expect(blocked).toBe(true);
+    const { rows } = await owner.query<{ side: string }>(
+      "select side from tasks where id = any($1)",
+      [[parent, sub]],
+    );
+    expect(rows.map((row) => row.side)).toEqual(["pro", "pro"]);
+    expect(await columnOf("unstarted")).toEqual([sub, parent]);
+  });
+
+  it("mise à la corbeille de la parente pendant la mise en ordre : elle attend le verrou d'ordre, puis passe", async () => {
+    const { parent, sub } = await keylessFamily();
+
+    const { blocked } = await secondWaitsForOrderLock(
+      (tx) =>
+        moveTask(
+          f.workspaceA,
+          { taskId: sub, statusCategory: "unstarted" },
+          tx,
+        ),
+      (tx) => moveTaskToTrash(f.workspaceA, parent, tx),
+    );
+
+    expect(blocked).toBe(true);
+    const rows = await snapshot([parent, sub]);
+    expect(rows.every((row) => row.deleted_at !== null)).toBe(true);
+  });
+
+  it("tâche passée dans une autre colonne par une écriture hors verrou d'ordre (ancien déploiement) : la mise en ordre ne lui donne pas de clé", async () => {
+    const [x, , m] = await seed([
+      { title: "x" },
+      { title: "Sans clé" },
+      { title: "m", statusCategory: "backlog" },
+      TRASHED,
+    ]);
+    // Pool à part : celui du propriétaire n'a qu'une connexion, que la sonde de verrous utilise.
+    const outsidePool = createOwnerPool(ownerUrl!);
+    const outside = await outsidePool.connect();
+    let waitedForRow = false;
+    let moving: Promise<unknown> = Promise.resolve();
+
+    try {
+      // Écriture hors verrou, encore ouverte : la mise en ordre lit x dans « À faire », puis attend sa ligne.
+      await outside.query("begin");
+      await outside.query(
+        "update tasks set status_category = 'started' where id = $1",
+        [x],
+      );
+      const started = tracked((tx) =>
+        moveTask(f.workspaceA, { taskId: m!, statusCategory: "unstarted" }, tx),
+      );
+      moving = started.done;
+      waitedForRow = await waitForLockWait(await started.pid, "transactionid");
+      await outside.query("commit");
+    } finally {
+      await outside.query("rollback").catch(() => undefined);
+      outside.release();
+      await outsidePool.end();
+    }
+    await moving;
+
+    expect(waitedForRow).toBe(true);
+    expect(await one(x!)).toMatchObject({
+      status_category: "started",
+      sort_key: null,
+    });
   });
 });
 
@@ -555,28 +764,12 @@ describe("moveTask : déplacements concurrents", () => {
       beforeId: a,
       afterId: b,
     } as const;
-    let commitFirst = () => {};
-    const gate = new Promise<void>((resolve) => (commitFirst = resolve));
-    let firstMoved = () => {};
-    const moved = new Promise<void>((resolve) => (firstMoved = resolve));
 
-    // Première transaction : déplace, puis reste ouverte (non validée) jusqu'à l'ouverture de la porte.
-    const first = asA(async (tx) => {
-      await moveTask(f.workspaceA, { ...input, taskId: m1! }, tx);
-      firstMoved();
-      await gate;
-    });
-    let secondBlocked = false;
-    let second: Promise<unknown> = Promise.resolve();
-    try {
-      await Promise.race([moved, first]);
-      second = move({ ...input, taskId: m2! });
-      second.catch(() => undefined);
-      secondBlocked = await waitForBlockedAdvisoryLock();
-    } finally {
-      commitFirst();
-    }
-    await Promise.all([first, second]);
+    // Première transaction : déplace, puis reste ouverte (non validée) pendant que la seconde attend.
+    const { blocked: secondBlocked } = await secondWaitsForOrderLock(
+      (tx) => moveTask(f.workspaceA, { ...input, taskId: m1! }, tx),
+      (tx) => moveTask(f.workspaceA, { ...input, taskId: m2! }, tx),
+    );
 
     expect(secondBlocked).toBe(true);
     const keys = (await snapshot([a, b, m1, m2] as string[])).map(
@@ -917,34 +1110,24 @@ describe("arrivées hors dépôt : isolation et concurrence", () => {
 
   it("création et déplacement en tête de la même colonne, deux connexions : le déplacement attend, clés distinctes", async () => {
     const { a, b, c, m } = await orderedColumn();
-    let commitFirst = () => {};
-    const gate = new Promise<void>((resolve) => (commitFirst = resolve));
-    let firstCreated = () => {};
-    const created = new Promise<void>((resolve) => (firstCreated = resolve));
 
-    // Première transaction : crée, puis reste ouverte (non validée) jusqu'à l'ouverture de la porte.
-    const first = asA(async (tx) => {
-      const detail = await createTask(
-        f.workspaceA,
-        { title: "Nouvelle", side: "private" },
-        "app",
-        tx,
-      );
-      firstCreated();
-      await gate;
-      return detail.id;
-    });
-    let secondBlocked = false;
-    let second: Promise<unknown> = Promise.resolve();
-    try {
-      await Promise.race([created, first]);
-      second = move({ taskId: m!, statusCategory: "unstarted" });
-      second.catch(() => undefined);
-      secondBlocked = await waitForBlockedAdvisoryLock();
-    } finally {
-      commitFirst();
-    }
-    const [createdId] = await Promise.all([first, second]);
+    // Première transaction : crée, puis reste ouverte (non validée) pendant que la seconde attend.
+    const {
+      blocked: secondBlocked,
+      results: [createdId],
+    } = await secondWaitsForOrderLock(
+      async (tx) =>
+        (
+          await createTask(
+            f.workspaceA,
+            { title: "Nouvelle", side: "private" },
+            "app",
+            tx,
+          )
+        ).id,
+      (tx) =>
+        moveTask(f.workspaceA, { taskId: m!, statusCategory: "unstarted" }, tx),
+    );
 
     expect(secondBlocked).toBe(true);
     expect(await columnOf("unstarted")).toEqual([m, createdId, a, b, c]);
