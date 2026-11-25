@@ -38,6 +38,7 @@ Règles communes à toutes les tâches :
   - Fichiers : `src/db/schema/tasks.ts` (ou `task-relations.ts`), `drizzle/0009_*.sql`
   - Contenu : `task_relations` selon spec « Données et sécurité » : FK composites vers `tasks(workspace_id, id)`, CHECK `kind`, CHECK pas soi-même, CHECK ordre des identifiants pour `related`, unique, index `(workspace_id, to_task_id)`, RLS activée dans la même migration, policies SELECT, INSERT, DELETE (pas d'UPDATE), GRANT `app_backend` SELECT, INSERT (colonnes utiles), DELETE, trigger `updated_at`. Pas de colonne de côté (règle tenue par les mutations, tâche 8).
   - Test à écrire d'abord : `tests/db/isolation-task-relations.test.ts` (branche de test, `app_backend`, deux workspaces) — « B ne lit, n'insère ni ne supprime aucune relation de A ; une relation entre une tâche de A et une tâche de B est refusée ; relation avec soi-même refusée ; UPDATE refusé »
+  - Complément de relecture de la tâche 1 : `tests/db/isolation-tasks.test.ts` — « depuis B, `update tasks set sort_key` et `set parent_id = null` sur une tâche de A touchent 0 ligne ; rattacher une sous-tâche de B à une tâche de A est refusé (23503) »
   - Fini quand : migration appliquée sur la branche de test, RLS + une policy par verbe, test vert.
 
 - [ ] **4. Déplacer une tâche ou une sous-tâche dans le tableau (`moveTask`)** [security]
@@ -60,7 +61,7 @@ Règles communes à toutes les tâches :
 
 - [ ] **7. Rattacher, changer de parente, détacher (`setTaskParent`)** [security]
   - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`has_subtasks`, `cross_side_parent`), `mutations.test.ts`, `messages/{fr,en}.json` (`tasks.errors.*`)
-  - Contenu : règles de spec « Tâche parente » ; même côté exigé, refus avant l'écriture ; espace aligné dans la même instruction que `parent_id` ; statut, place, priorité, tags et relations inchangés ; `restoreTask` refuse une sous-tâche dont la parente est devenue sous-tâche (`subtask_depth`).
+  - Contenu : règles de spec « Tâche parente » ; même côté exigé, refus avant l'écriture ; espace aligné dans la même instruction que `parent_id` ; statut, place, priorité, tags et relations inchangés ; `restoreTask` refuse une sous-tâche dont la parente est devenue sous-tâche (`subtask_depth`). `restoreTask` relit `parent_id` après le verrou de la tâche (la parente peut désormais changer entre la lecture et le verrou) ; le commentaire « parent_id n'est jamais modifié » de `mutations.ts` est corrigé.
   - Test à écrire d'abord : « rattachée, elle prend l'espace de la parente ; parente de l'autre côté → `cross_side_parent`, rien d'écrit ; parente déjà sous-tâche → `subtask_depth` ; tâche avec sous-tâches actives → `has_subtasks` (avec seulement des sous-tâches à la corbeille → accepté) ; elle-même → `invalid_params` ; parente à la corbeille → `parent_in_trash` ; parente d'un autre workspace → `not_found` ; détachée, elle garde côté, espace et place ; restauration refusée en profondeur 2 »
   - Fini quand : tests verts ; messages anglais des nouveaux codes dans `TASK_ERROR_MESSAGES`.
 
