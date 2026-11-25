@@ -71,6 +71,13 @@
       "when": 1795605828963,
       "tag": "0009_task_relations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795626527915,
+      "tag": "0010_tasks_order_and_parent_checks",
+      "breakpoints": true
     }
   ]
 }

@@ -32,9 +32,20 @@ const INVALID_COUNT_MESSAGE = "Invalid sort key count.";
  */
 export const KEYS_FOR_MAX = 10_000;
 
+/**
+ * Longueur maximale d'une clé rangée. Même valeur que la contrainte `tasks_sort_key_check`
+ * (drizzle/0010_tasks_order_and_parent_checks.sql) : un test compare les deux. Large : 200 insertions au
+ * même endroit donnent 41 caractères au plus, `keysFor` 4 au plus.
+ */
+export const SORT_KEY_MAX_LENGTH = 64;
+
 function assertKey(key: string): void {
   // `typeof` d'abord : `RegExp.test` convertirait en chaîne une valeur venue d'ailleurs (nombre, objet).
-  if (typeof key !== "string" || !VALID_KEY.test(key)) {
+  if (
+    typeof key !== "string" ||
+    key.length > SORT_KEY_MAX_LENGTH ||
+    !VALID_KEY.test(key)
+  ) {
     throw new Error(INVALID_KEY_MESSAGE);
   }
 }
@@ -113,6 +124,10 @@ function midpoint(before: string, after: string | null): string {
 /**
  * Clé strictement entre deux voisines. `null` = pas de voisine de ce côté ; les deux `null` = première clé
  * d'une colonne vide.
+ * Les voisines font `SORT_KEY_MAX_LENGTH` caractères au plus (sinon erreur), mais la clé rendue peut
+ * dépasser cette borne : entre deux voisines adjacentes de cette longueur, la seule clé possible est plus
+ * longue. C'est à l'appelant de comparer sa longueur à la borne et de remettre la colonne en ordre
+ * (`keysFor`) avant de ranger quoi que ce soit (moveTask).
  */
 export function keyBetween(
   before: string | null,

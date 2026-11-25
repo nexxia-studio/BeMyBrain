@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
-import { keyBetween, keysFor, KEYS_FOR_MAX } from "./sort-key";
+import {
+  keyBetween,
+  keysFor,
+  KEYS_FOR_MAX,
+  SORT_KEY_MAX_LENGTH,
+} from "./sort-key";
 
 /** Forme d'une clé valide : alphabet `0-9A-Za-z`, jamais vide, jamais terminée par « 0 ». */
 const VALID_KEY = /^[0-9A-Za-z]*[1-9A-Za-z]$/;
@@ -189,6 +196,27 @@ describe("keyBetween", () => {
     expect(() => keyBetween(null, notAString)).toThrow("Invalid sort key.");
   });
 
+  it("accepte une voisine de 64 caractères et refuse une voisine de 65 caractères", () => {
+    const longestAllowed = "V".repeat(SORT_KEY_MAX_LENGTH);
+    const tooLong = "V".repeat(SORT_KEY_MAX_LENGTH + 1);
+
+    expect(SORT_KEY_MAX_LENGTH).toBe(64);
+    expect(keyBetween(longestAllowed, null)).toMatch(VALID_KEY);
+    expect(() => keyBetween(tooLong, null)).toThrow("Invalid sort key.");
+    expect(() => keyBetween(null, tooLong)).toThrow("Invalid sort key.");
+  });
+
+  it("peut rendre une clé plus longue que la borne entre deux voisines adjacentes de 64 caractères : l'appelant le voit à la longueur", () => {
+    const stem = "V" + "0".repeat(SORT_KEY_MAX_LENGTH - 2);
+    const before = `${stem}1`;
+    const after = `${stem}2`;
+
+    const key = keyBetween(before, after);
+
+    expect(before < key && key < after).toBe(true);
+    expect(key.length).toBeGreaterThan(SORT_KEY_MAX_LENGTH);
+  });
+
   it("ne recopie pas la valeur reçue dans le message d'erreur", () => {
     let message = "";
 
@@ -255,4 +283,19 @@ describe("keysFor", () => {
       expect(() => keysFor(count)).toThrow("Invalid sort key count.");
     },
   );
+});
+
+describe("SORT_KEY_MAX_LENGTH", () => {
+  it("est la longueur que porte la contrainte tasks_sort_key_check de la migration 0010", () => {
+    const migration = readFileSync(
+      "drizzle/0010_tasks_order_and_parent_checks.sql",
+      "utf8",
+    );
+
+    const lengths = [
+      ...migration.matchAll(/char_length\("tasks"\."sort_key"\) <= (\d+)/g),
+    ].map((match) => Number(match[1]));
+
+    expect(lengths).toEqual([SORT_KEY_MAX_LENGTH]);
+  });
 });

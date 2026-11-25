@@ -270,7 +270,7 @@ describe("isolation de tasks, tags, task_tags : modification et suppression", ()
     ],
     [
       "déplacer une tâche dans le tableau (clé d'ordre)",
-      "update tasks set sort_key = 'a0' where id = $1",
+      "update tasks set sort_key = 'a1' where id = $1",
       t.taskA,
     ],
     [

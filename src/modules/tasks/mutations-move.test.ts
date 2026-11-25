@@ -28,6 +28,7 @@ import {
   restoreTask,
   updateTask,
 } from "./mutations";
+import { SORT_KEY_MAX_LENGTH } from "./sort-key";
 
 // Ordre du tableau (moveTask, puis arrivées hors dépôt) contre la branche Neon test : withUserDb réel en rôle app_backend (RLS et droits de colonne
 // actifs), fixture préparée et relue par le propriétaire. L'ordre d'une colonne se lit ici en SQL
@@ -443,6 +444,55 @@ describe("moveTask : colonne sans clés", () => {
 
     expect(await columnOf("unstarted")).toEqual([a, m, b]);
     expect(await snapshot([a, b, trashed] as string[])).toEqual(before);
+  });
+});
+
+describe("moveTask : place qui demanderait une clé plus longue que la borne", () => {
+  it("dépôt entre deux voisines aux clés adjacentes de 64 caractères : la colonne est remise en ordre, l'ordre affiché est gardé, la carte est entre elles", async () => {
+    const stem = "V" + "0".repeat(SORT_KEY_MAX_LENGTH - 2);
+    const [a, low, high, c, trashed, m] = await seed([
+      { title: "a", sortKey: "B" },
+      { title: "basse", sortKey: `${stem}1` },
+      { title: "haute", sortKey: `${stem}2` },
+      { title: "c", sortKey: "j" },
+      { ...TRASHED, sortKey: "N" },
+      { title: "m", statusCategory: "backlog" },
+    ]);
+
+    const detail = await move({
+      taskId: m,
+      statusCategory: "unstarted",
+      beforeId: low,
+      afterId: high,
+    });
+
+    expect(detail).toMatchObject({ id: m, statusCategory: "unstarted" });
+    expect(await columnOf("unstarted")).toEqual([a, low, m, high, c]);
+    const keys = (await snapshot([a, low, m, high, c] as string[])).map(
+      (row) => row.sort_key ?? "",
+    );
+    expect(new Set(keys).size).toBe(5);
+    // Remise en ordre par keysFor : clés courtes, bien en deçà de la borne.
+    expect(Math.max(...keys.map((key) => key.length))).toBeLessThanOrEqual(4);
+    expect((await one(trashed!)).sort_key).toBe("N");
+  });
+
+  it("carte déplacée dans sa propre colonne entre ces deux voisines : même remise en ordre, sa clé d'avant ne compte plus", async () => {
+    const stem = "V" + "0".repeat(SORT_KEY_MAX_LENGTH - 2);
+    const [a, low, high, c] = await seed([
+      { title: "a", sortKey: "B" },
+      { title: "basse", sortKey: `${stem}1` },
+      { title: "haute", sortKey: `${stem}2` },
+      { title: "c", sortKey: "j" },
+    ]);
+
+    await move({ taskId: c, statusCategory: "unstarted", beforeId: low });
+
+    expect(await columnOf("unstarted")).toEqual([a, low, c, high]);
+    const keys = (await snapshot([a, low, c, high] as string[])).map(
+      (row) => row.sort_key ?? "",
+    );
+    expect(Math.max(...keys.map((key) => key.length))).toBeLessThanOrEqual(4);
   });
 });
 

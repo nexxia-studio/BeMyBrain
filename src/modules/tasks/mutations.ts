@@ -43,7 +43,7 @@ import {
   type TaskRelationInput,
   type UpdateTaskInput,
 } from "./schemas";
-import { keyBetween, keysFor } from "./sort-key";
+import { keyBetween, keysFor, SORT_KEY_MAX_LENGTH } from "./sort-key";
 
 // Écritures du module tasks (ADR-002). Même contrat que queries.ts : workspaceId en premier, transaction de
 // withUserDb (RLS active) en dernier, filtre explicite sur workspaceId en plus de la RLS.
@@ -195,6 +195,10 @@ async function columnHead(
  * Clés de `count` arrivées hors dépôt dans une colonne, dans l'ordre voulu (la première sera en tête) :
  * devant la tête si la colonne ouverte a déjà des clés, null sinon (colonne sans clé, Terminée, Annulée).
  * À appeler sous lockBoardOrder, avant que les arrivantes soient actives dans la colonne avec une clé.
+ * Longueur : pas de remise en ordre ici, le module ne peut pas y dépasser SORT_KEY_MAX_LENGTH. Devant une
+ * tête qui commence par c « 0 », la clé fait au plus 2c + 3 caractères (sort-key.ts, keyBefore) ; aucune
+ * clé de la colonne ne commence par plus de « 0 » que la tête, et seul un changement de classe en tête en
+ * ajoute un, après environ 62^(c + 1) arrivées. Dépasser 64 caractères demanderait c = 31.
  */
 async function arrivalKeys(
   workspace: string,
@@ -462,6 +466,9 @@ export function completeTask(
  *   Une voisine absente, à la corbeille, d'un autre workspace ou d'une autre catégorie est ignorée (tableau
  *   affiché périmé), sans erreur et sans rien en dire. L'autre borne est toujours la clé réellement voisine
  *   en base, jamais celle de l'identifiant reçu.
+ * - Plus de place entre les deux voisines (la clé dépasserait SORT_KEY_MAX_LENGTH, borne de la contrainte
+ *   tasks_sort_key_check) : toute la colonne est remise en ordre de la même façon, puis la carte est placée.
+ *   Sans erreur : l'ordre affiché ne change pas.
  * - Déjà à la place demandée : rien n'est écrit.
  * - Déjà dans la colonne fermée visée, sans clé : rien n'est écrit.
  * Voisines : relues sous le verrou d'ordre du workspace (lockBoardOrder), sans verrou de ligne. Ce verrou fige
@@ -509,13 +516,8 @@ export async function moveTask(
     ne(tasks.id, taskId),
   );
 
-  const keyless = await tx
-    .select({ id: tasks.id })
-    .from(tasks)
-    .where(and(column, isNull(tasks.sortKey)))
-    .limit(1);
-  const reordered = keyless.length > 0;
-  if (reordered) {
+  /** Donne une clé à toutes les autres tâches actives de la colonne, dans l'ordre affiché. */
+  const reorder = async () => {
     const rows = await tx
       .select({ id: tasks.id })
       .from(tasks)
@@ -530,21 +532,8 @@ export async function moveTask(
       from unnest(string_to_array(${ids}, ',')::uuid[], string_to_array(${keys.join(",")}, ',')) as v(id, key)
       where tasks.workspace_id = ${workspace} and tasks.id = v.id and tasks.deleted_at is null
         and tasks.status_category = ${target}`);
-  }
+  };
 
-  const wanted = [beforeId, afterId].filter((id) => id !== undefined);
-  // Voisine sans clé : écrite hors verrou d'ordre par un ancien déploiement ; ignorée comme une périmée.
-  const neighbours =
-    wanted.length === 0
-      ? []
-      : await tx
-          .select({ id: tasks.id, sortKey: tasks.sortKey })
-          .from(tasks)
-          .where(
-            and(column, inArray(tasks.id, wanted), isNotNull(tasks.sortKey)),
-          );
-  const keyOf = (id: string | undefined) =>
-    neighbours.find((row) => row.id === id)?.sortKey ?? null;
   /** Plus petite (`min`) ou plus grande (`max`) clé de la colonne, sous condition. */
   const edge = async (fn: "min" | "max", condition?: SQL) => {
     const [row] = await tx
@@ -556,17 +545,38 @@ export async function moveTask(
     return row?.key ?? null;
   };
 
-  // Bornes de la place : (clé de beforeId, clé suivante) ; sinon (clé précédente, clé d'afterId) ; sinon tête.
-  let low = keyOf(beforeId);
-  let high = low === null ? keyOf(afterId) : null;
-  if (low !== null) {
-    high = await edge("min", gt(tasks.sortKey, low));
-  } else if (high !== null) {
-    low = await edge("max", lt(tasks.sortKey, high));
-  } else {
-    high = await columnHead(workspace, target, tx, taskId);
-  }
+  const wanted = [beforeId, afterId].filter((id) => id !== undefined);
+  /** Bornes de la place : (clé de beforeId, clé suivante) ; sinon (clé précédente, clé d'afterId) ; sinon tête. */
+  const bounds = async (): Promise<[string | null, string | null]> => {
+    // Voisine sans clé : écrite hors verrou d'ordre par un ancien déploiement ; ignorée comme une périmée.
+    const neighbours =
+      wanted.length === 0
+        ? []
+        : await tx
+            .select({ id: tasks.id, sortKey: tasks.sortKey })
+            .from(tasks)
+            .where(
+              and(column, inArray(tasks.id, wanted), isNotNull(tasks.sortKey)),
+            );
+    const keyOf = (id: string | undefined) =>
+      neighbours.find((row) => row.id === id)?.sortKey ?? null;
+    const low = keyOf(beforeId);
+    if (low !== null) return [low, await edge("min", gt(tasks.sortKey, low))];
+    const high = keyOf(afterId);
+    if (high !== null)
+      return [await edge("max", lt(tasks.sortKey, high)), high];
+    return [null, await columnHead(workspace, target, tx, taskId)];
+  };
 
+  const keyless = await tx
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(column, isNull(tasks.sortKey)))
+    .limit(1);
+  const reordered = keyless.length > 0;
+  if (reordered) await reorder();
+
+  let [low, high] = await bounds();
   // Comparaison JS = ordre de la colonne (COLLATE "C") : l'alphabet des clés est en ASCII croissant.
   const current =
     reordered || task.statusCategory !== target ? null : task.sortKey;
@@ -574,7 +584,18 @@ export async function moveTask(
     current !== null &&
     (low === null || low < current) &&
     (high === null || current < high);
-  if (!inPlace) await write(keyBetween(low, high));
+  if (!inPlace) {
+    let key = keyBetween(low, high);
+    if (key.length > SORT_KEY_MAX_LENGTH) {
+      // Plus de place à cet endroit sous la borne de tasks_sort_key_check (drizzle/0010) : même remise en
+      // ordre que pour une colonne sans clés (ordre affiché gardé, clés courtes), puis la place est
+      // recalculée sur les nouvelles clés. Jamais de 23514 : la clé trop longue n'est pas écrite.
+      await reorder();
+      [low, high] = await bounds();
+      key = keyBetween(low, high);
+    }
+    await write(key);
+  }
   return reload(workspace, taskId, tx);
 }
 

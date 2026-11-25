@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "@neondatabase/serverless";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { SORT_KEY_MAX_LENGTH } from "@/modules/tasks/sort-key";
+
 import { createAsUser } from "../factories/backend-tx";
 import {
   deleteCoreFixture,
@@ -11,8 +13,10 @@ import {
   newCoreFixture,
 } from "../factories/core";
 import {
+  CHECK_VIOLATION,
   FOREIGN_KEY_VIOLATION,
   GRANT_REFUSAL,
+  OK,
   outcome,
   tagged,
 } from "../factories/refusal";
@@ -23,7 +27,8 @@ import {
 } from "../factories/tasks";
 
 // Clé d'ordre et parente modifiable (drizzle/0008) : droits par colonne d'app_backend, collation de
-// sort_key, clé étrangère de la parente. En app_backend, claims posés à la main, transactions annulées.
+// sort_key, clé étrangère de la parente. Contraintes de drizzle/0010 : parente différente de la tâche,
+// forme de la clé. En app_backend, claims posés à la main, transactions annulées.
 
 vi.setConfig({ testTimeout: 20_000 });
 
@@ -77,25 +82,25 @@ describe("tasks.sort_key : droits d'app_backend et ordre", () => {
     const keys = await asUser(f.userA, async (db) => {
       const result = await db.query(
         `insert into tasks (workspace_id, side, title, origin, sort_key)
-         values ($1, 'private', 'Avec clé', 'app', 'a0') returning sort_key`,
+         values ($1, 'private', 'Avec clé', 'app', 'a1') returning sort_key`,
         [f.workspaceA],
       );
       return result.rows.map((row) => row.sort_key);
     });
 
-    expect(keys).toEqual(["a0"]);
+    expect(keys).toEqual(["a1"]);
   });
 
   it("app_backend modifie la clé d'ordre d'une tâche", async () => {
     const keys = await asUser(f.userA, async (db) => {
       const result = await db.query(
-        "update tasks set sort_key = 'a1' where id = $1 returning sort_key",
+        "update tasks set sort_key = 'a2' where id = $1 returning sort_key",
         [t.taskA],
       );
       return result.rows.map((row) => row.sort_key);
     });
 
-    expect(keys).toEqual(["a1"]);
+    expect(keys).toEqual(["a2"]);
   });
 
   it("accepte une tâche créée sans clé d'ordre (ancien code)", async () => {
@@ -194,6 +199,78 @@ describe("tasks.parent_id : modifiable par app_backend, dans les limites de la c
     );
 
     expect(await outcome(update)).toBe(FOREIGN_KEY_VIOLATION);
+  });
+});
+
+describe("tasks : contraintes de drizzle/0010 (parente et forme de la clé d'ordre)", () => {
+  function setKey(key: string | null) {
+    return asUser(f.userA, (db) =>
+      db.query("update tasks set sort_key = $2 where id = $1", [t.taskA, key]),
+    );
+  }
+
+  it("refuse une tâche parente d'elle-même, là où une autre parente du même côté passe", async () => {
+    const setParent = (parentId: string) =>
+      asUser(f.userA, (db) =>
+        db.query("update tasks set parent_id = $2 where id = $1", [
+          looseA,
+          parentId,
+        ]),
+      );
+
+    const outcomes = {
+      self: await outcome(setParent(looseA)),
+      other: await outcome(setParent(t.taskA)),
+    };
+
+    expect(outcomes).toEqual({ self: CHECK_VIOLATION, other: OK });
+  });
+
+  it.each([
+    ["avec un caractère hors alphabet", "a_1"],
+    ["avec une lettre accentuée", "é"],
+    ["vide", ""],
+    ["terminée par « 0 »", "a0"],
+    ["terminée par un saut de ligne", "a\n"],
+    [
+      `de ${SORT_KEY_MAX_LENGTH + 1} caractères`,
+      "a".repeat(SORT_KEY_MAX_LENGTH + 1),
+    ],
+  ])("refuse une clé d'ordre %s", async (_label, key) => {
+    const update = setKey(key);
+
+    expect(await outcome(update)).toBe(CHECK_VIOLATION);
+  });
+
+  it.each([
+    [`de ${SORT_KEY_MAX_LENGTH} caractères`, "a".repeat(SORT_KEY_MAX_LENGTH)],
+    ["NULL", null],
+  ])("accepte une clé d'ordre %s", async (_label, key) => {
+    const update = setKey(key);
+
+    expect(await outcome(update)).toBe(OK);
+  });
+
+  it("porte les deux contraintes au catalogue, la longueur étant celle du module", async () => {
+    const result = await tagged(
+      owner.query<{ conname: string; definition: string }>(
+        `select conname, pg_get_constraintdef(oid) as definition from pg_constraint
+         where conrelid = 'public.tasks'::regclass
+           and conname in ('tasks_parent_not_self_check', 'tasks_sort_key_check')
+         order by conname`,
+      ),
+    );
+
+    expect(result.rows).toEqual([
+      {
+        conname: "tasks_parent_not_self_check",
+        definition: "CHECK ((parent_id <> id))",
+      },
+      {
+        conname: "tasks_sort_key_check",
+        definition: `CHECK (((sort_key ~ '^[0-9A-Za-z]+$'::text) AND (char_length(sort_key) <= ${SORT_KEY_MAX_LENGTH}) AND ("right"(sort_key, 1) <> '0'::text)))`,
+      },
+    ]);
   });
 });
 

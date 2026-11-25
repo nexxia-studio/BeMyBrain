@@ -118,6 +118,14 @@ export const tasks = pgTable(
       "tasks_origin_check",
       sql`${t.origin} in ('app', 'palette', 'assistant', 'whatsapp', 'slack')`,
     ),
+    // 0010 (BRAIN-60), seconds verrous des règles tenues par les mutations. NULL reste permis dans les deux.
+    check("tasks_parent_not_self_check", sql`${t.parentId} <> ${t.id}`),
+    // Forme d'une clé : alphabet du module, jamais vide, 64 caractères au plus (SORT_KEY_MAX_LENGTH de
+    // src/modules/tasks/sort-key.ts, un test compare les deux), jamais terminée par « 0 ».
+    check(
+      "tasks_sort_key_check",
+      sql`${t.sortKey} ~ '^[0-9A-Za-z]+$' and char_length(${t.sortKey}) <= 64 and right(${t.sortKey}, 1) <> '0'`,
+    ),
     pgPolicy("tasks_select", {
       for: "select",
       to: appBackend,
