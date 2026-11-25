@@ -66,7 +66,7 @@ Règles communes à toutes les tâches :
   - Fini quand : tests verts ; messages anglais des nouveaux codes dans `TASK_ERROR_MESSAGES`.
 
 - [x] **8. Ajouter et retirer une relation** [security] — terminée le 2026-11-25 (`5b8a46f`)
-  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`relation_conflict`, `cross_side_relation`), `mutations.test.ts`, `messages/{fr,en}.json`
+  - Fichiers : `src/modules/tasks/mutations.ts`, `schemas.ts`, `errors.ts` (`relation_conflict`, `cross_side_relation`), `mutations-relations.test.ts` (tests de la tâche), `messages/{fr,en}.json`
   - Contenu : `addTaskRelation`, `removeTaskRelation` ; `kind` d'entrée `blocks | blocked_by | related` ramené à `blocks` orienté ou `related` normalisé ; les deux tâches verrouillées, actives et du même côté ; doublon sans effet ; inverse direct d'un blocage refusé ; sous-tâche et parente reliables.
   - Test à écrire d'abord : « `blocked_by` range la relation dans l'autre sens ; `related` rangée une fois quel que soit l'ordre ; doublon → une seule ligne ; inverse → `relation_conflict` ; côtés différents → `cross_side_relation`, rien d'écrit ; une sous-tâche bloque sa parente ; soi-même → `invalid_params` ; tâche à la corbeille ou d'un autre workspace → `not_found` ; retrait d'une relation absente → `not_found` »
   - Fini quand : tests verts.
@@ -77,7 +77,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « ordre par clé puis ordre de la liste pour les sans-clé, sous-tâche entre deux tâches ; corbeille absente ; `includeSubtasks: false` → premier niveau seulement ; `hideCompletedSubtasks` retire les sous-tâches terminées et corrige le total, pas les annulées ; 20 terminées, 20 annulées et les totaux ; `blocked` faux quand la bloquante est terminée, annulée, à la corbeille ou passée de l'autre côté ; relation masquée puis revenue (corbeille, côté) ; filtre côté et espace ; `topLevelOnly` »
   - Fini quand : tests verts ; `sortKey` absent des types exportés.
 
-- [ ] **10. Déclarer les actions au registre** [security]
+- [x] **10. Déclarer les actions au registre** [security] — terminée le 2026-11-25 (`251048f`)
   - Fichiers : `src/modules/tasks/actions.ts`, `actions.test.ts`, `src/modules/actions/registry.test.ts`, `src/modules/actions/isolation.test.ts`, `messages/{fr,en}.json` (`actions.tasks.*`)
   - Contenu : `tasks.move`, `tasks.setParent`, `tasks.addRelation`, `tasks.removeRelation` (write), `tasks.listBoard` (read), canaux web et assistant ; description anglaise qui dit quand utiliser l'action et ses refus, règle du même côté comprise ; `describe` sur chaque champ.
   - Test à écrire d'abord : `actions.test.ts` — « les cinq actions sont dans `toToolDefinitions` avec un schéma JSON où chaque propriété a une description ; l'origine vient du contexte ; chaque code d'erreur a un message anglais » ; `isolation.test.ts` — « depuis la session B, aucune des cinq n'agit sur une tâche de A »
