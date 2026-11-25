@@ -117,6 +117,10 @@ describe("schémas tasks", () => {
       "parentId",
       "taskId",
     ]);
+    // Espace : pris de la parente, perdu si elle n'en a pas, pas rendu par le détachement.
+    expect(schema.properties.parentId!.description).toMatch(
+      /loses its space.+does not give .+back/i,
+    );
     for (const property of Object.values(schema.properties)) {
       expect(property.description).toMatch(/^[A-Z].+\.$/);
     }
@@ -193,6 +197,11 @@ describe("erreurs tasks", () => {
       expect(TASK_ERROR_MESSAGES[code]).toMatch(/^[A-Z].+\.$/);
       expect(new TaskError(code).code).toBe(code);
     }
+    // Lisibles par un modèle : la règle et la sortie.
+    expect(TASK_ERROR_MESSAGES.has_subtasks).toMatch(
+      /including subtasks in the trash.+restore.+detach/i,
+    );
+    expect(TASK_ERROR_MESSAGES.subtask_depth).toMatch(/detach the parent/i);
     expect(TASK_ERROR_MESSAGES.parent_in_trash).toBe(
       "The parent task is in the trash. Restore the parent first.",
     );

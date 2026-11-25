@@ -19,14 +19,22 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../../../tests/factories/core";
-import { waitForLockWait } from "../../../tests/factories/lock-wait";
+import {
+  waitForLockWait,
+  type LockType,
+} from "../../../tests/factories/lock-wait";
 import {
   insertTags,
   insertTasks,
   type TaskRow,
 } from "../../../tests/factories/tasks";
 import { TaskError, type TaskErrorCode } from "./errors";
-import { restoreTask, setTaskParent } from "./mutations";
+import {
+  createTask,
+  restoreTask,
+  setTaskParent,
+  updateTask,
+} from "./mutations";
 
 // Tâche parente (setTaskParent, puis restoreTask) contre la branche Neon test : withUserDb réel en rôle
 // app_backend (RLS et droits de colonne actifs), fixture préparée et relue par le propriétaire. Chaque test
@@ -166,6 +174,52 @@ function restore(taskId: string) {
   return asA((tx) => restoreTask(f.workspaceA, taskId, tx));
 }
 
+type Work = Parameters<typeof db.asUser<unknown>>[1];
+
+/**
+ * Deux connexions : `first` s'exécute puis reste ouverte (non validée) ; `second` est lancée ensuite. Dit si
+ * `second` a patienté sur un verrou de ce type, puis valide `first`. Codes de refus des deux (null = passée).
+ */
+async function secondWaits(
+  first: Work,
+  second: Work,
+  locktype: LockType,
+): Promise<{ blocked: boolean; codes: [string | null, string | null] }> {
+  let commitFirst = () => {};
+  const gate = new Promise<void>((resolve) => (commitFirst = resolve));
+  let firstDone = () => {};
+  const done = new Promise<void>((resolve) => (firstDone = resolve));
+  let setPid: (pid: number) => void = () => {};
+  const pid = new Promise<number>((resolve) => (setPid = resolve));
+  const one = codeOf(
+    asA(async (tx, identity) => {
+      await first(tx, identity);
+      firstDone();
+      await gate;
+    }),
+  );
+  let two: Promise<string | null> = Promise.resolve("non lancée");
+  let blocked = false;
+  try {
+    await Promise.race([done, one]);
+    two = codeOf(
+      asA(async (tx, identity) => {
+        const { rows } = await tx.execute<{ pid: number }>(
+          sql`select pg_backend_pid() as pid`,
+        );
+        setPid(rows[0]!.pid);
+        await second(tx, identity);
+      }),
+    );
+    blocked = await waitForLockWait(owner, await pid, locktype);
+  } finally {
+    commitFirst();
+    // Toujours attendues (elles ne rejettent pas) : aucune transaction ne déborde sur le test suivant.
+    await Promise.all([one, two]);
+  }
+  return { blocked, codes: [await one, await two] };
+}
+
 describe("setTaskParent : rattacher", () => {
   it("rattachée, elle prend l'espace de la parente et garde statut, place, priorité, tags et relations", async () => {
     const [parent, task, other] = await seed([
@@ -264,18 +318,28 @@ describe("setTaskParent : rattacher", () => {
     });
   });
 
-  it("tâche avec seulement des sous-tâches à la corbeille : acceptée", async () => {
+  it("sortie : sous-tâche restaurée puis détachée, la tâche se rattache", async () => {
     const [parent, task] = await seed([
-      { title: "Parente" },
+      { title: "Parente", contextId: f.contextA },
       { title: "Tâche" },
     ]);
-    await seed([
+    const [sub] = await seed([
       { title: "Sous-tâche jetée", parentId: task, deletedAt: TRASHED_AT },
     ]);
 
+    await restore(sub!);
+    await setParent(sub!, null);
     await setParent(task!, parent!);
 
-    expect((await row(task!)).parent_id).toBe(parent);
+    expect(await row(task!)).toMatchObject({
+      parent_id: parent,
+      context_id: f.contextA,
+    });
+    expect(await row(sub!)).toMatchObject({
+      parent_id: null,
+      context_id: null,
+      deleted_at: null,
+    });
   });
 });
 
@@ -313,6 +377,62 @@ describe("setTaskParent : refus, rien n'est écrit", () => {
     await expectCode(setParent(task!, parent!), "has_subtasks");
 
     expect(await row(task!)).toEqual(before);
+  });
+
+  it("tâche sans espace avec une sous-tâche jetée seule, parente dans un espace : has_subtasks, la famille garde son espace", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente", contextId: f.contextA },
+      { title: "Tâche" },
+    ]);
+    const [sub] = await seed([
+      { title: "Sous-tâche jetée", parentId: task, deletedAt: TRASHED_AT },
+    ]);
+    const before = [await row(task!), await row(sub!)];
+
+    await expectCode(setParent(task!, parent!), "has_subtasks");
+
+    expect([await row(task!), await row(sub!)]).toEqual(before);
+  });
+
+  it("après ce refus, la parente visée change de côté sans erreur : aucune sous-tâche à la corbeille ne retient l'ancien côté", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente", contextId: f.contextA },
+      { title: "Tâche" },
+    ]);
+    const [sub] = await seed([
+      { title: "Sous-tâche jetée", parentId: task, deletedAt: TRASHED_AT },
+    ]);
+    await codeOf(setParent(task!, parent!));
+
+    const moved = await codeOf(
+      asA((tx) =>
+        updateTask(f.workspaceA, { taskId: parent!, side: "pro" }, tx),
+      ),
+    );
+
+    expect(moved).toBeNull();
+    expect(await row(parent!)).toMatchObject({ side: "pro", parent_id: null });
+    expect(await row(task!)).toMatchObject({
+      side: "private",
+      parent_id: null,
+    });
+    expect(await row(sub!)).toMatchObject({ side: "private", parent_id: task });
+  });
+
+  it("parente de l'autre côté et tâche avec une sous-tâche : cross_side_parent d'abord", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente pro", side: "pro" },
+      { title: "Tâche" },
+    ]);
+    await seed([{ title: "Sous-tâche", parentId: task }]);
+
+    await expectCode(setParent(task!, parent!), "cross_side_parent");
+  });
+
+  it("elle-même sur une tâche absente : not_found d'abord", async () => {
+    const absent = randomUUID();
+
+    await expectCode(setParent(absent, absent.toUpperCase()), "not_found");
   });
 
   it("elle-même, casse ignorée : invalid_params", async () => {
@@ -454,46 +574,76 @@ describe("setTaskParent : détacher", () => {
 describe("setTaskParent : deux connexions", () => {
   it("A sous B pendant que B passe sous A : le second attend, un seul passe, ni cycle ni profondeur 2", async () => {
     const [a, b] = await seed([{ title: "A" }, { title: "B" }]);
-    let commitFirst = () => {};
-    const gate = new Promise<void>((resolve) => (commitFirst = resolve));
-    let firstWritten = () => {};
-    const written = new Promise<void>((resolve) => (firstWritten = resolve));
-    let setPid: (pid: number) => void = () => {};
-    const pid = new Promise<number>((resolve) => (setPid = resolve));
 
-    // Première transaction : A passe sous B, puis reste ouverte (non validée).
-    const first = codeOf(
-      asA(async (tx) => {
-        await setTaskParent(f.workspaceA, { taskId: a!, parentId: b! }, tx);
-        firstWritten();
-        await gate;
-      }),
+    const { blocked, codes } = await secondWaits(
+      (tx) => setTaskParent(f.workspaceA, { taskId: a!, parentId: b! }, tx),
+      (tx) => setTaskParent(f.workspaceA, { taskId: b!, parentId: a! }, tx),
+      "advisory",
     );
-    let second: Promise<string | null> = Promise.resolve("non lancée");
-    let blocked = false;
-    try {
-      await Promise.race([written, first]);
-      second = codeOf(
-        asA(async (tx) => {
-          const { rows } = await tx.execute<{ pid: number }>(
-            sql`select pg_backend_pid() as pid`,
-          );
-          setPid(rows[0]!.pid);
-          await setTaskParent(f.workspaceA, { taskId: b!, parentId: a! }, tx);
-        }),
-      );
-      blocked = await waitForLockWait(owner, await pid, "advisory");
-    } finally {
-      commitFirst();
-      // Toujours attendues (elles ne rejettent pas) : aucune transaction ne déborde sur le test suivant.
-      await Promise.all([first, second]);
-    }
 
-    expect(await first).toBeNull();
-    expect(await second).toBe("subtask_depth");
+    expect(codes).toEqual([null, "subtask_depth"]);
     expect(blocked).toBe(true);
     expect((await row(a!)).parent_id).toBe(b);
     expect((await row(b!)).parent_id).toBeNull();
+  });
+
+  // Seule écriture de famille hors verrou d'ordre : une sous-tâche née terminée ou annulée. L'attente se
+  // fait sur la ligne de T (`transactionid`), jamais sur le verrou d'ordre.
+  it("sous-tâche née terminée créée sous T d'abord : le rattachement de T attend la ligne, puis has_subtasks", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente" },
+      { title: "Tâche" },
+    ]);
+
+    const { blocked, codes } = await secondWaits(
+      (tx) =>
+        createTask(
+          f.workspaceA,
+          {
+            title: "Née terminée",
+            parentId: task,
+            statusCategory: "completed",
+          },
+          "app",
+          tx,
+        ),
+      (tx) =>
+        setTaskParent(f.workspaceA, { taskId: task!, parentId: parent! }, tx),
+      "transactionid",
+    );
+
+    expect(codes).toEqual([null, "has_subtasks"]);
+    expect(blocked).toBe(true);
+    expect((await row(task!)).parent_id).toBeNull();
+  });
+
+  it("T rattachée d'abord : la création d'une sous-tâche née annulée sous T attend la ligne, puis subtask_depth", async () => {
+    const [parent, task] = await seed([
+      { title: "Parente" },
+      { title: "Tâche" },
+    ]);
+
+    const { blocked, codes } = await secondWaits(
+      (tx) =>
+        setTaskParent(f.workspaceA, { taskId: task!, parentId: parent! }, tx),
+      (tx) =>
+        createTask(
+          f.workspaceA,
+          { title: "Née annulée", parentId: task, statusCategory: "canceled" },
+          "app",
+          tx,
+        ),
+      "transactionid",
+    );
+
+    expect(codes).toEqual([null, "subtask_depth"]);
+    expect(blocked).toBe(true);
+    expect((await row(task!)).parent_id).toBe(parent);
+    const { rows } = await owner.query(
+      "select 1 from tasks where parent_id = $1",
+      [task],
+    );
+    expect(rows).toHaveLength(0);
   });
 });
 
@@ -506,7 +656,11 @@ describe("restoreTask : parente", () => {
     const [sub] = await seed([
       { title: "Sous-tâche jetée", parentId: parent, deletedAt: TRASHED_AT },
     ]);
-    await setParent(parent!, top!);
+    // Garde de sécurité : état que setTaskParent refuse, monté par une écriture propriétaire.
+    await owner.query("update tasks set parent_id = $2 where id = $1", [
+      parent,
+      top,
+    ]);
     const before = await row(sub!);
 
     await expectCode(restore(sub!), "subtask_depth");
@@ -522,7 +676,10 @@ describe("restoreTask : parente", () => {
     const [sub] = await seed([
       { title: "Sous-tâche jetée", parentId: parent, deletedAt: TRASHED_AT },
     ]);
-    await setParent(parent!, top!);
+    await owner.query("update tasks set parent_id = $2 where id = $1", [
+      parent,
+      top,
+    ]);
     await setParent(parent!, null);
 
     await restore(sub!);

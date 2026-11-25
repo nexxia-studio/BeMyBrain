@@ -52,6 +52,10 @@ import { keyBetween, keysFor } from "./sort-key";
 // instruction sur la parente et toutes ses sous-tâches (corbeille comprise) : la FK parente
 // (workspace_id, parent_id, side), NO ACTION, est vérifiée en fin d'instruction, sur l'état cohérent ; et un
 // espace commun à toute la famille laisse passer le ON UPDATE CASCADE d'un changement de kind de l'espace.
+// Cet invariant (côté et espace communs à la parente et à TOUTES ses sous-tâches, corbeille comprise) tient
+// aussi au rattachement : setTaskParent écrit une seule ligne, donc refuse une tâche qui a une sous-tâche,
+// même à la corbeille (has_subtasks) ; elle garderait l'ancien espace, hors de portée de l'instruction de
+// famille de sa nouvelle grand-parente, et retiendrait l'ancien côté (23503 au changement de côté suivant).
 // INSERT en SQL écrit : Drizzle liste toutes les colonnes de la table (DEFAULT pour les absentes), or
 // app_backend n'a le droit INSERT que sur certaines (created_by, id, created_at… sont posés par la base).
 // Ordre du tableau (sort_key) : une clé ne sort jamais du module (absente de Task et de TaskDetail).
@@ -583,8 +587,8 @@ export async function moveTask(
  * invalid_params ; parente absente ou d'un autre workspace → not_found (même réponse, aucun oracle) ; à la
  * corbeille → parent_in_trash ; elle-même sous-tâche → subtask_depth ; de l'autre côté → cross_side_parent
  * (avant toute écriture : la clé étrangère (workspace_id, parent_id, side) n'est qu'un second verrou) ; la
- * tâche a une sous-tâche active → has_subtasks (des sous-tâches à la corbeille ne comptent pas : elles ne se
- * restaurent plus tant que la tâche est sous-tâche, voir restoreTask).
+ * tâche a une sous-tâche, corbeille comprise → has_subtasks (une sous-tâche à la corbeille garderait un autre
+ * espace que sa famille, voir en tête du fichier ; sortie : la restaurer, la détacher, puis rattacher).
  * Déjà dans l'état demandé (même parente, ou déjà de premier niveau) : rien n'est écrit.
  *
  * Verrous : lockBoardOrder, puis la parente visée, puis la tâche (ordre de l'en-tête).
@@ -631,16 +635,11 @@ export async function setTaskParent(
     if (parent.deleted) throw new TaskError("parent_in_trash");
     if (parent.parentId !== null) throw new TaskError("subtask_depth");
     if (parent.side !== task.side) throw new TaskError("cross_side_parent");
+    // Corbeille comprise (voir en tête du fichier) : pas de filtre isActive.
     const subtasks = await tx
       .select({ id: tasks.id })
       .from(tasks)
-      .where(
-        and(
-          eq(tasks.workspaceId, workspace),
-          eq(tasks.parentId, taskId),
-          isActive,
-        ),
-      )
+      .where(and(eq(tasks.workspaceId, workspace), eq(tasks.parentId, taskId)))
       .limit(1);
     if (subtasks.length > 0) throw new TaskError("has_subtasks");
     set =
@@ -697,8 +696,9 @@ export async function moveTaskToTrash(
 /**
  * Restaure une tâche de la corbeille et renvoie son détail. Parente : seulement les sous-tâches qui portent
  * son horodatage (mises à la corbeille avec elle). Sous-tâche dont la parente est à la corbeille →
- * parent_in_trash ; dont la parente est entre-temps devenue sous-tâche → subtask_depth (un seul niveau ; elle
- * se restaure après détachement de sa parente). Tâche active : rien à faire, détail renvoyé. Absente ou d'un
+ * parent_in_trash ; dont la parente serait sous-tâche → subtask_depth (garde de sécurité : setTaskParent ne
+ * rattache jamais une tâche qui a une sous-tâche, même à la corbeille ; elle se restaure après détachement
+ * de sa parente). Tâche active : rien à faire, détail renvoyé. Absente ou d'un
  * autre workspace → not_found.
  * Place dans le tableau : la clé d'avant la corbeille n'est jamais reprise (elle peut être devenue celle d'une
  * autre tâche). Chaque tâche restaurée est une arrivée hors dépôt dans sa colonne (arrivalKeys), la tâche
@@ -738,7 +738,7 @@ export async function restoreTask(
   }
   if (task.parentId !== null) {
     if (!parent || parent.deleted) throw new TaskError("parent_in_trash");
-    // Parente devenue sous-tâche pendant que celle-ci était à la corbeille : un seul niveau.
+    // Garde de sécurité (état refusé par setTaskParent) : un seul niveau.
     if (parent.parentId !== null) throw new TaskError("subtask_depth");
   }
 

@@ -13,7 +13,7 @@ export type TaskErrorCode =
   | "subtask_follows_parent"
   /** Parente à la corbeille : restauration d'une de ses sous-tâches, ou création d'une sous-tâche sous elle. */
   | "parent_in_trash"
-  /** Rattachement d'une tâche qui a des sous-tâches actives : un seul niveau. */
+  /** Rattachement d'une tâche qui a des sous-tâches, corbeille comprise : un seul niveau. */
   | "has_subtasks"
   /** Parente visée de l'autre côté (privé / pro) que la tâche. */
   | "cross_side_parent"
@@ -34,12 +34,12 @@ export const TASK_ERROR_MESSAGES = {
   context_not_found:
     "No space has this name. List the spaces of the side and use one of their names.",
   subtask_depth:
-    "The parent is itself a subtask. Only one level of subtasks is allowed: use a top-level task as the parent.",
+    "The parent is itself a subtask. Only one level of subtasks is allowed: use a top-level task as the parent, or detach the parent first (set its parent to null) and retry.",
   subtask_follows_parent:
     "A subtask always has the side and space of its parent. Change them on the parent task instead.",
   parent_in_trash: "The parent task is in the trash. Restore the parent first.",
   has_subtasks:
-    "The task has active subtasks, so it cannot become a subtask itself. Detach its subtasks or move them to the trash first, or choose another task.",
+    "The task has subtasks, including subtasks in the trash, so it cannot become a subtask itself. Restore the ones in the trash and detach them all first (set their parent to null), then retry.",
   cross_side_parent:
     "The parent task is on the other side (private or pro). A subtask must be on the same side as its parent: choose a parent on the same side, or change the side of the task first.",
   cross_side_relation:

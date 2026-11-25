@@ -266,12 +266,12 @@ export type MoveTaskInput = z.input<typeof moveTaskInputSchema>;
 
 export const setTaskParentInputSchema = z.strictObject({
   taskId: taskIdSchema.describe(
-    "Id (UUID) of the active task to attach, move to another parent, or detach. It must have no active subtasks to be attached.",
+    "Id (UUID) of the active task to attach, move to another parent, or detach. To be attached it must have no subtasks, including subtasks in the trash.",
   ),
   parentId: taskIdSchema
     .nullable()
     .describe(
-      "Id (UUID) of the new parent: an active top-level task on the same side, different from taskId. The task takes the space of the parent; its status, position, priority, tags and relations are kept. null detaches the task: it becomes a top-level task and keeps its side and space.",
+      "Id (UUID) of the new parent: an active top-level task on the same side, different from taskId. The task takes the space of the parent and loses its space when the parent has none; its status, position, priority, tags and relations are kept. null detaches the task: it becomes a top-level task and keeps its side and current space (detaching does not give a previous space back).",
     ),
 });
 
