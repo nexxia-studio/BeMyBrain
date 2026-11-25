@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 import type { DemoLook } from "./demo-looks";
 import { DemoChoiceGroup } from "./DemoChoiceGroup";
+import { KanbanDemoPriorityTints } from "./KanbanDemoPriorityTints";
 
 export const LATENCIES = [0, 1000, 3000] as const;
 export type Latency = (typeof LATENCIES)[number];
@@ -93,6 +94,8 @@ export function KanbanDemoSettings({
               />
             </span>
           </motion.button>
+          {/* Dans le repli : tout ajout au-dessus du tableau pousse la première carte sous la barre d'onglets à 390 px. */}
+          <KanbanDemoPriorityTints />
         </div>
       </details>
       <DemoChoiceGroup

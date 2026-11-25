@@ -397,6 +397,12 @@
       "detailNew": "New",
       "detailCurrent": "Current"
     },
+    "tints": {
+      "title": "Priority tints",
+      "card": "Card",
+      "row": "List row",
+      "column": "Column"
+    },
     "saving": "{count, plural, one {Saving # move…} other {Saving # moves…}}",
     "saved": "Everything is saved.",
     "moveFailed": "Move not saved.",

@@ -397,6 +397,12 @@
       "detailNew": "Nouveau",
       "detailCurrent": "Actuel"
     },
+    "tints": {
+      "title": "Teintes de priorité",
+      "card": "Carte",
+      "row": "Ligne de liste",
+      "column": "Colonne"
+    },
     "saving": "{count, plural, one {# déplacement en cours d'enregistrement…} other {# déplacements en cours d'enregistrement…}}",
     "saved": "Tout est enregistré.",
     "moveFailed": "Déplacement non enregistré.",

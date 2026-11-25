@@ -29,9 +29,13 @@ export type DemoTask = {
 export type DemoSubtask = { id: string; title: string; done: boolean };
 
 type Space = [name: string, color: ContextColor] | null;
-const HOME: Space = ["Maison", "neutral"];
-const CLIENT: Space = ["Orme Conseil", "warm"];
-const STUDIO: Space = ["Studio", "indigo"];
+/** Un espace fictif par couleur de pastille ; repris par la planche des teintes de priorité. */
+export const DEMO_SPACES: readonly [name: string, color: ContextColor][] = [
+  ["Maison", "neutral"],
+  ["Orme Conseil", "warm"],
+  ["Studio", "indigo"],
+];
+const [HOME, CLIENT, STUDIO]: readonly Space[] = DEMO_SPACES;
 
 // [titre, espace, tags, priorité, échéance en jours depuis aujourd'hui (null : aucune), bloquée]
 type Row = [string, Space, string[], number, number | null, boolean?];

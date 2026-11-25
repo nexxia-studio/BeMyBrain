@@ -5,7 +5,8 @@
 /*
  * Charte BeMyBrain — source unique : DESIGN.md (référence validée :
  * docs/design/references/dashboard-desktop.dc.html et dashboard-mobile.dc.html).
- * Aucune couleur hors de la référence (verrouillé par tests/design/tokens.test.ts).
+ * Aucune couleur hors de la référence, sauf les teintes de priorité de DESIGN.md § 2 (décision d'Antoine du
+ * 2026-11-25) ; verrouillé par tests/design/tokens.test.ts.
  * Thème clair seul ; le sombre redéfinira les mêmes tokens sémantiques (DESIGN.md § Thème sombre).
  */
 
@@ -126,6 +127,14 @@
   --color-chip-warm-foreground: var(--chip-warm-fg);
   --color-chip-indigo: var(--chip-indigo-bg);
   --color-chip-indigo-foreground: var(--chip-indigo-fg);
+  --color-priority-urgent: var(--priority-urgent-bg);
+  --color-priority-urgent-foreground: var(--priority-urgent-fg);
+  --color-priority-high: var(--priority-high-bg);
+  --color-priority-high-foreground: var(--priority-high-fg);
+  --color-priority-medium: var(--priority-medium-bg);
+  --color-priority-medium-foreground: var(--priority-medium-fg);
+  --color-priority-low: var(--priority-low-bg);
+  --color-priority-low-foreground: var(--priority-low-fg);
 
   --radius-tile: var(--tile-radius);
 
@@ -231,6 +240,17 @@
   --chip-warm-fg: var(--ember);
   --chip-indigo-bg: rgb(61 79 214 / 0.13);
   --chip-indigo-fg: var(--indigo-deep);
+  /* Teintes de priorité (DESIGN.md § 2 et § 5, 2026-11-25) : seules couleurs hors de la référence. Fond pastel à
+     la clarté et à la saturation des pastilles d'espace, encre de la même teinte. Toujours avec l'icône du
+     niveau, jamais la couleur seule. Contrastes verrouillés par src/components/tasks/priority-icons.test.ts. */
+  --priority-urgent-bg: rgb(216 99 160 / 0.16);
+  --priority-urgent-fg: #732550;
+  --priority-high-bg: rgb(166 147 11 / 0.13);
+  --priority-high-fg: #4f4502;
+  --priority-medium-bg: rgb(16 174 101 / 0.13);
+  --priority-medium-fg: #00512b;
+  --priority-low-bg: rgb(1 162 197 / 0.14);
+  --priority-low-fg: #014c5e;
 
   /* Verre et ombres (mobile d'abord). */
   --glass-bg: rgb(255 255 255 / 0.58);
