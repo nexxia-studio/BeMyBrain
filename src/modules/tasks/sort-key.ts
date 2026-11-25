@@ -25,8 +25,18 @@ const INVALID_KEY_MESSAGE = "Invalid sort key.";
 const INVALID_ORDER_MESSAGE = "Sort key neighbours are equal or reversed.";
 const INVALID_COUNT_MESSAGE = "Invalid sort key count.";
 
+/**
+ * Plafond de `keysFor` : 50 fois le plafond de lecture d'une colonne du tableau (200 cartes, après filtre),
+ * car l'ordre est global par workspace et par catégorie, tous côtés et espaces confondus. Au-delà : erreur,
+ * plutôt qu'une réécriture sans borne. Clés de 4 caractères au plus à ce plafond.
+ */
+export const KEYS_FOR_MAX = 10_000;
+
 function assertKey(key: string): void {
-  if (!VALID_KEY.test(key)) throw new Error(INVALID_KEY_MESSAGE);
+  // `typeof` d'abord : `RegExp.test` convertirait en chaîne une valeur venue d'ailleurs (nombre, objet).
+  if (typeof key !== "string" || !VALID_KEY.test(key)) {
+    throw new Error(INVALID_KEY_MESSAGE);
+  }
 }
 
 function leadingCount(key: string, char: string): number {
@@ -120,12 +130,13 @@ export function keyBetween(
 
 /**
  * `count` clés croissantes, régulièrement espacées, pour donner un ordre à toute une colonne d'un coup.
+ * `count` au-delà de `KEYS_FOR_MAX` → erreur.
  */
 export function keysFor(count: number): string[] {
-  if (!Number.isSafeInteger(count) || count < 0) {
+  if (!Number.isSafeInteger(count) || count < 0 || count > KEYS_FOR_MAX) {
     throw new Error(INVALID_COUNT_MESSAGE);
   }
-  // Largeur : la plus petite qui laisse au moins 62 clés libres entre deux clés rendues.
+  // Largeur : la plus petite qui laisse au moins 61 clés libres entre deux clés rendues.
   let width = 2;
   while (BASE ** (width - 1) < count + 1) width++;
   const gap = Math.floor(BASE ** width / (count + 1));

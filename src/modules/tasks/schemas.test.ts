@@ -5,6 +5,7 @@ import { TASK_ERROR_MESSAGES, TaskError, type TaskErrorCode } from "./errors";
 import {
   dueTimeSchema,
   listTasksFilterSchema,
+  moveTaskInputSchema,
   parseTaskInput,
   tagNameSchema,
   taskTitleSchema,
@@ -40,6 +41,55 @@ describe("schémas tasks", () => {
     expect(listTasksFilterSchema.safeParse({ workspaceId: "x" }).success).toBe(
       false,
     );
+  });
+
+  it("déplacement : tâche et catégorie obligatoires, voisines en option, clé inconnue refusée", () => {
+    const taskId = "11111111-1111-4111-8111-111111111111";
+    const beforeId = "22222222-2222-4222-8222-222222222222";
+    const afterId = "33333333-3333-4333-8333-333333333333";
+    const ok = (value: unknown) => moveTaskInputSchema.safeParse(value).success;
+
+    expect(ok({ taskId, statusCategory: "started" })).toBe(true);
+    expect(ok({ taskId, statusCategory: "started", beforeId, afterId })).toBe(
+      true,
+    );
+    expect(ok({ taskId })).toBe(false);
+    expect(ok({ taskId, statusCategory: "done" })).toBe(false);
+    expect(ok({ taskId, statusCategory: "started", sortKey: "V" })).toBe(false);
+    expect(ok({ taskId, statusCategory: "started", beforeId: "x" })).toBe(
+      false,
+    );
+  });
+
+  it("déplacement : voisines égales entre elles ou à la tâche déplacée refusées, casse ignorée", () => {
+    const taskId = "aaaaaaaa-1111-4111-8111-111111111111";
+    const other = "bbbbbbbb-2222-4222-8222-222222222222";
+    const base = { taskId, statusCategory: "started" };
+    const ok = (value: unknown) => moveTaskInputSchema.safeParse(value).success;
+
+    expect(ok({ ...base, beforeId: other, afterId: other })).toBe(false);
+    expect(ok({ ...base, beforeId: taskId })).toBe(false);
+    expect(ok({ ...base, afterId: taskId })).toBe(false);
+    expect(ok({ ...base, afterId: taskId.toUpperCase() })).toBe(false);
+    expect(ok({ ...base, beforeId: other, afterId: other.toUpperCase() })).toBe(
+      false,
+    );
+  });
+
+  it("déplacement : chaque champ porte une description lisible par un modèle", () => {
+    const schema = moveTaskInputSchema.toJSONSchema() as {
+      properties: Record<string, { description?: string }>;
+    };
+
+    expect(Object.keys(schema.properties).sort()).toEqual([
+      "afterId",
+      "beforeId",
+      "statusCategory",
+      "taskId",
+    ]);
+    for (const property of Object.values(schema.properties)) {
+      expect(property.description).toMatch(/^[A-Z].+\.$/);
+    }
   });
 
   it("parseTaskInput lève invalid_params sans la valeur reçue", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { keyBetween, keysFor } from "./sort-key";
+import { keyBetween, keysFor, KEYS_FOR_MAX } from "./sort-key";
 
 /** Forme d'une clé valide : alphabet `0-9A-Za-z`, jamais vide, jamais terminée par « 0 ». */
 const VALID_KEY = /^[0-9A-Za-z]*[1-9A-Za-z]$/;
@@ -140,7 +140,7 @@ describe("keyBetween", () => {
     expect(longest(keys)).toBeLessThanOrEqual(41);
   });
 
-  it("reste ordonnée (41 caractères au plus) après 200 insertions juste avant la même voisine", () => {
+  it("reste ordonnée (34 caractères au plus) après 200 insertions juste avant la même voisine", () => {
     const [before, after] = keysFor(2) as [string, string];
     const keys = [before, after];
 
@@ -150,7 +150,7 @@ describe("keyBetween", () => {
 
     expect(isStrictlyIncreasing(keys)).toBe(true);
     expect(keys.every((key) => VALID_KEY.test(key))).toBe(true);
-    expect(longest(keys)).toBeLessThanOrEqual(41);
+    expect(longest(keys)).toBeLessThanOrEqual(34);
   });
 
   it("refuse deux voisines égales", () => {
@@ -176,6 +176,17 @@ describe("keyBetween", () => {
     expect(() => keyBetween(null, invalid)).toThrow("Invalid sort key.");
     expect(() => keyBetween(invalid, "z")).toThrow("Invalid sort key.");
     expect(() => keyBetween("1", invalid)).toThrow("Invalid sort key.");
+  });
+
+  it.each([
+    ["un nombre", 12],
+    ["undefined", undefined],
+    ["un objet", { toString: () => "V" }],
+  ])("refuse %s à la place d'une clé, avec la même phrase", (_label, value) => {
+    const notAString = value as unknown as string;
+
+    expect(() => keyBetween(notAString, null)).toThrow("Invalid sort key.");
+    expect(() => keyBetween(null, notAString)).toThrow("Invalid sort key.");
   });
 
   it("ne recopie pas la valeur reçue dans le message d'erreur", () => {
@@ -227,6 +238,15 @@ describe("keysFor", () => {
     expect(isStrictlyIncreasing(merged)).toBe(true);
     expect(merged.every((key) => VALID_KEY.test(key))).toBe(true);
     expect(longest(inserted)).toBeLessThanOrEqual(4);
+  });
+
+  it("rend le plafond de clés (10 000) en 4 caractères au plus et refuse au-delà", () => {
+    const keys = keysFor(KEYS_FOR_MAX);
+
+    expect(KEYS_FOR_MAX).toBe(10_000);
+    expect(isStrictlyIncreasing(keys)).toBe(true);
+    expect(longest(keys)).toBeLessThanOrEqual(4);
+    expect(() => keysFor(KEYS_FOR_MAX + 1)).toThrow("Invalid sort key count.");
   });
 
   it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(

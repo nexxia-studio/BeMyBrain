@@ -229,6 +229,37 @@ export const updateTaskInputSchema = z
 
 export type UpdateTaskInput = z.input<typeof updateTaskInputSchema>;
 
+const sameId = (a: string | undefined, b: string | undefined) =>
+  a !== undefined && b !== undefined && a.toLowerCase() === b.toLowerCase();
+
+export const moveTaskInputSchema = z
+  .strictObject({
+    taskId: taskIdSchema.describe(
+      "Id (UUID) of the task or subtask to move on the board. A subtask moves like a task; its parent is not changed.",
+    ),
+    statusCategory: statusCategorySchema.describe(
+      "Target column: backlog, unstarted (to do), started (in progress), completed, canceled. May be the current one, to reorder only. In completed and canceled the position is ignored.",
+    ),
+    beforeId: taskIdSchema
+      .optional()
+      .describe(
+        "Id (UUID) of the card that must end up just above the moved task in the target column. Omit both beforeId and afterId to put the task at the top of the column. Must differ from taskId and afterId.",
+      ),
+    afterId: taskIdSchema
+      .optional()
+      .describe(
+        "Id (UUID) of the card that must end up just below the moved task in the target column. Used only when beforeId is omitted or no longer in that column. Must differ from taskId and beforeId.",
+      ),
+  })
+  .refine(
+    (v) =>
+      !sameId(v.beforeId, v.afterId) &&
+      !sameId(v.beforeId, v.taskId) &&
+      !sameId(v.afterId, v.taskId),
+  );
+
+export type MoveTaskInput = z.input<typeof moveTaskInputSchema>;
+
 /** Valide une entrée ; refus → TaskError("invalid_params"), sans la valeur reçue (pas de ZodError masquée par withUserDb). */
 export function parseTaskInput<S extends z.ZodType>(
   schema: S,

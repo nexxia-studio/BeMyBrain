@@ -1,4 +1,16 @@
-import { and, eq, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import type { UserTx } from "@/db/client";
@@ -12,16 +24,22 @@ import {
   findContextByName,
   getTask,
   isActive,
+  listOrder,
   type TaskDetail,
 } from "./queries";
 import {
   createTaskInputSchema,
+  moveTaskInputSchema,
+  openStatusCategories,
   parseTaskInput,
   taskIdSchema,
   updateTaskInputSchema,
   type CreateTaskInput,
+  type MoveTaskInput,
+  type StatusCategory,
   type UpdateTaskInput,
 } from "./schemas";
+import { keyBetween, keysFor } from "./sort-key";
 
 // Écritures du module tasks (ADR-002). Même contrat que queries.ts : workspaceId en premier, transaction de
 // withUserDb (RLS active) en dernier, filtre explicite sur workspaceId en plus de la RLS.
@@ -32,6 +50,8 @@ import {
 // espace commun à toute la famille laisse passer le ON UPDATE CASCADE d'un changement de kind de l'espace.
 // INSERT en SQL écrit : Drizzle liste toutes les colonnes de la table (DEFAULT pour les absentes), or
 // app_backend n'a le droit INSERT que sur certaines (created_by, id, created_at… sont posés par la base).
+// Ordre du tableau (sort_key) : toute écriture de clé se fait sous lockBoardOrder, pris AVANT tout verrou
+// de ligne. Une clé ne sort jamais du module (absente de Task et de TaskDetail).
 
 const originSchema = z.enum(actionOrigins);
 
@@ -43,6 +63,9 @@ type LockedTask = {
   contextId: string | null;
   parentId: string | null;
   dueDate: string | null;
+  statusCategory: string;
+  /** Clé d'ordre : interne au module, jamais renvoyée. */
+  sortKey: string | null;
   deleted: boolean;
 };
 
@@ -59,6 +82,8 @@ async function lockTask(
       contextId: tasks.contextId,
       parentId: tasks.parentId,
       dueDate: tasks.dueDate,
+      statusCategory: tasks.statusCategory,
+      sortKey: tasks.sortKey,
       deleted: sql<boolean>`${tasks.deletedAt} is not null`,
     })
     .from(tasks)
@@ -66,6 +91,40 @@ async function lockTask(
     .for("update");
   const row = rows[0];
   return row ? { ...row, side: sideSchema.parse(row.side) } : null;
+}
+
+/**
+ * Colonnes d'un changement de catégorie (updateTask, moveTask). `completed_at` : posé au passage à completed
+ * ou canceled (gardé entre les deux), vidé sinon. Dans un SET, les colonnes valent l'état d'avant l'instruction.
+ */
+function statusChange(statusCategory: StatusCategory) {
+  return {
+    statusCategory,
+    completedAt: sql`case when ${statusCategory} in ${closedCategories}
+      then case when ${tasks.statusCategory} in ${closedCategories} then ${tasks.completedAt} else now() end
+    end`,
+  };
+}
+
+/**
+ * Sérialise les écritures d'ordre (sort_key) d'un workspace : verrou consultatif de transaction, relâché au
+ * COMMIT ou au ROLLBACK, compatible avec le pooler (rien ne survit à la transaction).
+ * Pourquoi un verrou consultatif plutôt que le verrouillage des lignes voisines : une clé se calcule dans un
+ * intervalle, et verrouiller les lignes ne protège ni une colonne vide ni l'intervalle lui-même (deux
+ * déplacements entre les mêmes voisines liraient les mêmes bornes et écriraient la même clé).
+ * Pourquoi le workspace entier plutôt que (workspace, catégorie) : il couvre toutes les colonnes, donc
+ * chaque colonne ; la première mise en ordre d'une colonne réécrit toutes ses lignes, y compris une carte
+ * qu'un déplacement vers une AUTRE colonne tient verrouillée : deux verrous par colonne pris en sens croisés
+ * s'interbloqueraient. Et un appelant qui ne connaît pas encore la catégorie (restauration) peut le prendre
+ * en premier. Un déplacement dure quelques millisecondes : la file par workspace ne coûte rien.
+ * Règle : le prendre avant tout verrou de ligne (lockTask), jamais après.
+ * Une collision de hachage entre deux workspaces ne fait qu'une attente de plus, jamais une lecture croisée.
+ */
+async function lockBoardOrder(workspace: string, tx: UserTx): Promise<void> {
+  const name = `tasks.sort_key:${workspace.toLowerCase()}`;
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${name}, 0))`,
+  );
 }
 
 /** Espace désigné par son nom (findContextByName) ; absent → context_not_found. */
@@ -196,7 +255,7 @@ export async function createTask(
  * Modifie une tâche active et renvoie son détail. Tags par `addTags` / `removeTags`, jamais de remplacement.
  * Côté et espace (refusés sur une sous-tâche) : un espace donne son côté ; un côté seul qui change retire
  * l'espace (un espace n'a qu'un côté). La parente et ses sous-tâches changent ensemble.
- * `completed_at` : posé au passage à completed ou canceled (gardé entre les deux), vidé sinon.
+ * `completed_at` : posé au passage à completed ou canceled (gardé entre les deux), vidé sinon (statusChange).
  */
 export async function updateTask(
   workspaceId: string,
@@ -257,15 +316,7 @@ export async function updateTask(
     ...rest,
     // Date retirée → heure retirée (CHECK tasks_due_time_check).
     dueTime: fields.dueDate === null && dueTime === undefined ? null : dueTime,
-    ...(statusCategory === undefined
-      ? {}
-      : {
-          statusCategory,
-          // Dans un SET, les colonnes valent l'état d'avant l'instruction.
-          completedAt: sql`case when ${statusCategory} in ${closedCategories}
-            then case when ${tasks.statusCategory} in ${closedCategories} then ${tasks.completedAt} else now() end
-          end`,
-        }),
+    ...(statusCategory === undefined ? {} : statusChange(statusCategory)),
   };
   if (Object.values(set).some((value) => value !== undefined)) {
     await tx
@@ -287,6 +338,128 @@ export function completeTask(
   tx: UserTx,
 ): Promise<TaskDetail> {
   return updateTask(workspaceId, { taskId, statusCategory: "completed" }, tx);
+}
+
+/**
+ * Déplace une tâche ou une sous-tâche active dans le tableau : catégorie d'arrivée et place, puis son détail.
+ * La parente d'une sous-tâche n'est jamais touchée. Changement de catégorie : `completed_at` comme updateTask.
+ * - Terminée, Annulée : pas d'ordre manuel, la position est ignorée et la clé vidée.
+ * - Colonne ouverte : si une autre tâche active de la catégorie n'a pas de clé, toutes en reçoivent une
+ *   d'abord, dans l'ordre affiché (clés croissantes, puis ordre de la liste), sous-tâches, côtés et espaces
+ *   confondus. Puis la carte va juste après `beforeId` ; à défaut juste avant `afterId` ; à défaut en tête.
+ *   Une voisine absente, à la corbeille, d'un autre workspace ou d'une autre catégorie est ignorée (tableau
+ *   affiché périmé), sans erreur et sans rien en dire. L'autre borne est toujours la clé réellement voisine
+ *   en base, jamais celle de l'identifiant reçu.
+ * - Déjà à la place demandée : rien n'est écrit.
+ * Voisines : relues sous le verrou d'ordre du workspace (lockBoardOrder), qui fige leurs clés, sans verrou de
+ * ligne : seule la carte déplacée est écrite, et verrouiller d'autres lignes après elle croiserait l'ordre
+ * « parente d'abord » des autres écritures. Une voisine jetée ou déplacée par une transaction encore
+ * ouverte est lue à son état validé : même résultat que si ce déplacement était passé juste avant.
+ */
+export async function moveTask(
+  workspaceId: string,
+  input: MoveTaskInput,
+  tx: UserTx,
+): Promise<TaskDetail> {
+  const workspace = parseTaskInput(uuidSchema, workspaceId);
+  const i = parseTaskInput(moveTaskInputSchema, input);
+  // Postgres rend les uuid en minuscules : mêmes identifiants pour les comparaisons faites ici.
+  const taskId = i.taskId.toLowerCase();
+  const beforeId = i.beforeId?.toLowerCase();
+  const afterId = i.afterId?.toLowerCase();
+  const target = i.statusCategory;
+
+  await lockBoardOrder(workspace, tx);
+  const task = await lockTask(workspace, taskId, tx);
+  if (!task || task.deleted) throw new TaskError("not_found");
+
+  const write = (sortKey: string | null) =>
+    tx
+      .update(tasks)
+      .set({ ...statusChange(target), sortKey })
+      .where(
+        and(eq(tasks.workspaceId, workspace), eq(tasks.id, taskId), isActive),
+      );
+
+  if (!(openStatusCategories as readonly string[]).includes(target)) {
+    await write(null);
+    return reload(workspace, taskId, tx);
+  }
+
+  // Les autres tâches actives de la colonne d'arrivée, dans ce workspace.
+  const column = and(
+    eq(tasks.workspaceId, workspace),
+    eq(tasks.statusCategory, target),
+    isActive,
+    ne(tasks.id, taskId),
+  );
+
+  const keyless = await tx
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(column, isNull(tasks.sortKey)))
+    .limit(1);
+  const reordered = keyless.length > 0;
+  if (reordered) {
+    const rows = await tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(column)
+      .orderBy(sql`${tasks.sortKey} asc nulls last`, ...listOrder);
+    // Au-delà de KEYS_FOR_MAX, keysFor lève (phrase fixe) : rien n'est écrit.
+    const keys = keysFor(rows.length);
+    // Deux paramètres quel que soit le nombre de lignes : uuid et clés ne contiennent jamais de virgule.
+    const ids = rows.map((row) => row.id).join(",");
+    await tx.execute(sql`
+      update ${tasks} set sort_key = v.key
+      from unnest(string_to_array(${ids}, ',')::uuid[], string_to_array(${keys.join(",")}, ',')) as v(id, key)
+      where tasks.workspace_id = ${workspace} and tasks.id = v.id and tasks.deleted_at is null`);
+  }
+
+  const wanted = [beforeId, afterId].filter((id) => id !== undefined);
+  // Voisine sans clé : arrivée entre-temps par une écriture hors verrou d'ordre ; ignorée comme une périmée.
+  const neighbours =
+    wanted.length === 0
+      ? []
+      : await tx
+          .select({ id: tasks.id, sortKey: tasks.sortKey })
+          .from(tasks)
+          .where(
+            and(column, inArray(tasks.id, wanted), isNotNull(tasks.sortKey)),
+          );
+  const keyOf = (id: string | undefined) =>
+    neighbours.find((row) => row.id === id)?.sortKey ?? null;
+  /** Plus petite (`min`) ou plus grande (`max`) clé de la colonne, sous condition. */
+  const edge = async (fn: "min" | "max", condition?: SQL) => {
+    const [row] = await tx
+      .select({
+        key: sql<string | null>`${sql.raw(fn)}(${tasks.sortKey})`,
+      })
+      .from(tasks)
+      .where(and(column, condition));
+    return row?.key ?? null;
+  };
+
+  // Bornes de la place : (clé de beforeId, clé suivante) ; sinon (clé précédente, clé d'afterId) ; sinon tête.
+  let low = keyOf(beforeId);
+  let high = low === null ? keyOf(afterId) : null;
+  if (low !== null) {
+    high = await edge("min", gt(tasks.sortKey, low));
+  } else if (high !== null) {
+    low = await edge("max", lt(tasks.sortKey, high));
+  } else {
+    high = await edge("min");
+  }
+
+  // Comparaison JS = ordre de la colonne (COLLATE "C") : l'alphabet des clés est en ASCII croissant.
+  const current =
+    reordered || task.statusCategory !== target ? null : task.sortKey;
+  const inPlace =
+    current !== null &&
+    (low === null || low < current) &&
+    (high === null || current < high);
+  if (!inPlace) await write(keyBetween(low, high));
+  return reload(workspace, taskId, tx);
 }
 
 export type TrashResult = {

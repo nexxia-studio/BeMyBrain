@@ -171,7 +171,8 @@ function toTask(row: TaskRow): Task {
 }
 
 // Échéance (sans échéance en dernier, heure avant « sans heure »), priorité (aucune en dernier), création.
-const listOrder = [
+// Repris par mutations.ts (moveTask) : ordre affiché des tâches sans clé d'une colonne du tableau.
+export const listOrder = [
   sql`${tasks.dueDate} asc nulls last`,
   sql`${tasks.dueTime} asc nulls last`,
   sql`case when ${tasks.priority} = 0 then 5 else ${tasks.priority} end`,
