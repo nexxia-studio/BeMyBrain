@@ -4,8 +4,8 @@
 // Ligne de la liste (spec todo-unifiee, « Liste ») : case à cocher (zone 44 px, libellé sur la case seule),
 // puis un lien vers le détail qui couvre le reste de la ligne : titre (deux lignes au plus), puis légende
 // (parente, espace, échéance, heure, tags, priorité, compteur de sous-tâches). Une seule colonne à toutes les
-// largeurs : la légende passe à la ligne sous 390 px, le badge de priorité jamais seul (accrochée à l'information
-// qui la précède). Variante `tile` (tuiles To-do du tableau de bord, hauteur
+// largeurs : la légende passe à la ligne sous 390 px, le badge de priorité jamais seul (accroché à l'information
+// qui le précède). Variante `tile` (tuiles To-do du tableau de bord, hauteur
 // fixe, DESIGN.md § 6) : titre tronqué sur une ligne, légende sur une ligne coupée au bord ; la liste et le détail
 // gardent le titre complet.
 // Cocher : `tasks.complete` par le registre (`runAppAction`, origine `app`) ; rouvrir une tâche fermée (terminée

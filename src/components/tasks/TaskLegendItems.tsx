@@ -10,7 +10,7 @@ type TaskLegendItemsProps = {
 /**
  * Éléments d'une légende de tâche qui passe à la ligne (ligne de liste, carte du kanban) : le badge de priorité
  * forme un groupe insécable avec la dernière information qui le précède, pour ne jamais se retrouver seul sur
- * une ligne. Sans information avant elle, ou sans priorité : rendu tel quel, sans groupe.
+ * une ligne. Sans information avant lui, ou sans priorité : rendu tel quel, sans groupe.
  */
 export function TaskLegendItems({ children, priority }: TaskLegendItemsProps) {
   const items = Children.toArray(children);

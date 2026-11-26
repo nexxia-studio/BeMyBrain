@@ -8,8 +8,6 @@
 // centième de pixel ; le badge dépasse de 0,2 à 0,9 px dans l'écart entre le titre et la légende.
 import { useTranslations } from "next-intl";
 
-import { cn } from "@/lib/utils";
-
 import {
   isRowPriority,
   PRIORITY_BADGE_CLASSES,
@@ -20,23 +18,16 @@ import {
 type PriorityBadgeProps = {
   /** Priorité de la tâche : 1 urgente à 4 basse ; 0 = aucune, rien d'affiché. */
   priority: number;
-  /** Place dans la légende (marges) ; jamais la forme ni la couleur. */
-  className?: string;
 };
 
-export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
+export function PriorityBadge({ priority }: PriorityBadgeProps) {
   const t = useTranslations("tasks.list.priority");
   if (!isRowPriority(priority)) return null;
   const Icon = PRIORITY_ICONS[priority];
 
   return (
     <span
-      className={cn(
-        "-my-0.5",
-        PRIORITY_BADGE_CLASSES,
-        PRIORITY_TINT_CLASSES[priority],
-        className,
-      )}
+      className={`-my-0.5 ${PRIORITY_BADGE_CLASSES} ${PRIORITY_TINT_CLASSES[priority]}`}
     >
       <Icon aria-hidden="true" className="size-4" strokeWidth={2} />
       <span className="sr-only">{t(`${priority}`)}</span>
