@@ -8,7 +8,9 @@
 // depuis l'endroit du dépôt (FLIP, `animate` de Motion sur `transform`, ADR-006 ; rien en mouvement réduit),
 // puis bulle « Déplacement non enregistré. » avec Réessayer, au-dessus de la barre d'onglets (pouce).
 // Échec d'un dépôt déjà dépassé par un dépôt plus récent de la même carte : ni retour ni bulle.
-// Terminée : 20 plus récentes + « Tout voir », plus les cartes déposées pendant la visite. Annulée : bandeau replié avec compteur, cible de dépôt.
+// Terminée : 20 plus récentes + « Tout voir », plus les cartes déposées pendant la visite. Annulée : colonne repliable
+// (tâche 15), repliée au départ en bandeau étroit avec compteur, cible de dépôt ; l'état replié est tenu ici, en
+// mémoire (le cookie vient avec le vrai tableau). Sous 768 px, un onglet comme les autres.
 // Tap, clic ou Entrée sur une carte (`onOpen` du tableau) : détail de la carte (`KanbanDemoDetail`). Ses
 // modifications restent en mémoire, par carte ; un changement de statut est un déplacement (en tête de colonne).
 // Sélecteur « Détail » (D9), dans la fenêtre du détail : nouvel ordre (défaut) ou ordre d'avant, à comparer sur
@@ -88,6 +90,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
   const [failNext, setFailNext] = useState(false);
   const [detailLayout, setDetailLayout] = useState<DemoDetailLayout>("new");
   const [showAllDone, setShowAllDone] = useState(false);
+  const [canceledCollapsed, setCanceledCollapsed] = useState(true);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const nextKey = useRef(0);
   const returning = useRef<Origin | null>(null);
@@ -196,7 +199,8 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
       label: tStatus(status),
       // Le statut suit la colonne : une carte déposée dans Terminée n'est plus en retard.
       items: shown.map((id) => shownTask(id, status)),
-      collapsed: status === "canceled",
+      collapsible: status === "canceled",
+      collapsed: status === "canceled" && canceledCollapsed,
       total: ids.length,
       footer: limited ? (
         <button
@@ -227,6 +231,9 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
           getItemLabel={(task) => task.title}
           onMove={move}
           onOpen={setOpenId}
+          onCollapsedChange={(_columnId, collapsed) =>
+            setCanceledCollapsed(collapsed)
+          }
           renderCard={(task, state) => (
             <KanbanDemoCard task={task} today={today} state={state} />
           )}

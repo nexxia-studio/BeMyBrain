@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { MotionGlobalConfig } from "motion/react";
 import { hydrateRoot } from "react-dom/client";
@@ -62,6 +63,7 @@ function board(
   extra: {
     locale?: "fr" | "en";
     onOpen?: (id: string) => void;
+    onCollapsedChange?: (columnId: string, collapsed: boolean) => void;
   } = {},
 ) {
   const locale = extra.locale ?? "fr";
@@ -76,6 +78,7 @@ function board(
         renderCard={(card) => <span>{card.title}</span>}
         onMove={onMove}
         onOpen={extra.onOpen}
+        onCollapsedChange={extra.onCollapsedChange}
       />
     </NextIntlClientProvider>
   );
@@ -246,24 +249,6 @@ describe("SortableBoard", () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
-  it("place la carte en tête de la colonne quand elle est déposée sur une colonne repliée", async () => {
-    const onMove = vi.fn();
-    const columns = [
-      column("todo", ["a", "b"]),
-      column("canceled", ["x", "y"], { collapsed: true }),
-    ];
-    render(board(onMove, columns));
-
-    await dragWithKeyboard("a", ["ArrowRight"]);
-
-    expect(onMove).toHaveBeenCalledExactlyOnceWith({
-      id: "a",
-      toColumn: "canceled",
-      beforeId: null,
-      afterId: "x",
-    });
-  });
-
   it("dépose une carte dans une colonne vide au clavier", async () => {
     const onMove = vi.fn();
     render(board(onMove, [column("todo", ["a", "b"]), column("done", [])]));
@@ -278,20 +263,6 @@ describe("SortableBoard", () => {
     });
   });
 
-  it("une colonne repliée montre son libellé et son compteur, pas ses cartes", () => {
-    const columns = [
-      column("todo", ["a"]),
-      column("canceled", ["x", "y"], { collapsed: true }),
-    ];
-
-    render(board(vi.fn(), columns));
-
-    const canceled = within(columnSection("canceled"));
-    expect(canceled.getByText("CANCELED")).toBeDefined();
-    expect(canceled.getByText("2")).toBeDefined();
-    expect(screen.queryByText("x")).toBeNull();
-  });
-
   it("une colonne affiche son total, au-delà des cartes affichées, puis son pied", () => {
     const columns = [
       column("todo", ["a"]),
@@ -304,6 +275,366 @@ describe("SortableBoard", () => {
       "DONE25",
     );
     expect(screen.getByRole("button", { name: "PIED" })).toBeDefined();
+  });
+
+  describe("colonne repliable", () => {
+    function foldable(extra: Partial<BoardColumn<Card>> = {}) {
+      return [
+        column("todo", ["a", "b"]),
+        column("canceled", ["x", "y"], {
+          collapsible: true,
+          collapsed: true,
+          ...extra,
+        }),
+      ];
+    }
+
+    const toggle = () =>
+      within(columnSection("canceled")).getByRole("button", {
+        name: /CANCELED/,
+      });
+    const classesOf = (element: Element) => element.className.split(/\s+/);
+
+    /** Tableau dont l'appelant tient l'état replié, comme la démo. */
+    function Controlled({ onMove }: { onMove?: (move: BoardMove) => void }) {
+      const [collapsed, setCollapsed] = useState(true);
+      return board(onMove, foldable({ collapsed }), {
+        onCollapsedChange: (_id, next) => setCollapsed(next),
+      });
+    }
+
+    it("repliée, c'est un bandeau étroit : libellé et compteur, pas de cartes, pas la largeur d'une colonne", () => {
+      render(board(vi.fn(), foldable()));
+
+      const canceled = within(columnSection("canceled"));
+      expect(canceled.getByText("CANCELED")).toBeDefined();
+      expect(canceled.getByText("2")).toBeDefined();
+      expect(screen.queryByText("x")).toBeNull();
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-auto");
+      expect(classesOf(columnSection("canceled"))).not.toContain("md:w-80");
+      expect(classesOf(columnSection("todo"))).toContain("md:w-80");
+    });
+
+    it("le libellé du bandeau reste entier, à l'horizontale", () => {
+      render(board(vi.fn(), foldable()));
+
+      const heading = screen.getByRole("heading", { name: /CANCELED/ });
+
+      expect(classesOf(heading)).toContain("md:whitespace-nowrap");
+      expect(heading.className).not.toMatch(
+        /truncate|line-clamp|rotate|vertical|writing/,
+      );
+    });
+
+    it("le bouton du bandeau demande à déplier, au clic", () => {
+      const onCollapsedChange = vi.fn();
+      render(board(vi.fn(), foldable(), { onCollapsedChange }));
+
+      fireEvent.click(toggle());
+
+      expect(onCollapsedChange).toHaveBeenCalledExactlyOnceWith(
+        "canceled",
+        false,
+      );
+    });
+
+    it("le bouton de la colonne dépliée demande à replier, au clic", () => {
+      const onCollapsedChange = vi.fn();
+      render(
+        board(vi.fn(), foldable({ collapsed: false }), { onCollapsedChange }),
+      );
+
+      fireEvent.click(toggle());
+
+      expect(onCollapsedChange).toHaveBeenCalledExactlyOnceWith(
+        "canceled",
+        true,
+      );
+    });
+
+    it("l'appelant tient l'état : le bandeau se déplie en colonne avec ses cartes, puis se replie, le focus reste sur le bouton", () => {
+      render(<Controlled />);
+      toggle().focus();
+
+      fireEvent.click(toggle());
+
+      expect(screen.getByText("x")).toBeDefined();
+      expect(toggle().getAttribute("aria-expanded")).toBe("true");
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-80");
+      expect(document.activeElement).toBe(toggle());
+
+      fireEvent.click(toggle());
+
+      expect(screen.queryByText("x")).toBeNull();
+      expect(toggle().getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(toggle());
+    });
+
+    it("sans onCollapsedChange, le bouton ne change rien et ne lève rien", () => {
+      render(board(vi.fn(), foldable()));
+
+      fireEvent.click(toggle());
+
+      expect(screen.queryByText("x")).toBeNull();
+    });
+
+    it("le bouton est un vrai bouton (Entrée et Espace l'activent), relié à la zone qu'il déplie", () => {
+      render(board(vi.fn(), foldable()));
+
+      const button = toggle();
+
+      expect(button.tagName).toBe("BUTTON");
+      expect(button.getAttribute("type")).toBe("button");
+      expect(button.getAttribute("aria-expanded")).toBe("false");
+      expect(
+        document.getElementById(button.getAttribute("aria-controls")!),
+      ).not.toBeNull();
+      expect(
+        columnSection("canceled").contains(
+          document.getElementById(button.getAttribute("aria-controls")!),
+        ),
+      ).toBe(true);
+    });
+
+    it("zone du bouton de 44 px, étendue à tout le bandeau quand il est replié", () => {
+      render(<Controlled />);
+
+      expect(classesOf(toggle())).toEqual(
+        expect.arrayContaining([
+          "size-11",
+          "md:after:absolute",
+          "md:after:inset-0",
+        ]),
+      );
+
+      fireEvent.click(toggle());
+
+      expect(classesOf(toggle())).toContain("size-11");
+      expect(toggle().className).not.toContain("after:");
+    });
+
+    it("le bouton n'est pas une carte déplaçable : ni Espace ni Entrée dessus ne saisissent quoi que ce soit", async () => {
+      render(board(vi.fn(), foldable()));
+      toggle().focus();
+
+      await press(toggle(), "Space");
+      await press(toggle(), "Enter");
+
+      expect(toggle().closest("[data-board-card]")).toBeNull();
+      expect(toggle().hasAttribute("aria-roledescription")).toBe(false);
+      expect(document.querySelector("[data-board-overlay]")).toBeNull();
+    });
+
+    it.each([
+      ["fr", true, "CANCELED, 2 cartes, déplier"],
+      ["fr", false, "CANCELED, 2 cartes, replier"],
+      ["en", true, "CANCELED, 2 cards, expand"],
+      ["en", false, "CANCELED, 2 cards, collapse"],
+    ] as const)(
+      "nom accessible du bouton en %s (repliée : %s) : libellé, compteur, action",
+      (locale, collapsed, name) => {
+        render(board(vi.fn(), foldable({ collapsed }), { locale }));
+
+        expect(
+          within(columnSection("canceled")).getByRole("button", { name }),
+        ).toBeDefined();
+      },
+    );
+
+    it.each([
+      ["fr", 0, "CANCELED, aucune carte, déplier"],
+      ["fr", 1, "CANCELED, 1 carte, déplier"],
+      ["en", 0, "CANCELED, no cards, expand"],
+      ["en", 1, "CANCELED, 1 card, expand"],
+    ] as const)(
+      "nom accessible en %s pour %i carte : pluriel accordé",
+      (locale, count, name) => {
+        const columns = [
+          column("todo", ["a"]),
+          column("canceled", ["x", "y"].slice(0, count), {
+            collapsible: true,
+            collapsed: true,
+          }),
+        ];
+
+        render(board(vi.fn(), columns, { locale }));
+
+        expect(screen.getByRole("button", { name })).toBeDefined();
+      },
+    );
+
+    it("le nom du bouton compte le total de la colonne, pas les seules cartes affichées", () => {
+      render(board(vi.fn(), foldable({ total: 25 })));
+
+      expect(
+        screen.getByRole("button", { name: "CANCELED, 25 cartes, déplier" }),
+      ).toBeDefined();
+    });
+
+    it("une carte déposée sur le bandeau replié passe en tête de la colonne", async () => {
+      const onMove = vi.fn();
+      render(board(onMove, foldable()));
+
+      await dragWithKeyboard("a", ["ArrowRight"]);
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "canceled",
+        beforeId: null,
+        afterId: "x",
+      });
+    });
+
+    it("le bandeau visé est cerné pendant le glisser", async () => {
+      render(board(vi.fn(), foldable()));
+      cardHandle("a").focus();
+      await press(cardHandle("a"), "Space");
+
+      await press(cardHandle("a"), "ArrowRight");
+
+      expect(classesOf(columnSection("canceled"))).toEqual(
+        expect.arrayContaining(["outline-2", "outline-ring"]),
+      );
+    });
+
+    it("une carte déposée dans la colonne dépliée prend place parmi ses cartes", async () => {
+      const onMove = vi.fn();
+      render(board(onMove, foldable({ collapsed: false })));
+
+      // Géométrie factice : « y », à la hauteur de « b », est la carte la plus proche à droite.
+      await dragWithKeyboard("b", ["ArrowRight"]);
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "b",
+        toColumn: "canceled",
+        beforeId: "x",
+        afterId: "y",
+      });
+    });
+
+    it("dépliée puis repliée par l'appelant, la colonne reçoit de nouveau les cartes en tête", async () => {
+      const onMove = vi.fn();
+      render(<Controlled onMove={onMove} />);
+      fireEvent.click(toggle());
+      fireEvent.click(toggle());
+
+      await dragWithKeyboard("a", ["ArrowRight"]);
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "canceled",
+        beforeId: null,
+        afterId: "x",
+      });
+    });
+
+    it("dépliée, la colonne montre son pied sous ses cartes ; repliée, non", () => {
+      const footer = <button>PIED</button>;
+      const { rerender } = render(
+        board(vi.fn(), foldable({ collapsed: false, footer })),
+      );
+
+      expect(screen.getByRole("button", { name: "PIED" })).toBeDefined();
+
+      rerender(board(vi.fn(), foldable({ collapsed: true, footer })));
+
+      expect(screen.queryByRole("button", { name: "PIED" })).toBeNull();
+    });
+
+    it("une colonne non repliable n'a pas de bouton et ignore `collapsed` : colonne normale", () => {
+      const columns = [
+        column("todo", ["a"]),
+        column("canceled", ["x"], { collapsed: true }),
+      ];
+
+      render(board(vi.fn(), columns));
+
+      expect(screen.getByText("x")).toBeDefined();
+      expect(
+        within(columnSection("canceled")).queryByRole("button", {
+          name: /CANCELED/,
+        }),
+      ).toBeNull();
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-80");
+    });
+
+    describe("sous 768 px", () => {
+      beforeEach(() => {
+        stubWidth(false);
+      });
+
+      it("la colonne repliée est le panneau de son onglet comme les autres, cartes visibles", () => {
+        render(board(vi.fn(), foldable()));
+        fireEvent.click(screen.getByRole("tab", { name: /CANCELED/ }));
+
+        expect(shownWhenNarrow("canceled")).toBe(true);
+        expect(columnSection("canceled").getAttribute("role")).toBe("tabpanel");
+        expect(screen.getByText("x")).toBeDefined();
+        expect(screen.getByText("y")).toBeDefined();
+      });
+
+      it("le bouton pour déplier est masqué avec l'en-tête, et rien du bandeau ne s'applique", () => {
+        render(board(vi.fn(), foldable()));
+
+        const header = columnSection("canceled").querySelector(
+          "[data-board-header]",
+        )!;
+
+        expect(header.contains(toggle())).toBe(true);
+        expect(classesOf(header)).toEqual(
+          expect.arrayContaining(["hidden", "md:flex"]),
+        );
+        // Tout ce qui fait le bandeau est réservé à 768 px et plus.
+        const band = [columnSection("canceled"), header, toggle()].flatMap(
+          (element) =>
+            classesOf(element).filter((name) =>
+              /w-auto|relative|flex-col-reverse|after:|whitespace/.test(name),
+            ),
+        );
+        expect(band.filter((name) => !name.startsWith("md:"))).toEqual([]);
+      });
+
+      it("une carte déposée dans le panneau d'une colonne repliable y prend place normalement", async () => {
+        const onMove = vi.fn();
+        render(board(onMove, foldable()));
+        fireEvent.click(screen.getByRole("tab", { name: /CANCELED/ }));
+
+        await dragWithKeyboard("x", ["ArrowDown"]);
+
+        expect(onMove).toHaveBeenCalledExactlyOnceWith({
+          id: "x",
+          toColumn: "canceled",
+          beforeId: "y",
+          afterId: null,
+        });
+      });
+    });
+
+    it("rendu serveur d'une colonne repliée puis hydratation à 768 px et plus : ni avertissement ni erreur, cartes masquées avant, absentes après", async () => {
+      const error = vi.spyOn(console, "error");
+      const warn = vi.spyOn(console, "warn");
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(board(vi.fn(), foldable()));
+      document.body.append(container);
+      // Avant l'hydratation, le serveur a rendu les cartes (panneau d'onglet) : le CSS seul les masque.
+      const serverCards = container.querySelector('[data-board-card="x"]');
+      const hiddenByCss = serverCards
+        ?.closest('[data-board-column="canceled"] > div')
+        ?.className.split(/\s+/)
+        .includes("md:hidden");
+
+      const root = await act(async () =>
+        hydrateRoot(container, board(vi.fn(), foldable())),
+      );
+
+      expect(error).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+      expect(serverCards).not.toBeNull();
+      expect(hiddenByCss).toBe(true);
+      expect(container.querySelector('[data-board-card="x"]')).toBeNull();
+      act(() => root.unmount());
+      container.remove();
+    });
   });
 
   describe("sous 768 px, en onglets", () => {

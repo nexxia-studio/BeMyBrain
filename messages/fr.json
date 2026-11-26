@@ -379,7 +379,9 @@
     "overNone": "Carte « {item} » hors de toute colonne.",
     "dropped": "Carte « {item} » déposée dans « {column} », position {position} sur {count}.",
     "droppedColumn": "Carte « {item} » déposée dans « {column} ».",
-    "cancelled": "Déplacement de « {item} » annulé."
+    "cancelled": "Déplacement de « {item} » annulé.",
+    "expand": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, déplier",
+    "collapse": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, replier"
   },
   "kanbanDemo": {
     "title": "Démo du kanban",

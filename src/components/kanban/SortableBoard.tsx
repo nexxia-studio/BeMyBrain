@@ -29,6 +29,13 @@
 // Un `click` sans geste pointeur (`detail` 0, ou aucun pointeur posé : lecteur d'écran) ouvre. Clavier : Entrée
 // ouvre, Espace saisit (Entrée ne saisit plus ; elle dépose toujours une carte saisie).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
+// Colonne repliable (`collapsible`, tâche 15 du plan todo-kanban) : état tenu par l'appelant (`collapsed`,
+// `onCollapsedChange`), aucune mémorisation ici. À 768 px et plus, repliée, c'est un bandeau à la largeur de son
+// libellé, écrit en entier à l'horizontale au-dessus du compteur (ni pivoté, ni abrégé, ni tronqué) ; cible de dépôt
+// sur toute sa surface (zone, carte en tête), et tout le bandeau déplie au clic (zone du bouton étendue). Dépliée :
+// colonne normale, pied compris, même bouton dans l'en-tête. Bouton natif (Entrée, Espace), `aria-expanded`, nom
+// « libellé, n cartes, déplier / replier ». Sous 768 px, `collapsible` est ignoré : panneau d'onglet ordinaire, le
+// bouton est masqué avec l'en-tête. `collapsed` sans `collapsible` est ignoré.
 // Surfaces « Creux » (DESIGN.md § 5, variante retenue de la démo, seule variante) : colonne `bg-pill-track` posée à
 // nu sur la brume, sans verre ni ombre, en-tête à l'encre (texte secondaire interdit sur le cœur d'un halo), aucun
 // creux intérieur. La carte elle-même (opaque, bordée, `shadow-raised`) vient de l'appelant (`renderCard`).
@@ -88,6 +95,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ChevronsLeftRight, ChevronsRightLeft } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
@@ -115,11 +123,16 @@ export type BoardColumn<T extends BoardItem> = {
   label: string;
   /** Dans l'ordre d'affichage. */
   items: readonly T[];
-  /** Repliée : un bandeau avec libellé et compteur, qui reçoit les cartes en tête. */
+  /** Repliable sur place à partir de 768 px (bouton dans l'en-tête) ; sous 768 px, un onglet comme les autres. */
+  collapsible?: boolean;
+  /**
+   * État replié d'une colonne `collapsible`, tenu par l'appelant (`onCollapsedChange` du tableau) : un bandeau
+   * étroit avec libellé et compteur, qui reçoit les cartes en tête. Sans effet sur une colonne non repliable.
+   */
   collapsed?: boolean;
   /** Nombre total quand `items` n'en montre qu'une partie (ex. 20 plus récentes) ; défaut : `items.length`. */
   total?: number;
-  /** Sous les cartes d'une colonne ouverte (ex. « Tout voir »). */
+  /** Sous les cartes d'une colonne ouverte ou dépliée (ex. « Tout voir »). */
   footer?: ReactNode;
 };
 
@@ -142,6 +155,8 @@ type SortableBoardProps<T extends BoardItem> = {
   onMove: (move: BoardMove) => void;
   /** Tap, clic ou Entrée sur une carte (jamais après un glisser, un appui long ou un défilement). */
   onOpen?: (id: string) => void;
+  /** Bouton d'une colonne `collapsible` : l'appelant enregistre l'état demandé et le repasse dans `collapsed`. */
+  onCollapsedChange?: (columnId: string, collapsed: boolean) => void;
 };
 
 /** Appui avant le glisser au doigt (décision d'Antoine après l'essai iPhone, 2026-11-24). */
@@ -308,6 +323,7 @@ export function SortableBoard<T extends BoardItem>({
   getItemLabel,
   onMove,
   onOpen,
+  onCollapsedChange,
 }: SortableBoardProps<T>) {
   const t = useTranslations("kanban");
   const contextId = useId();
@@ -570,12 +586,18 @@ export function SortableBoard<T extends BoardItem>({
             roleDescription={t("roleDescription")}
             onOpen={onOpen}
             hoverable={activeId === null}
+            wide={wide}
             panelId={wide ? undefined : panelId(column.id)}
             tabId={wide ? undefined : tabId(column.id)}
-            className={cn(
-              "md:w-80 md:shrink-0",
-              column.id !== shownColumnId && "hidden md:flex",
+            toggleLabel={t(
+              column.collapsible && column.collapsed ? "expand" : "collapse",
+              {
+                column: column.label,
+                count: countOf(column, current[column.id] ?? []),
+              },
             )}
+            onCollapsedChange={onCollapsedChange}
+            className={column.id === shownColumnId ? "" : "hidden md:flex"}
           />
         ))}
       </div>
@@ -603,10 +625,16 @@ type BoardColumnViewProps<T extends BoardItem> = {
   onOpen: ((id: string) => void) | undefined;
   /** Aucun glisser en cours : les cartes réagissent au survol. */
   hoverable: boolean;
+  /** Colonnes côte à côte (768 px et plus), connu après l'hydratation : le bandeau replié n'existe que là. */
+  wide: boolean;
   /** Sous 768 px, la colonne est le panneau de son onglet. */
   panelId: string | undefined;
   /** Sous 768 px, l'onglet nomme le panneau : l'en-tête, redite du libellé, n'est pas affiché. */
   tabId: string | undefined;
+  /** Nom du bouton d'une colonne repliable : libellé, compteur, action. */
+  toggleLabel: string;
+  onCollapsedChange:
+    ((columnId: string, collapsed: boolean) => void) | undefined;
   className: string;
 };
 
@@ -619,22 +647,32 @@ function BoardColumnView<T extends BoardItem>({
   roleDescription,
   onOpen,
   hoverable,
+  wide,
   panelId,
   tabId,
+  toggleLabel,
+  onCollapsedChange,
   className,
 }: BoardColumnViewProps<T>) {
   const headingId = useId();
-  const collapsed = column.collapsed ?? false;
+  const regionId = useId();
+  const collapsible = column.collapsible ?? false;
+  // Repliée : mise en page du bandeau en CSS (`md:`), même balisage au serveur et au client. Le bandeau lui-même
+  // (cible de dépôt en tête, cartes retirées) n'existe qu'à 768 px et plus, une fois la largeur connue ; avant
+  // l'hydratation, les cartes rendues par le serveur sont masquées par le CSS.
+  const folded = collapsible && (column.collapsed ?? false);
+  const band = folded && wide;
   const { setNodeRef, isOver } = useDroppable({
-    id: collapsed ? zoneDropId(column.id, "band") : columnDropId(column.id),
+    id: band ? zoneDropId(column.id, "band") : columnDropId(column.id),
     data: {
-      kind: collapsed ? "zone" : "column",
+      kind: band ? "zone" : "column",
       columnId: column.id,
     } satisfies DropData,
     // Colonne ouverte : cible seulement vide, sinon ce sont ses cartes. Active, elle serait au clavier la plus
     // proche au-dessus de la première carte (flèche haut = renvoi en fin de colonne) et masquerait les onglets.
-    disabled: !collapsed && itemIds.length > 0,
+    disabled: !band && itemIds.length > 0,
   });
+  const ToggleIcon = folded ? ChevronsLeftRight : ChevronsRightLeft;
 
   return (
     <section
@@ -644,45 +682,85 @@ function BoardColumnView<T extends BoardItem>({
       aria-labelledby={tabId ?? headingId}
       data-board-column={column.id}
       className={cn(
-        "flex flex-col gap-2 rounded-tile bg-pill-track p-tile",
+        "flex flex-col gap-2 rounded-tile bg-pill-track p-tile md:shrink-0",
+        // Bandeau : large comme son libellé, écrit en entier à l'horizontale (ni tronqué, ni pivoté).
+        folded ? "md:relative md:w-auto md:items-center" : "md:w-80",
         isOver && "outline-2 outline-ring",
         className,
       )}
     >
-      <h2
-        id={headingId}
+      {/* Masqué sous 768 px, bouton compris : l'onglet dit déjà le libellé et le compteur. */}
+      <div
         data-board-header=""
-        className="hidden min-h-11 items-center justify-between gap-2 text-eyebrow text-foreground uppercase md:flex"
+        className={cn(
+          "hidden items-center gap-2 md:flex",
+          folded && "md:flex-col-reverse",
+        )}
       >
-        <span>{column.label}</span>
-        <span className="tabular-nums">{countOf(column, itemIds)}</span>
-      </h2>
-      {collapsed ? null : (
-        <SortableContext
-          id={column.id}
-          items={itemIds}
-          strategy={verticalListSortingStrategy}
+        <h2
+          id={headingId}
+          className={cn(
+            "flex min-h-11 flex-1 items-center justify-between gap-2 text-eyebrow text-foreground uppercase",
+            folded &&
+              "md:min-h-0 md:flex-none md:flex-col md:gap-1 md:whitespace-nowrap",
+          )}
         >
-          <div data-board-cards="" className="flex min-h-11 flex-col gap-2">
-            {itemIds.map((id) => {
-              const item = itemsById.get(id);
-              return item ? (
-                <SortableCard
-                  key={id}
-                  id={id}
-                  reducedMotion={reducedMotion}
-                  roleDescription={roleDescription}
-                  onOpen={onOpen}
-                  hoverable={hoverable}
-                >
-                  {(dragging) => renderCard(item, { dragging, overlay: false })}
-                </SortableCard>
-              ) : null;
-            })}
-          </div>
-        </SortableContext>
-      )}
-      {collapsed ? null : column.footer}
+          <span>{column.label}</span>
+          <span className="tabular-nums">{countOf(column, itemIds)}</span>
+        </h2>
+        {collapsible ? (
+          <button
+            type="button"
+            aria-expanded={!folded}
+            aria-controls={regionId}
+            aria-label={toggleLabel}
+            onClick={() => onCollapsedChange?.(column.id, !folded)}
+            className={cn(
+              "flex size-11 shrink-0 items-center justify-center rounded-full text-foreground pointer-fine:hover:bg-row",
+              // Replié : tout le bandeau déplie au clic (la cible de dépôt, elle, est la colonne entière).
+              folded &&
+                "md:after:absolute md:after:inset-0 md:after:rounded-tile",
+            )}
+          >
+            <ToggleIcon aria-hidden="true" className="size-5" />
+          </button>
+        ) : null}
+      </div>
+      <div
+        id={regionId}
+        className={cn("flex flex-col gap-2", folded && "md:hidden")}
+      >
+        {band ? null : (
+          <>
+            <SortableContext
+              id={column.id}
+              items={itemIds}
+              strategy={verticalListSortingStrategy}
+            >
+              <div data-board-cards="" className="flex min-h-11 flex-col gap-2">
+                {itemIds.map((id) => {
+                  const item = itemsById.get(id);
+                  return item ? (
+                    <SortableCard
+                      key={id}
+                      id={id}
+                      reducedMotion={reducedMotion}
+                      roleDescription={roleDescription}
+                      onOpen={onOpen}
+                      hoverable={hoverable}
+                    >
+                      {(dragging) =>
+                        renderCard(item, { dragging, overlay: false })
+                      }
+                    </SortableCard>
+                  ) : null;
+                })}
+              </div>
+            </SortableContext>
+            {column.footer}
+          </>
+        )}
+      </div>
     </section>
   );
 }

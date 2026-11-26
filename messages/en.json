@@ -379,7 +379,9 @@
     "overNone": "Card “{item}” is not over a column.",
     "dropped": "Dropped card “{item}” in “{column}”, position {position} of {count}.",
     "droppedColumn": "Dropped card “{item}” in “{column}”.",
-    "cancelled": "Moving “{item}” was cancelled."
+    "cancelled": "Moving “{item}” was cancelled.",
+    "expand": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, expand",
+    "collapse": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, collapse"
   },
   "kanbanDemo": {
     "title": "Kanban demo",

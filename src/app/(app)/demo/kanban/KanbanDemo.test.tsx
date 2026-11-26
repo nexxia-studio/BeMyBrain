@@ -27,6 +27,7 @@ type BoardProps = {
   renderCard: (item: { id: string }, state: CardState) => ReactNode;
   onMove: (move: BoardMove) => void;
   onOpen?: (id: string) => void;
+  onCollapsedChange?: (columnId: string, collapsed: boolean) => void;
 };
 
 // Double du tableau : le glisser lui-même est couvert par SortableBoard.test.tsx. Ici, chaque colonne rend ses
@@ -180,6 +181,30 @@ describe("démo du kanban", () => {
     expect(
       boardProps.current!.columns.map((column) => column.collapsed ?? false),
     ).toEqual([false, false, false, false, true]);
+  });
+
+  it("seule Annulée est repliable ; le tableau la déplie puis la replie, ses cartes fictives suivent", () => {
+    renderDemo();
+    const canceled = () =>
+      boardProps.current!.columns.find((column) => column.id === "canceled")!;
+    const shown = () =>
+      document.querySelectorAll('[data-column="canceled"] [data-demo-card]')
+        .length;
+    expect(
+      boardProps.current!.columns.map((column) => column.collapsible ?? false),
+    ).toEqual([false, false, false, false, true]);
+    expect(shown()).toBe(0);
+
+    act(() => boardProps.current!.onCollapsedChange!("canceled", false));
+
+    expect(canceled().collapsed).toBe(false);
+    expect(shown()).toBe(canceled().items.length);
+    expect(shown()).toBeGreaterThan(0);
+
+    act(() => boardProps.current!.onCollapsedChange!("canceled", true));
+
+    expect(canceled().collapsed).toBe(true);
+    expect(shown()).toBe(0);
   });
 
   it("limite Terminée aux 20 plus récentes, avec son total, et montre tout sur demande", () => {

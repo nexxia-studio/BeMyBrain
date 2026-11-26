@@ -1320,6 +1320,167 @@ test("@desktop une carte survolée, glissée à la souris puis déposée sur le 
   }
 });
 
+// Tâche 15 : « Annulée » est une colonne repliable sur place. Repliée : bandeau étroit, cible de dépôt, tout le
+// bandeau déplie au clic ; dépliée : colonne normale, même bouton pour replier. Clavier : Entrée et Espace.
+function canceledToggle(page: Page, action: "déplier" | "replier"): Locator {
+  return column(page, "canceled").getByRole("button", {
+    name: new RegExp(`^${STATUS.canceled}, \\d+ cartes, ${action}$`),
+  });
+}
+
+async function canceledCount(page: Page): Promise<number> {
+  const name = await column(page, "canceled")
+    .getByRole("button", { name: new RegExp(`^${STATUS.canceled}, `) })
+    .getAttribute("aria-label");
+  return Number(name!.replace(/\D/g, ""));
+}
+
+async function dragWithMouse(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): Promise<void> {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+  await expect(overlay(page)).toBeVisible();
+  await page.mouse.move(to.x, to.y, { steps: 15 });
+  await page.mouse.up();
+  await expect(overlay(page)).toHaveCount(0);
+}
+
+test("@desktop le bandeau « Annulée » se déplie en colonne au clic, montre ses cartes et se replie ; au clavier, Entrée et Espace font de même", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+  const canceled = column(page, "canceled");
+  await canceled.scrollIntoViewIfNeeded();
+  const expand = canceledToggle(page, "déplier");
+  const collapse = canceledToggle(page, "replier");
+  const cards = canceled.locator("[data-board-card]");
+  const columnWidth = (await column(page, "completed").boundingBox())!.width;
+
+  // Replié : bandeau étroit, libellé entier sur une ligne, bouton de 44 px au moins, aucune carte.
+  await expect(expand).toHaveAttribute("aria-expanded", "false");
+  await expect(cards).toHaveCount(0);
+  const band = (await canceled.boundingBox())!;
+  expect(band.width).toBeLessThan(columnWidth / 2);
+  const heading = canceled.getByRole("heading", { name: STATUS.canceled });
+  await expect(heading).toBeVisible();
+  expect(
+    await heading.evaluate((el) => {
+      const label = el.firstElementChild as HTMLElement;
+      return (
+        label.scrollWidth <= label.clientWidth &&
+        label.getClientRects().length === 1 &&
+        getComputedStyle(label).writingMode === "horizontal-tb"
+      );
+    }),
+  ).toBe(true);
+  const button = (await expand.boundingBox())!;
+  expect(button.width).toBeGreaterThanOrEqual(44);
+  expect(button.height).toBeGreaterThanOrEqual(44);
+  const count = await canceledCount(page);
+  expect(count).toBeGreaterThan(0);
+
+  // Clic sur le bandeau, loin sous le bouton : il se déplie en colonne normale.
+  expect(button.y + button.height).toBeLessThan(band.y + 300);
+  await page.mouse.click(band.x + band.width / 2, band.y + 300);
+
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  await expect(cards).toHaveCount(count);
+  await expect(cards.first()).toBeVisible();
+  expect((await canceled.boundingBox())!.width).toBe(columnWidth);
+  // La zone dépliée est celle que le bouton annonce.
+  const region = page.locator(
+    `[id="${await collapse.getAttribute("aria-controls")}"]`,
+  );
+  await expect(region.locator("[data-board-card]")).toHaveCount(count);
+
+  await collapse.click();
+
+  await expect(expand).toHaveAttribute("aria-expanded", "false");
+  await expect(cards).toHaveCount(0);
+
+  // Clavier : le bouton garde le focus d'un état à l'autre.
+  await expand.focus();
+  await page.keyboard.press("Enter");
+  await expect(collapse).toBeFocused();
+  await expect(cards).toHaveCount(count);
+  await page.keyboard.press("Space");
+  await expect(expand).toBeFocused();
+  await expect(cards).toHaveCount(0);
+  await expect(overlay(page)).toHaveCount(0);
+  expect(messages).toEqual([]);
+});
+
+test("@desktop une carte se dépose sur le bandeau « Annulée » replié comme dans la colonne dépliée", async ({
+  page,
+}) => {
+  // « En cours » et « Annulée » à l'écran ensemble, colonne dépliée comprise.
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await signIn(page);
+  await openDemo(page);
+  const canceled = column(page, "canceled");
+  await canceled.scrollIntoViewIfNeeded();
+  const before = await canceledCount(page);
+
+  await dragWithMouse(
+    page,
+    await center(card(page, "started-1")),
+    await center(canceled),
+  );
+
+  // Bandeau : la carte quitte « En cours », le compteur suit, le bandeau reste replié.
+  await expect(card(page, "started-1")).toHaveCount(0);
+  await expect.poll(() => canceledCount(page)).toBe(before + 1);
+  await expect(canceledToggle(page, "déplier")).toBeVisible();
+
+  await canceledToggle(page, "déplier").click();
+
+  // Dépliée : la carte déposée sur le bandeau est en tête.
+  const cards = canceled.locator("[data-board-card]");
+  await expect(cards.first()).toHaveAttribute("data-board-card", "started-1");
+  await canceled.scrollIntoViewIfNeeded();
+
+  await dragWithMouse(
+    page,
+    await center(card(page, "started-2")),
+    await center(cards.nth(1)),
+  );
+
+  await expect(card(canceled, "started-2")).toBeVisible();
+  await expect(card(column(page, "started"), "started-2")).toHaveCount(0);
+  await expect.poll(() => canceledCount(page)).toBe(before + 2);
+});
+
+test("@mobile sous 768 px, « Annulée » est un onglet comme les autres : son panneau montre ses cartes, sans bandeau ni bouton", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const tab = page.getByRole("tablist").getByRole("tab", {
+    name: new RegExp(`^${STATUS.canceled}`),
+  });
+
+  await tab.click();
+
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  const panel = page.getByRole("tabpanel");
+  await expect(panel).toHaveAttribute("data-board-column", "canceled");
+  const count = Number((await tab.innerText()).replace(/\D/g, ""));
+  expect(count).toBeGreaterThan(0);
+  await expect(panel.locator("[data-board-card]")).toHaveCount(count);
+  await expect(panel.locator("[data-board-card]").first()).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: /déplier|replier/ }),
+  ).toHaveCount(0);
+  // Panneau à la largeur des autres.
+  expect((await panel.boundingBox())!.width).toBeGreaterThan(300);
+});
+
 test("@desktop une carte survolée, saisie à la souris puis relâchée par Échap revient au repos une fois le pointeur parti", async ({
   page,
 }) => {
