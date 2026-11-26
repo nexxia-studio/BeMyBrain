@@ -90,6 +90,8 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
     save: () => simulateSave({ latencyMs: latency, fail: failNext }),
     reducedMotion,
     cardElement,
+    // L'enregistrement simulé ne lève jamais ; si la file remet quand même une erreur, elle est dite.
+    onSaveError: (error) => console.error("[demo] dépôt en échec", error),
   });
   const { board, failure, pendingCount } = moves;
 

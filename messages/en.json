@@ -269,7 +269,12 @@
         "label": "Board options",
         "subtasks": "Subtasks",
         "hideDoneSubtasks": "Hide completed subtasks"
-      }
+      },
+      "moveFailed": "Move not saved.",
+      "retry": "Retry",
+      "seeAll": "See all ({count})",
+      "seeLess": "Show the {count} most recent",
+      "truncated": "Only the first {count} cards are shown."
     },
     "list": {
       "title": "To-do",

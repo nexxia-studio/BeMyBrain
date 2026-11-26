@@ -78,7 +78,7 @@ export type BoardMovesOptions<K extends string> = {
    * Reçoit ce qui a levé pendant un dépôt (`save` malgré son contrat, relevé de la carte) : erreur de contrôle de
    * Next à rendre à Next, panne à journaliser. Celle du rendu où la carte est déposée ; jamais après démontage.
    */
-  onSaveError?: (error: unknown) => void;
+  onSaveError: (error: unknown) => void;
 };
 
 export type BoardMoves<K extends string> = {
@@ -191,7 +191,7 @@ export function useBoardMoves<K extends string>({
     queue.current = settled.then(() => undefined);
     // Hors de la file : une erreur relancée par `onSaveError` ne l'arrête pas (rejet non géré, visible).
     void settled.then((thrown) => {
-      for (const error of thrown) onSaveError?.(error);
+      for (const error of thrown) onSaveError(error);
     });
   }
 

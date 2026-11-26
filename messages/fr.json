@@ -269,7 +269,12 @@
         "label": "Options du tableau",
         "subtasks": "Sous-tâches",
         "hideDoneSubtasks": "Masquer les sous-tâches terminées"
-      }
+      },
+      "moveFailed": "Déplacement non enregistré.",
+      "retry": "Réessayer",
+      "seeAll": "Tout voir ({count})",
+      "seeLess": "Voir les {count} plus récentes",
+      "truncated": "Seules les {count} premières cartes sont affichées."
     },
     "list": {
       "title": "To-do",

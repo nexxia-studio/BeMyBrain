@@ -94,7 +94,7 @@ function renderBoardMoves(
       saved,
       save,
       reducedMotion = false,
-      onSaveError,
+      onSaveError = () => {},
       recreateSaved = false,
     }: HarnessProps) => {
       const moves = useBoardMoves({
