@@ -127,7 +127,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : tests de `KanbanDemo.test.tsx` portés — « dépôt optimiste ; deux dépôts en série ; échec puis retour ; échec dépassé sans message ; Réessayer »
   - Fini quand : tests verts ; la démo utilise le hook sans changer de comportement.
 
-- [ ] **18. Mémoriser la vue Liste ou Tableau**
+- [x] **18. Mémoriser la vue Liste ou Tableau** — terminée le 2026-11-26 (`a05bdb4`)
   - Fichiers : `src/lib/preferences.ts`, `src/components/tasks/ViewSwitch.tsx` + test, `src/app/(app)/tasks/actions.ts`, `messages/{fr,en}.json`
   - Contenu : cookie `bmb_tasks_view` (`list` par défaut, valeur inconnue → `list`) ; pilule à deux segments du modèle de la bascule Privé / Pro, `aria-pressed`, zones ≥ 44 px.
   - Test à écrire d'abord : « valeur lue, défaut, valeur inconnue ; clic sur Tableau enregistre et rafraîchit »
