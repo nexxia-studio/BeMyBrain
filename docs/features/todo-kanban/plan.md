@@ -151,7 +151,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : ce fichier, rouge tant que la tâche 20 n'est pas complète sur un point.
   - Fini quand : verts en `--project=desktop --project=mobile --workers=1`, tâches créées remises à la corbeille.
 
-- [ ] **22. Porter le contraste Creux dans la vue liste**
+- [x] **22. Porter le contraste Creux dans la vue liste** — terminée le 2026-11-26 (`dadd08d`) ; creux par section sans verre, contour des lignes tracé vers l'intérieur (hauteurs inchangées), corbeille inchangée
   - Fichiers : `src/components/tasks/TaskList.tsx`, `TaskRow.tsx`, `task-list-layout.ts`, givre de la liste, tests et `e2e/effets-de-verre.spec.ts`
   - Contenu : lignes `popover` bordées sur fond `pill-track`, en-têtes de section à l'encre ; les tuiles du tableau de bord gardent leurs lignes actuelles ; hauteurs du givre identiques au pixel. Structure de la liste inchangée (pas d'imbrication des sous-tâches).
   - Test à écrire d'abord : `TaskList.test.tsx` — « surface des lignes de la liste, variante `tile` inchangée » ; e2e du givre inchangés et verts
