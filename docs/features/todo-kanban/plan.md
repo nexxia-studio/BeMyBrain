@@ -207,6 +207,15 @@ Règles communes à toutes les tâches :
 - Libellés des propriétés du détail à largeur fixe (disposition validée par Antoine).
 - Date d'annulation : une tâche terminée puis annulée garde sa date de clôture.
 
+## Corrections de relecture à faire avant la tâche 27
+<!-- Relecture finale des tâches 20 à 22 (2026-11-26) : rien de bloquant pour l'essai iPhone ; tout ceci avant le retrait de la démo. -->
+- [ ] **R1. Borner la colonne visée à la partie visible du tableau** — `src/components/kanban/SortableBoard.tsx` (`createCollisionDetection`) : tableau défilé vers la droite, pointeur sorti sur la barre latérale ou la marge → il tombe dans le rectangle d'une colonne masquée, qui devient la cible. Intersecter avec le rectangle du conteneur défilant ; test unitaire. Au passage : `push` au lieu d'une copie de tableau par carte.
+- [ ] **R2. Carte « gardée de mémoire » refusée en silence** — `src/components/tasks/TaskBoard.tsx` : dans une colonne fermée de plus de 20 cartes, la carte tout juste déposée se saisit puis revient sans message. À trancher par Antoine : un message (« Ouvre la tâche ou "Tout voir" pour la déplacer ») ou l'état actuel.
+- [ ] **R3. e2e du tableau à durcir** — `e2e/todo-kanban.spec.ts` : clavier (mesurer le délai réel après Espace, une seule frappe après un signal borné, ticket si le délai est perceptible ; vraie tabulation au lieu de `focus()`) ; « Tout voir » (aujourd'hui annoté et vert sans rien prouver : 21 tâches terminées permanentes sur le compte e2e, ou retirer le test et renvoyer à `/qa`) ; session expirée (n'asserter que « pas de boucle, pas de bulle » ; le tableau réaffiché par le retour arrière est une décision produit à passer au `security-auditor`) ; deux dépôts rapides (sonde posée avant le premier dépôt, ordre des deux requêtes asserté) ; délai du fichier à 60 s ; sélecteur `.frost` à remplacer.
+- [ ] **R4. Porter sur le tableau réel, avant de supprimer la démo** : défilement vertical au doigt avant 250 ms (ne saisit pas, n'ouvre pas le détail) ; contraste de l'empreinte par lecture de pixels ; dépôt dans une colonne vide et haute, et loin sous la dernière carte d'une colonne courte ; glisser au doigt en colonnes à 1024 px ; survol revenu au repos après Échap et après dépôt. Peuvent rester en unitaire : amorce des onglets, survol en mouvement réduit, page qui remonte.
+- [ ] **R5. Mineurs** : `retry` de `use-board-moves.ts` n'a plus d'appelant (le retirer avec ses tests, ou l'utiliser) ; DESIGN.md § 2 « survol d'un élément de liste = accent » : exception pour la liste des tâches (contour `input`) ; commentaire périmé « tuile de la liste » dans `e2e/effets-de-verre.spec.ts`.
+- [ ] **R6. À dire dans l'interface ou à trancher** : recharger juste après un dépôt ou un clic sur le bandeau Annulée peut perdre le changement (seul `aria-busy` le signale) ; tableau sans aucune tâche (cinq colonnes vides, sans message).
+
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
 

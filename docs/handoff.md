@@ -23,7 +23,7 @@
 
 ## Prochaine étape
 Essai iPhone et décisions d'Antoine, puis tâche 23 (titre éditable d'un tap). Restes : 23 à 26 (détail), 27 (retrait de la démo), 28 (anti-slop, `/impeccable critique`, suite complète), puis `/qa todo-kanban`.
-Reprise : `Lis docs/handoff.md et docs/features/todo-kanban/plan.md. Demande à Antoine le résultat de son essai iPhone du tableau réel et ses décisions sur les points à trancher du handoff ; applique-les, puis enchaîne les tâches 23 à 28 (implementer, reviewer ; aucune migration sur test avant fusion ; appui long intouché). Avant la tâche 27, porte sur le tableau réel les e2e de la démo listés à la tâche 21 du plan (« restent dans la démo »).`
+Reprise : `Lis docs/handoff.md et docs/features/todo-kanban/plan.md. Demande à Antoine le résultat de son essai iPhone du tableau réel et ses décisions sur les points à trancher du handoff ; applique-les, puis enchaîne les tâches 23 à 28 (implementer, reviewer ; aucune migration sur test avant fusion ; appui long intouché). Avant la tâche 27, traite la section « Corrections de relecture à faire avant la tâche 27 » du plan (R1 à R6).`
 
 ## Règles et tests rouges
 - Aucune migration sur la branche Neon `test` avant fusion de sa PR ; après fusion, `pnpm db:migrate` sur la base de développement. Push libre sur la branche ; `main` sur accord.
