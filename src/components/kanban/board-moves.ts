@@ -13,10 +13,31 @@ export function boardHas(board: BoardIds, id: string): boolean {
   return Object.values(board).some((column) => column.includes(id));
 }
 
+/** Mêmes colonnes dans le même ordre, mêmes cartes dans le même ordre. */
+export function sameBoard(a: BoardIds, b: BoardIds): boolean {
+  if (a === b) return true;
+  const columns = Object.keys(a);
+  const others = Object.keys(b);
+  return (
+    columns.length === others.length &&
+    columns.every((columnId, index) => {
+      const ids = a[columnId];
+      const otherIds = b[columnId];
+      return (
+        others[index] === columnId &&
+        ids.length === otherIds.length &&
+        ids.every((id, rank) => otherIds[rank] === id)
+      );
+    })
+  );
+}
+
 /**
- * Pose la carte dans sa colonne d'arrivée : après sa voisine du dessus, sinon avant celle du dessous, sinon en
- * fin de colonne (voisines parties entre-temps, quand un déplacement précédent a été annulé). Carte absente du
- * tableau ou colonne inconnue : le tableau est rendu tel quel (déplacement abandonné, tableau remplacé entre-temps).
+ * Pose la carte dans sa colonne d'arrivée, par la même règle que le serveur (`moveTask`, spec todo-kanban,
+ * « Ordre manuel »), pour que l'affichage optimiste et le tableau enregistré coïncident : juste après sa voisine
+ * du dessus ; à défaut juste avant celle du dessous ; à défaut (voisines absentes ou parties entre-temps) en tête
+ * de colonne. Carte absente du tableau ou colonne inconnue : le tableau est rendu tel quel (déplacement
+ * abandonné, tableau remplacé entre-temps).
  */
 export function applyMove<K extends string>(
   board: BoardIds<K>,
@@ -34,14 +55,7 @@ export function applyMove<K extends string>(
   const column = next[move.toColumn as K];
   const before = move.beforeId === null ? -1 : column.indexOf(move.beforeId);
   const after = move.afterId === null ? -1 : column.indexOf(move.afterId);
-  const index =
-    move.beforeId === null
-      ? 0
-      : before >= 0
-        ? before + 1
-        : after >= 0
-          ? after
-          : column.length;
+  const index = before >= 0 ? before + 1 : Math.max(after, 0);
   column.splice(index, 0, move.id);
   return next;
 }

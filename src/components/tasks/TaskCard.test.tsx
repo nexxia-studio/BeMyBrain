@@ -193,6 +193,18 @@ describe("carte d'une tâche du tableau", () => {
     expect(within(legend!).getByText("Aujourd'hui")).toBeDefined();
   });
 
+  it("échéance du jour : à l'encre sur une tâche ouverte, en texte secondaire sur une tâche fermée", () => {
+    const open = renderCard({ dueDate: TODAY });
+    const closed = renderCard({ dueDate: TODAY, statusCategory: "completed" });
+
+    expect(classes(within(open.legend!).getByText("Aujourd'hui"))).toContain(
+      "text-foreground",
+    );
+    expect(
+      classes(within(closed.legend!).getByText("Aujourd'hui")),
+    ).not.toContain("text-foreground");
+  });
+
   it("tâche ouverte : titre et légende en pleine couleur", () => {
     const { legend } = renderCard({
       contextName: "Maison",

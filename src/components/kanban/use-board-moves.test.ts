@@ -10,6 +10,12 @@ import {
   useBoardMoves,
 } from "./use-board-moves";
 
+const B_TO_DONE: BoardMove = {
+  id: "b",
+  toColumn: "done",
+  beforeId: null,
+  afterId: "f",
+};
 const SAVED: BoardIds = {
   todo: ["a", "b", "c"],
   doing: ["d", "e"],
@@ -46,19 +52,32 @@ type HarnessProps = {
   saved: BoardIds;
   save: (move: BoardMove) => Promise<boolean>;
   reducedMotion?: boolean;
+  onSaveError?: (error: unknown) => void;
+  /** Le composant appelant refait le tableau à chaque rendu : nouvelle référence, même contenu. */
+  recreateSaved?: boolean;
 };
+
+function copyOf(board: BoardIds): BoardIds {
+  return Object.fromEntries(
+    Object.entries(board).map(([column, ids]) => [column, [...ids]]),
+  );
+}
 
 /**
  * Le hook tel qu'un tableau l'utilise : cartes retrouvées par leur id, retour consommé dans un effet de mise en
  * page. jsdom ne calcule aucune géométrie : chaque colonne est décalée de 300 px, chaque carte de 60 px, d'après
  * le dernier tableau affiché.
  */
-function renderBoardMoves(initialProps: HarnessProps) {
+function renderBoardMoves(
+  initialProps: HarnessProps,
+  { measure }: { measure?: (id: string) => HTMLElement | null } = {},
+) {
   const shown: { current: BoardIds } = { current: initialProps.saved };
   const returns: CardReturn[] = [];
   const elements = new Map<string, HTMLElement>();
 
-  function cardElement(id: string) {
+  const cardElement = vi.fn((id: string) => {
+    if (measure) return measure(id);
     const columns = Object.values(shown.current);
     const column = columns.findIndex((ids) => ids.includes(id));
     if (column < 0) return null;
@@ -68,11 +87,23 @@ function renderBoardMoves(initialProps: HarnessProps) {
     const top = columns[column].indexOf(id) * 60;
     element.getBoundingClientRect = () => ({ left, top }) as DOMRect;
     return element;
-  }
+  });
 
   const hook = renderHook(
-    ({ saved, save, reducedMotion = false }: HarnessProps) => {
-      const moves = useBoardMoves({ saved, save, reducedMotion, cardElement });
+    ({
+      saved,
+      save,
+      reducedMotion = false,
+      onSaveError,
+      recreateSaved = false,
+    }: HarnessProps) => {
+      const moves = useBoardMoves({
+        saved: recreateSaved ? copyOf(saved) : saved,
+        save,
+        reducedMotion,
+        cardElement,
+        onSaveError,
+      });
       useLayoutEffect(() => {
         shown.current = moves.board;
         const back = moves.consumeReturn();
@@ -82,7 +113,7 @@ function renderBoardMoves(initialProps: HarnessProps) {
     },
     { initialProps },
   );
-  return { ...hook, returns, elements };
+  return { ...hook, returns, elements, cardElement };
 }
 
 /** Dépose une carte, puis laisse partir l'enregistrement dont c'est le tour (aucune réponse encore). */
@@ -197,28 +228,110 @@ describe("file des déplacements optimistes d'un tableau", () => {
     expect(returns).toEqual([]);
   });
 
-  it("un enregistrement qui lève une erreur compte pour un échec, la file continue", async () => {
+  it("un enregistrement qui lève malgré son contrat : échec, retour, erreur remise une fois à l'appelant, et le dépôt suivant part", async () => {
+    const failure = new Error("panne");
     const save = vi
       .fn<(move: BoardMove) => Promise<boolean>>()
-      .mockRejectedValueOnce(new Error("panne"))
+      .mockRejectedValueOnce(failure)
       .mockResolvedValue(true);
-    const { result } = renderBoardMoves({ saved: SAVED, save });
-    await drop(result, A_TO_DOING);
+    const onSaveError = vi.fn();
+    const { result, returns, elements } = renderBoardMoves({
+      saved: SAVED,
+      save,
+      onSaveError,
+    });
+
+    // Dépôt affiché d'abord, comme à l'écran : l'échec arrive après ce rendu.
+    act(() => result.current.move(A_TO_DOING));
     await flush();
 
+    expect(result.current.board).toEqual(SAVED);
     expect(result.current.failure).toBe(A_TO_DOING);
+    expect(returns).toEqual([{ element: elements.get("a"), x: 300, y: 0 }]);
+    expect(onSaveError).toHaveBeenCalledTimes(1);
+    expect(onSaveError).toHaveBeenCalledWith(failure);
 
-    await drop(result, {
-      id: "b",
-      toColumn: "done",
-      beforeId: null,
-      afterId: "f",
-    });
+    await drop(result, B_TO_DONE);
     await flush();
 
     expect(save).toHaveBeenCalledTimes(2);
     expect(result.current.board.done).toEqual(["b", "f"]);
     expect(result.current.pendingCount).toBe(0);
+    expect(onSaveError).toHaveBeenCalledTimes(1);
+  });
+
+  it("un enregistrement qui lève sans `onSaveError` : échec, la file continue", async () => {
+    const save = vi
+      .fn<(move: BoardMove) => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error("panne"))
+      .mockResolvedValue(true);
+    const { result } = renderBoardMoves({ saved: SAVED, save });
+
+    await drop(result, A_TO_DOING);
+    await flush();
+    await drop(result, B_TO_DONE);
+    await flush();
+
+    expect(result.current.board.done).toEqual(["b", "f"]);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
+  it("relevé de la carte qui lève à l'échec : attente retirée, échec posé sans retour, erreur remise à l'appelant, et le dépôt suivant se termine", async () => {
+    const broken = new Error("mesure impossible");
+    const { save, calls } = controllableSave();
+    const onSaveError = vi.fn();
+    const { result, returns } = renderBoardMoves(
+      { saved: SAVED, save, onSaveError },
+      {
+        measure: () => {
+          throw broken;
+        },
+      },
+    );
+    await drop(result, A_TO_DOING);
+    await drop(result, B_TO_DONE);
+
+    await settle(calls[0], false);
+
+    expect(result.current.pendingCount).toBe(1);
+    expect(result.current.failure).toBe(A_TO_DOING);
+    expect(returns).toEqual([]);
+    expect(onSaveError).toHaveBeenCalledTimes(1);
+    expect(onSaveError).toHaveBeenCalledWith(broken);
+    expect(save).toHaveBeenCalledTimes(2);
+
+    await settle(calls[1], true);
+
+    expect(result.current.pendingCount).toBe(0);
+    expect(result.current.board.done).toEqual(["b", "f"]);
+  });
+
+  it("`onSaveError` qui lève à son tour : la file continue", async () => {
+    const save = vi
+      .fn<(move: BoardMove) => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error("panne"))
+      .mockResolvedValue(true);
+    // L'erreur relancée par l'appelant sort de la file en rejet non géré : attrapé ici pour ce test seulement.
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    const { result } = renderBoardMoves({
+      saved: SAVED,
+      save,
+      onSaveError: (error) => {
+        throw error;
+      },
+    });
+
+    await drop(result, A_TO_DOING);
+    await flush();
+    await drop(result, B_TO_DONE);
+    await flush();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    process.off("unhandledRejection", unhandled);
+
+    expect(result.current.board.done).toEqual(["b", "f"]);
+    expect(result.current.pendingCount).toBe(0);
+    expect(unhandled).toHaveBeenCalledTimes(1);
   });
 
   it("échec d'un dépôt dépassé par un dépôt plus récent de la même carte : ni retour ni échec", async () => {
@@ -336,8 +449,8 @@ describe("file des déplacements optimistes d'un tableau", () => {
     expect(result.current.board).toEqual(SAVED);
   });
 
-  it("tableau enregistré remplacé pendant une attente : le déplacement en attente est rejoué dessus", async () => {
-    const { save, calls } = controllableSave();
+  it("tableau enregistré remplacé pendant une attente : le déplacement en attente est rejoué dessus tant que l'attente dure", async () => {
+    const { save } = controllableSave();
     const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
     await drop(result, A_TO_DOING);
     const refreshed: BoardIds = {
@@ -354,9 +467,49 @@ describe("file des déplacements optimistes d'un tableau", () => {
       done: ["f"],
     });
     expect(result.current.pendingCount).toBe(1);
+  });
+
+  it("tableau du serveur reçu avant la réponse, carte à la place demandée : aucun saut, aucun double placement", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, A_TO_DOING);
+    const fromServer: BoardIds = {
+      todo: ["b", "c"],
+      doing: ["a", "d", "e"],
+      done: ["f"],
+    };
+
+    rerender({ saved: fromServer, save });
+
+    expect(result.current.board).toEqual(fromServer);
     await settle(calls[0], true);
 
-    expect(result.current.board.doing).toEqual(["a", "d", "b", "e"]);
+    expect(result.current.board).toEqual(fromServer);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
+  it("tableau du serveur reçu avant la réponse, carte placée ailleurs que demandé : le dépôt reste affiché pendant l'attente, puis le serveur fait foi", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, {
+      id: "a",
+      toColumn: "doing",
+      beforeId: "d",
+      afterId: "e",
+    });
+    // Le serveur a mis la carte en queue de colonne, pas entre ses voisines.
+    const fromServer: BoardIds = {
+      todo: ["b", "c"],
+      doing: ["d", "e", "a"],
+      done: ["f"],
+    };
+
+    rerender({ saved: fromServer, save });
+
+    expect(result.current.board.doing).toEqual(["d", "a", "e"]);
+    await settle(calls[0], true);
+
+    expect(result.current.board).toEqual(fromServer);
     expect(result.current.pendingCount).toBe(0);
   });
 
@@ -433,30 +586,99 @@ describe("file des déplacements optimistes d'un tableau", () => {
     expect(result.current.board).toEqual(withoutCard);
   });
 
-  it("démontage pendant un enregistrement : l'enregistrement en file part quand même, aucun état mis à jour, aucun avertissement", async () => {
+  // Conséquence de la règle « le serveur fait foi » : à relire à la tâche 20 (deux dépôts rapides, voir le rapport).
+  it("deux dépôts de cartes différentes, tableau du premier reçu pendant l'enregistrement du second : à la réponse du second, l'affiché est ce tableau, jusqu'au suivant", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, B_TO_DONE);
+    await drop(result, A_TO_DOING);
+    await settle(calls[0], true);
+    const afterFirst: BoardIds = {
+      todo: ["a", "c"],
+      doing: ["d", "e"],
+      done: ["b", "f"],
+    };
+    rerender({ saved: afterFirst, save });
+
+    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
+    await settle(calls[1], true);
+
+    expect(result.current.board).toEqual(afterFirst);
+    const afterSecond: BoardIds = {
+      todo: ["c"],
+      doing: ["a", "d", "e"],
+      done: ["b", "f"],
+    };
+    rerender({ saved: afterSecond, save });
+
+    expect(result.current.board).toEqual(afterSecond);
+  });
+
+  it("nouvelle référence au contenu identique (rendu du parent sans nouvelles données) : le dépôt réussi reste affiché", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, A_TO_DOING);
+    await settle(calls[0], true);
+
+    rerender({ saved: copyOf(SAVED), save });
+
+    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
+    expect(result.current.board.todo).toEqual(["b", "c"]);
+  });
+
+  it("nouvelle référence au contenu identique pendant une attente : ne compte pas pour un tableau du serveur, la réussite est gardée", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, A_TO_DOING);
+
+    rerender({ saved: copyOf(SAVED), save });
+    await settle(calls[0], true);
+
+    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
+  });
+
+  it("tableau refait à chaque rendu par l'appelant, à contenu égal : aucune boucle de rendu, le dépôt réussi reste affiché", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({
+      saved: SAVED,
+      save,
+      recreateSaved: true,
+    });
+
+    await drop(result, A_TO_DOING);
+    await settle(calls[0], true);
+    rerender({ saved: SAVED, save, recreateSaved: true });
+
+    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
+  it("démontage pendant un enregistrement : l'enregistrement en file part quand même, mais ni relevé de carte, ni erreur remise, ni état mis à jour", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    const { save, calls } = controllableSave();
-    const { result, unmount, returns } = renderBoardMoves({
+    const save = vi
+      .fn<(move: BoardMove) => Promise<boolean>>()
+      .mockResolvedValueOnce(false)
+      .mockRejectedValueOnce(new Error("panne"));
+    const onSaveError = vi.fn();
+    const { result, unmount, returns, cardElement } = renderBoardMoves({
       saved: SAVED,
       save,
+      onSaveError,
     });
-    await drop(result, A_TO_DOING);
-    await drop(result, {
-      id: "b",
-      toColumn: "done",
-      beforeId: null,
-      afterId: "f",
-    });
+    act(() => result.current.move(A_TO_DOING));
+    act(() => result.current.move(B_TO_DONE));
     const atUnmount = result.current;
 
     unmount();
-    await settle(calls[0], false);
-    await settle(calls[1], true);
+    await flush();
+    await flush();
 
     // Les dépôts déjà faits restent dus : le second est envoyé après le premier.
     expect(save).toHaveBeenCalledTimes(2);
+    expect(cardElement).not.toHaveBeenCalled();
+    expect(onSaveError).not.toHaveBeenCalled();
     expect(result.current).toBe(atUnmount);
     expect(returns).toEqual([]);
     expect(consoleError).not.toHaveBeenCalled();
