@@ -264,6 +264,13 @@
       "list": "List",
       "board": "Board"
     },
+    "board": {
+      "options": {
+        "label": "Board options",
+        "subtasks": "Subtasks",
+        "hideDoneSubtasks": "Hide completed subtasks"
+      }
+    },
     "list": {
       "title": "To-do",
       "completedToggle": "Completed",

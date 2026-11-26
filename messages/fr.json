@@ -264,6 +264,13 @@
       "list": "Liste",
       "board": "Tableau"
     },
+    "board": {
+      "options": {
+        "label": "Options du tableau",
+        "subtasks": "Sous-tâches",
+        "hideDoneSubtasks": "Masquer les sous-tâches terminées"
+      }
+    },
     "list": {
       "title": "To-do",
       "completedToggle": "Terminées",

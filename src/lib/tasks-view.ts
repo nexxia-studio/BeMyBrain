@@ -4,3 +4,15 @@
 /** Vue de `/tasks` (spec todo-kanban, « Vue mémorisée »). */
 export const tasksViews = ["list", "board"] as const;
 export type TasksView = (typeof tasksViews)[number];
+
+/**
+ * Options du tableau (spec todo-kanban, « Tableau ») : sous-tâches en cartes, sous-tâches terminées masquées,
+ * colonne Annulée dépliée. Liste fermée : l'action d'écriture refuse tout autre nom.
+ */
+export const boardOptions = [
+  "subtasks",
+  "hideDoneSubtasks",
+  "canceledOpen",
+] as const;
+export type BoardOption = (typeof boardOptions)[number];
+export type BoardOptionValues = Record<BoardOption, boolean>;

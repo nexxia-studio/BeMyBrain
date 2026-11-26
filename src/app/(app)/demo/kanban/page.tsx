@@ -7,6 +7,8 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shell/PageHeader";
+import { BoardOptions } from "@/components/tasks/BoardOptions";
+import { readBoardOptions } from "@/lib/preferences";
 import { requireSession } from "@/lib/session";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 
@@ -25,13 +27,21 @@ export default async function KanbanDemoPage() {
 
   // Session seule (frontend.md) : la page ne garde pas le jeton et ne lit aucune donnée métier.
   await requireSession();
-  const t = await getTranslations("kanbanDemo");
+  const [t, options] = await Promise.all([
+    getTranslations("kanbanDemo"),
+    readBoardOptions(),
+  ]);
   // « Aujourd'hui » calculé une fois côté serveur : mêmes échéances au rendu serveur et à l'hydratation.
   const today = todayIn(getUserTimeZone(), new Date());
 
   return (
     <main className="flex flex-1 flex-col gap-grid">
       <PageHeader title={t("title")} contextFilter={false} />
+      {/* raccourci: options du vrai tableau, montrées ici pour juger la rangée (tâche 19) — sans effet sur les cartes de la démo ; montées sur /tasks à la tâche 20. */}
+      <BoardOptions
+        subtasks={options.subtasks}
+        hideDoneSubtasks={options.hideDoneSubtasks}
+      />
       <KanbanDemo today={today} />
     </main>
   );

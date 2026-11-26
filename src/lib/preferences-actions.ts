@@ -6,13 +6,15 @@ import { requireSession } from "@/lib/session";
 import { sideSchema } from "@/modules/core/schemas";
 
 import {
+  BOARD_OPTION_COOKIES,
   contextsCookie,
   PREFERENCE_COOKIE_OPTIONS,
+  serializeBoardOption,
   serializeContextSelection,
   SIDE_COOKIE,
   TASKS_VIEW_COOKIE,
 } from "./preferences";
-import { tasksViews } from "./tasks-view";
+import { boardOptions, tasksViews } from "./tasks-view";
 
 // Préférences d'affichage : un cookie par choix, relu par le rendu serveur (Next rafraîchit la route
 // après une action qui écrit un cookie). Entrée invalide → rien n'est écrit, sans erreur.
@@ -34,6 +36,24 @@ export async function setTasksView(view: unknown): Promise<void> {
   const known = tasksViews.find((value) => value === view);
   if (known === undefined) return;
   (await cookies()).set(TASKS_VIEW_COOKIE, known, PREFERENCE_COOKIE_OPTIONS);
+}
+
+/**
+ * Option du tableau (sous-tâches, sous-tâches terminées masquées, Annulée dépliée) : une action pour les trois.
+ * Nom hors de la liste fermée ou valeur non booléenne → rien n'est écrit.
+ */
+export async function setBoardOption(
+  option: unknown,
+  value: unknown,
+): Promise<void> {
+  await requireSession();
+  const known = boardOptions.find((name) => name === option);
+  if (known === undefined || typeof value !== "boolean") return;
+  (await cookies()).set(
+    BOARD_OPTION_COOKIES[known],
+    serializeBoardOption(value),
+    PREFERENCE_COOKIE_OPTIONS,
+  );
 }
 
 /** Espaces retenus pour un côté (Privé ou Pro) ; `null` = tous (le cookie de ce côté est effacé). */

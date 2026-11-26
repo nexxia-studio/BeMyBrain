@@ -9,6 +9,12 @@ const getTranslations = vi.hoisted(() =>
 const PageHeader = vi.hoisted(() =>
   vi.fn<(props: { contextFilter?: boolean }) => null>(() => null),
 );
+const readBoardOptions = vi.hoisted(() => vi.fn());
+const BoardOptions = vi.hoisted(() =>
+  vi.fn<(props: { subtasks: boolean; hideDoneSubtasks: boolean }) => null>(
+    () => null,
+  ),
+);
 const notFound = vi.hoisted(() =>
   vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -20,6 +26,8 @@ vi.mock("@/lib/session", () => ({ requireSession, requireSessionWithToken }));
 vi.mock("next-intl/server", () => ({ getTranslations }));
 vi.mock("@/components/shell/PageHeader", () => ({ PageHeader }));
 vi.mock("./KanbanDemo", () => ({ KanbanDemo: () => null }));
+vi.mock("@/lib/preferences", () => ({ readBoardOptions }));
+vi.mock("@/components/tasks/BoardOptions", () => ({ BoardOptions }));
 
 import KanbanDemoPage from "./page";
 
@@ -36,6 +44,7 @@ describe("page de démo du kanban", () => {
     await expect(KanbanDemoPage()).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(notFound).toHaveBeenCalledOnce();
+    expect(readBoardOptions).not.toHaveBeenCalled();
     expect(requireSession).not.toHaveBeenCalled();
     expect(requireSessionWithToken).not.toHaveBeenCalled();
   });
@@ -65,10 +74,36 @@ describe("page de démo du kanban", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("VERCEL_ENV", undefined);
     requireSession.mockResolvedValue({});
+    readBoardOptions.mockResolvedValue({
+      subtasks: true,
+      hideDoneSubtasks: false,
+      canceledOpen: false,
+    });
 
     render(await KanbanDemoPage());
 
     expect(PageHeader).toHaveBeenCalledOnce();
     expect(PageHeader.mock.calls[0][0]).toMatchObject({ contextFilter: false });
+  });
+
+  it("montre les options du tableau avec les valeurs lues dans les cookies, session vérifiée d'abord", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("VERCEL_ENV", undefined);
+    requireSession.mockResolvedValue({});
+    readBoardOptions.mockResolvedValue({
+      subtasks: false,
+      hideDoneSubtasks: true,
+      canceledOpen: false,
+    });
+
+    render(await KanbanDemoPage());
+
+    expect(BoardOptions.mock.calls[0][0]).toEqual({
+      subtasks: false,
+      hideDoneSubtasks: true,
+    });
+    expect(requireSession.mock.invocationCallOrder[0]).toBeLessThan(
+      readBoardOptions.mock.invocationCallOrder[0],
+    );
   });
 });

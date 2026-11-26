@@ -10,7 +10,12 @@ import {
   type TileHeights,
 } from "@/modules/dashboard/tile-heights";
 
-import { tasksViews, type TasksView } from "./tasks-view";
+import {
+  type BoardOption,
+  type BoardOptionValues,
+  tasksViews,
+  type TasksView,
+} from "./tasks-view";
 
 // Préférences d'affichage (plan socle, décision « Choix Privé / Pro ») : cookies lus côté serveur,
 // jamais une donnée métier. Toute valeur inattendue retombe sur un défaut sûr, sans erreur.
@@ -27,6 +32,20 @@ export function contextsCookie(side: Side): string {
 
 /** Vue de la to-do, Liste ou Tableau (spec todo-kanban, « Vue mémorisée »). */
 export const TASKS_VIEW_COOKIE = "bmb_tasks_view";
+
+/** Options du tableau : un cookie par option, valeur « 1 » ou « 0 » (spec todo-kanban, « Tableau »). */
+export const BOARD_OPTION_COOKIES: Record<BoardOption, string> = {
+  subtasks: "bmb_board_subtasks",
+  hideDoneSubtasks: "bmb_board_hide_done_subtasks",
+  canceledOpen: "bmb_board_canceled_open",
+};
+
+// Sous-tâches en cartes, terminées non masquées, Annulée repliée.
+const DEFAULT_BOARD_OPTIONS: BoardOptionValues = {
+  subtasks: true,
+  hideDoneSubtasks: false,
+  canceledOpen: false,
+};
 
 const DEFAULT_SIDE: Side = "private";
 const DEFAULT_TASKS_VIEW: TasksView = "list";
@@ -57,6 +76,21 @@ export function parseTasksView(raw: unknown): TasksView {
   return tasksViews.find((view) => view === raw) ?? DEFAULT_TASKS_VIEW;
 }
 
+/** Option du tableau ; « 1 » → vrai, « 0 » → faux, toute autre valeur (ou cookie absent) → défaut de l'option. */
+export function parseBoardOption(
+  option: BoardOption,
+  raw: string | undefined,
+): boolean {
+  if (raw === "1") return true;
+  if (raw === "0") return false;
+  return DEFAULT_BOARD_OPTIONS[option];
+}
+
+/** Valeur écrite dans le cookie d'une option du tableau. */
+export function serializeBoardOption(value: boolean): string {
+  return value ? "1" : "0";
+}
+
 /**
  * Contextes retenus par le filtre, dans l'ordre de `available` (contextes du côté, lus en base).
  * Les identifiants inconnus du workspace sont ignorés ; sélection vide → tous.
@@ -82,6 +116,17 @@ export async function readSide(): Promise<Side> {
 
 export async function readTasksView(): Promise<TasksView> {
   return parseTasksView((await cookies()).get(TASKS_VIEW_COOKIE)?.value);
+}
+
+export async function readBoardOptions(): Promise<BoardOptionValues> {
+  const store = await cookies();
+  const read = (option: BoardOption) =>
+    parseBoardOption(option, store.get(BOARD_OPTION_COOKIES[option])?.value);
+  return {
+    subtasks: read("subtasks"),
+    hideDoneSubtasks: read("hideDoneSubtasks"),
+    canceledOpen: read("canceledOpen"),
+  };
 }
 
 /** Espaces retenus pour `side`, toujours revalidés contre `available` (espaces du workspace). */
