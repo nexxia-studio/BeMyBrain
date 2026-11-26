@@ -352,6 +352,11 @@
       "side": "Side:",
       "context": "Space:",
       "subtasks": "+ {count, plural, one {# subtask} other {# subtasks}}"
+    },
+    "blocked": "Blocked",
+    "card": {
+      "subtasksOpen": "{count} open",
+      "subtasksOpenLabel": "{done, plural, one {# subtask done} other {# subtasks done}} out of {total}, {open} still open"
     }
   },
   "trash": {
@@ -408,7 +413,6 @@
     "saved": "Everything is saved.",
     "moveFailed": "Move not saved.",
     "retry": "Retry",
-    "blocked": "Blocked",
     "seeAll": "See all ({count})",
     "seeLess": "Show the {count} most recent"
   }

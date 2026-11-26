@@ -352,6 +352,11 @@
       "side": "Côté :",
       "context": "Espace :",
       "subtasks": "+ {count, plural, one {# sous-tâche} other {# sous-tâches}}"
+    },
+    "blocked": "Bloquée",
+    "card": {
+      "subtasksOpen": "{count, plural, one {# ouverte} other {# ouvertes}}",
+      "subtasksOpenLabel": "{done, plural, one {# sous-tâche terminée} other {# sous-tâches terminées}} sur {total}, {open, plural, one {# encore ouverte} other {# encore ouvertes}}"
     }
   },
   "trash": {
@@ -408,7 +413,6 @@
     "saved": "Tout est enregistré.",
     "moveFailed": "Déplacement non enregistré.",
     "retry": "Réessayer",
-    "blocked": "Bloquée",
     "seeAll": "Tout voir ({count})",
     "seeLess": "Voir les {count} plus récentes"
   }

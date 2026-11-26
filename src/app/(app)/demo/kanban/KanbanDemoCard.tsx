@@ -10,17 +10,14 @@
 // (`grayscale` : pastilles d'espace et badge de priorité passent au gris). Pas d'opacité : à 0,85 déjà le texte
 // secondaire tombe à 4,73:1 et la pastille chaude à 4,83:1, pour une atténuation à peine visible ; en gris, mesuré
 // sur capture : date 6,90:1, pastille chaude 7,86:1, icône du badge Urgente 10,67:1 (verrou : e2e de la démo). La carte réelle (tâche 16 du plan) reprend cette règle.
-// Pastille « Bloquée » : forme des pastilles, bordée `input` (≥ 3:1), texte encre, icône Lucide ; aucune couleur
-// d'espace, la braise reste au retard. À valider à la spec.
+// Pastille « Bloquée » : `BlockedChip`, partagée avec la carte réelle (`TaskCard`).
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
-import { Ban, Tag } from "lucide-react";
+import { Tag } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 
 import type { CardState } from "@/components/kanban/SortableBoard";
-import {
-  CHIP_SHAPE_CLASSES,
-  contextChipClass,
-} from "@/components/tasks/context-chip-class";
+import { BlockedChip } from "@/components/tasks/BlockedChip";
+import { contextChipClass } from "@/components/tasks/context-chip-class";
 import { isRowPriority } from "@/components/tasks/priority-icons";
 import { PriorityBadge } from "@/components/tasks/PriorityBadge";
 import { TaskLegendItems } from "@/components/tasks/TaskLegendItems";
@@ -40,7 +37,6 @@ type KanbanDemoCardProps = {
 
 export function KanbanDemoCard({ task, today, state }: KanbanDemoCardProps) {
   const t = useTranslations("tasks.list");
-  const tDemo = useTranslations("kanbanDemo");
   const format = useFormatter();
   const locale = useLocale();
   const open = OPEN_STATUSES.has(task.status);
@@ -81,17 +77,7 @@ export function KanbanDemoCard({ task, today, state }: KanbanDemoCardProps) {
             ) : null
           }
         >
-          {task.blocked && (
-            <span
-              className={cn(
-                CHIP_SHAPE_CLASSES,
-                "flex items-center gap-1 border border-input text-foreground",
-              )}
-            >
-              <Ban aria-hidden="true" className="size-3.5" strokeWidth={2} />
-              {tDemo("blocked")}
-            </span>
-          )}
+          {task.blocked && <BlockedChip />}
           {task.contextName !== null && (
             <span className={`truncate ${contextChipClass(task.contextColor)}`}>
               {task.contextName}
