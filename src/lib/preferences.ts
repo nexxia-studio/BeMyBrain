@@ -71,7 +71,7 @@ export function parseSide(raw: string | undefined): Side {
   return result.success ? result.data : DEFAULT_SIDE;
 }
 
-/** Vue de la to-do ; absente ou hors de la liste fermée → Liste. Sert à la lecture comme à l'écriture. */
+/** Vue de la to-do lue dans le cookie ; absente ou hors de la liste fermée → Liste. (L'écriture, `setTasksView`, fait son propre contrôle.) */
 export function parseTasksView(raw: unknown): TasksView {
   return tasksViews.find((view) => view === raw) ?? DEFAULT_TASKS_VIEW;
 }
