@@ -109,7 +109,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : unitaire — « onglet cible marqué pendant le glisser » ; e2e mobile au doigt — « l'onglet visé est visible et marqué pendant le glisser »
   - Fini quand : e2e de la démo verts ; les e2e D4 (pas de saut du tableau) toujours verts.
 
-- [ ] **15. Rendre une colonne repliable sur place (Annulée)**
+- [x] **15. Rendre une colonne repliable sur place (Annulée)** — terminée le 2026-11-26 (`079239b`)
   - Fichiers : `src/components/kanban/SortableBoard.tsx`, `SortableBoard.test.tsx`, `e2e/demo-kanban.spec.ts`, `messages/{fr,en}.json` (`kanban.*`)
   - Contenu : `BoardColumn.collapsible` avec `collapsed` et `onCollapsedChange` : à partir de 768 px, bandeau étroit avec compteur et bouton (`aria-expanded`, nom « libellé, n, déplier / replier »), cible de dépôt replié comme déplié, colonne normale une fois dépliée ; sous 768 px, l'onglet se comporte comme les autres, sans bandeau. Générique, rien de propre aux tâches.
   - Test à écrire d'abord : « bouton déplie et replie, au clic et au clavier ; dépôt sur le bandeau replié ; dépôt dans la colonne dépliée ; sous 768 px, panneau d'onglet normal » ; e2e de la démo adaptés
