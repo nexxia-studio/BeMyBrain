@@ -226,6 +226,11 @@ test("@mobile sous 768 px, une colonne à la fois sous la barre d'onglets", asyn
     "data-board-column",
     "backlog",
   );
+  // Tâche 14 : l'en-tête de colonne n'est pas répété sous l'onglet, qui nomme le panneau.
+  await expect(column(page, "backlog").getByRole("heading")).toHaveCount(0);
+  await expect(
+    page.getByRole("tabpanel", { name: new RegExp(`^${STATUS.backlog}`) }),
+  ).toBeVisible();
 });
 
 test("@desktop au-delà de 768 px, les colonnes côte à côte, sans onglets", async ({
@@ -238,6 +243,9 @@ test("@desktop au-delà de 768 px, les colonnes côte à côte, sans onglets", a
   await expect(page.getByRole("tablist")).toBeHidden();
   await expect(page.locator("[data-board-column]:visible")).toHaveCount(5);
   await expect(page.getByRole("tabpanel")).toHaveCount(0);
+  await expect(
+    column(page, "backlog").getByRole("heading", { name: STATUS.backlog }),
+  ).toBeVisible();
 });
 
 test("@desktop une carte glissée à la souris de « À faire » vers « À planifier » y apparaît et y reste une fois enregistrée", async ({
@@ -701,6 +709,138 @@ test("@mobile en onglets, pendant un glisser au doigt vers l'onglet « Terminée
   });
   await expect(doneTab).toHaveAttribute("aria-selected", "false");
   await expect(card(column(page, "completed"), lastId)).toBeAttached();
+});
+
+// Tâche 14 : la cible de dépôt se lit pendant un glisser au doigt. La carte portée masque la barre d'onglets :
+// l'onglet visé prend l'état actif, la barre l'amène en entier dans son champ, et un repère accroché à la carte
+// redit son libellé et son compteur.
+/** Onglet visé par la carte portée : son nom, sa place dans la barre et son fond. */
+function dropTargetTab(page: Page): Promise<{
+  count: number;
+  text: string;
+  inside: boolean;
+  background: string;
+} | null> {
+  return page.getByRole("tablist").evaluate((bar) => {
+    const targets = bar.querySelectorAll<HTMLElement>("[data-drop-target]");
+    if (targets.length === 0) return null;
+    const tab = targets[0].getBoundingClientRect();
+    const field = bar.getBoundingClientRect();
+    return {
+      count: targets.length,
+      text: targets[0].innerText.replace(/\s+/g, " "),
+      inside: tab.left >= field.left - 0.5 && tab.right <= field.right + 0.5,
+      background: getComputedStyle(targets[0]).backgroundColor,
+    };
+  });
+}
+
+test("@mobile en onglets, pendant un glisser au doigt, l'onglet visé est marqué, entièrement dans la barre, et la carte portée porte son libellé et son compteur", async ({
+  page,
+}) => {
+  await signIn(page);
+  const messages = watchConsole(page);
+  await openDemo(page);
+  const tablist = page.getByRole("tablist");
+  // Onglet coupé par le bord droit de la barre : le doigt vise sa partie visible.
+  const cut = await tablist.evaluate((bar) => {
+    const field = bar.getBoundingClientRect();
+    for (const tab of bar.querySelectorAll('[role="tab"]')) {
+      const rect = tab.getBoundingClientRect();
+      if (rect.left < field.right - 12 && rect.right > field.right + 1) {
+        return {
+          x: (rect.left + field.right) / 2,
+          y: rect.top + rect.height / 2,
+        };
+      }
+    }
+    return null;
+  });
+  expect(cut).not.toBeNull();
+  const inactiveBackground = await tablist
+    .getByRole("tab", { selected: false })
+    .first()
+    .evaluate((tab) => getComputedStyle(tab).backgroundColor);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  const finger = await Finger.on(page);
+  const from = await center(card(page, "backlog-1"));
+
+  await finger.down(from);
+  await expect(overlay(page)).toBeVisible();
+  await finger.move(from, cut!);
+
+  // La barre défile (défilement automatique du bord, puis mise en champ de l'onglet visé) : une fois immobile,
+  // un seul onglet est visé, entier dans la barre.
+  await expect
+    .poll(async () => {
+      const target = await dropTargetTab(page);
+      return target !== null && target.count === 1 && target.inside;
+    })
+    .toBe(true);
+  const target = (await dropTargetTab(page))!;
+  expect(target.background).not.toBe(inactiveBackground);
+  const marker = page.locator("[data-board-drop-marker]");
+  await expect(marker).toBeVisible();
+  await expect
+    .poll(async () => (await marker.innerText()).replace(/\s+/g, " "))
+    .toBe((await dropTargetTab(page))!.text);
+  // Le repère est entier à l'écran, hors de la barre d'onglets qu'il redit.
+  const markerBox = (await marker.boundingBox())!;
+  const barBox = (await tablist.boundingBox())!;
+  expect(markerBox.y).toBeGreaterThanOrEqual(0);
+  expect(
+    markerBox.y + markerBox.height <= barBox.y ||
+      markerBox.y >= barBox.y + barBox.height,
+  ).toBe(true);
+  // La barre a défilé, pas la page.
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+  // Carte portée jusqu'en haut de l'écran : plus de place au-dessus d'elle, le repère passe dessous.
+  await finger.move(cut!, { x: cut!.x, y: 24 });
+  await expect(marker).toHaveAttribute("data-side", "below");
+  const carried = (await overlay(page).boundingBox())!;
+  const below = (await marker.boundingBox())!;
+  expect(below.y).toBeGreaterThanOrEqual(carried.y + carried.height / 2);
+  await finger.up();
+
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(page.locator("[data-drop-target]")).toHaveCount(0);
+  await expect(marker).toHaveCount(0);
+  expect(messages).toEqual([]);
+});
+
+test("@mobile la barre d'onglets qui déborde montre une amorce du côté où des onglets restent hors champ", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const tablist = page.getByRole("tablist");
+  const fades = () =>
+    tablist.evaluate((bar) => ({
+      start: bar.hasAttribute("data-more-start"),
+      end: bar.hasAttribute("data-more-end"),
+      masked: getComputedStyle(bar).maskImage !== "none",
+    }));
+  const edge = (side: "start" | "end") =>
+    page.locator(`[data-board-tabs-more="${side}"]`);
+
+  await expect.poll(fades).toEqual({ start: false, end: true, masked: true });
+  await expect(edge("end")).toBeVisible();
+  await expect(edge("start")).toBeHidden();
+
+  await tablist.evaluate((bar) => bar.scrollTo({ left: 40 }));
+
+  await expect.poll(fades).toEqual({ start: true, end: true, masked: true });
+  await expect(edge("start")).toBeVisible();
+  await expect(edge("end")).toBeVisible();
+
+  await tablist.evaluate((bar) => bar.scrollTo({ left: bar.scrollWidth }));
+
+  await expect.poll(fades).toEqual({ start: true, end: false, masked: true });
+  await expect(edge("end")).toBeHidden();
+  // Le bord ombré ne prend pas le toucher : l'onglet dessous reste atteignable.
+  expect(
+    await edge("start").evaluate((el) => getComputedStyle(el).pointerEvents),
+  ).toBe("none");
 });
 
 // D5 (demo-plan.md) : tap = détail, appui long = saisie.

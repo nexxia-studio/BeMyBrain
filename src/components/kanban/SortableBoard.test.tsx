@@ -85,6 +85,8 @@ function board(
 // `matchMedia` répond selon `wide`, et un élément masqué par la mise en page (`md:hidden` au-delà, `hidden` en
 // deçà) reçoit le rectangle vide d'un `display: none`.
 let wide = true;
+/** Largeur visible de la barre d'onglets (les onglets font 90 px tous les 100 px). */
+let tablistWidth = 1000;
 
 function stubWidth(isWide: boolean) {
   wide = isWide;
@@ -124,6 +126,10 @@ function fakeRect(this: Element): DOMRect {
     ];
     return rect(columnIndex * 300 + 10, 50 + cards.indexOf(card) * 60, 260, 50);
   }
+  // Retrait de 4 px de la barre autour des onglets, comme à l'écran.
+  if (this.matches('[role="tablist"]')) {
+    return rect(-4, -64, tablistWidth + 4, 48);
+  }
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   if (tabs.includes(this)) return rect(tabs.indexOf(this) * 100, -60, 90, 40);
   const columnIndex = columns.indexOf(this);
@@ -136,6 +142,7 @@ function fakeRect(this: Element): DOMRect {
 
 beforeEach(() => {
   stubWidth(true);
+  tablistWidth = 1000;
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
     fakeRect,
   );
@@ -412,6 +419,244 @@ describe("SortableBoard", () => {
         afterId: "d",
       });
     });
+
+    describe("cible de dépôt pendant un glisser", () => {
+      const tab = (name: RegExp) => screen.getByRole("tab", { name });
+      const marker = () => document.querySelector("[data-board-drop-marker]");
+
+      // Géométrie factice : l'onglet DOING est le plus proche au-dessus de « a ».
+      async function carryOverDoingTab() {
+        cardHandle("a").focus();
+        await press(cardHandle("a"), "Space");
+        await press(cardHandle("a"), "ArrowUp");
+      }
+
+      it("l'onglet visé prend l'état actif complet pendant le glisser, plus après le dépôt", async () => {
+        render(board(vi.fn(), COLUMNS));
+
+        await carryOverDoingTab();
+
+        expect(tab(/DOING/).getAttribute("data-drop-target")).toBe("true");
+        expect(tab(/DOING/).className.split(/\s+/)).toEqual(
+          expect.arrayContaining([
+            "bg-pill-active",
+            "text-foreground",
+            "shadow-raised",
+          ]),
+        );
+        expect(tab(/TODO/).hasAttribute("data-drop-target")).toBe(false);
+
+        await press(cardHandle("a"), "Space");
+
+        expect(document.querySelectorAll("[data-drop-target]")).toHaveLength(0);
+        expect(tab(/DOING/).className.split(/\s+/)).not.toContain(
+          "bg-pill-active",
+        );
+      });
+
+      it("l'onglet visé n'est plus marqué après une annulation par Échap", async () => {
+        render(board(vi.fn(), COLUMNS));
+        await carryOverDoingTab();
+
+        await press(cardHandle("a"), "Escape");
+
+        expect(document.querySelectorAll("[data-drop-target]")).toHaveLength(0);
+      });
+
+      it("un repère accroché à la carte portée redit le libellé et le compteur de l'onglet visé, hors du lecteur d'écran", async () => {
+        render(board(vi.fn(), COLUMNS));
+
+        await carryOverDoingTab();
+
+        expect(marker()?.textContent).toBe("DOING2");
+        expect(marker()?.getAttribute("aria-hidden")).toBe("true");
+        // Hors de la copie inclinée : le repère reste droit.
+        expect(marker()?.closest("[data-board-overlay]")).toBeNull();
+
+        await press(cardHandle("a"), "Space");
+
+        expect(marker()).toBeNull();
+      });
+
+      it.each([
+        ["au-dessus de la carte portée quand la place existe", 200, null],
+        [
+          "sous la carte portée quand elle touche le haut de l'écran",
+          10,
+          "below",
+        ],
+      ])("le repère est %s", async (_name, top, side) => {
+        render(board(vi.fn(), COLUMNS));
+        cardHandle("a").focus();
+        await press(cardHandle("a"), "Space");
+        // Copie portée : l'enveloppe du calque du glisser, à `top` px du haut de l'écran.
+        const carried = document.querySelector(
+          "[data-board-overlay]",
+        )!.parentElement!;
+        Object.defineProperty(carried, "getBoundingClientRect", {
+          value: () => ({ top }) as DOMRect,
+        });
+
+        await press(cardHandle("a"), "ArrowUp");
+
+        expect(marker()).not.toBeNull();
+        expect(marker()!.getAttribute("data-side")).toBe(side);
+      });
+
+      it("aucun repère tant que la carte portée ne vise pas un onglet", async () => {
+        render(board(vi.fn(), COLUMNS));
+        cardHandle("a").focus();
+
+        await press(cardHandle("a"), "Space");
+        await press(cardHandle("a"), "ArrowDown");
+
+        expect(marker()).toBeNull();
+        expect(document.querySelectorAll("[data-drop-target]")).toHaveLength(0);
+      });
+
+      it("un onglet visé coupé par le bord de la barre y est ramené en entier, par le défilement de la barre seule", async () => {
+        // Barre de 150 px : DOING (100 à 190 px) dépasse de 40 px à droite.
+        tablistWidth = 150;
+        render(board(vi.fn(), COLUMNS));
+        const scrollBy = vi.fn();
+        Object.defineProperty(screen.getByRole("tablist"), "scrollBy", {
+          value: scrollBy,
+        });
+        const scrollIntoView = vi.fn();
+        Element.prototype.scrollIntoView = scrollIntoView;
+
+        await carryOverDoingTab();
+
+        // 40 px de dépassement et 4 px de marge (retrait de la barre).
+        expect(scrollBy).toHaveBeenCalledExactlyOnceWith({
+          left: 44,
+          behavior: "smooth",
+        });
+        expect(scrollIntoView).not.toHaveBeenCalled();
+      });
+
+      it("en mouvement réduit, la barre amène l'onglet visé sans animation", async () => {
+        reducedMotion.current = true;
+        tablistWidth = 150;
+        render(board(vi.fn(), COLUMNS));
+        const scrollBy = vi.fn();
+        Object.defineProperty(screen.getByRole("tablist"), "scrollBy", {
+          value: scrollBy,
+        });
+
+        await carryOverDoingTab();
+
+        expect(scrollBy).toHaveBeenCalledExactlyOnceWith({
+          left: 44,
+          behavior: "auto",
+        });
+      });
+
+      it("un onglet visé entier dans la barre ne la fait pas défiler", async () => {
+        render(board(vi.fn(), COLUMNS));
+        const scrollBy = vi.fn();
+        Object.defineProperty(screen.getByRole("tablist"), "scrollBy", {
+          value: scrollBy,
+        });
+
+        await carryOverDoingTab();
+
+        expect(scrollBy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("amorce de la barre d'onglets", () => {
+      function scrollTabsTo(scrollLeft: number) {
+        const bar = screen.getByRole("tablist");
+        Object.defineProperties(bar, {
+          scrollWidth: { value: 500, configurable: true },
+          clientWidth: { value: 300, configurable: true },
+          scrollLeft: { value: scrollLeft, configurable: true },
+        });
+        fireEvent.scroll(bar);
+        return [
+          bar.hasAttribute("data-more-start"),
+          bar.hasAttribute("data-more-end"),
+        ];
+      }
+
+      it("sans débordement, aucune amorce", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        const bar = screen.getByRole("tablist");
+
+        expect(bar.hasAttribute("data-more-start")).toBe(false);
+        expect(bar.hasAttribute("data-more-end")).toBe(false);
+      });
+
+      it("au début d'une barre qui déborde, amorce à droite seulement", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        expect(scrollTabsTo(0)).toEqual([false, true]);
+      });
+
+      it("au milieu, amorce des deux côtés", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        expect(scrollTabsTo(100)).toEqual([true, true]);
+      });
+
+      it("en butée, amorce à gauche seulement", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        expect(scrollTabsTo(200)).toEqual([true, false]);
+      });
+
+      it("l'amorce est un fondu des onglets et un bord ombré, du côté où des onglets restent hors champ", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        const bar = screen.getByRole("tablist");
+        const edge = (side: string) =>
+          bar.parentElement!.querySelector(`[data-board-tabs-more="${side}"]`)!;
+
+        expect(bar.className.split(/\s+/)).toEqual(
+          expect.arrayContaining([
+            "peer",
+            "data-more-start:mask-l-from-90%",
+            "data-more-end:mask-r-from-90%",
+          ]),
+        );
+        // Bords ombrés : masqués tant que la barre ne signale rien de ce côté, jamais lus ni touchés.
+        expect(edge("start").className.split(/\s+/)).toEqual(
+          expect.arrayContaining([
+            "hidden",
+            "peer-data-more-start:block",
+            "pointer-events-none",
+          ]),
+        );
+        expect(edge("end").className.split(/\s+/)).toEqual(
+          expect.arrayContaining([
+            "hidden",
+            "peer-data-more-end:block",
+            "pointer-events-none",
+          ]),
+        );
+        expect(edge("end").getAttribute("aria-hidden")).toBe("true");
+      });
+    });
+
+    it("l'en-tête de colonne n'est pas répété sous l'onglet : masqué sous 768 px, le panneau est nommé par son onglet", () => {
+      render(board(vi.fn(), COLUMNS));
+
+      const header = columnSection("todo").querySelector(
+        "[data-board-header]",
+      )!;
+
+      expect(header.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(["hidden", "md:flex"]),
+      );
+      expect(columnSection("todo").getAttribute("aria-labelledby")).toBe(
+        screen.getByRole("tab", { name: /TODO/ }).id,
+      );
+      expect(screen.getByRole("tabpanel", { name: "TODO3" })).toBe(
+        columnSection("todo"),
+      );
+    });
   });
 
   describe("au-delà de 768 px, en colonnes", () => {
@@ -419,6 +664,16 @@ describe("SortableBoard", () => {
       render(board());
 
       expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(0);
+    });
+
+    it("chaque colonne est nommée par son en-tête, visible", () => {
+      render(board());
+
+      const heading = screen.getByRole("heading", { name: /TODO/ });
+
+      expect(columnSection("todo").getAttribute("aria-labelledby")).toBe(
+        heading.id,
+      );
     });
 
     it("les onglets masqués ne sont pas des cibles : flèche haut sur la première carte d'une colonne ne la déplace pas", async () => {

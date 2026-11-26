@@ -10,6 +10,12 @@
 // horizontal. Une colonne masquée (`display: none`) a un rectangle vide : elle est retirée des cibles, à la
 // souris, au doigt et au clavier. Seuls les rôles ARIA des onglets suivent la largeur en JS (`useMediaQuery`,
 // rendu serveur en onglets, corrigé après l'hydratation sans rien changer à l'écran).
+// Sous 768 px, l'en-tête de colonne n'est pas répété sous l'onglet (masqué en CSS) : l'onglet nomme le panneau.
+// Cible de dépôt en onglets (tâche 14 du plan todo-kanban), rendu seulement, la détection de collision n'en sait
+// rien : l'onglet visé prend l'état actif et l'anneau de cible ; coupé par le bord, il est ramené en entier par le
+// défilement de la barre (jamais de la page) ; la carte portée, large comme l'écran, masque la barre sous le doigt,
+// donc un repère accroché à la copie redit libellé et compteur (`DropTargetMarker`). Amorce : fondu des onglets et
+// bord ombré du côté où des onglets restent hors champ.
 // Défilement horizontal sans aimant (`scroll-snap`) : le défilement automatique de dnd-kit avance par petits
 // `scrollBy`, que l'aimant transforme chacun en saut d'une colonne entière (le tableau s'emballait jusqu'au bout,
 // la colonne d'origine sortait de l'écran ; mesuré dans Chromium et WebKit, D4 de demo-plan.md).
@@ -68,6 +74,8 @@ import {
   pointerWithin,
   TouchSensor,
   type UniqueIdentifier,
+  useDndContext,
+  useDndMonitor,
   useDroppable,
   useSensor,
   useSensors,
@@ -90,6 +98,7 @@ import {
   type ReactNode,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   use,
@@ -161,6 +170,11 @@ const HOVER_CLASSES =
   "pointer-fine:group-hover/card:shadow-glass pointer-fine:group-hover/card:outline pointer-fine:group-hover/card:-outline-offset-1 pointer-fine:group-hover/card:outline-input motion-safe:pointer-fine:group-hover/card:-translate-y-0.5 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo";
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";
+
+/** Place du repère de l'onglet visé au-dessus de la carte portée : sa hauteur (`min-h-9`) et son écart (`mb-2`). */
+const MARKER_ROOM_PX = 44;
+/** Marge gardée entre l'onglet visé et le bord de la barre d'onglets : son retrait (`p-1`). */
+const TAB_REVEAL_MARGIN_PX = 4;
 
 type Layout = Record<string, string[]>;
 type DropKind = "column" | "zone";
@@ -256,6 +270,29 @@ const collisionDetection: CollisionDetection = (all) => {
   return zone ? [zone] : closestCorners(args);
 };
 
+/** Onglets hors champ de la barre d'onglets, de chaque côté. */
+type TabsOverflow = { start: boolean; end: boolean };
+
+function tabsOverflowOf(bar: HTMLElement): TabsOverflow {
+  return {
+    start: bar.scrollLeft > 1,
+    end: bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 1,
+  };
+}
+
+type Edges = { left: number; right: number };
+
+/** Défilement horizontal qui ramène un onglet coupé en entier dans la barre ; 0 s'il y est déjà. */
+function revealOffset(tab: Edges, bar: Edges): number {
+  if (tab.left < bar.left + TAB_REVEAL_MARGIN_PX) {
+    return tab.left - bar.left - TAB_REVEAL_MARGIN_PX;
+  }
+  if (tab.right > bar.right - TAB_REVEAL_MARGIN_PX) {
+    return tab.right - bar.right + TAB_REVEAL_MARGIN_PX;
+  }
+  return 0;
+}
+
 const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) =>
   sortableKeyboardCoordinates(event, {
     ...args,
@@ -280,6 +317,11 @@ export function SortableBoard<T extends BoardItem>({
   const [draft, setDraft] = useState<Layout | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [chosenColumnId, setChosenColumnId] = useState(columns[0]?.id);
+  const tablist = useRef<HTMLDivElement>(null);
+  const [tabsOverflow, setTabsOverflow] = useState<TabsOverflow>({
+    start: false,
+    end: false,
+  });
   // Colonne choisie retirée par le parent : retour à la première.
   const shownColumnId = columns.some((column) => column.id === chosenColumnId)
     ? chosenColumnId
@@ -422,8 +464,43 @@ export function SortableBoard<T extends BoardItem>({
       [next]?.focus();
   }
 
+  // Amorce de la barre d'onglets : relevée au défilement de la barre et quand sa taille ou celle d'un onglet
+  // change (rotation, compteur qui gagne un chiffre). Rien avant l'hydratation : même balisage qu'au serveur.
+  function measureTabs() {
+    const bar = tablist.current;
+    if (!bar) return;
+    const next = tabsOverflowOf(bar);
+    setTabsOverflow((shown) =>
+      shown.start === next.start && shown.end === next.end ? shown : next,
+    );
+  }
+
+  const columnCount = columns.length;
+  useEffect(() => {
+    const bar = tablist.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    // Premier relevé : l'observateur appelle sa fonction dès qu'il observe.
+    const observer = new ResizeObserver(measureTabs);
+    observer.observe(bar);
+    for (const tab of bar.children) observer.observe(tab);
+    return () => observer.disconnect();
+  }, [columnCount]);
+
   const activeItem = activeId ? itemsById.get(activeId) : undefined;
   const panelId = (columnId: string) => `${tabsId}-panel-${columnId}`;
+  const tabId = (columnId: string) => `${tabsId}-tab-${columnId}`;
+  // Onglet visé par la carte portée, pour le repère accroché à la copie.
+  const tabTargetOf = (overId: UniqueIdentifier): TabTarget | null => {
+    const column = columns.find(
+      (candidate) => zoneDropId(candidate.id, "tab") === overId,
+    );
+    return column
+      ? {
+          label: column.label,
+          count: countOf(column, current[column.id] ?? []),
+        }
+      : null;
+  };
 
   return (
     <DndContext
@@ -441,24 +518,45 @@ export function SortableBoard<T extends BoardItem>({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      {/* Onglets sous 768 px seulement ; au-delà, `display: none` les retire aussi des cibles et du lecteur d'écran. */}
-      <div
-        role="tablist"
-        onKeyDown={handleTabKeyDown}
-        aria-label={t("columns")}
-        className="glass flex gap-1 overflow-x-auto rounded-full p-1 md:hidden"
-      >
-        {columns.map((column) => (
-          <BoardTab
-            key={column.id}
-            columnId={column.id}
-            label={column.label}
-            count={countOf(column, current[column.id] ?? [])}
-            selected={column.id === shownColumnId}
-            panelId={panelId(column.id)}
-            onSelect={() => setChosenColumnId(column.id)}
-          />
-        ))}
+      {/* Onglets sous 768 px seulement ; au-delà, `display: none` les retire aussi des cibles et du lecteur d'écran.
+          Le verre est sur l'enveloppe : le fondu d'amorce ne touche que les onglets. */}
+      <div className="glass relative rounded-full md:hidden">
+        <div
+          ref={tablist}
+          role="tablist"
+          onKeyDown={handleTabKeyDown}
+          onScroll={measureTabs}
+          aria-label={t("columns")}
+          data-more-start={tabsOverflow.start || undefined}
+          data-more-end={tabsOverflow.end || undefined}
+          className="peer flex gap-1 overflow-x-auto rounded-full p-1 data-more-end:mask-r-from-90% data-more-start:mask-l-from-90%"
+        >
+          {columns.map((column) => (
+            <BoardTab
+              key={column.id}
+              id={tabId(column.id)}
+              columnId={column.id}
+              label={column.label}
+              count={countOf(column, current[column.id] ?? [])}
+              selected={column.id === shownColumnId}
+              panelId={panelId(column.id)}
+              reducedMotion={reducedMotion}
+              onSelect={() => setChosenColumnId(column.id)}
+            />
+          ))}
+        </div>
+        {/* Amorce : bord ombré du côté où des onglets restent hors champ, visible même quand aucun onglet n'est
+            coupé par le bord ; les onglets s'y fondent (masque de la barre). */}
+        <span
+          aria-hidden="true"
+          data-board-tabs-more="start"
+          className="pointer-events-none absolute inset-y-0 left-0 hidden w-8 rounded-l-full bg-linear-to-r from-pill-track to-transparent peer-data-more-start:block"
+        />
+        <span
+          aria-hidden="true"
+          data-board-tabs-more="end"
+          className="pointer-events-none absolute inset-y-0 right-0 hidden w-8 rounded-r-full bg-linear-to-l from-pill-track to-transparent peer-data-more-end:block"
+        />
       </div>
       <div className="mt-grid flex flex-col md:mt-0 md:flex-row md:gap-grid md:overflow-x-auto md:pb-2">
         {columns.map((column) => (
@@ -473,6 +571,7 @@ export function SortableBoard<T extends BoardItem>({
             onOpen={onOpen}
             hoverable={activeId === null}
             panelId={wide ? undefined : panelId(column.id)}
+            tabId={wide ? undefined : tabId(column.id)}
             className={cn(
               "md:w-80 md:shrink-0",
               column.id !== shownColumnId && "hidden md:flex",
@@ -487,6 +586,7 @@ export function SortableBoard<T extends BoardItem>({
               {renderCard(activeItem, { dragging: true, overlay: true })}
             </LiftedCard>
           ) : null}
+          {activeItem ? <DropTargetMarker targetOf={tabTargetOf} /> : null}
         </DragOverlay>
       </LiftedContext>
     </DndContext>
@@ -505,6 +605,8 @@ type BoardColumnViewProps<T extends BoardItem> = {
   hoverable: boolean;
   /** Sous 768 px, la colonne est le panneau de son onglet. */
   panelId: string | undefined;
+  /** Sous 768 px, l'onglet nomme le panneau : l'en-tête, redite du libellé, n'est pas affiché. */
+  tabId: string | undefined;
   className: string;
 };
 
@@ -518,6 +620,7 @@ function BoardColumnView<T extends BoardItem>({
   onOpen,
   hoverable,
   panelId,
+  tabId,
   className,
 }: BoardColumnViewProps<T>) {
   const headingId = useId();
@@ -538,7 +641,7 @@ function BoardColumnView<T extends BoardItem>({
       ref={setNodeRef}
       id={panelId}
       role={panelId ? "tabpanel" : undefined}
-      aria-labelledby={headingId}
+      aria-labelledby={tabId ?? headingId}
       data-board-column={column.id}
       className={cn(
         "flex flex-col gap-2 rounded-tile bg-pill-track p-tile",
@@ -548,7 +651,8 @@ function BoardColumnView<T extends BoardItem>({
     >
       <h2
         id={headingId}
-        className="flex min-h-11 items-center justify-between gap-2 text-eyebrow text-foreground uppercase"
+        data-board-header=""
+        className="hidden min-h-11 items-center justify-between gap-2 text-eyebrow text-foreground uppercase md:flex"
       >
         <span>{column.label}</span>
         <span className="tabular-nums">{countOf(column, itemIds)}</span>
@@ -736,40 +840,108 @@ function LiftedCard({ reducedMotion, children }: LiftedCardProps) {
   );
 }
 
+type TabTarget = { label: string; count: number };
+
+type DropTargetMarkerProps = {
+  targetOf: (overId: UniqueIdentifier) => TabTarget | null;
+};
+
+/**
+ * Repère de l'onglet visé, accroché à la copie portée : la carte, large comme l'écran, masque la barre d'onglets
+ * sous le doigt. Même pilule que l'onglet actif, au-dessus de la carte ; sans place au-dessus (carte en haut de
+ * l'écran), en dessous. Lecture seule de la cible courante de dnd-kit, rien n'est annoncé (annonces existantes).
+ */
+function DropTargetMarker({ targetOf }: DropTargetMarkerProps) {
+  const { over } = useDndContext();
+  const target = over ? targetOf(over.id) : null;
+  const marker = useRef<HTMLDivElement>(null);
+  const targetLabel = target?.label;
+
+  // Côté choisi dans le DOM, sans état : à l'apparition du repère, puis à chaque mouvement de la carte portée.
+  function place() {
+    const node = marker.current;
+    const carried = node?.parentElement;
+    if (!node || !carried) return;
+    if (carried.getBoundingClientRect().top < MARKER_ROOM_PX) {
+      node.dataset.side = "below";
+    } else {
+      delete node.dataset.side;
+    }
+  }
+
+  useLayoutEffect(place, [targetLabel]);
+  useDndMonitor({ onDragMove: place });
+
+  if (!target) return null;
+  return (
+    <div
+      ref={marker}
+      aria-hidden="true"
+      data-board-drop-marker=""
+      className="pointer-events-none absolute bottom-full left-0 mb-2 flex min-h-9 items-center gap-2 rounded-full bg-pill-active px-4 text-small font-semibold whitespace-nowrap text-foreground shadow-raised outline-2 outline-ring data-[side=below]:top-full data-[side=below]:bottom-auto data-[side=below]:mt-2 data-[side=below]:mb-0"
+    >
+      <span>{target.label}</span>
+      <span className="tabular-nums">{target.count}</span>
+    </div>
+  );
+}
+
 type BoardTabProps = {
+  id: string;
   columnId: string;
   label: string;
   count: number;
   selected: boolean;
   panelId: string;
+  reducedMotion: boolean;
   onSelect: () => void;
 };
 
 function BoardTab({
+  id,
   columnId,
   label,
   count,
   selected,
   panelId,
+  reducedMotion,
   onSelect,
 }: BoardTabProps) {
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef, node, isOver } = useDroppable({
     id: zoneDropId(columnId, "tab"),
     data: { kind: "zone", columnId } satisfies DropData,
   });
 
+  // Onglet visé coupé par le bord de la barre : la barre défile (jamais la page) jusqu'à le montrer en entier.
+  // L'onglet reste sous le pointeur (sa partie visible ne quitte pas le champ) : la cible ne change pas.
+  useEffect(() => {
+    const tab = node.current;
+    const bar = tab?.parentElement;
+    if (!isOver || !tab || !bar) return;
+    const left = revealOffset(
+      tab.getBoundingClientRect(),
+      bar.getBoundingClientRect(),
+    );
+    if (left !== 0) {
+      bar.scrollBy({ left, behavior: reducedMotion ? "auto" : "smooth" });
+    }
+  }, [isOver, node, reducedMotion]);
+
   return (
     <button
       ref={setNodeRef}
+      id={id}
       type="button"
       role="tab"
       aria-selected={selected}
       tabIndex={selected ? 0 : -1}
       aria-controls={selected ? panelId : undefined}
+      data-drop-target={isOver || undefined}
       onClick={onSelect}
       className={cn(
         "flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-small font-semibold",
-        selected
+        // Onglet visé pendant un glisser : état actif complet, cerné de l'anneau de la cible de dépôt.
+        selected || isOver
           ? "bg-pill-active text-foreground shadow-raised"
           : "text-muted-foreground",
         isOver && "outline-2 outline-ring",
