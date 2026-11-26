@@ -121,8 +121,8 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « sous-tâche avec le titre de sa parente ; parente terminée avec 2 ouvertes ; tâche bloquée ; en retard ; terminée (titre et légende atténués) ; sans légende ; EN »
   - Fini quand : tests verts.
 
-- [ ] **17. Extraire la file des déplacements optimistes**
-  - Fichiers : `src/components/kanban/use-board-moves.ts`, `use-board-moves.test.ts`, `src/modules/tasks/view.ts` (application d'un déplacement à un tableau)
+- [x] **17. Extraire la file des déplacements optimistes** — terminée le 2026-11-26 (`98f25fc`)
+  - Fichiers : `src/components/kanban/use-board-moves.ts`, `use-board-moves.test.ts`, `src/components/kanban/board-moves.ts` + test (application d'un déplacement à un tableau d'identifiants : générique, rien de propre aux tâches), démo (`KanbanDemo.tsx`, `demo-board.ts`)
   - Contenu : logique de `KanbanDemo` rendue générique : affiché = enregistré + déplacements en attente, envois en série, échec → retour et message, échec dépassé ignoré, Réessayer ; l'enregistrement est une fonction passée en paramètre.
   - Test à écrire d'abord : tests de `KanbanDemo.test.tsx` portés — « dépôt optimiste ; deux dépôts en série ; échec puis retour ; échec dépassé sans message ; Réessayer »
   - Fini quand : tests verts ; la démo utilise le hook sans changer de comportement.
