@@ -43,12 +43,14 @@
 // de 2 px `input` tracé vers l'intérieur (mesuré 5,04:1 contre la colonne sur brume, 3,48:1 au cœur d'un halo ; l'indigo
 // reste à l'anneau de focus et à la cible de dépôt) ; l'`outline` de la carte reste à l'anneau de focus.
 // Survol (pointeur fin, variantes `pointer-fine` et `hover`) : main ouverte, contour `input` (`outline` de 1 px sur
-// le bord de la carte, rien ne se décale), `shadow-glass`, et la carte monte de 2 px par le ressort du survol de
-// tuile (Motion). La zone survolée est un enfant immobile du nœud mesuré par dnd-kit ; c'est son enfant qui monte :
-// ni rectangle faussé, ni clignotement au bord bas, ni voisine déplacée. Rien pendant un glisser, rien au doigt (pas
-// de survol collé après un tap sur iOS ; Motion ignore le toucher). Main fermée sur la copie.
+// le bord de la carte, rien ne se décale), `shadow-glass`, et la carte monte de 2 px en 0,3 s (course et durée du
+// survol d'une tuile), par une transition CSS (`--ease-out-expo`). Aucun composant d'animation dans une carte
+// déplaçable : un survol tenu par Motion se terminait avant le `mouseup` de dnd-kit et pouvait laisser la carte
+// montée après le dépôt ; `:hover` suit le pointeur réel. La zone survolée est un enfant immobile du nœud mesuré par
+// dnd-kit ; c'est son enfant qui monte : ni rectangle faussé, ni clignotement au bord bas, ni voisine déplacée. Rien
+// pendant un glisser, rien au doigt (pas de survol collé après un tap sur iOS). Main fermée sur la copie.
 // Mouvement réduit : pas d'animation de dépôt ni de glissement des cartes voisines ; la copie n'est ni inclinée ni
-// soulevée, la carte survolée ne monte pas (contour, ombre et empreinte restent, sans transition).
+// soulevée, la carte survolée ne monte pas (`motion-safe` ; contour, ombre et empreinte restent, sans transition).
 import {
   type Announcements,
   closestCorners,
@@ -151,9 +153,12 @@ const FLAT = { rotate: 0, y: 0 };
 const LIFT_SPRING = { type: "spring", bounce: 0.2, duration: 0.3 } as const;
 /** Saisie en cours : lu par la copie, que dnd-kit garde montée pendant l'animation de dépôt. */
 const LiftedContext = createContext(false);
-/** Survol d'une carte : celui d'une tuile (`y` −2, ressort sans rebond, 0,3 s ; DESIGN.md § 7). */
-const HOVER_VARIANTS = { rest: { y: 0 }, hover: { y: -2 } };
-const HOVER_SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
+/**
+ * Survol d'une carte (pointeur fin, hors glisser) : contour `input`, `shadow-glass`, et montée de 2 px en 0,3 s
+ * (course et durée du survol d'une tuile, DESIGN.md § 7), en CSS, jamais en mouvement réduit.
+ */
+const HOVER_CLASSES =
+  "pointer-fine:group-hover/card:shadow-glass pointer-fine:group-hover/card:outline pointer-fine:group-hover/card:-outline-offset-1 pointer-fine:group-hover/card:outline-input motion-safe:pointer-fine:group-hover/card:-translate-y-0.5 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out-expo";
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";
 
@@ -687,28 +692,20 @@ function SortableCard({
       className="relative touch-manipulation rounded-lg select-none pointer-fine:cursor-grab"
     >
       {/* Zone survolée, immobile : c'est son enfant qui monte, jamais le nœud mesuré par dnd-kit. */}
-      <motion.div
-        initial={false}
-        animate="rest"
-        whileHover={hoverable && !reducedMotion ? "hover" : undefined}
-        className="group/card rounded-lg"
-      >
+      <div className="group/card rounded-lg">
         {/* Empreinte : contenu transparent mais à sa taille (la colonne ne bouge pas) et toujours lu par le
             lecteur d'écran, qui garde le nom de la carte focalisée (`invisible` le retirerait). */}
-        <motion.div
+        <div
           data-board-lift=""
-          variants={HOVER_VARIANTS}
-          transition={reducedMotion ? { duration: 0 } : HOVER_SPRING}
           className={cn(
             "rounded-lg",
             isDragging && "opacity-0",
-            hoverable &&
-              "pointer-fine:group-hover/card:shadow-glass pointer-fine:group-hover/card:outline pointer-fine:group-hover/card:-outline-offset-1 pointer-fine:group-hover/card:outline-input",
+            hoverable && HOVER_CLASSES,
           )}
         >
           {children(isDragging)}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
       {/* Pointillé sur un enfant : l'`outline` de la carte reste à l'anneau de focus (saisie au clavier). */}
       {isDragging ? (
         <span

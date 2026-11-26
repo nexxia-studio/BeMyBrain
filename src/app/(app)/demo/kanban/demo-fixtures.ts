@@ -132,7 +132,8 @@ const ROWS: Record<DemoStatus, Row[]> = {
     title,
     [HOME, STUDIO, CLIENT, null][index % 4],
     index % 5 === 0 ? ["admin"] : [],
-    index % 3 === 0 ? 3 : 0,
+    // « Mettre à jour Next.js » : espace chaud et priorité urgente, pour juger une légende fermée (e2e).
+    index === 2 ? 1 : index % 3 === 0 ? 3 : 0,
     -1 - index,
   ]),
   canceled: [

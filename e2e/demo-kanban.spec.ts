@@ -634,13 +634,30 @@ test("@mobile en onglets, pendant un glisser au doigt vers l'onglet « Terminée
       }),
     )
     .toBe(true);
-  const to = await doneTab.boundingBox();
-  if (!to) throw new Error("onglet sans boîte");
-  await finger.move(
-    edge,
-    { x: to.x + to.width / 2, y: to.y + to.height / 2 },
-    5,
-  );
+  // Doigt au bord, la barre défile encore : la boîte de l'onglet ne se lit qu'une fois la barre immobile (même
+  // `scrollLeft` sur deux images de suite, ou en butée), sinon le doigt vise une place périmée (« Annulée »).
+  await expect
+    .poll(() =>
+      tablist.evaluate(
+        (bar) =>
+          new Promise<boolean>((resolve) => {
+            const before = bar.scrollLeft;
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() =>
+                resolve(
+                  bar.scrollLeft === before ||
+                    bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 1,
+                ),
+              ),
+            );
+          }),
+      ),
+    )
+    .toBe(true);
+  const approach = await center(doneTab);
+  await finger.move(edge, approach, 4);
+  // Boîte relue juste avant le dernier déplacement du doigt.
+  await finger.move(approach, await center(doneTab), 1);
   const samples = await stopTabsSampling(page);
   await finger.up();
 
@@ -999,11 +1016,20 @@ function surfaceStyle(target: Locator): Promise<{
   });
 }
 
-/** Décalage vertical (px) posé par `transform` sur la partie qui monte. */
+/** Décalage vertical (px) de la partie qui monte (propriété CSS `translate`, « none » au repos). */
 function liftOffset(target: Locator): Promise<number> {
-  return lift(target).evaluate(
-    (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42,
-  );
+  return lift(target).evaluate((el) => {
+    const [, y = "0"] = getComputedStyle(el).translate.split(" ");
+    return Number.parseFloat(y) || 0;
+  });
+}
+
+/** Aucune trace de survol sur une carte : ni montée, ni contour, ni ombre. */
+async function expectAtRest(target: Locator): Promise<void> {
+  await expect.poll(() => liftOffset(target)).toBe(0);
+  const style = await surfaceStyle(target);
+  expect(style.outlineStyle).toBe("none");
+  expect(style.shadow).toBe("none");
 }
 
 type Rgb = [number, number, number];
@@ -1122,6 +1148,151 @@ test("@desktop au survol d'une carte, main ouverte, contour et ombre plus marqu�
   expect(messages).toEqual([]);
 });
 
+// Correctif de relecture de la tâche 13 : le survol est tenu par `:hover`, il suit le pointeur réel. Tenu par une
+// bibliothèque d'animation, il se terminait avant le `mouseup` du glisser et la carte pouvait rester montée.
+test("@desktop une carte survolée, glissée à la souris puis déposée sur le bandeau « Annulée » ne laisse aucune carte montée, cernée ou ombrée", async ({
+  page,
+}) => {
+  // Tableau défilé jusqu'au bout : « En cours » et le bandeau « Annulée » sont à l'écran ensemble.
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await signIn(page);
+  await openDemo(page);
+  await column(page, "canceled").scrollIntoViewIfNeeded();
+  const target = card(page, "started-1");
+  await target.hover();
+  await expect.poll(() => liftOffset(target)).toBe(-2);
+  const from = await center(target);
+  const band = await center(column(page, "canceled"));
+  // Aucun défilement entre les deux lectures : le pointeur est toujours sur la carte.
+  expect(await center(target)).toEqual(from);
+
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+  await expect(overlay(page)).toBeVisible();
+  await page.mouse.move(band.x, band.y, { steps: 15 });
+  await page.mouse.up();
+
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(card(page, "started-1")).toHaveCount(0);
+  // Le pointeur est sur le bandeau : plus aucune carte n'est survolée, à commencer par celle qui a pris la place.
+  for (const id of ["started-2", "started-3", "completed-1"]) {
+    await expectAtRest(card(page, id));
+  }
+});
+
+test("@desktop une carte survolée, saisie à la souris puis relâchée par Échap revient au repos une fois le pointeur parti", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const target = card(page, "unstarted-1");
+  await target.hover();
+  await expect.poll(() => liftOffset(target)).toBe(-2);
+  const from = await center(target);
+  const away = await center(
+    page.getByRole("heading", { level: 1, name: DEMO.title }),
+  );
+
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y + 30, { steps: 3 });
+  await expect(overlay(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await page.mouse.move(away.x, away.y, { steps: 5 });
+
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(page.getByTestId("board-footprint")).toHaveCount(0);
+  await expectAtRest(target);
+  await expectAtRest(card(page, "unstarted-2"));
+});
+
+/** Tous les pixels d'une boîte (capture d'écran), bords exclus de `inset` px. */
+async function pixelsIn(
+  page: Page,
+  locator: Locator,
+  inset = 0,
+): Promise<Rgb[]> {
+  const box = (await locator.boundingBox())!;
+  const points: { x: number; y: number }[] = [];
+  for (
+    let y = Math.ceil(box.y) + inset;
+    y < Math.floor(box.y + box.height) - inset;
+    y++
+  ) {
+    for (
+      let x = Math.ceil(box.x) + inset;
+      x < Math.floor(box.x + box.width) - inset;
+      x++
+    ) {
+      points.push({ x, y });
+    }
+  }
+  return pixelsAt(page, points);
+}
+
+/** Contraste du trait le plus marqué d'une boîte (texte, icône) contre le fond donné. */
+function strongest(pixels: Rgb[], background: Rgb): number {
+  return Math.max(...pixels.map((pixel) => contrast(pixel, background)));
+}
+
+// Carte fermée : la légende passe au gris (`grayscale`) avec le titre atténué ; la lisibilité reste.
+test("@desktop la légende d'une carte terminée est sans couleur et reste lisible : textes à 4,5:1 au moins, icône de priorité à 3:1 au moins", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  // `completed-3` : espace chaud, priorité urgente, échéance passée.
+  const done = page.locator('[data-demo-card="completed-3"]');
+  const legend = done.locator("[data-card-legend]");
+  const chip = legend.getByText("Orme Conseil", { exact: true });
+  const badge = legend
+    .getByText(fr.tasks.list.priority["1"], { exact: true })
+    .locator("..");
+  const date = legend.locator("span").filter({ hasText: /^\d{1,2} \S+$/ });
+  await done.scrollIntoViewIfNeeded();
+  await expect(chip).toBeVisible();
+  await expect(badge).toBeVisible();
+  await expect(date).toBeVisible();
+  const chipBox = (await chip.boundingBox())!;
+  const badgeBox = (await badge.boundingBox())!;
+  const dateBox = (await date.boundingBox())!;
+
+  // Fonds lus hors du texte : marge gauche de la pastille, haut du badge, carte juste à gauche de la date.
+  const [chipFill, badgeFill, cardFill] = await pixelsAt(page, [
+    {
+      x: Math.round(chipBox.x + 5),
+      y: Math.round(chipBox.y + chipBox.height / 2),
+    },
+    {
+      x: Math.round(badgeBox.x + badgeBox.width / 2),
+      y: Math.round(badgeBox.y + 1),
+    },
+    {
+      x: Math.round(dateBox.x - 3),
+      y: Math.round(dateBox.y + dateBox.height / 2),
+    },
+  ]);
+  const everything = [
+    ...(await pixelsIn(page, chip)),
+    ...(await pixelsIn(page, badge)),
+    ...(await pixelsIn(page, date)),
+  ];
+
+  // Sans couleur : chaque pixel de la légende est un gris (canaux égaux, à l'arrondi près).
+  expect(
+    everything.filter(([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b) > 2),
+  ).toEqual([]);
+  expect(
+    strongest(await pixelsIn(page, chip, 2), chipFill),
+  ).toBeGreaterThanOrEqual(4.5);
+  expect(
+    strongest(await pixelsIn(page, date), cardFill),
+  ).toBeGreaterThanOrEqual(4.5);
+  expect(
+    strongest(await pixelsIn(page, badge, 2), badgeFill),
+  ).toBeGreaterThanOrEqual(3);
+});
+
 test("@desktop en mouvement réduit, une carte survolée prend contour et ombre sans monter", async ({
   page,
 }) => {
@@ -1191,8 +1362,11 @@ for (const backdrop of [
 
     expect(outline).toEqual(["dashed", "2px", "-2px"]);
     expect(contrast(darkest, column)).toBeGreaterThanOrEqual(3);
-    // Fond visiblement différent de la colonne (1,08:1 avant la tâche 13 : fond identique à la colonne).
-    expect(contrast(fill, column)).toBeGreaterThanOrEqual(1.15);
+    // Fond plus clair que la colonne (1,08:1 avant la tâche 13 ; 1,17:1 mesuré sur brume).
+    expect(contrast(fill, column)).toBeGreaterThanOrEqual(1.1);
+    expect(fill[0] + fill[1] + fill[2]).toBeGreaterThan(
+      column[0] + column[1] + column[2],
+    );
     // Le pointillé alterne : des pixels du bord sont au fond de l'empreinte, pas un trait plein.
     expect(row.some((pixel) => contrast(pixel, fill) < 1.05)).toBe(true);
   });

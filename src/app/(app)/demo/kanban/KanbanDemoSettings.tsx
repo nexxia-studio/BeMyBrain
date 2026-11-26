@@ -2,9 +2,8 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, app) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Réglages de la démo du kanban, dans une tuile de verre : repliés sous « Réglages » (le tableau reste visible
-// sans défiler sur iPhone), puis
-// la ligne d'état de l'enregistrement, toujours visible (`role="status"`, sur le verre : jamais de texte secondaire
-// sur le cœur d'un halo). Une colonne sous 768 px, réglages côte à côte au-delà.
+// sans défiler sur iPhone), puis la ligne d'état de l'enregistrement, toujours visible (`role="status"`, sur le
+// verre : jamais de texte secondaire sur le cœur d'un halo). Une colonne sous 768 px, réglages côte à côte au-delà.
 // Le sélecteur « Détail » (D9) n'est pas ici : il est dans la fenêtre du détail (`KanbanDemoDetail`), pour comparer
 // sur place.
 // Mise en page (par la largeur) et délai d'appui (250 ms) fixés après l'essai iPhone : plus de réglage.

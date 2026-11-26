@@ -8,8 +8,8 @@
 // même carte, sans ombre propre ; ombre, inclinaison, survol et empreinte viennent de `SortableBoard`.
 // Carte fermée (terminée ou annulée) : titre en texte secondaire, et la légende perd ses couleurs avec lui
 // (`grayscale` : pastilles d'espace et badge de priorité passent au gris). Pas d'opacité : à 0,85 déjà le texte
-// secondaire tombe à 4,73:1 et la pastille chaude à 4,83:1, pour une atténuation à peine visible ; en gris, chaque
-// texte garde au moins 6,7:1 et l'icône de priorité reste. La carte réelle (tâche 16 du plan) reprend cette règle.
+// secondaire tombe à 4,73:1 et la pastille chaude à 4,83:1, pour une atténuation à peine visible ; en gris, mesuré
+// sur capture : date 6,90:1, pastille chaude 7,86:1, icône du badge Urgente 10,67:1 (verrou : e2e de la démo). La carte réelle (tâche 16 du plan) reprend cette règle.
 // Pastille « Bloquée » : forme des pastilles, bordée `input` (≥ 3:1), texte encre, icône Lucide ; aucune couleur
 // d'espace, la braise reste au retard. À valider à la spec.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.

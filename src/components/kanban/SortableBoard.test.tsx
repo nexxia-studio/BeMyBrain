@@ -859,11 +859,18 @@ describe("surfaces du tableau (Creux)", () => {
 });
 
 describe("survol d'une carte", () => {
-  const HOVER_CLASSES = [
+  const SURFACE_CLASSES = [
     "pointer-fine:group-hover/card:shadow-glass",
     "pointer-fine:group-hover/card:outline",
     "pointer-fine:group-hover/card:-outline-offset-1",
     "pointer-fine:group-hover/card:outline-input",
+  ];
+  // Montée de 2 px en CSS : même course et même durée que le survol d'une tuile, jamais en mouvement réduit.
+  const LIFT_CLASSES = [
+    "motion-safe:pointer-fine:group-hover/card:-translate-y-0.5",
+    "motion-safe:transition-transform",
+    "motion-safe:duration-300",
+    "motion-safe:ease-out-expo",
   ];
   const classesOf = (element: Element) => element.className.split(/\s+/);
 
@@ -875,30 +882,36 @@ describe("survol d'une carte", () => {
     return lift(id).parentElement as HTMLElement;
   }
 
-  // Motion écoute `pointerenter` sur l'élément lui-même (l'événement ne remonte pas).
-  async function enter(id: string, pointerType: string) {
+  // Événement qu'écouterait une bibliothèque d'animation posée sur la zone (il ne remonte pas).
+  async function enter(id: string) {
     const event = new MouseEvent("pointerenter");
-    Object.defineProperty(event, "pointerType", { value: pointerType });
+    Object.defineProperty(event, "pointerType", { value: "mouse" });
     await act(async () => {
       hoverZone(id).dispatchEvent(event);
-      // Motion pose la valeur à la frame suivante, même animations coupées.
       for (let frame = 0; frame < 2; frame++) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
       }
     });
   }
 
+  function expectNoScriptedMotion(id: string) {
+    expect(lift(id).getAttribute("style")).toBeNull();
+    expect(hoverZone(id).getAttribute("style")).toBeNull();
+  }
+
   it("au repos, la carte porte contour et ombre de survol réservés au pointeur fin", () => {
     render(board());
 
-    expect(classesOf(lift("a"))).toEqual(expect.arrayContaining(HOVER_CLASSES));
+    expect(classesOf(lift("a"))).toEqual(
+      expect.arrayContaining(SURFACE_CLASSES),
+    );
     expect(classesOf(hoverZone("a"))).toContain("group/card");
   });
 
   it("le contour et l'ombre ne sont posés ni sur le nœud mesuré par le glisser ni hors pointeur fin", () => {
     render(board());
 
-    expect(cardHandle("a").className).not.toMatch(/shadow|outline/);
+    expect(cardHandle("a").className).not.toMatch(/shadow|outline|translate/);
     expect(
       classesOf(lift("a")).filter(
         (name) =>
@@ -907,32 +920,35 @@ describe("survol d'une carte", () => {
     ).toEqual([]);
   });
 
-  it("à la souris, la carte monte de 2 px sans déplacer le nœud mesuré", async () => {
+  it("au survol, la carte monte de 2 px par une transition CSS de 0,3 s, sur l'enfant de la zone survolée", () => {
     render(board());
 
-    await enter("a", "mouse");
-
-    expect(lift("a").style.transform).toContain("translateY(-2px)");
-    expect(cardHandle("a").style.transform).toBe("");
-    expect(hoverZone("a").style.transform).toBe("");
+    expect(classesOf(lift("a"))).toEqual(expect.arrayContaining(LIFT_CLASSES));
+    expect(hoverZone("a").parentElement).toBe(cardHandle("a"));
+    expect(hoverZone("a").className).not.toMatch(/translate|transition/);
   });
 
-  it("au doigt, la carte ne monte pas", async () => {
+  it("la montée est réservée au pointeur fin et coupée en mouvement réduit", () => {
     render(board());
 
-    await enter("a", "touch");
-
-    expect(lift("a").style.transform).not.toContain("translateY");
+    const moving = classesOf(lift("a")).filter((name) =>
+      /translate|transition|duration|ease/.test(name),
+    );
+    expect(moving).toHaveLength(LIFT_CLASSES.length);
+    expect(moving.filter((name) => !name.startsWith("motion-safe:"))).toEqual(
+      [],
+    );
+    expect(moving.filter((name) => name.includes("translate"))).toEqual([
+      "motion-safe:pointer-fine:group-hover/card:-translate-y-0.5",
+    ]);
   });
 
-  it("en mouvement réduit, la carte ne monte pas mais garde contour et ombre", async () => {
-    reducedMotion.current = true;
+  it("aucun composant d'animation dans une carte : le survol ne pose aucun style en ligne", async () => {
     render(board());
 
-    await enter("a", "mouse");
+    await enter("a");
 
-    expect(lift("a").style.transform).not.toContain("translateY");
-    expect(classesOf(lift("a"))).toEqual(expect.arrayContaining(HOVER_CLASSES));
+    expectNoScriptedMotion("a");
   });
 
   it("pendant un glisser, aucune carte n'a de survol : ni classes ni translation", async () => {
@@ -940,20 +956,49 @@ describe("survol d'une carte", () => {
     cardHandle("a").focus();
     await press(cardHandle("a"), "Space");
 
-    await enter("b", "mouse");
+    await enter("b");
 
     for (const id of ["a", "b", "d"]) {
       expect(
         classesOf(lift(id)).filter((name) => name.includes("group-hover")),
       ).toEqual([]);
     }
-    expect(lift("b").style.transform).not.toContain("translateY");
+    expectNoScriptedMotion("b");
   });
 
-  it("le survol revient après le dépôt", async () => {
+  it("une carte survolée puis glissée et déposée ne reste pas montée", async () => {
     render(board());
+    await enter("a");
+
     await dragWithKeyboard("a", ["ArrowDown"]);
 
-    expect(classesOf(lift("b"))).toEqual(expect.arrayContaining(HOVER_CLASSES));
+    expectNoScriptedMotion("a");
+    expect(classesOf(lift("a"))).toEqual(
+      expect.arrayContaining([...SURFACE_CLASSES, ...LIFT_CLASSES]),
+    );
+  });
+
+  it("une carte survolée puis saisie et relâchée par Échap ne reste pas montée", async () => {
+    render(board());
+    await enter("a");
+    cardHandle("a").focus();
+    await press(cardHandle("a"), "Space");
+
+    await press(cardHandle("a"), "Escape");
+
+    expectNoScriptedMotion("a");
+    expect(classesOf(lift("a"))).toEqual(
+      expect.arrayContaining([...SURFACE_CLASSES, ...LIFT_CLASSES]),
+    );
+  });
+
+  it("pendant la saisie, le contenu de la carte saisie est transparent, sans autre style", async () => {
+    render(board());
+    cardHandle("a").focus();
+
+    await press(cardHandle("a"), "Space");
+
+    expect(classesOf(lift("a"))).toContain("opacity-0");
+    expect(classesOf(lift("b"))).not.toContain("opacity-0");
   });
 });
