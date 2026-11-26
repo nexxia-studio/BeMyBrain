@@ -11,10 +11,12 @@ import { buildTask } from "../../../../../tests/factories/build-task";
 const requireSessionWithToken = vi.hoisted(() => vi.fn());
 const loadCurrentScope = vi.hoisted(() => vi.fn());
 const loadTaskList = vi.hoisted(() => vi.fn());
+const readTasksView = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({ requireSessionWithToken }));
 vi.mock("@/lib/context-filter", () => ({ loadCurrentScope }));
 vi.mock("@/modules/tasks/load", () => ({ loadTaskList }));
+vi.mock("@/lib/preferences", () => ({ readTasksView }));
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
 vi.mock("@/lib/preferences-actions", () => ({ setContextSelection: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
@@ -74,6 +76,7 @@ async function renderPage(search: Record<string, string> = {}) {
 beforeEach(() => {
   requireSessionWithToken.mockResolvedValue({ session: SESSION, token: TOKEN });
   loadTaskList.mockResolvedValue({ tasks: [], truncated: false });
+  readTasksView.mockResolvedValue("list");
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -198,6 +201,25 @@ describe("page /tasks", () => {
     await renderPage();
 
     expect(screen.getByText("Trustup")).toBeTruthy();
+  });
+
+  // raccourci: tâche 18, le tableau n'existe pas encore — à remplacer à la tâche 20 par les tests de la vue Tableau.
+  it("vue Tableau mémorisée : la préférence est lue, la liste reste affichée et le sélecteur de vue attend le tableau", async () => {
+    loadCurrentScope.mockResolvedValue({
+      side: "private",
+      contexts: [],
+      contextId: null,
+    });
+    readTasksView.mockResolvedValue("board");
+
+    await renderPage();
+
+    expect(readTasksView).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("group", { name: "Vue" })).toBeNull();
+    expect(screen.getByRole("switch", { name: "Terminées" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Ajouter une tâche" }),
+    ).toBeTruthy();
   });
 
   it("liste tronquée : le dit sous la liste", async () => {

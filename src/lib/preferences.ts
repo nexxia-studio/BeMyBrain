@@ -10,6 +10,8 @@ import {
   type TileHeights,
 } from "@/modules/dashboard/tile-heights";
 
+import { tasksViews, type TasksView } from "./tasks-view";
+
 // Préférences d'affichage (plan socle, décision « Choix Privé / Pro ») : cookies lus côté serveur,
 // jamais une donnée métier. Toute valeur inattendue retombe sur un défaut sûr, sans erreur.
 
@@ -23,7 +25,11 @@ export function contextsCookie(side: Side): string {
   return `bmb_contexts_${side}`;
 }
 
+/** Vue de la to-do, Liste ou Tableau (spec todo-kanban, « Vue mémorisée »). */
+export const TASKS_VIEW_COOKIE = "bmb_tasks_view";
+
 const DEFAULT_SIDE: Side = "private";
+const DEFAULT_TASKS_VIEW: TasksView = "list";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 // Bien au-delà du nombre de contextes d'un workspace ; borne la taille du cookie.
 const MAX_SELECTED_CONTEXTS = 20;
@@ -44,6 +50,11 @@ export const PREFERENCE_COOKIE_OPTIONS = {
 export function parseSide(raw: string | undefined): Side {
   const result = sideSchema.safeParse(raw);
   return result.success ? result.data : DEFAULT_SIDE;
+}
+
+/** Vue de la to-do ; absente ou hors de la liste fermée → Liste. Sert à la lecture comme à l'écriture. */
+export function parseTasksView(raw: unknown): TasksView {
+  return tasksViews.find((view) => view === raw) ?? DEFAULT_TASKS_VIEW;
 }
 
 /**
@@ -67,6 +78,10 @@ export function serializeContextSelection(ids: unknown): string | null {
 
 export async function readSide(): Promise<Side> {
   return parseSide((await cookies()).get(SIDE_COOKIE)?.value);
+}
+
+export async function readTasksView(): Promise<TasksView> {
+  return parseTasksView((await cookies()).get(TASKS_VIEW_COOKIE)?.value);
 }
 
 /** Espaces retenus pour `side`, toujours revalidés contre `available` (espaces du workspace). */

@@ -259,6 +259,11 @@
         "limit": "{max} tags at most."
       }
     },
+    "view": {
+      "label": "View",
+      "list": "List",
+      "board": "Board"
+    },
     "list": {
       "title": "To-do",
       "completedToggle": "Completed",

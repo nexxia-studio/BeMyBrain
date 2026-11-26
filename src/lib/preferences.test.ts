@@ -5,8 +5,10 @@ import {
   contextsCookie,
   parseContextSelection,
   parseSide,
+  parseTasksView,
   serializeContextSelection,
   SIDE_COOKIE,
+  TASKS_VIEW_COOKIE,
 } from "./preferences";
 
 const TRUSTUP = "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b";
@@ -76,4 +78,33 @@ describe("préférences d'affichage (cookies)", () => {
     );
     expect(serializeContextSelection(["<script>"])).toBeNull();
   });
+});
+
+describe("vue de la to-do (cookie bmb_tasks_view)", () => {
+  it("nomme le cookie de la vue bmb_tasks_view", () => {
+    expect(TASKS_VIEW_COOKIE).toBe("bmb_tasks_view");
+  });
+
+  it("lit la vue Tableau enregistrée", () => {
+    expect(parseTasksView("board")).toBe("board");
+  });
+
+  it("lit la vue Liste enregistrée", () => {
+    expect(parseTasksView("list")).toBe("list");
+  });
+
+  it("un cookie absent retombe sur la liste", () => {
+    expect(parseTasksView(undefined)).toBe("list");
+  });
+
+  it("une valeur inconnue retombe sur la liste", () => {
+    expect(parseTasksView("kanban")).toBe("list");
+  });
+
+  it.each(["", "BOARD", " board", "board,list", "__proto__", "toString"])(
+    "une valeur malformée (« %s ») retombe sur la liste",
+    (raw) => {
+      expect(parseTasksView(raw)).toBe("list");
+    },
+  );
 });

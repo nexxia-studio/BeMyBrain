@@ -259,6 +259,11 @@
         "limit": "{max} tags au plus."
       }
     },
+    "view": {
+      "label": "Vue",
+      "list": "Liste",
+      "board": "Tableau"
+    },
     "list": {
       "title": "To-do",
       "completedToggle": "Terminées",
