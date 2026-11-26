@@ -133,7 +133,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « valeur lue, défaut, valeur inconnue ; clic sur Tableau enregistre et rafraîchit »
   - Fini quand : tests verts ; le sélecteur n'est pas encore branché sur une vue.
 
-- [ ] **19. Mémoriser les options du tableau**
+- [x] **19. Mémoriser les options du tableau** — terminée le 2026-11-26 (`fe1645b`)
   - Fichiers : `src/lib/preferences.ts`, `src/components/tasks/BoardOptions.tsx` + test, `src/app/(app)/tasks/actions.ts`, `messages/{fr,en}.json`
   - Contenu : trois cookies : sous-tâches visibles (vrai par défaut), sous-tâches terminées masquées (faux), Annulée dépliée (faux) ; interrupteurs « Sous-tâches » et « Masquer les sous-tâches terminées » du modèle « Terminées », le second désactivé quand le premier est éteint ; rangée qui ne pousse pas la première carte sous la barre d'onglets à 390 px.
   - Test à écrire d'abord : « défauts ; valeurs inconnues → défauts ; bascule enregistre et rafraîchit ; second interrupteur désactivé »
