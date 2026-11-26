@@ -196,3 +196,116 @@ export async function trashTasks(page: Page, ids: readonly string[]) {
     await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
   }
 }
+
+// Aides du tableau (spec todo-kanban, scénarios 1 à 5 et 7).
+
+/** Préférences d'affichage du tableau, posées en cookies avant d'ouvrir `/tasks` (jamais par l'interface). */
+export type BoardPreferences = {
+  view?: "list" | "board";
+  side?: "private" | "pro";
+  subtasks?: boolean;
+  hideDoneSubtasks?: boolean;
+  canceledOpen?: boolean;
+};
+
+export async function setBoardPreferences(
+  page: Page,
+  {
+    view = "board",
+    side = "private",
+    subtasks = true,
+    hideDoneSubtasks = false,
+    canceledOpen = false,
+  }: BoardPreferences = {},
+): Promise<void> {
+  const url = new URL(page.url()).origin;
+  const flag = (value: boolean) => (value ? "1" : "0");
+  await page.context().addCookies(
+    [
+      ["bmb_tasks_view", view],
+      ["bmb_side", side],
+      ["bmb_board_subtasks", flag(subtasks)],
+      ["bmb_board_hide_done_subtasks", flag(hideDoneSubtasks)],
+      ["bmb_board_canceled_open", flag(canceledOpen)],
+    ].map(([name, value]) => ({ name, value, url })),
+  );
+}
+
+/** Colonne du tableau (une par catégorie de statut). */
+export function boardColumn(page: Page, category: string): Locator {
+  return page.locator(`[data-board-column="${category}"]`);
+}
+
+/** Carte du tableau, par l'identifiant de sa tâche (nœud déplaçable : rôle bouton, focus, glisser). */
+export function boardCard(scope: Page | Locator, id: string): Locator {
+  return scope.locator(`[data-board-card="${id}"]`);
+}
+
+/** Ouvre `/tasks` en vue Tableau et attend l'hydratation (dnd-kit monte sa région d'annonces côté client). */
+export async function openBoard(page: Page, query = ""): Promise<void> {
+  await page.goto(`/tasks${query}`);
+  await expect(boardColumn(page, "unstarted")).toBeAttached();
+  await expect(page.locator('[id^="DndLiveRegion-"]')).toBeAttached();
+}
+
+/** Priorité d'une tâche, par la pastille de son détail (adresse directe). */
+export async function setTaskPriority(
+  page: Page,
+  id: string,
+  level: "1" | "2" | "3" | "4",
+): Promise<void> {
+  await page.goto(`/tasks/${id}`);
+  const detail = detailDialog(page);
+  const label = fr.tasks.detail.priority.label;
+  await detail.getByRole("button", { name: new RegExp(`^${label} :`) }).click();
+  await page
+    .getByRole("menuitemradio", { name: fr.tasks.detail.priority[level] })
+    .click();
+  await expect(
+    detail.getByRole("button", {
+      name: `${label} : ${fr.tasks.detail.priority[level]}`,
+    }),
+  ).toBeVisible();
+}
+
+/** Sous-tâche créée par la ligne d'ajout du détail de sa parente ; renvoie son identifiant. */
+export async function addSubtask(
+  page: Page,
+  parentId: string,
+  title: string,
+): Promise<string> {
+  if (!page.url().endsWith(`/tasks/${parentId}`)) {
+    await page.goto(`/tasks/${parentId}`);
+  }
+  const detail = detailDialog(page);
+  const field = detail.getByLabel(fr.tasks.detail.subtasks.add);
+  await field.fill(title);
+  await field.press("Enter");
+  const link = detail.getByRole("link", { name: title });
+  await expect(link).toBeVisible();
+  return idFromHref(await link.getAttribute("href"));
+}
+
+/**
+ * Restes d'un parcours interrompu : toute tâche active dont le titre commence par `prefix`, des deux côtés,
+ * terminées et annulées comprises, est mise à la corbeille. Renvoie le nombre de tâches trouvées.
+ */
+export async function sweepTasks(page: Page, prefix: string): Promise<number> {
+  const found = new Set<string>();
+  for (const side of ["private", "pro"] as const) {
+    await setBoardPreferences(page, { view: "list", side });
+    await page.goto("/tasks?completed=1");
+    await expect(
+      page.getByRole("heading", { level: 1, name: fr.tasks.list.title }),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const links = page.getByRole("link", { name: new RegExp(`^${prefix} `) });
+    for (const href of await links.evaluateAll((all) =>
+      all.map((link) => link.getAttribute("href")),
+    )) {
+      found.add(idFromHref(href));
+    }
+  }
+  await trashTasks(page, [...found]);
+  return found.size;
+}
