@@ -97,7 +97,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : `TaskList.test.tsx`, `ChoiceChip.test.tsx` — « priorité 2 : classe de teinte haute et icône ; priorité 0 : ni teinte ni icône ; menu : une teinte par option »
   - Fini quand : tests verts ; captures 390 px et 1280 px regardées.
 
-- [ ] **13. Renforcer survol et empreinte, Creux par défaut**
+- [x] **13. Renforcer survol et empreinte, Creux par défaut** — terminée le 2026-11-26 (`195c93b`)
   - Fichiers : `src/components/kanban/SortableBoard.tsx`, `SortableBoard.test.tsx`, `e2e/demo-kanban.spec.ts`
   - Contenu : surface Creux par défaut de `SortableBoard` (la variante Verre disparaît) ; survol (pointeur fin) : contour `input`, `shadow-glass`, translation de 2 px par le ressort du survol de tuile, rien en mouvement réduit ni au doigt ; empreinte : fond distinct de la colonne et pointillé 2 px ; légende d'une carte fermée atténuée. Capteurs, délai, soulèvement non touchés.
   - Test à écrire d'abord : e2e ordinateur — « ombre et contour calculés diffèrent entre repos et survol ; pointillé de l'empreinte ≥ 3:1 contre la colonne (lecture de pixels) »
