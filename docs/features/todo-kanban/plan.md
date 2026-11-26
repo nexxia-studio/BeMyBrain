@@ -145,7 +145,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : `TaskBoard.test.tsx` — « cinq colonnes ; dépôt → `tasks.move` avec les voisines ; échec → message ; Tout voir ; Annulée dépliée selon la préférence » ; `loading.test.tsx` du tableau
   - Fini quand : tests verts ; tableau utilisable sur `pnpm dev` avec de vraies tâches.
 
-- [ ] **21. Prouver le tableau en e2e**
+- [x] **21. Prouver le tableau en e2e** — terminée le 2026-11-26 (`986434e`), 27 tests verts deux fois de suite (ordinateur et mobile) ; « Tout voir » non joué (moins de 21 tâches terminées sur le compte e2e) ; restent dans la démo pour la tâche 27 : colonne vide et haute, glisser au doigt en colonnes (1024 px), défilement au doigt avant 250 ms, amorce et encre des onglets coupés, contraste de l'empreinte, survol en mouvement réduit et après Échap
   - Fichiers : `e2e/todo-kanban.spec.ts`, `e2e/todo.ts` (aides)
   - Contenu : scénarios 1 à 5 et 7 de la spec : déplacement gardé au rechargement (souris et doigt), ordre gardé à travers un changement de filtre et le masquage des sous-tâches, Terminée et Annulée (bandeau, dépliée, onglet), échec réseau puis Réessayer, clavier, sous-tâches en cartes et les deux interrupteurs ; console sans avertissement.
   - Test à écrire d'abord : ce fichier, rouge tant que la tâche 20 n'est pas complète sur un point.
