@@ -128,18 +128,18 @@ Règles communes à toutes les tâches :
   - Fini quand : tests verts ; la démo utilise le hook sans changer de comportement.
 
 - [x] **18. Mémoriser la vue Liste ou Tableau** — terminée le 2026-11-26 (`a05bdb4`)
-  - Fichiers : `src/lib/preferences.ts`, `src/components/tasks/ViewSwitch.tsx` + test, `src/app/(app)/tasks/actions.ts`, `messages/{fr,en}.json`
+  - Fichiers : `src/lib/preferences.ts`, `src/lib/tasks-view.ts`, `src/lib/preferences-actions.ts` (`setTasksView`), `src/components/tasks/ViewSwitch.tsx` + test, `messages/{fr,en}.json`
   - Contenu : cookie `bmb_tasks_view` (`list` par défaut, valeur inconnue → `list`) ; pilule à deux segments du modèle de la bascule Privé / Pro, `aria-pressed`, zones ≥ 44 px.
   - Test à écrire d'abord : « valeur lue, défaut, valeur inconnue ; clic sur Tableau enregistre et rafraîchit »
   - Fini quand : tests verts ; le sélecteur n'est pas encore branché sur une vue.
 
 - [x] **19. Mémoriser les options du tableau** — terminée le 2026-11-26 (`fe1645b`)
-  - Fichiers : `src/lib/preferences.ts`, `src/components/tasks/BoardOptions.tsx` + test, `src/app/(app)/tasks/actions.ts`, `messages/{fr,en}.json`
+  - Fichiers : `src/lib/preferences.ts`, `src/lib/tasks-view.ts`, `src/lib/preferences-actions.ts` (`setBoardOption`), `src/components/tasks/BoardOptions.tsx` + test, `messages/{fr,en}.json`
   - Contenu : trois cookies : sous-tâches visibles (vrai par défaut), sous-tâches terminées masquées (faux), Annulée dépliée (faux) ; interrupteurs « Sous-tâches » et « Masquer les sous-tâches terminées » du modèle « Terminées », le second désactivé quand le premier est éteint ; rangée qui ne pousse pas la première carte sous la barre d'onglets à 390 px.
   - Test à écrire d'abord : « défauts ; valeurs inconnues → défauts ; bascule enregistre et rafraîchit ; second interrupteur désactivé »
   - Fini quand : tests verts.
 
-- [ ] **20. Afficher le tableau sur `/tasks`**
+- [x] **20. Afficher le tableau sur `/tasks`** — terminée le 2026-11-26 (`f89d513` tableau, `8e577d2` page et « Tout voir », `20bf1f1` givre et DESIGN.md) ; constat à traiter avant l'essai sur ordinateur : dépôt dans une colonne ouverte vide ou courte quand le tableau est haut (collision `closestCorners` de `SortableBoard`, fichier figé)
   - Fichiers : `src/app/(app)/tasks/(list)/page.tsx`, `(list)/loading.tsx`, `src/components/tasks/TaskBoard.tsx` + test, `src/components/tasks/list-query.ts`
   - Contenu : vue Tableau = `loadBoard` (options de la tâche 19) + `SortableBoard` + `TaskCard` + `use-board-moves` branché sur `tasks.move` ; « Tout voir » de Terminée et d'Annulée ; Annulée repliable (tâche 15) avec son état mémorisé ; ouverture du détail par la route existante, requête gardée ; givre de chargement du tableau ; interrupteur « Terminées » en vue liste seulement ; message de plafond.
   - Test à écrire d'abord : `TaskBoard.test.tsx` — « cinq colonnes ; dépôt → `tasks.move` avec les voisines ; échec → message ; Tout voir ; Annulée dépliée selon la préférence » ; `loading.test.tsx` du tableau
