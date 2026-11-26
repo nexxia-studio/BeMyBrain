@@ -29,6 +29,13 @@ import { BlockedChip } from "./BlockedChip";
 import { contextChipClass } from "./context-chip-class";
 import { isRowPriority } from "./priority-icons";
 import { PriorityBadge } from "./PriorityBadge";
+import {
+  TASK_CARD_CLASSES,
+  TASK_CARD_LEGEND_CLASSES,
+  TASK_CARD_LEGEND_TEXT,
+  TASK_CARD_SHADOW,
+  TASK_CARD_TITLE_TEXT,
+} from "./task-board-layout";
 import { TaskLegendItems } from "./TaskLegendItems";
 
 type TaskCardProps = {
@@ -67,16 +74,16 @@ export function TaskCard({ task, today, showContext, state }: TaskCardProps) {
       // Le calque du glisser n'est pas la carte en place : pas de repère, la carte se retrouve sans ambiguïté.
       data-task-card={state.overlay ? undefined : task.id}
       className={cn(
-        "flex min-h-11 flex-col justify-center gap-1 rounded-lg px-3.5 py-2.5",
-        "border border-border bg-popover",
+        TASK_CARD_CLASSES,
         // Le calque du glisser porte déjà son ombre (`SortableBoard`).
-        !state.overlay && "shadow-raised",
+        !state.overlay && TASK_CARD_SHADOW,
       )}
     >
       {/* Contenu saisi : jamais traduit. */}
       <span
         className={cn(
-          "line-clamp-2 text-body break-words",
+          TASK_CARD_TITLE_TEXT,
+          "line-clamp-2 break-words",
           closed && "text-muted-foreground",
         )}
       >
@@ -86,7 +93,9 @@ export function TaskCard({ task, today, showContext, state }: TaskCardProps) {
         <span
           data-card-legend=""
           className={cn(
-            "flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-muted-foreground",
+            TASK_CARD_LEGEND_CLASSES,
+            TASK_CARD_LEGEND_TEXT,
+            "text-muted-foreground",
             closed && "grayscale",
           )}
         >
