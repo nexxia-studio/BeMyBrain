@@ -190,6 +190,9 @@ const WIDE_QUERY = "(min-width: 48rem)";
 const MARKER_ROOM_PX = 44;
 /** Marge gardée entre l'onglet visé et le bord de la barre d'onglets : son retrait (`p-1`). */
 const TAB_REVEAL_MARGIN_PX = 4;
+/** Amorce de la barre d'onglets : bord ombré (`w-8`) et fondu des onglets sur les derniers 10 % (`mask-*-from-90%`). */
+const TAB_FADE_EDGE_PX = 32;
+const TAB_FADE_SHARE = 0.1;
 
 type Layout = Record<string, string[]>;
 type DropKind = "column" | "zone";
@@ -297,14 +300,19 @@ function tabsOverflowOf(bar: HTMLElement): TabsOverflow {
 
 type Edges = { left: number; right: number };
 
-/** Défilement horizontal qui ramène un onglet coupé en entier dans la barre ; 0 s'il y est déjà. */
-function revealOffset(tab: Edges, bar: Edges): number {
-  if (tab.left < bar.left + TAB_REVEAL_MARGIN_PX) {
-    return tab.left - bar.left - TAB_REVEAL_MARGIN_PX;
-  }
-  if (tab.right > bar.right - TAB_REVEAL_MARGIN_PX) {
-    return tab.right - bar.right + TAB_REVEAL_MARGIN_PX;
-  }
+/**
+ * Défilement horizontal qui ramène un onglet (visé ou choisi) en entier dans la barre ; 0 s'il y est déjà. Du
+ * côté où il reste des onglets hors champ, l'amorce est affichée : l'onglet s'arrête avant elle, sinon son
+ * compteur sortirait à demi effacé par le fondu et le bord ombré.
+ */
+function revealOffset(tab: Edges, bar: Edges, more: TabsOverflow): number {
+  const fade =
+    Math.max(TAB_FADE_EDGE_PX, (bar.right - bar.left) * TAB_FADE_SHARE) +
+    TAB_REVEAL_MARGIN_PX;
+  const start = more.start ? fade : TAB_REVEAL_MARGIN_PX;
+  const end = more.end ? fade : TAB_REVEAL_MARGIN_PX;
+  if (tab.left < bar.left + start) return tab.left - bar.left - start;
+  if (tab.right > bar.right - end) return tab.right - bar.right + end;
   return 0;
 }
 
@@ -589,13 +597,6 @@ export function SortableBoard<T extends BoardItem>({
             wide={wide}
             panelId={wide ? undefined : panelId(column.id)}
             tabId={wide ? undefined : tabId(column.id)}
-            toggleLabel={t(
-              column.collapsible && column.collapsed ? "expand" : "collapse",
-              {
-                column: column.label,
-                count: countOf(column, current[column.id] ?? []),
-              },
-            )}
             onCollapsedChange={onCollapsedChange}
             className={column.id === shownColumnId ? "" : "hidden md:flex"}
           />
@@ -631,8 +632,6 @@ type BoardColumnViewProps<T extends BoardItem> = {
   panelId: string | undefined;
   /** Sous 768 px, l'onglet nomme le panneau : l'en-tête, redite du libellé, n'est pas affiché. */
   tabId: string | undefined;
-  /** Nom du bouton d'une colonne repliable : libellé, compteur, action. */
-  toggleLabel: string;
   onCollapsedChange:
     ((columnId: string, collapsed: boolean) => void) | undefined;
   className: string;
@@ -650,10 +649,10 @@ function BoardColumnView<T extends BoardItem>({
   wide,
   panelId,
   tabId,
-  toggleLabel,
   onCollapsedChange,
   className,
 }: BoardColumnViewProps<T>) {
+  const t = useTranslations("kanban");
   const headingId = useId();
   const regionId = useId();
   const collapsible = column.collapsible ?? false;
@@ -713,7 +712,11 @@ function BoardColumnView<T extends BoardItem>({
             type="button"
             aria-expanded={!folded}
             aria-controls={regionId}
-            aria-label={toggleLabel}
+            // Nom du bouton : libellé, compteur, action.
+            aria-label={t(folded ? "expand" : "collapse", {
+              column: column.label,
+              count: countOf(column, itemIds),
+            })}
             onClick={() => onCollapsedChange?.(column.id, !folded)}
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-full text-foreground pointer-fine:hover:bg-row",
@@ -928,6 +931,10 @@ type DropTargetMarkerProps = {
  * Repère de l'onglet visé, accroché à la copie portée : la carte, large comme l'écran, masque la barre d'onglets
  * sous le doigt. Même pilule que l'onglet actif, au-dessus de la carte ; sans place au-dessus (carte en haut de
  * l'écran), en dessous. Lecture seule de la cible courante de dnd-kit, rien n'est annoncé (annonces existantes).
+ * Il rend `null` hors cible et ne doit jamais être monté en permanence : dnd-kit mesure le premier enfant du calque
+ * du glisser quand il est seul, sinon son enveloppe. Cette mesure se fait au montage du calque et au dépôt, deux
+ * instants où le repère est absent (aucun onglet visé) : la carte inclinée est mesurée. Monté en permanence, il
+ * ferait mesurer l'enveloppe droite à sa place et décalerait collisions et animation de dépôt.
  */
 function DropTargetMarker({ targetOf }: DropTargetMarkerProps) {
   const { over } = useDndContext();
@@ -990,20 +997,26 @@ function BoardTab({
     data: { kind: "zone", columnId } satisfies DropData,
   });
 
-  // Onglet visé coupé par le bord de la barre : la barre défile (jamais la page) jusqu'à le montrer en entier.
-  // L'onglet reste sous le pointeur (sa partie visible ne quitte pas le champ) : la cible ne change pas.
+  // Onglet visé pendant un glisser, ou choisi, coupé par le bord de la barre ou pris dans son amorce : la barre
+  // défile (jamais la page) jusqu'à le montrer en entier, hors de l'amorce. En butée, le navigateur borne le
+  // défilement et l'amorce de ce côté disparaît.
+  const shown = isOver || selected;
   useEffect(() => {
     const tab = node.current;
     const bar = tab?.parentElement;
-    if (!isOver || !tab || !bar) return;
+    if (!shown || !tab || !bar) return;
+    const field = bar.getBoundingClientRect();
+    // Barre masquée (768 px et plus) : rien à faire défiler.
+    if (field.width === 0) return;
     const left = revealOffset(
       tab.getBoundingClientRect(),
-      bar.getBoundingClientRect(),
+      field,
+      tabsOverflowOf(bar),
     );
     if (left !== 0) {
       bar.scrollBy({ left, behavior: reducedMotion ? "auto" : "smooth" });
     }
-  }, [isOver, node, reducedMotion]);
+  }, [shown, node, reducedMotion]);
 
   return (
     <button

@@ -834,6 +834,42 @@ describe("SortableBoard", () => {
         expect(marker()!.getAttribute("data-side")).toBe(side);
       });
 
+      // dnd-kit mesure le premier enfant du calque quand il est seul (la carte inclinée), sinon son enveloppe :
+      // le repère ne doit exister ni au montage du calque ni au dépôt, instants de cette mesure.
+      it("le repère est absent du DOM au montage du calque du glisser : la carte portée y est seule", async () => {
+        render(board(vi.fn(), COLUMNS));
+        cardHandle("a").focus();
+
+        await press(cardHandle("a"), "Space");
+
+        const carried = document.querySelector("[data-board-overlay]")!;
+        expect(marker()).toBeNull();
+        expect([...carried.parentElement!.children]).toEqual([carried]);
+      });
+
+      it("le repère est absent du DOM dès le dépôt sur un onglet, à chaque état rendu ensuite", async () => {
+        render(board(vi.fn(), COLUMNS));
+        await carryOverDoingTab();
+        expect(marker()).not.toBeNull();
+        // Chaque rendu qui suit le dépôt (calque encore monté pour son animation, puis retiré).
+        const afterDrop: boolean[] = [];
+        const observer = new MutationObserver(() => {
+          afterDrop.push(marker() !== null);
+        });
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+        });
+
+        await press(cardHandle("a"), "Space");
+        observer.disconnect();
+
+        expect(afterDrop.length).toBeGreaterThan(0);
+        expect(afterDrop).not.toContain(true);
+        expect(marker()).toBeNull();
+      });
+
       it("aucun repère tant que la carte portée ne vise pas un onglet", async () => {
         render(board(vi.fn(), COLUMNS));
         cardHandle("a").focus();
@@ -864,6 +900,44 @@ describe("SortableBoard", () => {
           behavior: "smooth",
         });
         expect(scrollIntoView).not.toHaveBeenCalled();
+      });
+
+      it("tant qu'il reste des onglets après lui, l'onglet visé s'arrête avant l'amorce : marge du fondu et du bord ombré", async () => {
+        tablistWidth = 150;
+        render(board(vi.fn(), COLUMNS));
+        const bar = screen.getByRole("tablist");
+        const scrollBy = vi.fn();
+        // La barre déborde encore à droite : amorce affichée de ce côté.
+        Object.defineProperties(bar, {
+          scrollBy: { value: scrollBy },
+          scrollWidth: { value: 400 },
+          clientWidth: { value: 154 },
+          scrollLeft: { value: 0 },
+        });
+
+        await carryOverDoingTab();
+
+        // 40 px de dépassement, 32 px d'amorce (bord ombré, plus large que le fondu de 10 %) et 4 px de marge.
+        expect(scrollBy).toHaveBeenCalledExactlyOnceWith({
+          left: 76,
+          behavior: "smooth",
+        });
+      });
+
+      it("un onglet choisi au toucher, coupé par le bord de la barre, y est ramené en entier", () => {
+        tablistWidth = 150;
+        render(board(vi.fn(), COLUMNS));
+        const scrollBy = vi.fn();
+        Object.defineProperty(screen.getByRole("tablist"), "scrollBy", {
+          value: scrollBy,
+        });
+
+        fireEvent.click(tab(/DOING/));
+
+        expect(scrollBy).toHaveBeenCalledExactlyOnceWith({
+          left: 44,
+          behavior: "smooth",
+        });
       });
 
       it("en mouvement réduit, la barre amène l'onglet visé sans animation", async () => {
@@ -1552,7 +1626,7 @@ describe("survol d'une carte", () => {
     expectNoScriptedMotion("b");
   });
 
-  it("une carte survolée puis glissée et déposée ne reste pas montée", async () => {
+  it("après un survol, un glisser et un dépôt, la carte n'a aucun style en ligne et retrouve ses classes de repos", async () => {
     render(board());
     await enter("a");
 
@@ -1564,7 +1638,7 @@ describe("survol d'une carte", () => {
     );
   });
 
-  it("une carte survolée puis saisie et relâchée par Échap ne reste pas montée", async () => {
+  it("après un survol, une saisie et un relâchement par Échap, la carte n'a aucun style en ligne et retrouve ses classes de repos", async () => {
     render(board());
     await enter("a");
     cardHandle("a").focus();

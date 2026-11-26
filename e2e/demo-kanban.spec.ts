@@ -808,6 +808,137 @@ test("@mobile en onglets, pendant un glisser au doigt, l'onglet visé est marqu�
   expect(messages).toEqual([]);
 });
 
+// Relecture de la tâche 14 : l'onglet visé (ou choisi au tap) ne doit pas être repris par l'amorce. Ramené dans
+// la barre alors qu'il reste des onglets après lui, il s'arrête avant le fondu et le bord ombré : son libellé et
+// son compteur se lisent à pleine encre. Mesure sur capture (px CSS), carte portée masquée le temps de la lecture.
+/** Pixel le plus sombre d'un élément, lu sur une capture en px CSS. */
+async function darkestPixel(page: Page, target: Locator): Promise<Rgb> {
+  const box = (await target.boundingBox())!;
+  const png = (await page.screenshot({ clip: box, scale: "css" })).toString(
+    "base64",
+  );
+  return page.evaluate(async (data) => {
+    const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes]));
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext("2d")!;
+    context.drawImage(bitmap, 0, 0);
+    const { data: pixels } = context.getImageData(
+      0,
+      0,
+      bitmap.width,
+      bitmap.height,
+    );
+    let darkest: [number, number, number] = [255, 255, 255];
+    for (let index = 0; index < pixels.length; index += 4) {
+      const sum = pixels[index] + pixels[index + 1] + pixels[index + 2];
+      if (sum < darkest[0] + darkest[1] + darkest[2]) {
+        darkest = [pixels[index], pixels[index + 1], pixels[index + 2]];
+      }
+    }
+    return darkest;
+  }, png);
+}
+
+/** Barre défilée pour que « Terminée » soit coupé par le bord droit, hors de la zone de défilement automatique. */
+async function cutDoneTab(page: Page): Promise<{
+  doneTab: Locator;
+  visiblePart: { x: number; y: number };
+}> {
+  const tablist = page.getByRole("tablist");
+  const doneTab = tablist.getByRole("tab", {
+    name: new RegExp(`^${STATUS.completed}`),
+  });
+  await tablist.evaluate((element, name) => {
+    const bar = element as HTMLElement;
+    const tab = [...bar.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+      (candidate) => candidate.innerText.startsWith(name),
+    )!;
+    bar.scrollTo({
+      left: tab.offsetLeft - bar.offsetLeft - bar.clientWidth * 0.68,
+    });
+  }, STATUS.completed);
+  const box = (await doneTab.boundingBox())!;
+  const bar = (await tablist.boundingBox())!;
+  expect(box.x + box.width).toBeGreaterThan(bar.x + bar.width);
+  return {
+    doneTab,
+    visiblePart: { x: box.x + 14, y: box.y + box.height / 2 },
+  };
+}
+
+async function waitForStillTabs(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      page.getByRole("tablist").evaluate(
+        (bar) =>
+          new Promise<boolean>((resolve) => {
+            const before = bar.scrollLeft;
+            setTimeout(() => resolve(bar.scrollLeft === before), 120);
+          }),
+      ),
+    )
+    .toBe(true);
+}
+
+/** Libellé et compteur de l'onglet : entiers dans la barre, hors de l'amorce, à l'encre pleine sur fond clair. */
+async function expectTabAtFullInk(page: Page, tab: Locator): Promise<void> {
+  const tablist = page.getByRole("tablist");
+  // « Annulée » reste hors champ : l'amorce de droite est affichée.
+  await expect(tablist).toHaveAttribute("data-more-end", "true");
+  const fade = (await page
+    .locator('[data-board-tabs-more="end"]')
+    .boundingBox())!;
+  const box = (await tab.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(fade.x);
+  const label = await darkestPixel(page, tab.locator("span").first());
+  const count = await darkestPixel(page, tab.locator("span").last());
+  const white: Rgb = [255, 255, 255];
+  // Encre sur `pill-active` : 15:1 environ. Reprise par le fondu, elle tombait sous 7:1.
+  expect(contrast(label, white)).toBeGreaterThanOrEqual(12);
+  expect(contrast(count, white)).toBeGreaterThanOrEqual(12);
+  expect(contrast(count, label)).toBeLessThan(1.1);
+}
+
+test("@mobile en onglets, l'onglet visé pendant un glisser, coupé par le bord alors qu'il reste des onglets après lui, s'arrête avant l'amorce : libellé et compteur à pleine encre", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const { doneTab, visiblePart } = await cutDoneTab(page);
+  const finger = await Finger.on(page);
+  const from = await center(card(page, "backlog-1"));
+
+  await finger.down(from);
+  await expect(overlay(page)).toBeVisible();
+  await finger.move(from, visiblePart);
+
+  await expect(doneTab).toHaveAttribute("data-drop-target", "true");
+  await waitForStillTabs(page);
+  // La carte portée masque la barre : elle est cachée le temps de la lecture des pixels.
+  await overlay(page).evaluate((el) => {
+    el.parentElement!.style.visibility = "hidden";
+  });
+  await expectTabAtFullInk(page, doneTab);
+  await finger.up();
+});
+
+test("@mobile en onglets, un onglet choisi au tap, coupé par le bord alors qu'il reste des onglets après lui, est amené en entier avant l'amorce : libellé et compteur à pleine encre", async ({
+  page,
+}) => {
+  await signIn(page);
+  await openDemo(page);
+  const { doneTab, visiblePart } = await cutDoneTab(page);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+
+  await page.touchscreen.tap(visiblePart.x, visiblePart.y);
+
+  await expect(doneTab).toHaveAttribute("aria-selected", "true");
+  await waitForStillTabs(page);
+  await expectTabAtFullInk(page, doneTab);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+});
+
 test("@mobile la barre d'onglets qui déborde montre une amorce du côté où des onglets restent hors champ", async ({
   page,
 }) => {
@@ -1289,35 +1420,36 @@ test("@desktop au survol d'une carte, main ouverte, contour et ombre plus marqu�
 });
 
 // Correctif de relecture de la tâche 13 : le survol est tenu par `:hover`, il suit le pointeur réel. Tenu par une
-// bibliothèque d'animation, il se terminait avant le `mouseup` du glisser et la carte pouvait rester montée.
-test("@desktop une carte survolée, glissée à la souris puis déposée sur le bandeau « Annulée » ne laisse aucune carte montée, cernée ou ombrée", async ({
+// bibliothèque d'animation, il se terminait avant le `mouseup` du glisser et la carte déposée pouvait rester
+// montée. La mesure porte sur la carte déposée elle-même, toujours rendue (colonne ouverte), pointeur écarté.
+test("@desktop une carte survolée, glissée à la souris puis déposée dans une colonne ouverte revient au repos une fois le pointeur écarté : ni montée, ni contour, ni ombre", async ({
   page,
 }) => {
-  // Tableau défilé jusqu'au bout : « En cours » et le bandeau « Annulée » sont à l'écran ensemble.
-  await page.setViewportSize({ width: 1920, height: 900 });
   await signIn(page);
   await openDemo(page);
-  await column(page, "canceled").scrollIntoViewIfNeeded();
-  const target = card(page, "started-1");
+  const target = card(page, "unstarted-1");
   await target.hover();
   await expect.poll(() => liftOffset(target)).toBe(-2);
   const from = await center(target);
-  const band = await center(column(page, "canceled"));
-  // Aucun défilement entre les deux lectures : le pointeur est toujours sur la carte.
-  expect(await center(target)).toEqual(from);
+  const to = await center(card(column(page, "backlog"), "backlog-1"));
+  const away = await center(
+    page.getByRole("heading", { level: 1, name: DEMO.title }),
+  );
 
   await page.mouse.down();
   await page.mouse.move(from.x + 10, from.y, { steps: 2 });
   await expect(overlay(page)).toBeVisible();
-  await page.mouse.move(band.x, band.y, { steps: 15 });
+  await page.mouse.move(to.x, to.y, { steps: 15 });
   await page.mouse.up();
-
   await expect(overlay(page)).toHaveCount(0);
-  await expect(card(page, "started-1")).toHaveCount(0);
-  // Le pointeur est sur le bandeau : plus aucune carte n'est survolée, à commencer par celle qui a pris la place.
-  for (const id of ["started-2", "started-3", "completed-1"]) {
-    await expectAtRest(card(page, id));
-  }
+  const dropped = card(column(page, "backlog"), "unstarted-1");
+  await expect(dropped).toBeVisible();
+  await page.mouse.move(away.x, away.y, { steps: 5 });
+
+  await expectAtRest(dropped);
+  // Aucun style posé par script sur la partie qui monte : rien ne peut rester figé.
+  expect(await lift(dropped).getAttribute("style")).toBeNull();
+  await expectAtRest(card(page, "backlog-1"));
 });
 
 // Tâche 15 : « Annulée » est une colonne repliable sur place. Repliée : bandeau étroit, cible de dépôt, tout le
@@ -1438,7 +1570,11 @@ test("@desktop une carte se dépose sur le bandeau « Annulée » replié comme 
   await expect.poll(() => canceledCount(page)).toBe(before + 1);
   await expect(canceledToggle(page, "déplier")).toBeVisible();
 
-  await canceledToggle(page, "déplier").click();
+  // dnd-kit avale tout clic dans les 50 ms qui suivent un glisser : le clic est rejoué jusqu'à déplier.
+  await expect(async () => {
+    await canceledToggle(page, "déplier").click({ timeout: 500 });
+    await expect(canceledToggle(page, "replier")).toBeVisible({ timeout: 500 });
+  }).toPass();
 
   // Dépliée : la carte déposée sur le bandeau est en tête.
   const cards = canceled.locator("[data-board-card]");
@@ -1663,8 +1799,10 @@ for (const backdrop of [
 
     expect(outline).toEqual(["dashed", "2px", "-2px"]);
     expect(contrast(darkest, column)).toBeGreaterThanOrEqual(3);
-    // Fond plus clair que la colonne (1,08:1 avant la tâche 13 ; 1,17:1 mesuré sur brume).
-    expect(contrast(fill, column)).toBeGreaterThanOrEqual(1.1);
+    // Fond `row`, plus clair que la colonne : 1,171:1 sur brume et 1,433:1 au cœur du halo bleu, mesures
+    // stables sur trois passages (relecture du 2026-11-26). Avant la tâche 13, l'empreinte laissait voir le fond
+    // de la colonne (1,08:1). Seuil à 1,15 : sous la mesure la plus basse, au-dessus de l'ancien fond.
+    expect(contrast(fill, column)).toBeGreaterThanOrEqual(1.15);
     expect(fill[0] + fill[1] + fill[2]).toBeGreaterThan(
       column[0] + column[1] + column[2],
     );
