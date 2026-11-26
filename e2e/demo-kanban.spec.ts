@@ -977,27 +977,126 @@ test("@desktop un glisser à la souris n'ouvre pas le détail", async ({
   expect(messages).toEqual([]);
 });
 
-// D6 : sur ordinateur (pointeur fin et survol), main ouverte et relief au survol, main fermée sur la copie saisie ;
-// au doigt, ni curseur ni relief.
-test("@desktop au survol d'une carte, main ouverte et relief ; pendant le glisser, main fermée, copie inclinée", async ({
+/** Partie d'une carte qui monte au survol et porte contour et ombre (enfant du nœud mesuré par le glisser). */
+function lift(target: Locator): Locator {
+  return target.locator("[data-board-lift]");
+}
+
+function surfaceStyle(target: Locator): Promise<{
+  shadow: string;
+  outlineStyle: string;
+  outlineWidth: string;
+  outlineColor: string;
+}> {
+  return lift(target).evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      shadow: style.boxShadow,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+      outlineColor: style.outlineColor,
+    };
+  });
+}
+
+/** Décalage vertical (px) posé par `transform` sur la partie qui monte. */
+function liftOffset(target: Locator): Promise<number> {
+  return lift(target).evaluate(
+    (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42,
+  );
+}
+
+type Rgb = [number, number, number];
+
+/** Contraste WCAG de deux couleurs opaques. */
+function contrast(a: Rgb, b: Rgb): number {
+  const luminance = (color: Rgb): number => {
+    const [r, g, b] = color.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045
+        ? value / 12.92
+        : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+/**
+ * Pixels réellement affichés (capture d'écran), lus à des points de la page. La capture est décodée dans la page
+ * (`createImageBitmap`, sans requête : la CSP ne s'en mêle pas). Écran à 1 pixel par px CSS (projet ordinateur).
+ */
+async function pixelsAt(
+  page: Page,
+  points: { x: number; y: number }[],
+): Promise<Rgb[]> {
+  const png = (await page.screenshot()).toString("base64");
+  return page.evaluate(
+    async ({ png, points }) => {
+      const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes]));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = canvas.getContext("2d")!;
+      context.drawImage(bitmap, 0, 0);
+      return points.map(({ x, y }) => {
+        const [r, g, b] = context.getImageData(x, y, 1, 1).data;
+        return [r, g, b] as [number, number, number];
+      });
+    },
+    { png, points },
+  );
+}
+
+/**
+ * Fond de la page forcé derrière le tableau, le temps d'une mesure : brume seule, ou cœur du halo bleu partout
+ * (90 % sur la brume, le cas le plus défavorable de DESIGN.md § 2). `style` en ligne par le DOM : la CSP à nonce
+ * refuse une feuille injectée.
+ */
+async function setBackdrop(page: Page, halo: boolean): Promise<void> {
+  await page.evaluate(
+    (layers) => {
+      document.documentElement.style.setProperty("--halo-layers", layers);
+    },
+    halo
+      ? "linear-gradient(color-mix(in srgb, var(--halo-blue) 90%, transparent), color-mix(in srgb, var(--halo-blue) 90%, transparent))"
+      : "none",
+  );
+}
+
+// D6, renforcé à la tâche 13 : sur ordinateur (pointeur fin et survol), main ouverte, contour, ombre et carte qui
+// monte de 2 px au survol, main fermée sur la copie saisie ; au doigt, rien de tout cela.
+test("@desktop au survol d'une carte, main ouverte, contour et ombre plus marqués, carte montée de 2 px sans rien décaler ; pendant le glisser, main fermée, copie inclinée", async ({
   page,
 }) => {
   await signIn(page);
   const messages = watchConsole(page);
   await openDemo(page);
   const target = card(page, "unstarted-1");
-  const shadowAtRest = await target.evaluate(
-    (el) => getComputedStyle(el).boxShadow,
-  );
+  const neighbour = card(page, "unstarted-2");
+  const atRest = await surfaceStyle(target);
+  const boxAtRest = await target.boundingBox();
+  const neighbourAtRest = await neighbour.boundingBox();
+  expect(atRest.shadow).toBe("none");
+  expect(atRest.outlineStyle).toBe("none");
 
   await target.hover();
 
   await expect
     .poll(() => target.evaluate((el) => getComputedStyle(el).cursor))
     .toBe("grab");
-  expect(
-    await target.evaluate((el) => getComputedStyle(el).boxShadow),
-  ).not.toBe(shadowAtRest);
+  const hovered = await surfaceStyle(target);
+  expect(hovered.shadow).not.toBe(atRest.shadow);
+  // `shadow-glass` : 36 px de flou sur ordinateur, contre 8 px pour l'ombre de la carte au repos.
+  expect(hovered.shadow).toContain("36px");
+  expect(hovered.outlineStyle).toBe("solid");
+  expect(hovered.outlineWidth).toBe("1px");
+  // `input` : encre secondaire.
+  expect(hovered.outlineColor).toBe("rgb(83, 90, 114)");
+  await expect.poll(() => liftOffset(target)).toBe(-2);
+  // Le nœud mesuré par le glisser et la carte voisine ne bougent pas.
+  expect(await target.boundingBox()).toEqual(boxAtRest);
+  expect(await neighbour.boundingBox()).toEqual(neighbourAtRest);
 
   const from = await center(target);
   await page.mouse.move(from.x, from.y);
@@ -1023,6 +1122,82 @@ test("@desktop au survol d'une carte, main ouverte et relief ; pendant le glisse
   expect(messages).toEqual([]);
 });
 
+test("@desktop en mouvement réduit, une carte survolée prend contour et ombre sans monter", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await signIn(page);
+  await openDemo(page);
+  const target = card(page, "unstarted-1");
+
+  await target.hover();
+
+  await expect
+    .poll(async () => (await surfaceStyle(target)).outlineStyle)
+    .toBe("solid");
+  // Le filet de mouvement réduit (`globals.css`) donne 0,01 ms à toute transition : valeur lue à la frame suivante.
+  await expect
+    .poll(async () => (await surfaceStyle(target)).shadow)
+    .toContain("36px");
+  await twoFrames(page);
+  expect(await liftOffset(target)).toBe(0);
+});
+
+for (const backdrop of [
+  { name: "sur la brume", halo: false },
+  { name: "au cœur du halo bleu", halo: true },
+]) {
+  test(`@desktop ${backdrop.name}, l'empreinte d'une carte saisie à la souris se détache de la colonne : pointillé de 2 px à 3:1 au moins, fond plus clair`, async ({
+    page,
+  }) => {
+    await signIn(page);
+    await openDemo(page);
+    await setBackdrop(page, backdrop.halo);
+    const target = card(page, "unstarted-1");
+    const footprint = target.getByTestId("board-footprint");
+    const from = await center(target);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+    await expect(footprint).toBeVisible();
+    // La copie saisie recouvre l'empreinte tant que le pointeur n'a pas bougé : masquée le temps de la mesure.
+    await overlay(page).evaluate((el) =>
+      el.style.setProperty("visibility", "hidden"),
+    );
+    const box = (await footprint.boundingBox())!;
+    const left = Math.round(box.x);
+    const top = Math.round(box.y);
+    const middle = top + Math.round(box.height / 2);
+    // Partie droite du bord haut, hors des coins arrondis (14 px) : deuxième rangée du pointillé.
+    const edge = Array.from({ length: 80 }, (_, index) => ({
+      x: left + 24 + index,
+      y: top + 1,
+    }));
+
+    const [column, fill, ...row] = await pixelsAt(page, [
+      // Dans la colonne, entre son en-tête et la première carte (aucune ombre de carte au-dessus).
+      { x: left + Math.round(box.width / 2), y: top - 4 },
+      { x: left + Math.round(box.width / 2), y: middle },
+      ...edge,
+    ]);
+    const darkest = row.reduce((a, b) =>
+      contrast(b, column) > contrast(a, column) ? b : a,
+    );
+    const outline = await footprint.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return [style.outlineStyle, style.outlineWidth, style.outlineOffset];
+    });
+    await page.mouse.up();
+
+    expect(outline).toEqual(["dashed", "2px", "-2px"]);
+    expect(contrast(darkest, column)).toBeGreaterThanOrEqual(3);
+    // Fond visiblement différent de la colonne (1,08:1 avant la tâche 13 : fond identique à la colonne).
+    expect(contrast(fill, column)).toBeGreaterThanOrEqual(1.15);
+    // Le pointillé alterne : des pixels du bord sont au fond de l'empreinte, pas un trait plein.
+    expect(row.some((pixel) => contrast(pixel, fill) < 1.05)).toBe(true);
+  });
+}
+
 test("@mobile au doigt, une carte n'a ni curseur main ni relief", async ({
   page,
 }) => {
@@ -1037,4 +1212,6 @@ test("@mobile au doigt, une carte n'a ni curseur main ni relief", async ({
 
   expect(style.cursor).not.toBe("grab");
   expect(style.shadow).toBe("none");
+  expect((await surfaceStyle(target)).shadow).toBe("none");
+  expect((await surfaceStyle(target)).outlineStyle).toBe("none");
 });

@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 
 import { DEMO_STATUSES, type DemoStatus } from "./demo-board";
 import type { DemoTask } from "./demo-fixtures";
-import type { DemoDetailLayout } from "./demo-looks";
 import { DemoChoiceGroup } from "./DemoChoiceGroup";
 
 const PRIORITIES = ["0", "1", "2", "3", "4"] as const;
@@ -49,6 +48,9 @@ export type DemoEdit = Partial<
     "notes" | "priority" | "dueDate" | "dueTime" | "tags" | "subtasks"
   >
 >;
+
+/** Ordre des blocs du détail (D9) : le nouveau, ou celui d'avant pour comparer (sélecteur « Détail »). */
+export type DemoDetailLayout = "new" | "current";
 
 type KanbanDemoDetailProps = {
   /** Carte telle qu'affichée (modifications locales comprises, statut = sa colonne). */

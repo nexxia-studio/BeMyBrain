@@ -157,8 +157,6 @@ describe("planche des teintes de priorité (démo)", () => {
           onLatencyChange={() => {}}
           failNext={false}
           onFailNextChange={() => {}}
-          look="well"
-          onLookChange={() => {}}
           pendingCount={0}
         />
       </NextIntlClientProvider>,

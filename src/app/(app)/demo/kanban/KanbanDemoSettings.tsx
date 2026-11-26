@@ -2,7 +2,7 @@
 
 // Curseurs nexxia-design (DESIGN.md § 1, app) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Réglages de la démo du kanban, dans une tuile de verre : repliés sous « Réglages » (le tableau reste visible
-// sans défiler sur iPhone), puis le sélecteur « Cartes » (D7, visible sans déplier : on compare en glissant), puis
+// sans défiler sur iPhone), puis
 // la ligne d'état de l'enregistrement, toujours visible (`role="status"`, sur le verre : jamais de texte secondaire
 // sur le cœur d'un halo). Une colonne sous 768 px, réglages côte à côte au-delà.
 // Le sélecteur « Détail » (D9) n'est pas ici : il est dans la fenêtre du détail (`KanbanDemoDetail`), pour comparer
@@ -15,7 +15,6 @@ import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
-import type { DemoLook } from "./demo-looks";
 import { DemoChoiceGroup } from "./DemoChoiceGroup";
 import { KanbanDemoPriorityTints } from "./KanbanDemoPriorityTints";
 
@@ -27,8 +26,6 @@ type KanbanDemoSettingsProps = {
   onLatencyChange: (latency: Latency) => void;
   failNext: boolean;
   onFailNextChange: (failNext: boolean) => void;
-  look: DemoLook;
-  onLookChange: (look: DemoLook) => void;
   /** Déplacements en attente d'enregistrement. */
   pendingCount: number;
 };
@@ -38,8 +35,6 @@ export function KanbanDemoSettings({
   onLatencyChange,
   failNext,
   onFailNextChange,
-  look,
-  onLookChange,
   pendingCount,
 }: KanbanDemoSettingsProps) {
   const t = useTranslations("kanbanDemo");
@@ -98,15 +93,6 @@ export function KanbanDemoSettings({
           <KanbanDemoPriorityTints />
         </div>
       </details>
-      <DemoChoiceGroup
-        label={t("settings.look")}
-        value={look}
-        onChange={onLookChange}
-        options={[
-          { value: "well", label: t("settings.lookWell") },
-          { value: "glass", label: t("settings.lookGlass") },
-        ]}
-      />
       <p role="status" className="pb-1 text-caption text-muted-foreground">
         {pendingCount > 0 ? t("saving", { count: pendingCount }) : t("saved")}
       </p>

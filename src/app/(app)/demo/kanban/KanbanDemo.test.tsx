@@ -16,7 +16,6 @@ import {
 import type {
   BoardColumn,
   BoardMove,
-  BoardSurface,
   CardState,
 } from "@/components/kanban/SortableBoard";
 
@@ -28,7 +27,6 @@ type BoardProps = {
   renderCard: (item: { id: string }, state: CardState) => ReactNode;
   onMove: (move: BoardMove) => void;
   onOpen?: (id: string) => void;
-  surface?: BoardSurface;
 };
 
 // Double du tableau : le glisser lui-même est couvert par SortableBoard.test.tsx. Ici, chaque colonne rend ses
@@ -402,13 +400,10 @@ describe("démo du kanban", () => {
     expect(boardProps.current).not.toHaveProperty("activationDelayMs");
   });
 
-  it("variante A par défaut : colonne creusée sans verre, en-tête à l'encre, cartes opaques bordées avec ombre légère", () => {
+  it("cartes opaques bordées avec ombre légère ; les surfaces du tableau ne se règlent plus (Creux, fixé par le tableau)", () => {
     renderDemo();
 
-    const surface = boardProps.current!.surface!;
-    expect(surface.column).toBe("bg-pill-track");
-    expect(surface.heading).toBe("text-foreground");
-    expect(surface.well).toBeUndefined();
+    expect(boardProps.current).not.toHaveProperty("surface");
     expect(cardClasses(PLUMBER)).toEqual(
       expect.arrayContaining([
         "bg-popover",
@@ -417,43 +412,46 @@ describe("démo du kanban", () => {
         "shadow-raised",
       ]),
     );
-    expect(cardClasses(PLUMBER)).not.toContain("bg-row");
-    expect(
-      screen
-        .getByRole("group", { name: "Cartes" })
-        .querySelector('[aria-pressed="true"]')?.textContent,
-    ).toBe("Creux");
+    expect(screen.queryByRole("group", { name: "Cartes" })).toBeNull();
   });
 
-  it("variante B au sélecteur : colonne en verre, creux teinté sous les cartes, cartes opaques bordées sans ombre", () => {
+  it("carte ouverte : légende en pleine couleur", () => {
     renderDemo();
 
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "Cartes" })).getByRole(
-        "button",
-        { name: "Verre" },
-      ),
-    );
-
-    const surface = boardProps.current!.surface!;
-    expect(surface.column).toBe("glass");
-    expect(surface.heading).toBeUndefined();
-    expect(surface.well?.split(" ")).toContain("bg-pill-track");
-    expect(cardClasses(PLUMBER)).toEqual(
-      expect.arrayContaining(["bg-popover", "border", "border-border"]),
-    );
-    expect(cardClasses(PLUMBER)).not.toContain("shadow-raised");
+    const legend = document.querySelector(
+      `[data-demo-card="${PLUMBER}"] [data-card-legend]`,
+    )!;
+    expect(legend.className.split(/\s+/)).not.toContain("grayscale");
   });
 
-  it("garde le sélecteur Cartes visible sans déplier les réglages", () => {
+  it("carte terminée : la légende perd ses couleurs avec le titre atténué, sans opacité (contraste gardé)", () => {
     renderDemo();
 
-    expect(
-      screen.getByRole("group", { name: "Cartes" }).closest("details"),
-    ).toBeNull();
-    expect(
-      screen.getByRole("group", { name: "Latence simulée" }).closest("details"),
-    ).not.toBeNull();
+    const card = document.querySelector('[data-demo-card="completed-1"]')!;
+    const legend = card.querySelector("[data-card-legend]")!;
+    expect(legend.className.split(/\s+/)).toContain("grayscale");
+    expect(legend.className).not.toMatch(/opacity/);
+    expect(card.firstElementChild!.className.split(/\s+/)).toContain(
+      "text-muted-foreground",
+    );
+  });
+
+  it("une carte déposée dans Terminée perd les couleurs de sa légende", async () => {
+    renderDemo();
+
+    act(() =>
+      boardProps.current!.onMove({
+        id: PLUMBER,
+        toColumn: "completed",
+        beforeId: null,
+        afterId: "completed-1",
+      }),
+    );
+
+    const legend = document.querySelector(
+      `[data-demo-card="${PLUMBER}"] [data-card-legend]`,
+    )!;
+    expect(legend.className.split(/\s+/)).toContain("grayscale");
   });
 
   it("calque du glisser : même carte bordée, sans ombre propre (celle du calque suffit)", () => {
@@ -534,10 +532,10 @@ describe("démo du kanban", () => {
   it("affiche ses réglages et ses colonnes en anglais", () => {
     renderDemo("en");
 
-    const cards = screen.getByRole("group", { name: "Cards" });
-    expect(within(cards).getByRole("button", { name: "Well" })).toBeDefined();
-    expect(within(cards).getByRole("button", { name: "Glass" })).toBeDefined();
-
+    expect(screen.queryByRole("group", { name: "Cards" })).toBeNull();
+    expect(
+      screen.getByRole("group", { name: "Simulated latency" }),
+    ).toBeDefined();
     expect(screen.getByText("Settings")).toBeDefined();
     expect(
       screen.getByRole("switch", { name: "Fail the next drop" }),

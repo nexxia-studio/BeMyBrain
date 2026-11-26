@@ -390,9 +390,6 @@
       "latencyOne": "1 s",
       "latencyThree": "3 s",
       "failNext": "Faire échouer le prochain dépôt",
-      "look": "Cartes",
-      "lookWell": "Creux",
-      "lookGlass": "Verre",
       "detail": "Détail",
       "detailNew": "Nouveau",
       "detailCurrent": "Actuel"

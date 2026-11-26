@@ -20,7 +20,6 @@ import fr from "../../../messages/fr.json";
 import {
   type BoardColumn,
   type BoardMove,
-  type BoardSurface,
   SortableBoard,
 } from "./SortableBoard";
 
@@ -63,7 +62,6 @@ function board(
   extra: {
     locale?: "fr" | "en";
     onOpen?: (id: string) => void;
-    surface?: BoardSurface;
   } = {},
 ) {
   const locale = extra.locale ?? "fr";
@@ -78,7 +76,6 @@ function board(
         renderCard={(card) => <span>{card.title}</span>}
         onMove={onMove}
         onOpen={extra.onOpen}
-        surface={extra.surface}
       />
     </NextIntlClientProvider>
   );
@@ -784,6 +781,24 @@ describe("SortableBoard", () => {
       expect(footprints()[0].className).toContain("outline-dashed");
     });
 
+    it("l'empreinte a un fond plus clair que la colonne et un pointillé de 2 px à l'encre secondaire, dessiné vers l'intérieur", async () => {
+      await pickWithKeyboard("b");
+
+      const classes = footprints()[0].className.split(/\s+/);
+      expect(classes).toEqual(
+        expect.arrayContaining([
+          "bg-row",
+          "outline-2",
+          "outline-dashed",
+          "-outline-offset-2",
+          "outline-input",
+        ]),
+      );
+      expect(classes).not.toContain("bg-pill-track");
+      // L'indigo reste à l'anneau de focus et à la cible de dépôt.
+      expect(classes).not.toContain("outline-ring");
+    });
+
     it("la carte saisie au clavier garde le focus et son anneau : le pointillé est sur un enfant", async () => {
       await pickWithKeyboard("b");
       await press(cardHandle("b"), "ArrowDown");
@@ -810,43 +825,135 @@ describe("SortableBoard", () => {
   });
 });
 
-describe("surfaces du tableau", () => {
+describe("surfaces du tableau (Creux)", () => {
   const classesOf = (element: Element) => element.className.split(/\s+/);
   const heading = (id: string) => columnSection(id).querySelector("h2")!;
-  const well = (id: string) =>
-    columnSection(id).querySelector("[data-board-cards]")!;
 
-  it("par défaut : colonne en verre, en-tête en texte secondaire, aucun creux", () => {
+  it("colonne creusée posée à nu : fond pill-track, sans verre ni ombre", () => {
     render(board());
-
-    expect(classesOf(columnSection("todo"))).toContain("glass");
-    expect(classesOf(heading("todo"))).toContain("text-muted-foreground");
-    expect(well("todo").className).not.toMatch(/\bbg-/);
-  });
-
-  it("prend de l'appelant la surface de la colonne, la couleur de l'en-tête et le creux sous les cartes", () => {
-    render(
-      board(vi.fn(), COLUMNS, {
-        surface: {
-          column: "bg-pill-track",
-          heading: "text-foreground",
-          well: "rounded-lg bg-track p-2",
-        },
-      }),
-    );
 
     const section = classesOf(columnSection("todo"));
     expect(section).toContain("bg-pill-track");
     expect(section).not.toContain("glass");
+    expect(section.filter((name) => name.includes("shadow"))).toEqual([]);
     expect(section).toEqual(
       expect.arrayContaining(["flex", "flex-col", "rounded-tile", "p-tile"]),
     );
+  });
+
+  it("en-tête de colonne à l'encre, jamais en texte secondaire", () => {
+    render(board());
+
     expect(classesOf(heading("todo"))).toContain("text-foreground");
     expect(classesOf(heading("todo"))).not.toContain("text-muted-foreground");
     expect(classesOf(heading("todo"))).toContain("text-eyebrow");
-    expect(classesOf(well("todo"))).toEqual(
-      expect.arrayContaining(["rounded-lg", "bg-track", "p-2", "min-h-11"]),
-    );
-    expect(well("todo").querySelectorAll("[data-board-card]")).toHaveLength(3);
+  });
+
+  it("aucun creux intérieur sous les cartes", () => {
+    render(board());
+
+    const cards = columnSection("todo").querySelector("[data-board-cards]")!;
+    expect(cards.className).not.toMatch(/\bbg-|\bp-\d/);
+    expect(cards.querySelectorAll("[data-board-card]")).toHaveLength(3);
+  });
+});
+
+describe("survol d'une carte", () => {
+  const HOVER_CLASSES = [
+    "pointer-fine:group-hover/card:shadow-glass",
+    "pointer-fine:group-hover/card:outline",
+    "pointer-fine:group-hover/card:-outline-offset-1",
+    "pointer-fine:group-hover/card:outline-input",
+  ];
+  const classesOf = (element: Element) => element.className.split(/\s+/);
+
+  function lift(id: string) {
+    return cardHandle(id).querySelector("[data-board-lift]") as HTMLElement;
+  }
+
+  function hoverZone(id: string) {
+    return lift(id).parentElement as HTMLElement;
+  }
+
+  // Motion écoute `pointerenter` sur l'élément lui-même (l'événement ne remonte pas).
+  async function enter(id: string, pointerType: string) {
+    const event = new MouseEvent("pointerenter");
+    Object.defineProperty(event, "pointerType", { value: pointerType });
+    await act(async () => {
+      hoverZone(id).dispatchEvent(event);
+      // Motion pose la valeur à la frame suivante, même animations coupées.
+      for (let frame = 0; frame < 2; frame++) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    });
+  }
+
+  it("au repos, la carte porte contour et ombre de survol réservés au pointeur fin", () => {
+    render(board());
+
+    expect(classesOf(lift("a"))).toEqual(expect.arrayContaining(HOVER_CLASSES));
+    expect(classesOf(hoverZone("a"))).toContain("group/card");
+  });
+
+  it("le contour et l'ombre ne sont posés ni sur le nœud mesuré par le glisser ni hors pointeur fin", () => {
+    render(board());
+
+    expect(cardHandle("a").className).not.toMatch(/shadow|outline/);
+    expect(
+      classesOf(lift("a")).filter(
+        (name) =>
+          /shadow|outline/.test(name) && !name.startsWith("pointer-fine:"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("à la souris, la carte monte de 2 px sans déplacer le nœud mesuré", async () => {
+    render(board());
+
+    await enter("a", "mouse");
+
+    expect(lift("a").style.transform).toContain("translateY(-2px)");
+    expect(cardHandle("a").style.transform).toBe("");
+    expect(hoverZone("a").style.transform).toBe("");
+  });
+
+  it("au doigt, la carte ne monte pas", async () => {
+    render(board());
+
+    await enter("a", "touch");
+
+    expect(lift("a").style.transform).not.toContain("translateY");
+  });
+
+  it("en mouvement réduit, la carte ne monte pas mais garde contour et ombre", async () => {
+    reducedMotion.current = true;
+    render(board());
+
+    await enter("a", "mouse");
+
+    expect(lift("a").style.transform).not.toContain("translateY");
+    expect(classesOf(lift("a"))).toEqual(expect.arrayContaining(HOVER_CLASSES));
+  });
+
+  it("pendant un glisser, aucune carte n'a de survol : ni classes ni translation", async () => {
+    render(board());
+    cardHandle("a").focus();
+    await press(cardHandle("a"), "Space");
+
+    await enter("b", "mouse");
+
+    for (const id of ["a", "b", "d"]) {
+      expect(
+        classesOf(lift(id)).filter((name) => name.includes("group-hover")),
+      ).toEqual([]);
+    }
+    expect(lift("b").style.transform).not.toContain("translateY");
+  });
+
+  it("le survol revient après le dépôt", async () => {
+    render(board());
+    await dragWithKeyboard("a", ["ArrowDown"]);
+
+    expect(classesOf(lift("b"))).toEqual(expect.arrayContaining(HOVER_CLASSES));
   });
 });

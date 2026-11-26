@@ -390,9 +390,6 @@
       "latencyOne": "1 s",
       "latencyThree": "3 s",
       "failNext": "Fail the next drop",
-      "look": "Cards",
-      "lookWell": "Well",
-      "lookGlass": "Glass",
       "detail": "Detail",
       "detailNew": "New",
       "detailCurrent": "Current"

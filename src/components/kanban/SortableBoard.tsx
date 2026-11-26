@@ -23,8 +23,9 @@
 // Un `click` sans geste pointeur (`detail` 0, ou aucun pointeur posé : lecteur d'écran) ouvre. Clavier : Entrée
 // ouvre, Espace saisit (Entrée ne saisit plus ; elle dépose toujours une carte saisie).
 // Une colonne repliée ou un onglet reçoit la carte en tête de colonne.
-// Surfaces (`surface`, D7 de demo-plan.md) : fond de la colonne (verre par défaut), couleur de son en-tête et creux
-// sous les cartes viennent de l'appelant, en classes de la charte ; le tableau ne connaît aucune variante.
+// Surfaces « Creux » (DESIGN.md § 5, variante retenue de la démo, seule variante) : colonne `bg-pill-track` posée à
+// nu sur la brume, sans verre ni ombre, en-tête à l'encre (texte secondaire interdit sur le cœur d'un halo), aucun
+// creux intérieur. La carte elle-même (opaque, bordée, `shadow-raised`) vient de l'appelant (`renderCard`).
 // Colonne partielle (ex. 20 plus récentes) : `total` donne le compteur, `footer` se pose sous les cartes.
 // Onglets : motif ARIA tablist (flèches gauche/droite en boucle, Début/Fin, seul l'onglet choisi est tabulable).
 // Pendant le glisser, l'ordre est un brouillon local ; au dépôt, `onMove` reçoit les voisins de la carte et le
@@ -38,11 +39,16 @@
 // copie montée le temps du dépôt, et `LiftedContext` (hors de `DragOverlay`) lui dit que la saisie est finie. À sa
 // place d'origine, la carte laisse une empreinte : son contenu devient transparent (la place est gardée, le nom reste
 // lu par le lecteur d'écran) et un calque enfant dessine l'emplacement en pointillé (`outline`, sans changer la
-// taille) sur un fond `pill-track`, pour ne pas lire une carte en double ; l'`outline` de la carte reste à l'anneau
-// de focus. Ordinateur (pointeur fin et survol, variantes `pointer-fine` et `hover`) : main ouverte et `shadow-raised`
-// au survol, main fermée sur la copie ; rien au doigt (pas de survol collé après un tap sur iOS).
+// taille) : fond `row`, plus clair que la colonne (une carte en double se lirait blanche, bordée et ombrée), pointillé
+// de 2 px `input` tracé vers l'intérieur (mesuré 5,04:1 contre la colonne sur brume, 3,48:1 au cœur d'un halo ; l'indigo
+// reste à l'anneau de focus et à la cible de dépôt) ; l'`outline` de la carte reste à l'anneau de focus.
+// Survol (pointeur fin, variantes `pointer-fine` et `hover`) : main ouverte, contour `input` (`outline` de 1 px sur
+// le bord de la carte, rien ne se décale), `shadow-glass`, et la carte monte de 2 px par le ressort du survol de
+// tuile (Motion). La zone survolée est un enfant immobile du nœud mesuré par dnd-kit ; c'est son enfant qui monte :
+// ni rectangle faussé, ni clignotement au bord bas, ni voisine déplacée. Rien pendant un glisser, rien au doigt (pas
+// de survol collé après un tap sur iOS ; Motion ignore le toucher). Main fermée sur la copie.
 // Mouvement réduit : pas d'animation de dépôt ni de glissement des cartes voisines ; la copie n'est ni inclinée ni
-// soulevée (ombre et empreinte restent, sans transition).
+// soulevée, la carte survolée ne monte pas (contour, ombre et empreinte restent, sans transition).
 import {
   type Announcements,
   closestCorners,
@@ -117,16 +123,6 @@ export type BoardMove = {
 
 export type CardState = { dragging: boolean; overlay: boolean };
 
-/** Surfaces du tableau, en classes données par l'appelant (tokens de DESIGN.md). */
-export type BoardSurface = {
-  /** Fond de la colonne. Défaut : verre. */
-  column?: string;
-  /** Couleur de l'en-tête de colonne. Défaut : texte secondaire, réservé à une colonne en verre ou opaque. */
-  heading?: string;
-  /** Creux sous les cartes d'une colonne ouverte (fond, rayon, marge intérieure). Défaut : aucun. */
-  well?: string;
-};
-
 type SortableBoardProps<T extends BoardItem> = {
   columns: readonly BoardColumn<T>[];
   renderCard: (item: T, state: CardState) => ReactNode;
@@ -135,7 +131,6 @@ type SortableBoardProps<T extends BoardItem> = {
   onMove: (move: BoardMove) => void;
   /** Tap, clic ou Entrée sur une carte (jamais après un glisser, un appui long ou un défilement). */
   onOpen?: (id: string) => void;
-  surface?: BoardSurface;
 };
 
 /** Appui avant le glisser au doigt (décision d'Antoine après l'essai iPhone, 2026-11-24). */
@@ -156,7 +151,9 @@ const FLAT = { rotate: 0, y: 0 };
 const LIFT_SPRING = { type: "spring", bounce: 0.2, duration: 0.3 } as const;
 /** Saisie en cours : lu par la copie, que dnd-kit garde montée pendant l'animation de dépôt. */
 const LiftedContext = createContext(false);
-const DEFAULT_SURFACE: BoardSurface = {};
+/** Survol d'une carte : celui d'une tuile (`y` −2, ressort sans rebond, 0,3 s ; DESIGN.md § 7). */
+const HOVER_VARIANTS = { rest: { y: 0 }, hover: { y: -2 } };
+const HOVER_SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
 /** Largeur des colonnes côte à côte : `md` de Tailwind. */
 const WIDE_QUERY = "(min-width: 48rem)";
 
@@ -269,7 +266,6 @@ export function SortableBoard<T extends BoardItem>({
   getItemLabel,
   onMove,
   onOpen,
-  surface = DEFAULT_SURFACE,
 }: SortableBoardProps<T>) {
   const t = useTranslations("kanban");
   const contextId = useId();
@@ -470,7 +466,7 @@ export function SortableBoard<T extends BoardItem>({
             reducedMotion={reducedMotion}
             roleDescription={t("roleDescription")}
             onOpen={onOpen}
-            surface={surface}
+            hoverable={activeId === null}
             panelId={wide ? undefined : panelId(column.id)}
             className={cn(
               "md:w-80 md:shrink-0",
@@ -500,7 +496,8 @@ type BoardColumnViewProps<T extends BoardItem> = {
   reducedMotion: boolean;
   roleDescription: string;
   onOpen: ((id: string) => void) | undefined;
-  surface: BoardSurface;
+  /** Aucun glisser en cours : les cartes réagissent au survol. */
+  hoverable: boolean;
   /** Sous 768 px, la colonne est le panneau de son onglet. */
   panelId: string | undefined;
   className: string;
@@ -514,7 +511,7 @@ function BoardColumnView<T extends BoardItem>({
   reducedMotion,
   roleDescription,
   onOpen,
-  surface,
+  hoverable,
   panelId,
   className,
 }: BoardColumnViewProps<T>) {
@@ -539,18 +536,14 @@ function BoardColumnView<T extends BoardItem>({
       aria-labelledby={headingId}
       data-board-column={column.id}
       className={cn(
-        "flex flex-col gap-2 rounded-tile p-tile",
-        surface.column ?? "glass",
+        "flex flex-col gap-2 rounded-tile bg-pill-track p-tile",
         isOver && "outline-2 outline-ring",
         className,
       )}
     >
       <h2
         id={headingId}
-        className={cn(
-          "flex min-h-11 items-center justify-between gap-2 text-eyebrow uppercase",
-          surface.heading ?? "text-muted-foreground",
-        )}
+        className="flex min-h-11 items-center justify-between gap-2 text-eyebrow text-foreground uppercase"
       >
         <span>{column.label}</span>
         <span className="tabular-nums">{countOf(column, itemIds)}</span>
@@ -561,10 +554,7 @@ function BoardColumnView<T extends BoardItem>({
           items={itemIds}
           strategy={verticalListSortingStrategy}
         >
-          <div
-            data-board-cards=""
-            className={cn("flex min-h-11 flex-col gap-2", surface.well)}
-          >
+          <div data-board-cards="" className="flex min-h-11 flex-col gap-2">
             {itemIds.map((id) => {
               const item = itemsById.get(id);
               return item ? (
@@ -574,6 +564,7 @@ function BoardColumnView<T extends BoardItem>({
                   reducedMotion={reducedMotion}
                   roleDescription={roleDescription}
                   onOpen={onOpen}
+                  hoverable={hoverable}
                 >
                   {(dragging) => renderCard(item, { dragging, overlay: false })}
                 </SortableCard>
@@ -592,6 +583,7 @@ type SortableCardProps = {
   reducedMotion: boolean;
   roleDescription: string;
   onOpen: ((id: string) => void) | undefined;
+  hoverable: boolean;
   children: (dragging: boolean) => ReactNode;
 };
 
@@ -639,6 +631,7 @@ function SortableCard({
   reducedMotion,
   roleDescription,
   onOpen,
+  hoverable,
   children,
 }: SortableCardProps) {
   const {
@@ -691,22 +684,37 @@ function SortableCard({
         transition: reducedMotion ? undefined : transition,
         WebkitTouchCallout: "none",
       }}
-      className={cn(
-        "relative touch-manipulation rounded-lg select-none pointer-fine:cursor-grab",
-        !isDragging && "pointer-fine:hover:shadow-raised",
-      )}
+      className="relative touch-manipulation rounded-lg select-none pointer-fine:cursor-grab"
     >
-      {/* Empreinte : contenu transparent mais à sa taille (la colonne ne bouge pas) et toujours lu par le lecteur
-          d'écran, qui garde le nom de la carte focalisée (`invisible` le retirerait). */}
-      <div className={cn(isDragging && "opacity-0")}>
-        {children(isDragging)}
-      </div>
+      {/* Zone survolée, immobile : c'est son enfant qui monte, jamais le nœud mesuré par dnd-kit. */}
+      <motion.div
+        initial={false}
+        animate="rest"
+        whileHover={hoverable && !reducedMotion ? "hover" : undefined}
+        className="group/card rounded-lg"
+      >
+        {/* Empreinte : contenu transparent mais à sa taille (la colonne ne bouge pas) et toujours lu par le
+            lecteur d'écran, qui garde le nom de la carte focalisée (`invisible` le retirerait). */}
+        <motion.div
+          data-board-lift=""
+          variants={HOVER_VARIANTS}
+          transition={reducedMotion ? { duration: 0 } : HOVER_SPRING}
+          className={cn(
+            "rounded-lg",
+            isDragging && "opacity-0",
+            hoverable &&
+              "pointer-fine:group-hover/card:shadow-glass pointer-fine:group-hover/card:outline pointer-fine:group-hover/card:-outline-offset-1 pointer-fine:group-hover/card:outline-input",
+          )}
+        >
+          {children(isDragging)}
+        </motion.div>
+      </motion.div>
       {/* Pointillé sur un enfant : l'`outline` de la carte reste à l'anneau de focus (saisie au clavier). */}
       {isDragging ? (
         <span
           aria-hidden="true"
           data-testid="board-footprint"
-          className="pointer-events-none absolute inset-0 rounded-lg bg-pill-track outline outline-dashed -outline-offset-1 outline-input"
+          className="pointer-events-none absolute inset-0 rounded-lg bg-row outline-2 -outline-offset-2 outline-input outline-dashed"
         />
       ) : null}
     </div>

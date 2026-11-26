@@ -13,7 +13,7 @@
 // modifications restent en mémoire, par carte ; un changement de statut est un déplacement (en tête de colonne).
 // Sélecteur « Détail » (D9), dans la fenêtre du détail : nouvel ordre (défaut) ou ordre d'avant, à comparer sur
 // place ; le choix est tenu ici, gardé d'une carte à l'autre.
-// Sélecteur « Cartes » (D7) : deux habillages de la colonne et des cartes (`demo-looks.ts`), à choisir à l'œil.
+// Surfaces : variante « Creux » retenue (D7, décision d'Antoine du 2026-11-25), fixée par `SortableBoard`.
 // raccourci: page temporaire, retirée à la dernière tâche du plan todo-kanban.
 import {
   animate,
@@ -40,9 +40,12 @@ import {
   statusOf,
 } from "./demo-board";
 import { demoBoard, type DemoTask, demoTasks } from "./demo-fixtures";
-import { type DemoDetailLayout, type DemoLook, DEMO_LOOKS } from "./demo-looks";
 import { KanbanDemoCard } from "./KanbanDemoCard";
-import { type DemoEdit, KanbanDemoDetail } from "./KanbanDemoDetail";
+import {
+  type DemoDetailLayout,
+  type DemoEdit,
+  KanbanDemoDetail,
+} from "./KanbanDemoDetail";
 import { KanbanDemoSettings, type Latency } from "./KanbanDemoSettings";
 
 type PendingMove = { key: number; move: BoardMove };
@@ -83,7 +86,6 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
   const [failure, setFailure] = useState<BoardMove | null>(null);
   const [latency, setLatency] = useState<Latency>(0);
   const [failNext, setFailNext] = useState(false);
-  const [look, setLook] = useState<DemoLook>("well");
   const [detailLayout, setDetailLayout] = useState<DemoDetailLayout>("new");
   const [showAllDone, setShowAllDone] = useState(false);
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -217,8 +219,6 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
         onLatencyChange={setLatency}
         failNext={failNext}
         onFailNextChange={setFailNext}
-        look={look}
-        onLookChange={setLook}
         pendingCount={pending.length}
       />
       <div aria-busy={pending.length > 0}>
@@ -227,14 +227,8 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
           getItemLabel={(task) => task.title}
           onMove={move}
           onOpen={setOpenId}
-          surface={DEMO_LOOKS[look].board}
           renderCard={(task, state) => (
-            <KanbanDemoCard
-              task={task}
-              today={today}
-              state={state}
-              look={look}
-            />
+            <KanbanDemoCard task={task} today={today} state={state} />
           )}
         />
       </div>
