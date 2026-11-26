@@ -25,8 +25,10 @@ import {
   PRIORITY_BADGE_CLASSES,
   PRIORITY_TINT_CLASSES,
 } from "./priority-icons";
+import { SubtaskList } from "./SubtaskList";
 import {
-  TASK_LIST_TILE_CLASSES,
+  TASK_LIST_CLASSES,
+  TASK_LIST_ROW_SURFACE_CLASSES,
   TASK_ROW_CLASSES,
   TASK_ROW_LEGEND_CLASSES,
   TASK_ROW_LEGEND_STRUT_CLASSES,
@@ -115,24 +117,101 @@ describe("liste des tâches : sections", () => {
     expect(within(overdue).getByRole("link", { name: /Hier/ })).toBeTruthy();
   });
 
-  it("une seule tuile de verre bornée en largeur, titres de section en surtitre à côté de leur compteur", () => {
+  it("aucun verre : liste bornée en largeur, chaque section est un creux pill-track, titre de section et compteur à l'encre", () => {
     renderList([
       buildTask({ title: "Hier", dueDate: "2026-11-18" }),
       buildTask({ title: "Demain", dueDate: "2026-11-20" }),
     ]);
 
-    const tiles = document.querySelectorAll(".glass");
+    const sections = screen.getAllByRole("region");
     const overdue = screen.getByRole("region", { name: "En retard" });
     const heading = within(overdue).getByRole("heading", { level: 2 });
+    const counter = heading.nextElementSibling as HTMLElement;
 
-    expect(tiles).toHaveLength(1);
-    expect(tiles[0].classList.contains("max-w-3xl")).toBe(true);
-    expect(overdue.classList.contains("glass")).toBe(false);
-    expect(heading.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["text-eyebrow", "text-muted-foreground"]),
-    );
+    expect(document.querySelectorAll(".glass")).toHaveLength(0);
+    expect(overdue.parentElement?.classList.contains("max-w-3xl")).toBe(true);
+    expect(sections).toHaveLength(2);
+    for (const section of sections) {
+      expectClasses(section, "rounded-tile bg-pill-track p-tile");
+    }
+    // Jamais de texte secondaire sur le creux (3,5:1 au cœur d'un halo) : encre, comme l'en-tête de colonne.
+    for (const text of [heading, counter]) {
+      expectClasses(text, "text-eyebrow text-foreground");
+      expect(text.classList.contains("text-muted-foreground")).toBe(false);
+    }
+    expect(counter.textContent).toBe("1");
     expect(heading.parentElement?.classList.contains("justify-between")).toBe(
       false,
+    );
+  });
+
+  it("ligne de la liste : carte claire et opaque (popover, contour border, shadow-raised), survol au contour input", () => {
+    renderList([buildTask({ title: "Hier", dueDate: "2026-11-18" })]);
+
+    const row = screen.getByRole("listitem").firstElementChild as HTMLElement;
+    const classes = row.className.split(/\s+/);
+
+    expectClasses(row, "rounded-lg bg-popover shadow-raised outline-border");
+    expect(classes).not.toContain("bg-row");
+    expect(classes).not.toContain("glass");
+    // Contour tracé vers l'intérieur : la ligne garde sa boîte (44 px sans légende).
+    expectClasses(row, "outline -outline-offset-1");
+    expect(classes).not.toContain("border");
+    expectClasses(
+      row,
+      "has-[a:hover]:bg-popover pointer-fine:has-[a:hover]:outline-input",
+    );
+    expect(classes).not.toContain("has-[a:hover]:bg-accent");
+    expect(classes.some((name) => name.includes("translate"))).toBe(false);
+  });
+
+  it("variante tile : surface row de la tuile strictement inchangée", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TaskRow
+          task={buildTask({ title: "Tuile" })}
+          overdue={false}
+          showDate
+          showContext={false}
+          layout="tile"
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const row = screen
+      .getByRole("link", { name: /Tuile/ })
+      .closest("div.flex-col") as HTMLElement;
+
+    expect(row.className).toBe(
+      "flex flex-col rounded-lg bg-row has-[a:hover]:bg-accent",
+    );
+  });
+
+  it("sous-tâches du détail : lignes bordées sur le popover, inchangées", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <SubtaskList
+          parentId={PARENT_ID}
+          subtasks={[buildTask({ title: "Sous-tâche", parentId: PARENT_ID })]}
+          counter="0/1"
+          today={TODAY}
+          listQuery=""
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const row = screen.getByRole("listitem").firstElementChild as HTMLElement;
+
+    expect(row.className).toBe(
+      "flex flex-col rounded-lg border border-border bg-transparent has-[a:hover]:bg-pill-track",
     );
   });
 
@@ -195,7 +274,7 @@ describe("liste des tâches : sections", () => {
 });
 
 describe("liste des tâches : géométrie partagée avec le givre", () => {
-  it("tuile, section, en-tête et ligne portent les classes de task-list-layout, lues aussi par le givre", () => {
+  it("liste, section, en-tête et ligne portent les classes de task-list-layout, lues aussi par le givre", () => {
     renderList([buildTask({ title: "Hier", dueDate: "2026-11-18" })]);
 
     const section = screen.getByRole("region", { name: "En retard" });
@@ -205,7 +284,7 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
     const line = row.firstElementChild as HTMLElement;
     const text = within(section).getByRole("link");
     const [title, legend] = Array.from(text.children) as HTMLElement[];
-    expectClasses(section.parentElement as HTMLElement, TASK_LIST_TILE_CLASSES);
+    expectClasses(section.parentElement as HTMLElement, TASK_LIST_CLASSES);
     expectClasses(section, TASK_SECTION_CLASSES);
     expectClasses(
       heading.parentElement as HTMLElement,
@@ -213,7 +292,9 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
     );
     expectClasses(heading, TASK_SECTION_HEADING_TEXT);
     expectClasses(item.parentElement as HTMLElement, TASK_ROWS_CLASSES);
-    expectClasses(row, TASK_ROW_CLASSES);
+    // `bg-row` de TASK_ROW_CLASSES est remplacé par la surface de la liste (carte claire).
+    expectClasses(row, TASK_ROW_CLASSES.replace(" bg-row", ""));
+    expectClasses(row, TASK_LIST_ROW_SURFACE_CLASSES);
     expectClasses(line, TASK_ROW_LINE_CLASSES);
     expectClasses(text, TASK_ROW_TEXT_CLASSES);
     expectClasses(title, TASK_ROW_TITLE_TEXT);

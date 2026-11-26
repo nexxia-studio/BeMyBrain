@@ -21,7 +21,8 @@ import {
   TASK_CARD_TITLE_TEXT,
 } from "@/components/tasks/task-board-layout";
 import {
-  TASK_LIST_TILE_CLASSES,
+  TASK_LIST_CLASSES,
+  TASK_LIST_ROW_SURFACE_CLASSES,
   TASK_ROW_CLASSES,
   TASK_ROW_LEGEND_CLASSES,
   TASK_ROW_LEGEND_STRUT_CLASSES,
@@ -119,7 +120,7 @@ describe("chargement de la liste des tâches", () => {
     );
   });
 
-  it("titre par l'en-tête de page, statut, une tuile givrée à la géométrie de la liste, aucun squelette", async () => {
+  it("titre par l'en-tête de page, statut, givre à la géométrie de la liste, sans verre, aucun squelette", async () => {
     const { container } = render(await TasksLoading());
 
     expect(pageHeaderProps).toHaveBeenCalledWith(
@@ -141,18 +142,24 @@ describe("chargement de la liste des tâches", () => {
     expect(holder.textContent).toBe("");
     expect(holder.getAttribute("aria-hidden")).toBe("true");
     expect(holder.children).toHaveLength(1);
-    const tile = holder.firstElementChild as HTMLElement;
-    expect(tile.classList.contains("glass")).toBe(true);
-    expectClasses(tile, TASK_LIST_TILE_CLASSES);
+    const list = holder.firstElementChild as HTMLElement;
+    expectClasses(list, TASK_LIST_CLASSES);
+    // Sections creusées posées à nu sur la brume, comme la vraie liste : plus de tuile de verre.
+    expect(holder.querySelector(".glass")).toBeNull();
+    expect(list.querySelector(":scope > .frost")).toBeNull();
     expect(container.querySelector(".bg-track")).toBeNull();
   });
 
-  it("givre : un en-tête de section puis six lignes, aux classes partagées avec TaskList et TaskRow", async () => {
+  it("givre : une section creusée voilée, son en-tête puis six lignes en cartes claires voilées, aux classes partagées avec TaskList et TaskRow", async () => {
     render(await TasksLoading());
 
     const header = screen.getByTestId("tasks-frost-section-header");
     const rows = screen.getAllByTestId("tasks-frost-row");
-    expectClasses(header.parentElement as HTMLElement, TASK_SECTION_CLASSES);
+    const section = header.parentElement as HTMLElement;
+    expectClasses(section, TASK_SECTION_CLASSES);
+    expectClasses(section, "rounded-tile bg-pill-track p-tile");
+    expect(section.querySelectorAll(":scope > .frost")).toHaveLength(1);
+    expect(section.parentElement?.children).toHaveLength(1);
     expectClasses(header, TASK_SECTION_HEADER_CLASSES);
     expectClasses(
       header.firstElementChild as HTMLElement,
@@ -161,7 +168,9 @@ describe("chargement de la liste des tâches", () => {
     expect(rows).toHaveLength(6);
     expectClasses(rows[0].parentElement as HTMLElement, TASK_ROWS_CLASSES);
     rows.forEach((row, i) => {
-      expectClasses(row, TASK_ROW_CLASSES);
+      expectClasses(row, TASK_ROW_CLASSES.replace(" bg-row", ""));
+      expectClasses(row, TASK_LIST_ROW_SURFACE_CLASSES);
+      expect(row.classList.contains("bg-row")).toBe(false);
       expect(row.querySelectorAll(".frost")).toHaveLength(1);
       expect(row.style.getPropertyValue("--frost-index")).toBe(String(i + 1));
       const line = row.querySelector(":scope > div:not(.frost)") as HTMLElement;

@@ -2,10 +2,11 @@
 // Chargement de `/tasks` (DESIGN.md § 5 « États de chargement — givre ») : dans le groupe `(list)`, il
 // n'enveloppe que la liste ou le tableau, pas l'emplacement `@detail` (BRAIN-54, voir `../layout.tsx`). Il
 // ressemble à la vue mémorisée (cookie `bmb_tasks_view`, lu au rendu serveur : aucun script, aucun éclair).
-// Vue Liste : le vrai en-tête, puis la tuile de la
-// liste givrée : un en-tête de section (place réservée) et six lignes givrées, chacune à la hauteur d'une ligne
+// Vue Liste : le vrai en-tête, puis une section de la liste givrée, sans verre (surfaces « Creux », comme la
+// vraie liste) : un creux `pill-track` voilé, son en-tête (place réservée) et six lignes en cartes claires
+// voilées, chacune à la hauteur d'une ligne
 // dont le titre et la légende tiennent sur une ligne (QA-3, décision d'Antoine du 2026-11-21 : squelette
-// générique, sans mémorisation). Classes de la tuile, de la section et des lignes lues dans task-list-layout.ts,
+// générique, sans mémorisation). Classes de la liste, de la section et des lignes lues dans task-list-layout.ts,
 // comme TaskList et TaskRow ; hauteurs de texte par des cales `h-lh` aux mêmes tailles (légende : la même cale de
 // pastille que TaskRow, présente avec ou sans pastille). La première section et
 // sa première ligne se posent donc là où était le givre ; plus bas, un ajustement est accepté (titres sur deux
@@ -28,7 +29,8 @@ import { TASKS_PATH } from "@/components/shell/nav-items";
 import { BoardOptions } from "@/components/tasks/BoardOptions";
 import { CompletedToggle } from "@/components/tasks/CompletedToggle";
 import {
-  TASK_LIST_TILE_CLASSES,
+  TASK_LIST_CLASSES,
+  TASK_LIST_ROW_SURFACE_CLASSES,
   TASK_ROW_CLASSES,
   TASK_ROW_LEGEND_CLASSES,
   TASK_ROW_LEGEND_STRUT_CLASSES,
@@ -44,6 +46,7 @@ import {
 import { TaskBoardFrost } from "@/components/tasks/TaskBoardFrost";
 import { ViewSwitch } from "@/components/tasks/ViewSwitch";
 import { readBoardOptions, readTasksView } from "@/lib/preferences";
+import { cn } from "@/lib/utils";
 
 /** Lignes du givre : assez pour remplir un écran de téléphone, toujours les mêmes. */
 const FROST_ROWS = [1, 2, 3, 4, 5, 6];
@@ -103,8 +106,8 @@ export default async function TasksLoading() {
       />
       {status}
       <div aria-hidden="true" data-testid="tasks-frost">
-        <FrostTile className={TASK_LIST_TILE_CLASSES}>
-          <div className={TASK_SECTION_CLASSES}>
+        <div className={TASK_LIST_CLASSES}>
+          <FrostTile variant="row" className={TASK_SECTION_CLASSES}>
             <div
               data-testid="tasks-frost-section-header"
               className={TASK_SECTION_HEADER_CLASSES}
@@ -118,7 +121,10 @@ export default async function TasksLoading() {
                   variant="row"
                   index={index}
                   testId="tasks-frost-row"
-                  className={TASK_ROW_CLASSES}
+                  className={cn(
+                    TASK_ROW_CLASSES,
+                    TASK_LIST_ROW_SURFACE_CLASSES,
+                  )}
                 >
                   <div className={TASK_ROW_LINE_CLASSES}>
                     <div className={TASK_ROW_TEXT_CLASSES}>
@@ -133,8 +139,8 @@ export default async function TasksLoading() {
                 </FrostTile>
               ))}
             </div>
-          </div>
-        </FrostTile>
+          </FrostTile>
+        </div>
       </div>
     </main>
   );
