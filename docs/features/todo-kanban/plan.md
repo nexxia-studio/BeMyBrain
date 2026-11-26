@@ -103,7 +103,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : e2e ordinateur — « ombre et contour calculés diffèrent entre repos et survol ; pointillé de l'empreinte ≥ 3:1 contre la colonne (lecture de pixels) »
   - Fini quand : e2e de la démo verts (desktop, mobile), unitaires verts.
 
-- [ ] **14. Rendre la cible de dépôt lisible sur mobile**
+- [x] **14. Rendre la cible de dépôt lisible sur mobile** — terminée le 2026-11-26 (`58d753f`)
   - Fichiers : `src/components/kanban/SortableBoard.tsx`, `SortableBoard.test.tsx`, `e2e/demo-kanban.spec.ts`
   - Contenu : onglet survolé pendant un glisser = état actif complet et amené dans le champ ; amorce visible quand des onglets sont hors écran ; en-tête de colonne masqué visuellement sous 768 px (l'onglet le dit déjà).
   - Test à écrire d'abord : unitaire — « onglet cible marqué pendant le glisser » ; e2e mobile au doigt — « l'onglet visé est visible et marqué pendant le glisser »
