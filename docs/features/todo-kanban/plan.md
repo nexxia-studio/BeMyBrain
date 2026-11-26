@@ -115,8 +115,8 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « bouton déplie et replie, au clic et au clavier ; dépôt sur le bandeau replié ; dépôt dans la colonne dépliée ; sous 768 px, panneau d'onglet normal » ; e2e de la démo adaptés
   - Fini quand : tests et e2e verts ; aucun avertissement d'hydratation.
 
-- [ ] **16. Écrire la carte d'une tâche réelle**
-  - Fichiers : `src/components/tasks/TaskCard.tsx`, `TaskCard.test.tsx`, `messages/{fr,en}.json` (`tasks.blocked`, sous-tâches ouvertes)
+- [x] **16. Écrire la carte d'une tâche réelle** — terminée le 2026-11-26 (`7c7c044`)
+  - Fichiers : `src/components/tasks/TaskCard.tsx`, `TaskCard.test.tsx`, `BlockedChip.tsx` (pastille partagée avec la démo), `messages/{fr,en}.json` (`tasks.blocked`, `tasks.card.*`)
   - Contenu : reprise de `KanbanDemoCard` sur le type `Task` : titre, parente en légende (sous-tâche), « Bloquée », espace (selon `showContext`), échéance, tags, compteur de sous-tâches avec signal des ouvertes (« n ouvertes » sur une parente fermée), priorité teintée ; aucun appel serveur.
   - Test à écrire d'abord : « sous-tâche avec le titre de sa parente ; parente terminée avec 2 ouvertes ; tâche bloquée ; en retard ; terminée (titre et légende atténués) ; sans légende ; EN »
   - Fini quand : tests verts.
