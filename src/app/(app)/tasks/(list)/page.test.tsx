@@ -243,7 +243,9 @@ describe("page /tasks", () => {
     const view = screen.getByRole("group", { name: "Vue" });
     expect(view.closest("header")).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Liste" }).getAttribute("aria-pressed"),
+      screen
+        .getByRole("button", { name: "Liste" })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
     expect(screen.getByRole("switch", { name: "Terminées" })).toBeTruthy();
     expect(loadBoard).not.toHaveBeenCalled();
@@ -399,6 +401,31 @@ describe("page /tasks", () => {
           },
         }),
       );
+    });
+
+    it("valeur inattendue de ?done ou de ?canceled (1, répétée, autre mot) : 20 cartes au plus, « Tout voir » non déplié", async () => {
+      loadCurrentScope.mockResolvedValue(PRIVATE_SCOPE);
+
+      await renderPage({ done: "1" });
+      await renderPage({ done: ["all", "all"] } as unknown as Record<
+        string,
+        string
+      >);
+      await renderPage({ canceled: "oui" });
+
+      expect(loadBoard).toHaveBeenCalledTimes(3);
+      for (const [, , filter] of loadBoard.mock.calls) {
+        expect(filter).toMatchObject({ completedLimit: 20, canceledLimit: 20 });
+      }
+      for (const [props] of taskBoardProps.mock.calls) {
+        expect(props).toMatchObject({
+          listQuery: "",
+          seeAll: {
+            completed: { expanded: false },
+            canceled: { expanded: false },
+          },
+        });
+      }
     });
 
     it("périmètre lu remis au tableau : il change avec le côté, l'espace et les options de sous-tâches", async () => {

@@ -26,7 +26,10 @@ import {
 } from "./task-board-layout";
 
 // Le givre du tableau recopie les classes de place et de taille de `SortableBoard` (fichier figé, qui ne les
-// exporte pas). Ce verrou les compare au vrai tableau : une classe changée là-bas fait échouer ici.
+// exporte pas). Ce verrou les compare au vrai tableau : une classe recopiée qui change ou disparaît là-bas fait
+// échouer ici. Limite : il ne voit pas une classe AJOUTÉE à `SortableBoard` (le test demande que les classes
+// recopiées soient présentes, pas qu'elles soient les seules) ; une nouvelle classe de place ou de taille là-bas
+// doit être recopiée à la main dans `task-board-layout.ts`.
 
 type Card = { id: string };
 

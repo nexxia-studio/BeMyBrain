@@ -15,9 +15,11 @@
 //   (`refresh()` de `web-action.ts`), aucun `router.refresh()` ici ;
 // - échec (refus du serveur ou panne) : la carte revient, animée depuis l'endroit du dépôt (`animate` de Motion
 //   sur `transform`, ADR-006 ; rien en mouvement réduit), et la bulle propose de réessayer ;
-// - session expirée : `settleAction` relance le renvoi vers `/login`, la file le remet à `onSaveError`, et il est
-//   relancé ici au rendu, là où la frontière de Next le reçoit et navigue (docs/gotchas.md, « Action refusée sans
-//   session ») ; le tableau est alors démonté, sans bulle.
+// - session expirée : l'action redirige, le client de Next navigue lui-même vers `/login` et rejette la promesse
+//   avec l'erreur de contrôle marquée « déjà traitée » ; `settleAction` la relance, la file la remet à
+//   `onSaveError`, et elle est relancée ici au rendu. Cette relance ne sert pas à naviguer : la frontière de Next
+//   qui la reçoit remonte le sous-arbre, le tableau est démonté sans bulle d'échec (docs/gotchas.md, « Action
+//   refusée sans session »).
 // Changement de périmètre avec des dépôts en attente (règle retenue) : ils partent quand même, dans l'ordre.
 // Option ou filtre d'espace basculé, côté changé : même tableau monté, les dépôts en attente sont rejoués sur le
 // nouveau tableau du serveur (carte absente du nouveau périmètre : plus affichée, échec muet). Vue Liste choisie :
@@ -28,8 +30,11 @@
 // l'inverse) garde sa date de clôture, que le serveur peut ranger hors des 20 plus récentes.
 // raccourci: cette carte gardée est rendue de mémoire (dernier état lu), en fin de colonne, tant que le serveur
 // dit la colonne tronquée ; elle est oubliée dès qu'on l'ouvre (une mise à la corbeille depuis le détail ne
-// laisserait pas de carte fantôme) et hors du périmètre où elle a été déposée — à remplacer par une lecture
-// serveur des cartes déposées si le cas se montre à l'usage.
+// laisserait pas de carte fantôme), si son dépôt échoue, et hors du périmètre où elle a été déposée. Tant qu'elle
+// n'est rendue que de mémoire, elle ne se déplace pas : absente du tableau de la file, son déplacement ne
+// s'afficherait nulle part et son échec serait muet ; un dépôt la laisse donc à sa place, sans rien enregistrer
+// (pour la déplacer : « Tout voir », ou l'ouvrir) — à remplacer par une lecture serveur des cartes déposées si le
+// cas se montre à l'usage.
 import {
   animate,
   AnimatePresence,
@@ -93,8 +98,13 @@ async function save(move: BoardMove): Promise<boolean> {
   return outcome.ok && outcome.value.ok;
 }
 
-/** Carte déposée dans une colonne fermée pendant la visite : dernier état lu, périmètre du dépôt. */
-type KeptCard = { column: ClosedCategory; task: Task; scopeKey: string };
+/** Carte déposée dans une colonne fermée pendant la visite : dernier état lu, périmètre et dépôt qui l'a posée. */
+type KeptCard = {
+  column: ClosedCategory;
+  task: Task;
+  scopeKey: string;
+  move: BoardMove;
+};
 
 /** « Tout voir » d'une colonne fermée : état lu dans l'adresse et lien vers l'état inverse. */
 export type SeeAll = { expanded: boolean; href: string };
@@ -151,7 +161,7 @@ export function TaskBoard({
   const canceled = useOptimisticPreference(canceledOpen, saveCanceledOpen);
   const moves = useBoardMoves({
     saved,
-    save,
+    save: saveMove,
     reducedMotion,
     cardElement,
     onSaveError,
@@ -180,6 +190,34 @@ export function TaskBoard({
     console.error("[tasks] déplacement en échec", error);
   }
 
+  /** Enregistre ; en échec, la carte que ce dépôt faisait garder de mémoire est oubliée. */
+  async function saveMove(sent: BoardMove): Promise<boolean> {
+    const ok = await save(sent);
+    if (!ok) {
+      setKept((current) => {
+        if (current.get(sent.id)?.move !== sent) return current;
+        const next = new Map(current);
+        next.delete(sent.id);
+        return next;
+      });
+    }
+    return ok;
+  }
+
+  /**
+   * Colonne où la carte n'est rendue que de mémoire : déposée là pendant la visite, dans ce périmètre, absente du
+   * tableau du serveur, colonne dite tronquée ; `null` sinon.
+   */
+  function rememberedColumn(id: string): ClosedCategory | null {
+    const card = kept.get(id);
+    if (card === undefined || card.scopeKey !== scopeKey) return null;
+    if (boardHas(board, id)) return null;
+    const truncated = columns.some(
+      (column) => column.category === card.column && column.truncated,
+    );
+    return truncated ? card.column : null;
+  }
+
   function forget(id: string) {
     setKept((current) => {
       if (!current.has(id)) return current;
@@ -189,22 +227,36 @@ export function TaskBoard({
     });
   }
 
+  /** Remet un déplacement à la file ; vers une colonne fermée, la carte est gardée de mémoire. */
+  function send(sent: BoardMove) {
+    const to = sent.toColumn;
+    const task = tasksById.get(sent.id);
+    if (isClosed(to) && task !== undefined) {
+      setKept((current) =>
+        new Map(current).set(sent.id, {
+          column: to,
+          task,
+          scopeKey,
+          move: sent,
+        }),
+      );
+    } else {
+      forget(sent.id);
+    }
+    moves.move(sent);
+  }
+
   function move(next: BoardMove) {
+    // Carte rendue de mémoire seulement : elle reste à sa place (voir l'en-tête).
+    if (rememberedColumn(next.id) !== null) return;
     const to = next.toColumn;
     if (!isClosed(to)) {
-      forget(next.id);
-      moves.move(next);
+      send(next);
       return;
     }
     // Déjà dans cette colonne fermée : la position y est ignorée, rien à enregistrer.
-    if (board[to].includes(next.id) || kept.get(next.id)?.column === to) return;
-    const task = tasksById.get(next.id) ?? kept.get(next.id)?.task;
-    if (task !== undefined) {
-      setKept((current) =>
-        new Map(current).set(next.id, { column: to, task, scopeKey }),
-      );
-    }
-    moves.move({ ...next, beforeId: null, afterId: null });
+    if (board[to].includes(next.id)) return;
+    send({ ...next, beforeId: null, afterId: null });
   }
 
   function open(id: string) {
@@ -226,12 +278,7 @@ export function TaskBoard({
     const remembered =
       closed && column.truncated
         ? [...kept]
-            .filter(
-              ([id, card]) =>
-                card.column === category &&
-                card.scopeKey === scopeKey &&
-                !boardHas(board, id),
-            )
+            .filter(([id]) => rememberedColumn(id) === category)
             .map(([id]) => id)
         : [];
     const view = closed ? seeAll[category] : null;
@@ -323,7 +370,7 @@ export function TaskBoard({
               <span className="py-2">{t("moveFailed")}</span>
               <motion.button
                 type="button"
-                onClick={moves.retry}
+                onClick={() => send(failure)}
                 whileTap={{ scale: 0.97 }}
                 transition={{ duration: 0.1, ease: "easeOut" }}
                 className="min-h-11 shrink-0 rounded-md px-3 text-small font-semibold text-link hover:text-link-hover"

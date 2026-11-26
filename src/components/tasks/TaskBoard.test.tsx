@@ -730,7 +730,11 @@ describe("tableau des tâches : échec d'un enregistrement", () => {
       "[tasks] déplacement en échec",
       failure,
     );
-    expect(JSON.stringify(logged.mock.calls)).not.toContain(a.title);
+    // Tout ce qui est journalisé : le libellé fixe et l'erreur reçue, rien de la tâche.
+    expect(logged.mock.calls.flat()).toEqual([
+      "[tasks] déplacement en échec",
+      failure,
+    ]);
     expect(idsIn("unstarted")[0]).toBe(a.id);
     expect(bubble()).toBeTruthy();
 
@@ -933,6 +937,153 @@ describe("tableau des tâches : Terminée et Annulée", () => {
       board({ columns: after, canceledOpen: true, scopeKey: "pro" }),
     );
     expect(idsIn("canceled")).toHaveLength(20);
+  });
+
+  it("dépôt dans Terminée en échec, puis nouveau dépôt à la main : tasks.move rappelé", async () => {
+    const { a, done, tasks } = fixture();
+    runAppAction.mockResolvedValueOnce({ ok: false });
+    render(board({ columns: serverColumns(tasks) }));
+    const toDone: BoardMove = {
+      id: a.id,
+      toColumn: "completed",
+      beforeId: null,
+      afterId: done.id,
+    };
+
+    await drop(toDone);
+    await settle();
+    expect(idsIn("unstarted")[0]).toBe(a.id);
+
+    await drop({ ...toDone });
+    await settle();
+
+    expect(runAppAction).toHaveBeenCalledTimes(2);
+    expect(idsIn("completed")).toEqual([a.id, done.id]);
+    expect(bubble()).toBeNull();
+  });
+
+  it("dépôt en échec vers une colonne fermée : la carte n'est pas gardée de mémoire", async () => {
+    const twenty = Array.from({ length: 20 }, () => buildTask());
+    const old = buildTask();
+    runAppAction.mockResolvedValueOnce({ ok: false });
+    const view = render(
+      board({
+        columns: serverColumns(
+          { completed: [old], canceled: twenty },
+          { canceled: 30 },
+        ),
+        canceledOpen: true,
+      }),
+    );
+
+    await drop({
+      id: old.id,
+      toColumn: "canceled",
+      beforeId: null,
+      afterId: null,
+    });
+    await settle();
+    // Plus tard, la carte quitte le tableau par un autre canal (corbeille) : aucune carte fantôme.
+    view.rerender(
+      board({
+        columns: serverColumns({ canceled: twenty }, { canceled: 30 }),
+        canceledOpen: true,
+      }),
+    );
+
+    expect(idsIn("canceled")).toEqual(twenty.map((t) => t.id));
+  });
+
+  it("Réessayer après un échec vers Annulée : enregistré, et la carte est de nouveau gardée au-delà des 20", async () => {
+    const twenty = Array.from({ length: 20 }, () => buildTask());
+    const old = buildTask();
+    runAppAction.mockResolvedValueOnce({ ok: false });
+    const view = render(
+      board({
+        columns: serverColumns(
+          { completed: [old], canceled: twenty },
+          { canceled: 30 },
+        ),
+        canceledOpen: true,
+      }),
+    );
+    await drop({
+      id: old.id,
+      toColumn: "canceled",
+      beforeId: null,
+      afterId: null,
+    });
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Réessayer" }));
+    await settle();
+    view.rerender(
+      board({
+        columns: serverColumns({ canceled: twenty }, { canceled: 31 }),
+        canceledOpen: true,
+      }),
+    );
+
+    expect(runAppAction).toHaveBeenCalledTimes(2);
+    expect(idsIn("canceled")).toEqual([...twenty.map((t) => t.id), old.id]);
+  });
+
+  it("une carte gardée de mémoire ne se déplace pas : elle reste affichée à sa place, rien n'est enregistré", async () => {
+    const twenty = Array.from({ length: 20 }, () => buildTask());
+    const old = buildTask();
+    const open = buildTask();
+    const view = render(
+      board({
+        columns: serverColumns(
+          { unstarted: [open], completed: [old], canceled: twenty },
+          { canceled: 30 },
+        ),
+        canceledOpen: true,
+      }),
+    );
+    await drop({
+      id: old.id,
+      toColumn: "canceled",
+      beforeId: null,
+      afterId: null,
+    });
+    await settle();
+    view.rerender(
+      board({
+        columns: serverColumns(
+          { unstarted: [open], canceled: twenty },
+          { canceled: 31 },
+        ),
+        canceledOpen: true,
+      }),
+    );
+    runAppAction.mockClear();
+
+    await drop({
+      id: old.id,
+      toColumn: "unstarted",
+      beforeId: open.id,
+      afterId: null,
+    });
+    await drop({
+      id: old.id,
+      toColumn: "completed",
+      beforeId: null,
+      afterId: null,
+    });
+    await drop({
+      id: old.id,
+      toColumn: "canceled",
+      beforeId: null,
+      afterId: twenty[0].id,
+    });
+    await settle();
+
+    expect(runAppAction).not.toHaveBeenCalled();
+    expect(idsIn("canceled")).toEqual([...twenty.map((t) => t.id), old.id]);
+    expect(idsIn("unstarted")).toEqual([open.id]);
+    expect(totalOf("canceled")).toBe("31");
+    expect(bubble()).toBeNull();
   });
 
   it("Annulée : repliable, repliée ou dépliée selon la préférence reçue ; les autres colonnes ne le sont pas", () => {
