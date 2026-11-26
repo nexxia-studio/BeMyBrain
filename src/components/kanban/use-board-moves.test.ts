@@ -469,7 +469,7 @@ describe("file des déplacements optimistes d'un tableau", () => {
     expect(result.current.pendingCount).toBe(1);
   });
 
-  it("tableau du serveur reçu avant la réponse, carte à la place demandée : aucun saut, aucun double placement", async () => {
+  it("tableau du serveur reçu avant la réponse, carte à la place demandée : aucun saut, aucun double placement ; le tableau suivant fait foi", async () => {
     const { save, calls } = controllableSave();
     const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
     await drop(result, A_TO_DOING);
@@ -486,9 +486,17 @@ describe("file des déplacements optimistes d'un tableau", () => {
 
     expect(result.current.board).toEqual(fromServer);
     expect(result.current.pendingCount).toBe(0);
+    const next: BoardIds = {
+      todo: ["b", "c"],
+      doing: ["d", "a", "e"],
+      done: ["f"],
+    };
+    rerender({ saved: next, save });
+
+    expect(result.current.board).toEqual(next);
   });
 
-  it("tableau du serveur reçu avant la réponse, carte placée ailleurs que demandé : le dépôt reste affiché pendant l'attente, puis le serveur fait foi", async () => {
+  it("tableau reçu avant la réponse, carte placée ailleurs que demandé : le dépôt reste affiché jusqu'au premier tableau reçu après la réussite", async () => {
     const { save, calls } = controllableSave();
     const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
     await drop(result, {
@@ -497,36 +505,47 @@ describe("file des déplacements optimistes d'un tableau", () => {
       beforeId: "d",
       afterId: "e",
     });
-    // Le serveur a mis la carte en queue de colonne, pas entre ses voisines.
-    const fromServer: BoardIds = {
+    const early: BoardIds = {
       todo: ["b", "c"],
       doing: ["d", "e", "a"],
       done: ["f"],
     };
 
-    rerender({ saved: fromServer, save });
+    rerender({ saved: early, save });
+    await settle(calls[0], true);
 
+    // Reçu avant la réussite : rien ne dit qu'il connaît ce dépôt.
     expect(result.current.board.doing).toEqual(["d", "a", "e"]);
-    await settle(calls[0], true);
-
-    expect(result.current.board).toEqual(fromServer);
-    expect(result.current.pendingCount).toBe(0);
-  });
-
-  it("tableau enregistré remplacé après un enregistrement réussi : le nouveau tableau fait foi", async () => {
-    const { save, calls } = controllableSave();
-    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
-    await drop(result, A_TO_DOING);
-    await settle(calls[0], true);
-    const refreshed: BoardIds = {
-      todo: ["b", "c"],
-      doing: ["d", "a", "e"],
+    const afterSuccess: BoardIds = {
+      todo: ["b", "c", "g"],
+      doing: ["d", "e", "a"],
       done: ["f"],
     };
+    rerender({ saved: afterSuccess, save });
 
-    rerender({ saved: refreshed, save });
+    expect(result.current.board).toEqual(afterSuccess);
+  });
 
-    expect(result.current.board).toEqual(refreshed);
+  it("réussite, puis tableau du serveur avec la carte ailleurs que demandé (tête de la colonne) : le serveur fait foi", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, {
+      id: "a",
+      toColumn: "done",
+      beforeId: "f",
+      afterId: null,
+    });
+    await settle(calls[0], true);
+
+    expect(result.current.board.done).toEqual(["f", "a"]);
+    const fromServer: BoardIds = {
+      todo: ["b", "c"],
+      doing: ["d", "e"],
+      done: ["a", "f"],
+    };
+    rerender({ saved: fromServer, save });
+
+    expect(result.current.board).toEqual(fromServer);
   });
 
   it("tableau remplacé puis échec du déplacement en attente : la carte prend la place du nouveau tableau", async () => {
@@ -586,32 +605,96 @@ describe("file des déplacements optimistes d'un tableau", () => {
     expect(result.current.board).toEqual(withoutCard);
   });
 
-  // Conséquence de la règle « le serveur fait foi » : à relire à la tâche 20 (deux dépôts rapides, voir le rapport).
-  it("deux dépôts de cartes différentes, tableau du premier reçu pendant l'enregistrement du second : à la réponse du second, l'affiché est ce tableau, jusqu'au suivant", async () => {
+  it("deux dépôts rapides de cartes différentes, tableau du premier reçu pendant l'enregistrement du second : la seconde carte ne recule jamais, puis son tableau fait foi", async () => {
     const { save, calls } = controllableSave();
     const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    const shown = { todo: ["c"], doing: ["a", "d", "e"], done: ["b", "f"] };
     await drop(result, B_TO_DONE);
     await drop(result, A_TO_DOING);
-    await settle(calls[0], true);
-    const afterFirst: BoardIds = {
-      todo: ["a", "c"],
-      doing: ["d", "e"],
-      done: ["b", "f"],
-    };
-    rerender({ saved: afterFirst, save });
 
-    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
+    expect(result.current.board).toEqual(shown);
+    await settle(calls[0], true);
+
+    expect(result.current.board).toEqual(shown);
+    // Tableau rafraîchi du premier dépôt : il ne connaît pas encore le second.
+    rerender({
+      saved: { todo: ["a", "c"], doing: ["d", "e"], done: ["b", "f"] },
+      save,
+    });
+
+    expect(result.current.board).toEqual(shown);
+    expect(result.current.pendingCount).toBe(1);
     await settle(calls[1], true);
 
-    expect(result.current.board).toEqual(afterFirst);
+    expect(result.current.board).toEqual(shown);
+    expect(result.current.pendingCount).toBe(0);
+    // Tableau rafraîchi du second dépôt : le serveur a rangé la carte ailleurs que demandé.
     const afterSecond: BoardIds = {
       todo: ["c"],
-      doing: ["a", "d", "e"],
+      doing: ["d", "a", "e"],
       done: ["b", "f"],
     };
     rerender({ saved: afterSecond, save });
 
     expect(result.current.board).toEqual(afterSecond);
+  });
+
+  it("deux dépôts de la même carte, tableau du premier reçu pendant l'enregistrement du second : la carte reste à la place du second", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, A_TO_DOING);
+    await drop(result, A_TO_DONE);
+    await settle(calls[0], true);
+
+    rerender({
+      saved: { todo: ["b", "c"], doing: ["a", "d", "e"], done: ["f"] },
+      save,
+    });
+
+    expect(result.current.board).toEqual({
+      todo: ["b", "c"],
+      doing: ["d", "e"],
+      done: ["a", "f"],
+    });
+    await settle(calls[1], true);
+
+    expect(result.current.board.done).toEqual(["a", "f"]);
+    expect(result.current.board.doing).toEqual(["d", "e"]);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
+  it("réussite sans aucun tableau nouveau ensuite : la carte reste où elle a été déposée, plus rien en attente", async () => {
+    const { save, calls } = controllableSave();
+    const { result, rerender } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, A_TO_DOING);
+    await settle(calls[0], true);
+
+    rerender({ saved: SAVED, save });
+
+    expect(result.current.board).toEqual({
+      todo: ["b", "c"],
+      doing: ["a", "d", "e"],
+      done: ["f"],
+    });
+    expect(result.current.pendingCount).toBe(0);
+    expect(result.current.failure).toBeNull();
+  });
+
+  it("dépôt confirmé puis échec d'un dépôt suivant : seule la carte en échec revient, le dépôt confirmé reste affiché", async () => {
+    const { save, calls } = controllableSave();
+    const { result } = renderBoardMoves({ saved: SAVED, save });
+    await drop(result, B_TO_DONE);
+    await settle(calls[0], true);
+    await drop(result, A_TO_DOING);
+
+    await settle(calls[1], false);
+
+    expect(result.current.board).toEqual({
+      todo: ["a", "c"],
+      doing: ["d", "e"],
+      done: ["b", "f"],
+    });
+    expect(result.current.failure).toBe(A_TO_DOING);
   });
 
   it("nouvelle référence au contenu identique (rendu du parent sans nouvelles données) : le dépôt réussi reste affiché", async () => {

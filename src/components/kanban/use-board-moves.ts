@@ -2,17 +2,24 @@
 // notion de tâche, sans bibliothèque de glisser, sans appel serveur ni import de `next/*` : l'enregistrement
 // est une fonction reçue.
 //
-// Affichage. Affiché = tableau tenu ici + déplacements en attente rejoués par-dessus (`applyMove`, même règle de
-// placement que le serveur) : la carte reste où elle est lâchée, tant que son enregistrement n'a pas répondu.
+// Affichage. Affiché = tableau enregistré + dépôts rejoués par-dessus, dans l'ordre des dépôts (`applyMove`, même
+// règle de placement que le serveur). Un dépôt est rejoué tant qu'il est en attente, puis tant qu'il est
+// « confirmé, pas encore vu du serveur » : la carte reste où elle est lâchée, sans recul.
 //
 // File. Les enregistrements partent l'un après l'autre, dans l'ordre des dépôts. Un maillon ne rejette jamais :
-// quoi qu'il arrive (enregistrement ou relevé de carte qui lève), l'attente du dépôt est retirée et le dépôt
-// suivant part.
+// quoi qu'il arrive (enregistrement ou relevé de carte qui lève), le dépôt sort de l'attente et le suivant part.
 //
-// Réussite : le serveur fait foi. Si un tableau enregistré plus récent que le dépôt a déjà été reçu, le
-// déplacement n'est pas réappliqué par-dessus : seule l'attente est retirée, l'affiché est ce tableau (la carte
-// peut y être ailleurs que demandé : tête de Terminée, voisine périmée). Sinon le déplacement rejoint le tableau
-// tenu ici, sans attendre le prochain tableau reçu, qui le remplacera.
+// Réussite : le dépôt devient confirmé. Il n'est plus compté dans `pendingCount`, mais reste rejoué par-dessus
+// le tableau enregistré jusqu'au premier tableau du serveur reçu APRÈS sa réussite. À ce moment-là seulement le
+// serveur fait foi : tous les dépôts confirmés sont retirés, l'affiché est ce tableau + les dépôts encore en
+// attente (la carte peut alors y être ailleurs que demandé : tête de Terminée, voisine périmée). Un tableau reçu
+// AVANT la réussite ne retire rien : rien ne dit qu'il connaît ce dépôt (deux dépôts rapides : le tableau
+// rafraîchi du premier arrive pendant l'enregistrement du second).
+// Hypothèse, à la charge de l'appelant : chaque enregistrement réussi est suivi d'un rendu serveur (revalidation
+// par l'action, ou `router.refresh()`), et Next livre les nouvelles props après avoir résolu la promesse de
+// l'action. Limite assumée : si aucun tableau nouveau n'arrive après une réussite (le serveur rend un contenu
+// identique au précédent), le dépôt confirmé reste rejoué ; sans effet visible quand le serveur a placé la carte
+// là où elle a été déposée.
 //
 // Échec (`save` rend faux) : le déplacement sort de l'attente, la carte revient à sa place et `failure` propose de
 // réessayer ; `failure` s'efface au geste suivant, après 5 s, ou par `dismissFailure` (fermeture de la bulle par
@@ -28,13 +35,12 @@
 // par `onSaveError` lui-même sort de la file en rejet non géré, sans l'arrêter.
 //
 // Tableau enregistré (`saved`). Comparé par son contenu (colonnes et cartes, dans l'ordre), pas par sa référence :
-// - contenu nouveau (rendu serveur) : il remplace le tableau tenu ici ; les déplacements encore en attente sont
-//   rejoués dessus ; celui dont la carte n'y est plus n'est plus affiché et son échec reste muet (son
-//   enregistrement, déjà dû, part quand même) ;
+// - contenu nouveau (rendu serveur) : c'est un tableau du serveur ; il retire les dépôts confirmés, les dépôts
+//   encore en attente sont rejoués dessus ; celui dont la carte n'y est plus n'est plus affiché et son échec
+//   reste muet (son enregistrement, déjà dû, part quand même) ;
 // - nouvelle référence au contenu identique (rendu du parent sans nouvelles données, tableau refait à chaque
-//   rendu) : ignorée, un dépôt réussi appliqué ici n'est pas écrasé. Coût : une comparaison par rendu ; un
-//   `useMemo` chez l'appelant l'évite. Limite : un tableau du serveur identique au précédent ne ramène pas une
-//   carte dont l'enregistrement a rendu vrai.
+//   rendu) : ce n'est pas un nouveau tableau, rien n'est retiré. Coût : une comparaison par rendu ; un `useMemo`
+//   chez l'appelant l'évite.
 //
 // Retour d'une carte : sa position au moment de l'échec est relevée avant le rendu ; l'appelant la consomme dans
 // un `useLayoutEffect` (`consumeReturn`) et anime la carte depuis ce départ.
@@ -49,10 +55,9 @@ import type { BoardMove } from "./SortableBoard";
 /** `failure` effacé au geste suivant ou après 5 s (DESIGN.md § 5, **Boutons**). */
 export const FAILURE_NOTICE_MS = 5000;
 
-type PendingMove = { key: number; move: BoardMove };
+/** Dépôt rejoué par-dessus le tableau enregistré ; `confirmed` : enregistré, pas encore vu du serveur. */
+type ReplayedMove = { key: number; move: BoardMove; confirmed: boolean };
 type Origin = { id: string; left: number; top: number };
-/** Tableau tenu par le hook ; `version` compte les tableaux enregistrés reçus (contenu nouveau). */
-type Held<K extends string> = { board: BoardIds<K>; version: number };
 
 /** Départ du retour d'une carte : décalage, en px, entre l'endroit du dépôt et sa place retrouvée. */
 export type CardReturn = { element: HTMLElement; x: number; y: number };
@@ -103,9 +108,9 @@ export function useBoardMoves<K extends string>({
   cardElement,
   onSaveError,
 }: BoardMovesOptions<K>): BoardMoves<K> {
-  const [held, setHeld] = useState<Held<K>>({ board: saved, version: 0 });
-  const [seenSaved, setSeenSaved] = useState(saved);
-  const [pending, setPending] = useState<PendingMove[]>([]);
+  // Dernier tableau enregistré retenu : celui dont le contenu a changé en dernier.
+  const [held, setHeld] = useState(saved);
+  const [replayed, setReplayed] = useState<ReplayedMove[]>([]);
   const [failed, setFailed] = useState<BoardMove | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const nextKey = useRef(0);
@@ -114,11 +119,11 @@ export function useBoardMoves<K extends string>({
   const returning = useRef<Origin | null>(null);
   const mounted = useRef(false);
 
-  // Tableau enregistré au contenu nouveau : il remplace celui tenu ici, pendant le rendu (pas d'affichage
-  // intermédiaire). Une nouvelle référence au contenu identique ne change rien.
-  if (seenSaved !== saved && !sameBoard(seenSaved, saved)) {
-    setSeenSaved(saved);
-    setHeld((current) => ({ board: saved, version: current.version + 1 }));
+  // Tableau du serveur (contenu nouveau) : retenu pendant le rendu (pas d'affichage intermédiaire), et le serveur
+  // fait foi pour les dépôts déjà confirmés. Une nouvelle référence au contenu identique ne change rien.
+  if (held !== saved && !sameBoard(held, saved)) {
+    setHeld(saved);
+    setReplayed((current) => current.filter((entry) => !entry.confirmed));
   }
 
   useEffect(() => {
@@ -136,10 +141,12 @@ export function useBoardMoves<K extends string>({
 
   function move(next: BoardMove) {
     const key = nextKey.current++;
-    const droppedAt = held.version;
     latestMove.current.set(next.id, key);
     setFailed(null);
-    setPending((current) => [...current, { key, move: next }]);
+    setReplayed((current) => [
+      ...current,
+      { key, move: next, confirmed: false },
+    ]);
 
     /** Un maillon de la file : ne rejette jamais, rend ce qui a levé en route. */
     async function settle(): Promise<unknown[]> {
@@ -154,13 +161,15 @@ export function useBoardMoves<K extends string>({
       // Tableau démonté : le dépôt est parti, plus rien à afficher ni à remettre.
       if (!mounted.current) return [];
       if (ok) {
-        // Le serveur fait foi : un tableau reçu depuis le dépôt n'est pas retouché.
-        setHeld((current) =>
-          current.version > droppedAt
-            ? current
-            : { ...current, board: applyMove(current.board, next) },
+        // Confirmé : rejoué jusqu'au premier tableau du serveur reçu après cette réussite.
+        setReplayed((current) =>
+          current.map((entry) =>
+            entry.key === key ? { ...entry, confirmed: true } : entry,
+          ),
         );
-      } else if (latestMove.current.get(next.id) === key) {
+        return thrown;
+      }
+      if (latestMove.current.get(next.id) === key) {
         returning.current = null;
         try {
           // Carte absente (colonne d'un autre onglet, carte disparue) : retour sans animation.
@@ -174,7 +183,7 @@ export function useBoardMoves<K extends string>({
         }
         setFailed(next);
       }
-      setPending((current) => current.filter((entry) => entry.key !== key));
+      setReplayed((current) => current.filter((entry) => entry.key !== key));
       return thrown;
     }
 
@@ -187,8 +196,7 @@ export function useBoardMoves<K extends string>({
   }
 
   // Carte disparue du tableau enregistré : rien à réessayer.
-  const failure =
-    failed !== null && boardHas(held.board, failed.id) ? failed : null;
+  const failure = failed !== null && boardHas(held, failed.id) ? failed : null;
 
   function consumeReturn(): CardReturn | null {
     const origin = returning.current;
@@ -203,12 +211,12 @@ export function useBoardMoves<K extends string>({
   }
 
   return {
-    board: pending.reduce(
+    board: replayed.reduce(
       (current, entry) => applyMove(current, entry.move),
-      held.board,
+      held,
     ),
     move,
-    pendingCount: pending.length,
+    pendingCount: replayed.filter((entry) => !entry.confirmed).length,
     failure,
     retry: () => {
       if (failure !== null) move(failure);
