@@ -1592,6 +1592,83 @@ test("@desktop une carte se dépose sur le bandeau « Annulée » replié comme 
   await expect.poll(() => canceledCount(page)).toBe(before + 2);
 });
 
+// Défaut trouvé sur le vrai tableau (tâche 20) : les colonnes sont étirées à la plus haute. Une colonne ouverte
+// vide est alors un grand rectangle dont les coins sont loin de la carte portée : par les seuls coins les plus
+// proches, la carte lâchée au milieu restait dans sa colonne, et lâchée en haut elle partait dans la suivante.
+// La cible se cherche d'abord dans la colonne sous le pointeur.
+test("@desktop une carte lâchée au milieu puis en haut d'une colonne ouverte vide et haute y arrive, pas dans une colonne voisine", async ({
+  page,
+}) => {
+  // « À planifier », « À faire », « En cours » et « Terminée » à l'écran ensemble, sans défilement du tableau.
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await signIn(page);
+  await openDemo(page);
+  const started = column(page, "started");
+  const startedCards = started.locator("[data-board-card]");
+  const countOf = (id: string) =>
+    column(page, id).locator("[data-board-card]").count();
+  // « En cours » vidée de ses cartes, une à une, vers « À planifier ».
+  const emptied = await startedCards.count();
+  for (let moved = 0; moved < emptied; moved++) {
+    await dragWithMouse(
+      page,
+      await center(startedCards.first()),
+      await center(
+        column(page, "backlog").locator("[data-board-card]").first(),
+      ),
+    );
+    await expect(startedCards).toHaveCount(emptied - moved - 1);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const box = (await started.boundingBox())!;
+  // Colonne vide, étirée à la hauteur de « À faire » : bien plus haute que la fenêtre.
+  expect(box.height).toBeGreaterThan(900);
+  const before = {
+    unstarted: await countOf("unstarted"),
+    completed: await countOf("completed"),
+    backlog: await countOf("backlog"),
+  };
+  const x = box.x + box.width / 2;
+
+  // Au milieu de la partie visible de la colonne vide, à la hauteur des cartes de « À faire ».
+  await dragWithMouse(page, await center(card(page, "unstarted-1")), {
+    x,
+    y: 560,
+  });
+
+  await expect(card(started, "unstarted-1")).toBeVisible();
+  await expect(
+    started.getByRole("heading", { name: STATUS.started }),
+  ).toContainText("1");
+
+  // Colonne vidée de nouveau, puis dépôt en haut, juste sous son en-tête.
+  await dragWithMouse(
+    page,
+    await center(card(started, "unstarted-1")),
+    await center(column(page, "backlog").locator("[data-board-card]").first()),
+  );
+  await expect(startedCards).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const top = (await started.boundingBox())!;
+
+  await dragWithMouse(page, await center(card(page, "unstarted-2")), {
+    x,
+    y: top.y + 90,
+  });
+
+  await expect(card(started, "unstarted-2")).toBeVisible();
+  await expect(startedCards).toHaveCount(1);
+  expect({
+    unstarted: await countOf("unstarted"),
+    completed: await countOf("completed"),
+    backlog: await countOf("backlog"),
+  }).toEqual({
+    unstarted: before.unstarted - 2,
+    completed: before.completed,
+    backlog: before.backlog + 1,
+  });
+});
+
 test("@mobile sous 768 px, « Annulée » est un onglet comme les autres : son panneau montre ses cartes, sans bandeau ni bouton", async ({
   page,
 }) => {

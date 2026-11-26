@@ -90,6 +90,8 @@ function board(
 let wide = true;
 /** Largeur visible de la barre d'onglets (les onglets font 90 px tous les 100 px). */
 let tablistWidth = 1000;
+/** Hauteur commune des colonnes côte à côte (étirées à la plus haute) ; `null` : chacune à la hauteur de ses cartes. */
+let rowHeight: number | null = null;
 
 function stubWidth(isWide: boolean) {
   wide = isWide;
@@ -138,7 +140,7 @@ function fakeRect(this: Element): DOMRect {
   const columnIndex = columns.indexOf(this);
   if (columnIndex >= 0) {
     const count = this.querySelectorAll("[data-board-card]").length;
-    return rect(columnIndex * 300, 0, 280, 60 + count * 60);
+    return rect(columnIndex * 300, 0, 280, rowHeight ?? 60 + count * 60);
   }
   return rect(0, 0, 0, 0);
 }
@@ -146,6 +148,7 @@ function fakeRect(this: Element): DOMRect {
 beforeEach(() => {
   stubWidth(true);
   tablistWidth = 1000;
+  rowHeight = null;
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
     fakeRect,
   );
@@ -634,6 +637,123 @@ describe("SortableBoard", () => {
       expect(container.querySelector('[data-board-card="x"]')).toBeNull();
       act(() => root.unmount());
       container.remove();
+    });
+  });
+
+  // Colonnes côte à côte étirées à la plus haute (1 300 px). Géométrie factice : colonnes de 280 px tous les
+  // 300 px, cartes de 260 × 50 px tous les 60 px. La souris saisit « a » en son centre (140, 75).
+  describe("dépôt à la souris dans la colonne sous le pointeur", () => {
+    const MANY = ["a", "b", "c", "e", "f", "g", "h", "i", "j", "k", "l", "m"];
+
+    async function mouse(
+      type: "mouseDown" | "mouseMove" | "mouseUp",
+      target: Element | Document,
+      x: number,
+      y: number,
+    ) {
+      await act(async () => {
+        fireEvent[type](target, { button: 0, clientX: x, clientY: y });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+
+    async function dragWithMouse(title: string, to: { x: number; y: number }) {
+      await mouse("mouseDown", cardHandle(title), 140, 75);
+      await mouse("mouseMove", document, 150, 75);
+      await mouse("mouseMove", document, to.x - 5, to.y);
+      await mouse("mouseMove", document, to.x, to.y);
+      await mouse("mouseUp", document, to.x, to.y);
+      // dnd-kit avale tout clic dans les 50 ms qui suivent un glisser à la souris : on les laisse passer, sinon
+      // le premier clic du test suivant serait perdu.
+      await act(() => new Promise((resolve) => setTimeout(resolve, 60)));
+    }
+
+    beforeEach(() => {
+      rowHeight = 1300;
+    });
+
+    it("au milieu d'une colonne vide et haute, la carte y arrive, pas chez une voisine dont les cartes sont plus proches", async () => {
+      const onMove = vi.fn();
+      const columns = [
+        column("todo", MANY),
+        column("doing", []),
+        column("done", ["x"]),
+      ];
+      render(board(onMove, columns));
+
+      await dragWithMouse("a", { x: 440, y: 650 });
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "doing",
+        beforeId: null,
+        afterId: null,
+      });
+    });
+
+    it("en haut d'une colonne vide et haute, la carte y arrive, pas dans la colonne suivante", async () => {
+      const onMove = vi.fn();
+      const columns = [
+        column("todo", MANY),
+        column("doing", []),
+        column("done", ["x", "y"]),
+      ];
+      render(board(onMove, columns));
+
+      await dragWithMouse("a", { x: 440, y: 80 });
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "doing",
+        beforeId: null,
+        afterId: null,
+      });
+    });
+
+    it("loin sous la dernière carte d'une colonne courte, à côté d'une colonne longue, la carte arrive en fin de la colonne courte", async () => {
+      const onMove = vi.fn();
+      const columns = [column("todo", MANY), column("doing", ["d"])];
+      render(board(onMove, columns));
+
+      await dragWithMouse("a", { x: 440, y: 650 });
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "doing",
+        beforeId: "d",
+        afterId: null,
+      });
+    });
+
+    it("hors de toute colonne (entre deux colonnes), la cible reste la plus proche par ses coins, comme avant", async () => {
+      const onMove = vi.fn();
+      const columns = [column("todo", MANY), column("doing", ["d"])];
+      render(board(onMove, columns));
+
+      // x = 290 : dans l'écart entre « todo » (0 à 280) et « doing » (300 à 580), à la hauteur de « k ».
+      await dragWithMouse("a", { x: 290, y: 650 });
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "todo",
+        beforeId: "l",
+        afterId: "m",
+      });
+    });
+
+    it("sous le tableau, hors de toute colonne, la cible reste la plus proche par ses coins, comme avant", async () => {
+      const onMove = vi.fn();
+      const columns = [column("todo", ["a", "b"]), column("doing", ["d"])];
+      render(board(onMove, columns));
+
+      await dragWithMouse("a", { x: 440, y: 1400 });
+
+      expect(onMove).toHaveBeenCalledExactlyOnceWith({
+        id: "a",
+        toColumn: "todo",
+        beforeId: "b",
+        afterId: null,
+      });
     });
   });
 

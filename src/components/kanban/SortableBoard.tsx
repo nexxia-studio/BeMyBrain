@@ -16,6 +16,8 @@
 // défilement de la barre (jamais de la page) ; la carte portée, large comme l'écran, masque la barre sous le doigt,
 // donc un repère accroché à la copie redit libellé et compteur (`DropTargetMarker`). Amorce : fondu des onglets et
 // bord ombré du côté où des onglets restent hors champ.
+// Colonnes côte à côte, à la souris ou au doigt : la cible se cherche d'abord dans la colonne sous le pointeur
+// (`createCollisionDetection`, qui dit pourquoi les coins les plus proches seuls échouent sur une colonne vide).
 // Défilement horizontal sans aimant (`scroll-snap`) : le défilement automatique de dnd-kit avance par petits
 // `scrollBy`, que l'aimant transforme chacun en saut d'une colonne entière (le tableau s'emballait jusqu'au bout,
 // la colonne d'origine sortait de l'écran ; mesuré dans Chromium et WebKit, D4 de demo-plan.md).
@@ -274,19 +276,62 @@ function shownRects<R extends { width: number; height: number }>(
   );
 }
 
-// Une cible de dépôt sous le pointeur (onglet, bandeau) l'emporte ; sinon coins les plus proches, adapté aux
-// listes en colonnes (et seul calcul possible au clavier, sans pointeur).
-const collisionDetection: CollisionDetection = (all) => {
-  const args = { ...all, droppableRects: shownRects(all.droppableRects) };
-  const zone = pointerWithin(args).find(
-    (collision) =>
-      (
-        collision.data?.droppableContainer?.data.current as
-          Partial<DropData> | undefined
-      )?.kind === "zone",
-  );
-  return zone ? [zone] : closestCorners(args);
-};
+/**
+ * Détection de collision du tableau. Dans l'ordre :
+ * 1. une cible de dépôt sous le pointeur (onglet, bandeau) l'emporte ;
+ * 2. colonnes côte à côte (`wide`, 768 px et plus), pointeur dans le rectangle d'une colonne : la cible est
+ *    cherchée dans cette colonne seulement, la colonne elle-même si elle est vide, sinon la plus proche de ses
+ *    cartes (la dernière quand on lâche sous elle). Le rectangle de la colonne est lu à l'écran, par l'élément
+ *    de ses cibles : une colonne qui a des cartes n'est pas elle-même une cible ;
+ * 3. sinon coins les plus proches parmi toutes les cibles affichées, adapté aux listes en colonnes (et seul calcul
+ *    possible au clavier, sans pointeur : les flèches ne passent jamais par l'étape 2).
+ * Piège de l'étape 3 seule (mesuré à 1440 px sur le vrai tableau) : les colonnes sont étirées à la plus haute. Les
+ * quatre coins d'une colonne vide de 1 300 px sont loin de la carte portée, où qu'elle soit dedans (plus de 600 px
+ * en moyenne), alors que ceux d'une carte de la colonne voisine, à la même hauteur, sont à une largeur de colonne
+ * (300 px) : la carte lâchée au milieu d'une colonne vide restait chez la voisine, ou partait dans la suivante.
+ * Même cause pour une carte lâchée loin sous la dernière carte d'une colonne courte, à côté d'une colonne longue.
+ */
+function createCollisionDetection(wide: boolean): CollisionDetection {
+  return (all) => {
+    const args = { ...all, droppableRects: shownRects(all.droppableRects) };
+    const kindOf = (container: { data: { current?: unknown } }) =>
+      (container.data.current as Partial<DropData> | undefined)?.kind;
+    const zone = pointerWithin(args).find(
+      (collision) =>
+        collision.data?.droppableContainer !== undefined &&
+        kindOf(collision.data.droppableContainer) === "zone",
+    );
+    if (zone) return [zone];
+    const pointer = all.pointerCoordinates;
+    if (wide && pointer) {
+      // Cibles affichées, hors zones, rangées par colonne.
+      const byColumn = new Map<Element, typeof args.droppableContainers>();
+      for (const container of args.droppableContainers) {
+        const column = container.node.current?.closest("[data-board-column]");
+        if (
+          !column ||
+          kindOf(container) === "zone" ||
+          !args.droppableRects.has(container.id)
+        ) {
+          continue;
+        }
+        byColumn.set(column, [...(byColumn.get(column) ?? []), container]);
+      }
+      for (const [column, own] of byColumn) {
+        const box = column.getBoundingClientRect();
+        if (
+          pointer.x >= box.left &&
+          pointer.x <= box.right &&
+          pointer.y >= box.top &&
+          pointer.y <= box.bottom
+        ) {
+          return closestCorners({ ...args, droppableContainers: own });
+        }
+      }
+    }
+    return closestCorners(args);
+  };
+}
 
 /** Onglets hors champ de la barre d'onglets, de chaque côté. */
 type TabsOverflow = { start: boolean; end: boolean };
@@ -342,6 +387,11 @@ export function SortableBoard<T extends BoardItem>({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [chosenColumnId, setChosenColumnId] = useState(columns[0]?.id);
   const tablist = useRef<HTMLDivElement>(null);
+  // En onglets (sous 768 px), la détection ne regarde pas les colonnes : rien n'y change.
+  const collisionDetection = useMemo(
+    () => createCollisionDetection(wide),
+    [wide],
+  );
   const [tabsOverflow, setTabsOverflow] = useState<TabsOverflow>({
     start: false,
     end: false,
