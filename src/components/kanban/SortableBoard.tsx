@@ -779,7 +779,7 @@ function BoardColumnView<T extends BoardItem>({
       className={cn(
         "flex flex-col gap-2 rounded-tile bg-pill-track p-tile md:shrink-0",
         // Bandeau : large comme son libellé, écrit en entier à l'horizontale (ni tronqué, ni pivoté).
-        folded ? "md:relative md:w-auto md:items-center" : "md:w-70",
+        folded ? "md:relative md:w-auto md:items-center" : "md:w-80",
         isOver && "outline-2 outline-ring",
         className,
       )}

@@ -318,8 +318,8 @@ describe("SortableBoard", () => {
       expect(canceled.getByText("2")).toBeDefined();
       expect(screen.queryByText("x")).toBeNull();
       expect(classesOf(columnSection("canceled"))).toContain("md:w-auto");
-      expect(classesOf(columnSection("canceled"))).not.toContain("md:w-70");
-      expect(classesOf(columnSection("todo"))).toContain("md:w-70");
+      expect(classesOf(columnSection("canceled"))).not.toContain("md:w-80");
+      expect(classesOf(columnSection("todo"))).toContain("md:w-80");
     });
 
     it("le libellé du bandeau reste entier, à l'horizontale", () => {
@@ -367,7 +367,7 @@ describe("SortableBoard", () => {
 
       expect(screen.getByText("x")).toBeDefined();
       expect(toggle().getAttribute("aria-expanded")).toBe("true");
-      expect(classesOf(columnSection("canceled"))).toContain("md:w-70");
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-80");
       expect(document.activeElement).toBe(toggle());
 
       fireEvent.click(toggle());
@@ -562,7 +562,7 @@ describe("SortableBoard", () => {
           name: /CANCELED/,
         }),
       ).toBeNull();
-      expect(classesOf(columnSection("canceled"))).toContain("md:w-70");
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-80");
     });
 
     describe("sous 768 px", () => {

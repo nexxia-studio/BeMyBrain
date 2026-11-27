@@ -33,7 +33,7 @@ export const BOARD_COLUMNS_CLASSES =
 export const BOARD_COLUMN_CLASSES =
   "flex flex-col gap-2 rounded-tile bg-pill-track p-tile md:shrink-0";
 /** Largeur d'une colonne ouverte. */
-export const BOARD_COLUMN_OPEN_CLASSES = "md:w-70";
+export const BOARD_COLUMN_OPEN_CLASSES = "md:w-80";
 /** Colonne repliée en bandeau (768 px et plus) : large comme son libellé. */
 export const BOARD_COLUMN_FOLDED_CLASSES =
   "md:relative md:w-auto md:items-center";
