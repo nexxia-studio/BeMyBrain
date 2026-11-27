@@ -132,6 +132,15 @@ export async function pickDueDate(
 }
 
 /** Crée une tâche par l'ajout rapide (titre et échéance facultative), puis le referme. */
+// Identifiants des tâches créées par `quickAddTask` et pas encore mises à la corbeille : un parcours qui échoue
+// avant d'avoir noté un identifiant dans sa propre liste les laisserait sinon dans le compte e2e partagé.
+const quickAdded: string[] = [];
+
+/** Identifiants créés par `quickAddTask` depuis le dernier appel, à passer à `trashTasks` en fin de parcours. */
+export function takeQuickAdded(): string[] {
+  return quickAdded.splice(0);
+}
+
 export async function quickAddTask(
   page: Page,
   title: string,
@@ -141,6 +150,7 @@ export async function quickAddTask(
   await quickAddTitle(dialog).fill(title);
   if (due !== undefined) await pickDueDate(page, dialog, due.date, due.time);
   const id = await submitQuickAdd(dialog);
+  quickAdded.push(id);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   return id;
@@ -184,17 +194,65 @@ export function detailDialog(page: Page): Locator {
  * statut.
  */
 export async function trashTasks(page: Page, ids: readonly string[]) {
-  for (const id of ids) {
-    await page.goto(`/tasks/${id}`);
-    const detail = detailDialog(page);
-    const missing = page.getByRole("heading", { level: 1, name: "404" });
-    await expect(detail.or(missing)).toBeVisible();
-    if (await missing.isVisible()) continue;
-    await detail
-      .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
-      .click();
-    await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
+  const failed: string[] = [];
+  // Un échec sur une tâche ne laisse pas les suivantes dans le compte : on les traite toutes, puis on le dit.
+  for (const id of new Set(ids)) {
+    try {
+      await page.goto(`/tasks/${id}`);
+      const detail = detailDialog(page);
+      const missing = page.getByRole("heading", { level: 1, name: "404" });
+      await expect(detail.or(missing)).toBeVisible();
+      if (await missing.isVisible()) continue;
+      await detail
+        .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
+        .click();
+      await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
+    } catch {
+      failed.push(id);
+    }
   }
+  if (failed.length > 0) {
+    throw new Error(`Tâches non mises à la corbeille : ${failed.join(", ")}`);
+  }
+}
+
+/**
+ * La liste de sélection ouverte tient dans la fenêtre : champ de recherche en haut et bas de la liste dans le
+ * cadre de la page, et dans la fenêtre du détail (une liste coupée par le bas du panneau ou du tiroir échoue).
+ * Attend que le défilement se pose (la liste se met dans le champ de vision à l'ouverture).
+ */
+export async function expectPickerInView(page: Page, detail: Locator) {
+  const search = detail.getByRole("combobox", { name: fr.tasks.picker.label });
+  const list = detail.getByRole("listbox");
+  await expect(list.getByRole("option").first()).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [s, l, d] = await Promise.all([
+        search.boundingBox(),
+        list.boundingBox(),
+        detail.boundingBox(),
+      ]);
+      const view = page.viewportSize();
+      if (s === null || l === null || d === null || view === null) return "?";
+      const bottom = l.y + l.height;
+      const problems = [
+        s.y < Math.max(0, d.y) - 1 && "champ au-dessus",
+        bottom > Math.min(view.height, d.y + d.height) + 1 && "liste coupée",
+        l.height < 40 && "liste sans ligne visible",
+      ].filter(Boolean);
+      return problems.join(", ");
+    })
+    .toBe("");
+}
+
+/** Le libellé d'une propriété du détail est à la hauteur de sa pastille (centres à 2 px près). */
+export async function expectLabelOnChip(label: Locator, chip: Locator) {
+  const [l, c] = await Promise.all([label.boundingBox(), chip.boundingBox()]);
+  expect(l).not.toBeNull();
+  expect(c).not.toBeNull();
+  expect(
+    Math.abs(l!.y + l!.height / 2 - (c!.y + c!.height / 2)),
+  ).toBeLessThanOrEqual(2);
 }
 
 // Aides du tableau (spec todo-kanban, scénarios 1 à 5 et 7).

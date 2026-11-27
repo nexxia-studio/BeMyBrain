@@ -6,11 +6,14 @@ import { signIn } from "./session";
 import {
   boardCard,
   detailDialog,
+  expectLabelOnChip,
+  expectPickerInView,
   listSection,
   openBoard,
   quickAddTask,
   setBoardPreferences,
   switchSide,
+  takeQuickAdded,
   taskLink,
   trashTasks,
   uniqueTitle,
@@ -31,9 +34,23 @@ test.beforeEach(async ({ context }) => {
   await context.clearCookies();
 });
 
+// Tout ce que le parcours a créé finit à la corbeille, échec compris (`takeQuickAdded` : les tâches créées avant
+// qu'un échec ne les ait notées dans `created`) : l'espace Trustup du compte e2e doit rester vide (`effets-de-verre`).
 test.afterEach(async ({ page }) => {
-  await trashTasks(page, created.splice(0));
+  await trashTasks(page, [...created.splice(0), ...takeQuickAdded()]);
 });
+
+// 390×844 sur mobile, 1280×800 sur ordinateur : la géométrie du détail se vérifie à ces deux fenêtres.
+test.beforeEach(async ({ page }, testInfo) => {
+  await page.setViewportSize(
+    testInfo.project.name === "mobile"
+      ? { width: 390, height: 844 }
+      : { width: 1280, height: 800 },
+  );
+});
+
+const parentLabel = (detail: Locator) =>
+  detail.getByText(fr.tasks.detail.parentField.label, { exact: true });
 
 const propertyField = (page: Page) =>
   detailDialog(page).getByRole("button", {
@@ -98,12 +115,16 @@ test("scénario 8 : rattacher, une seule mention, espace et légende sur la cart
   const detail = detailDialog(page);
   await expect(detail).toBeVisible();
 
+  // Libellé à la hauteur de sa pastille, avant comme pendant l'ouverture de la liste.
+  await expectLabelOnChip(parentLabel(detail), propertyField(page));
   await propertyField(page).click();
 
   const search = detail.getByRole("combobox", {
     name: fr.tasks.picker.label,
   });
   await expect(search).toBeFocused();
+  await expectLabelOnChip(parentLabel(detail), propertyField(page));
+  await expectPickerInView(page, detail);
   await search.fill("Dossier");
   await expect(detail.getByRole("option", { name: first })).toBeVisible();
   await expect(detail.getByRole("option", { name: second })).toBeVisible();
@@ -118,12 +139,21 @@ test("scénario 8 : rattacher, une seule mention, espace et légende sur la cart
   await expect(
     detail.getByRole("link", { name: new RegExp(second) }),
   ).toHaveCount(1);
-  await expect(
-    detail.getByText(fr.tasks.detail.parentField.followsParent),
-  ).toBeVisible();
+  const legend = detail.getByText(fr.tasks.detail.parentField.followsParent);
+  await expect(legend).toBeVisible();
   await expect(
     detail.getByText(fr.tasks.detail.placement, { exact: true }),
   ).toHaveCount(0);
+  // Une seule ligne de propriété : le lien est la valeur, à la hauteur de son libellé, la légende dessous,
+  // dans la même colonne.
+  const link = detail.getByRole("link", { name: new RegExp(second) });
+  const [linkBox, legendBox] = await Promise.all([
+    link.boundingBox(),
+    legend.boundingBox(),
+  ]);
+  expect(legendBox!.y).toBeGreaterThan(linkBox!.y + linkBox!.height - 1);
+  expect(Math.abs(legendBox!.x - linkBox!.x)).toBeLessThanOrEqual(1);
+  await expectLabelOnChip(parentLabel(detail), link);
   // Le focus reste dans le champ : il passe à « Changer » (le bouton « Aucune » a disparu).
   const change = detail.getByRole("button", {
     name: fr.tasks.detail.parentField.change,
@@ -219,8 +249,15 @@ test("une tâche qui a des sous-tâches : propriété désactivée avec sa raiso
       .split("?")[0],
   );
 
+  // Même forme que les autres propriétés : pastille « Aucune » désactivée, raison en légende.
+  const reason = detail.getByText(fr.tasks.detail.parentField.hasSubtasks);
+  await expect(reason).toBeVisible();
+  await expect(propertyField(page)).toHaveAttribute("aria-disabled", "true");
+  await expect(propertyField(page)).toHaveCSS("opacity", "0.6");
+  await expect(propertyField(page)).toHaveCSS("cursor", "not-allowed");
+  await expectLabelOnChip(parentLabel(detail), propertyField(page));
+  await propertyField(page).click({ force: true });
   await expect(
-    detail.getByText(fr.tasks.detail.parentField.hasSubtasks),
-  ).toBeVisible();
-  await expect(propertyField(page)).toHaveCount(0);
+    detail.getByRole("combobox", { name: fr.tasks.picker.label }),
+  ).toHaveCount(0);
 });

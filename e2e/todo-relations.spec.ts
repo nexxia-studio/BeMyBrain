@@ -6,9 +6,11 @@ import { signIn } from "./session";
 import {
   completeBox,
   detailDialog,
+  expectPickerInView,
   idFromHref,
   listSection,
   quickAddTask,
+  takeQuickAdded,
   taskLink,
   trashTasks,
   uniqueTitle,
@@ -27,8 +29,18 @@ test.beforeEach(async ({ context }) => {
   await context.clearCookies();
 });
 
+// Tout ce que le parcours a créé finit à la corbeille, échec compris (voir `todo-parente.spec.ts`).
 test.afterEach(async ({ page }) => {
-  await trashTasks(page, created.splice(0));
+  await trashTasks(page, [...created.splice(0), ...takeQuickAdded()]);
+});
+
+// 390×844 sur mobile, 1280×800 sur ordinateur : la géométrie du détail se vérifie à ces deux fenêtres.
+test.beforeEach(async ({ page }, testInfo) => {
+  await page.setViewportSize(
+    testInfo.project.name === "mobile"
+      ? { width: 390, height: 844 }
+      : { width: 1280, height: 800 },
+  );
 });
 
 const relations = fr.tasks.detail.relations;
@@ -120,6 +132,37 @@ test("scénario 9 : bloquer une tâche, pastille « Bloquée », relation invers
     .click();
   await expect(taskLink(detail, blocker)).toHaveCount(0);
   expect(violations).toEqual([]);
+});
+
+test("la liste de sélection d'une relation s'ouvre entièrement dans la fenêtre, retirer est un bouton texte", async ({
+  page,
+}) => {
+  const main = uniqueTitle("Livrer le site");
+  const other = uniqueTitle("Valider le devis");
+  await signIn(page);
+  created.push(await quickAddTask(page, main));
+  created.push(await quickAddTask(page, other));
+  const detail = await openFromList(page, main);
+
+  await detail
+    .getByRole("button", { name: relations.add, exact: true })
+    .click();
+  await detail
+    .getByRole("group", { name: relations.kindPrompt })
+    .getByRole("button", { name: relations.related, exact: true })
+    .click();
+  await expect(
+    detail.getByRole("combobox", { name: fr.tasks.picker.label }),
+  ).toBeFocused();
+  await expectPickerInView(page, detail);
+
+  await detail.getByRole("option", { name: other }).click();
+  const remove = detail.getByRole("button", {
+    name: relations.removeLabel.replace("{title}", other),
+  });
+  await expect(remove).toBeVisible();
+  await expect(remove).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  expect((await remove.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
 
 test("Échap ferme la liste de sélection, le détail reste ouvert, le focus revient au bouton d'ajout", async ({
