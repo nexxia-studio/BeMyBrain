@@ -33,6 +33,15 @@ Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et uti
 - Suite : BRAIN-37, avant le premier module sensible : la CI déploie la production après la migration (déploiement automatique de `main` coupé dans `vercel.json`), comme pour les previews.
 - À réexaminer quand la to-do (premier module à vraies données) part en production.
 
+## Proposition BRAIN-37 : la CI déploie la production après la migration (2026-11-27, **non en vigueur**)
+Statut : proposé, en attente de relecture d'Antoine. Devient la section « Ordre migration / mise en ligne » et remplace « Limite » ci-dessus à la fusion (plan, tâche 5). Détail et comparatif : `docs/features/brain-37-deploiement-apres-migration/spec.md`. Pas d'ADR-011 : c'est la suite annoncée de cette ADR.
+- `vercel.json` : plus aucun déploiement git automatique, `main` comprise. La CI est le seul déployeur (previews et production).
+- `migrate-production.yml` : après une migration réussie, un job crée par l'API Vercel le déploiement de production du SHA exact du push, attend `READY` avec l'alias assigné, échoue sinon. Migration en échec : rien n'est déployé, la production reste sur son déploiement actuel.
+- API Vercel retenue contre un Deploy Hook : le hook déploie le dernier commit de la branche (pas le SHA du run) et ne rend pas l'identifiant du déploiement.
+- Jeton `VERCEL_PRODUCTION_TOKEN`, environnement `production` seulement (branche `main`), lu par le seul job de déploiement, qui n'installe rien et n'a pas `DATABASE_URL`. Le job de migration (qui installe) ne voit jamais de jeton Vercel. Réserve : un jeton Vercel ne se limite ni à la production ni à un projet ; tant que `VERCEL_TOKEN` (équipe entière) reste au niveau du dépôt, l'environnement protège le jeton, pas la capacité de déployer en production. Risque déjà accepté ci-dessus (seul Antoine a l'écriture).
+- Garde : le job ne déploie pas un SHA qui n'est plus la tête de `main` (un run relancé tard ne remplace pas la production par un vieux commit).
+- Ordre inversé pour les migrations : l'ancien code tourne sur le nouveau schéma entre la fin de la migration et la fin du build, sans limite si le build échoue. La règle des migrations rétrocompatibles reste obligatoire.
+
 ## Dépôt public (2026-11-16)
 - `nexxia-studio/BeMyBrain` reste public jusqu'à la commercialisation, puis passe en privé (décision d'Antoine).
 - Conséquences acceptées : code, docs et **journaux GitHub Actions lisibles par tous**. Le masquage de `scripts/ci/neon-branch.mjs` (hôtes, endpoints, mots de passe, URL) est donc indispensable ; l'étape 13 de la tâche 17 vérifie qu'aucun hôte n'apparaît en clair.
