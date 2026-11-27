@@ -262,9 +262,7 @@ export async function run(env, io) {
       if (state.aliasError)
         throw new Final("Déploiement Vercel : erreur d'alias.");
       if (FAILED.has(state.readyState)) {
-        throw new Final(
-          `Déploiement Vercel en échec (${state.readyState}).`,
-        );
+        throw new Final(`Déploiement Vercel en échec (${state.readyState}).`);
       }
       if (state.readyState === "READY" && state.aliasAssigned) {
         const seconds = Math.round((now() - started) / 1000);
