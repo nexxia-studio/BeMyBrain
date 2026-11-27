@@ -52,6 +52,8 @@ export function normalizeLabel(label: string): NormalizedLabel {
   const display = label.trim();
   const tokens = display
     .toLowerCase()
+    .replace(/œ/g, "oe") // les ligatures ne sont pas décomposées par NFD
+    .replace(/æ/g, "ae")
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .replace(/(\d)[.,](\d)/g, "$1_$2")

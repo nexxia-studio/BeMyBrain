@@ -50,4 +50,10 @@ describe("normalisation d'un libellé de courses", () => {
   it("renvoie des listes vides pour un libellé vide", () => {
     expect(normalizeLabel(" !! ")).toEqual({ display: "!!", normalized: "", words: [], forms: [] });
   });
+
+  it("décompose les ligatures œ et æ", () => {
+    expect(normalizeLabel("Œufs").normalized).toBe("oeufs");
+    expect(normalizeLabel("cœur de palmier").normalized).toBe("coeur de palmier");
+    expect(normalizeLabel("Æther").normalized).toBe("aether");
+  });
 });

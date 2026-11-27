@@ -85,7 +85,7 @@ export const REFERENCE_SET: readonly ReferenceItem[] = [
   fr("Yogourt", "dairyEggs"),
   fr("Yoghourt", "dairyEggs"),
   fr("Oeufs", "dairyEggs"),
-  fr("Œufs x12", "dairyEggs", "la ligature « œ » n'est pas retirée par la normalisation NFD : l'utilisateur tape « oeufs » au clavier"),
+  fr("Œufs bio x12", "dairyEggs", "ligature « œ » : normalisée en « oe » avant NFD"),
   fr("Beurre", "dairyEggs"),
   fr("Crème fraîche", "dairyEggs"),
   fr("Fromage râpé", "dairyEggs"),

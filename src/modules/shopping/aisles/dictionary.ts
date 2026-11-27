@@ -61,7 +61,7 @@ export const DICTIONARY: Readonly<Record<AisleKey, readonly string[]>> = {
     "fromage", "cheese", "gruyere", "emmental", "comte", "cheddar", "mozzarella", "parmesan", "parmigiano",
     "raclette", "mimolette", "gouda", "edam", "brie", "camembert", "roquefort", "bleu", "blue cheese",
     "chevre", "goat cheese", "feta", "ricotta", "mascarpone", "boursin", "babybel", "vache qui rit",
-    "fromage rape", "grated cheese", "cream cheese", "philadelphia", "oeuf", "œuf", "egg", "blanc d oeuf",
+    "fromage rape", "grated cheese", "cream cheese", "philadelphia", "oeuf", "egg", "blanc d oeuf",
     "egg white", "dessert lacte", "danette", "flan lacte", "liegeois", "riz au lait", "rice pudding",
     "lait fermente", "babeurre", "buttermilk", "kefir", "lait concentre", "evaporated milk",
   ],
