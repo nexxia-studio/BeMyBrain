@@ -15,7 +15,7 @@ Les tâches 1 à 5 se livrent dans **une seule PR** : `vercel.json` (tâche 4) e
 Pas d'URL dans le résumé (SHA court, état, durée) ; garde « tête de `main` » conservée ; jobs de statut retirés (tâche 3 maintenue).
 
 ## Tâches
-- [ ] **1. Script de déploiement de production** [security]
+- [x] **1. Script de déploiement de production** [security]
   - Fichiers : `scripts/ci/vercel-production-deploy.mjs`, `scripts/ci/vercel-production-deploy.test.ts`, `scripts/ci/vercel-preview-env.mjs` (seul changement : `export` devant `call`).
   - Tests à écrire d'abord (faux `fetch`, comme `vercel-preview-env.test.ts`) :
     - « envoie `target: production`, le SHA, le dépôt et `forceNew=1`, avec le nom du projet lu par `GET /v9/projects` (pas son identifiant) » ;
@@ -29,21 +29,21 @@ Pas d'URL dans le résumé (SHA court, état, durée) ; garde « tête de `main`
     - « réessaie 429 et 5xx sans créer deux déploiements du même appel réussi » (comportement de `call`, vérifié sur le POST).
   - Variables lues : `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `SHA`, `GITHUB_REPOSITORY`, `GITHUB_REPOSITORY_ID`, `GH_TOKEN`, `DEFAULT_GIT_BRANCH`, `GITHUB_STEP_SUMMARY`. Aucune lecture hors de cette liste.
   - Fini quand : tests verts, lint et typecheck verts, `vercel-preview-env.test.ts` inchangé et vert.
-- [ ] **2. Job `deploy-production` dans le workflow** [security]
+- [x] **2. Job `deploy-production` dans le workflow** [security]
   - Fichiers : `.github/workflows/migrate-production.yml`, `scripts/ci/workflows.test.ts`.
   - Job : `needs: migrate-production` (sans `if: always()`), `environment: production`, `permissions: contents: read`, `timeout-minutes: 30`, checkout et setup-node aux SHA déjà épinglés, **aucune installation**, une étape `node scripts/ci/vercel-production-deploy.mjs` avec `VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}`, `NODE_OPTIONS: ""`, `BASH_ENV: ""`, `SHA: ${{ github.sha }}`. Nom affiché : « Déploiement production ».
   - Tests à écrire d'abord (mêmes verrous textuels que l'existant) : « `deploy-production` attend `migrate-production`, sans `always()` ni `continue-on-error` » ; « `VERCEL_PRODUCTION_TOKEN` n'apparaît que dans ce job » ; « `DATABASE_URL` et `SEED_OWNER_USER_ID` n'apparaissent que dans `migrate-production` » ; « aucune étape `pnpm`/`npm` dans `deploy-production` » ; « aucune `uses:` hors de celles épinglées » (test existant) ; « aucun `secrets.VERCEL_TOKEN` dans ce workflow » ; test existant « la migration seule porte l'environnement `production` » adapté : deux jobs, `contents: read` seul chacun ; « le groupe de concurrence reste `migrate-production`, sans annulation ».
   - Attention : le test « aucune permission large » refuse le mot `deployments` n'importe où dans le fichier (commentaires compris).
   - Fini quand : tests verts, lint et typecheck verts.
-- [ ] **3. Retirer `status-pending` et `status-final`** [security] — *maintenue, décision du 2026-11-27*
+- [x] **3. Retirer `status-pending` et `status-final`** [security] — *maintenue, décision du 2026-11-27*
   - Fichiers : `.github/workflows/migrate-production.yml`, `scripts/ci/workflows.test.ts`.
   - Tests à adapter d'abord : « deux jobs, dans l'ordre : migration, déploiement » ; retrait des verrous sur les statuts ; « `statuses: write` n'existe dans aucun workflow » (le test actuel exige `migrate-production.yml`).
   - Fini quand : plus aucun `gh api … statuses` dans les workflows, tests verts.
-- [ ] **4. Couper le déploiement git de `main`** [security]
+- [x] **4. Couper le déploiement git de `main`** [security]
   - Fichiers : `vercel.json`, `scripts/ci/vercel-json.test.ts`.
   - Test à écrire d'abord : « `deploymentEnabled` vaut `false` pour `main` et pour `**` » (lecture de `vercel.json`, aucun parseur nouveau : `JSON.parse`).
   - Fini quand : test vert. Les previews ne changent pas (`**` déjà à `false`).
-- [ ] **5. Bascule des documents** [security]
+- [x] **5. Bascule des documents** [security]
   - Fichiers : `docs/decisions/ADR-010-migrations-production-par-ci.md`, `.claude/rules/neon.md`, `docs/gotchas.md`.
   - ADR-010 : la section « Proposition BRAIN-37 » (déjà écrite, non en vigueur) devient « Ordre migration / mise en ligne » ; la section « Limite » disparaît ; ligne 9 et « Conséquences » mises à jour (nouveau jeton, date d'expiration réelle à rappeler avant). `neon.md` ligne 17 : l'ancien code tourne sur le nouveau schéma. `gotchas.md` : retirer l'entrée « Production mise en ligne avant la fin de sa migration » et la mention « les trois jobs restent », garder l'entrée Deployment Checks (leçon), activer la procédure de secours.
   - Fini quand : aucun document ne décrit encore le déploiement parallèle ; `grep -rn "BRAIN-37" docs .claude` ne montre que l'état « fait ».

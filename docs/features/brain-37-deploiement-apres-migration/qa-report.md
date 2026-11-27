@@ -8,7 +8,7 @@
 - [ ] Dernier déploiement de production noté ci-dessous (identifiant, SHA) :
 
 ## Épreuve 1 — avant fusion (tâche 7)
-À remplir.
+À remplir. Point de départ (2026-11-27) : tâches 1 à 5 livrées et auditées, rien poussé. Bloqué en attente d'Antoine : poussée de la branche et PR, CLI Vercel (absente de ce poste) et `vercel login` personnel pour la tâche 6, branche jetable `chore/brain-37-essai-echec` et vérification d'un éventuel Deploy Hook dans Vercel. À la tâche 6, vérifier dans l'onglet Source de la preview qu'aucun `.env` n'a été envoyé.
 
 ## Épreuve 2 — fusion de cette PR (tâche 8)
 À remplir après accord d'Antoine.
