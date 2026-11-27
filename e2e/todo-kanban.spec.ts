@@ -1160,7 +1160,7 @@ async function pixelsAt(
       const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
       const bitmap = await createImageBitmap(new Blob([bytes]));
       const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const context = canvas.getContext("2d")!;
+      const context = canvas.getContext("2d", { willReadFrequently: true })!;
       context.drawImage(bitmap, 0, 0);
       return points.map(({ x, y }) => {
         const [r, g, b] = context.getImageData(x, y, 1, 1).data;
@@ -1311,13 +1311,9 @@ type Sample = {
 // chargée en cumule plusieurs ; au-delà d'une demi-colonne (160 px), c'est un saut, pas un défilement.
 const MAX_SCROLL_STEP = 160;
 
-test("@desktop D4 : pendant un glisser à la souris de « À faire » vers « Terminée », le tableau défile sans recul ni saut et la colonne d'origine reste en place", async ({
-  page,
-}) => {
-  const messages = await start(page);
-  const task = await make(page, "Défilement");
-  const from = await grabPoint(page, task);
-  await page.evaluate(() => {
+/** Relevé image par image du tableau (défilement, place et taille d'une colonne), à lire avec `stopSampling`. */
+async function startSampling(page: Page, category: Category): Promise<void> {
+  await page.evaluate((id) => {
     const store = window as unknown as {
       __samples: unknown[];
       __sampling: boolean;
@@ -1325,9 +1321,7 @@ test("@desktop D4 : pendant un glisser à la souris de « À faire » vers « Te
     store.__samples = [];
     store.__sampling = true;
     const frame = () => {
-      const columnEl = document.querySelector(
-        '[data-board-column="unstarted"]',
-      );
+      const columnEl = document.querySelector(`[data-board-column="${id}"]`);
       const board = document.querySelector(
         "[data-board-column]",
       )!.parentElement!;
@@ -1343,7 +1337,52 @@ test("@desktop D4 : pendant un glisser à la souris de « À faire » vers « Te
       if (store.__sampling) requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
+  }, category);
+}
+
+async function stopSampling(page: Page): Promise<Sample[]> {
+  return page.evaluate(() => {
+    const store = window as unknown as {
+      __samples: Sample[];
+      __sampling: boolean;
+    };
+    store.__sampling = false;
+    return store.__samples;
   });
+}
+
+/** Le tableau a défilé vers la droite, sans recul ni saut, et la colonne relevée n'a ni bougé ni disparu. */
+function expectSteadyBoard(samples: Sample[]): void {
+  expect(samples.length).toBeGreaterThan(20);
+  expect(samples.at(-1)!.scrollLeft).toBeGreaterThan(samples[0].scrollLeft);
+  const steps = samples
+    .slice(1)
+    .map((sample, index) => sample.scrollLeft - samples[index].scrollLeft);
+  const first = samples[0];
+  expect({
+    back: steps.filter((step) => step < -1),
+    jumps: steps.filter((step) => step > MAX_SCROLL_STEP),
+    hidden: samples.filter(
+      (sample) =>
+        sample.columnOffset === null ||
+        sample.columnWidth < 1 ||
+        sample.columnHeight < 1,
+    ).length,
+    shifted: samples.filter(
+      (sample) =>
+        sample.columnOffset !== null &&
+        Math.abs(sample.columnOffset - first.columnOffset!) > 1,
+    ).length,
+  }).toEqual({ back: [], jumps: [], hidden: 0, shifted: 0 });
+}
+
+test("@desktop D4 : pendant un glisser à la souris de « À faire » vers « Terminée », le tableau défile sans recul ni saut et la colonne d'origine reste en place", async ({
+  page,
+}) => {
+  const messages = await start(page);
+  const task = await make(page, "Défilement");
+  const from = await grabPoint(page, task);
+  await startSampling(page, "unstarted");
 
   await saved(page, async () => {
     await page.mouse.move(from.x, from.y);
@@ -1371,36 +1410,7 @@ test("@desktop D4 : pendant un glisser à la souris de « À faire » vers « Te
     await page.mouse.up();
     await expect(overlay(page)).toHaveCount(0);
   });
-  const samples = await page.evaluate(() => {
-    const store = window as unknown as {
-      __samples: Sample[];
-      __sampling: boolean;
-    };
-    store.__sampling = false;
-    return store.__samples;
-  });
-
-  expect(samples.length).toBeGreaterThan(20);
-  expect(samples.at(-1)!.scrollLeft).toBeGreaterThan(samples[0].scrollLeft);
-  const steps = samples
-    .slice(1)
-    .map((sample, index) => sample.scrollLeft - samples[index].scrollLeft);
-  const first = samples[0];
-  expect({
-    back: steps.filter((step) => step < -1),
-    jumps: steps.filter((step) => step > MAX_SCROLL_STEP),
-    hidden: samples.filter(
-      (sample) =>
-        sample.columnOffset === null ||
-        sample.columnWidth < 1 ||
-        sample.columnHeight < 1,
-    ).length,
-    shifted: samples.filter(
-      (sample) =>
-        sample.columnOffset !== null &&
-        Math.abs(sample.columnOffset - first.columnOffset!) > 1,
-    ).length,
-  }).toEqual({ back: [], jumps: [], hidden: 0, shifted: 0 });
+  expectSteadyBoard(await stopSampling(page));
   await expect(inColumn(page, "completed", task)).toBeAttached();
   expect(messages).toEqual([]);
 });
@@ -1637,3 +1647,425 @@ test("@desktop D5 et D6 : survol (main ouverte, contour, ombre, montée de 2 px 
   await expect(page).toHaveURL(new RegExp(`/tasks/${task}$`));
   expect(messages).toEqual([]);
 });
+
+// ---------- Reprise de la démo, suite (R4 et tâche 27 du plan) : mêmes scénarios sur le tableau réel
+
+/** Partie d'une carte qui monte au survol et porte contour et ombre (enfant du nœud mesuré par le glisser). */
+function lift(target: Locator): Locator {
+  return target.locator("[data-board-lift]");
+}
+
+function surfaceStyle(target: Locator): Promise<{
+  shadow: string;
+  outlineStyle: string;
+}> {
+  return lift(target).evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { shadow: style.boxShadow, outlineStyle: style.outlineStyle };
+  });
+}
+
+/** Décalage vertical (px) de la partie qui monte (propriété CSS `translate`, « none » au repos). */
+function liftOffset(target: Locator): Promise<number> {
+  return lift(target).evaluate((el) => {
+    const [, y = "0"] = getComputedStyle(el).translate.split(" ");
+    return Number.parseFloat(y) || 0;
+  });
+}
+
+/** Aucune trace de survol sur une carte : ni montée, ni contour, ni ombre. */
+async function expectAtRest(target: Locator): Promise<void> {
+  await expect.poll(() => liftOffset(target)).toBe(0);
+  const style = await surfaceStyle(target);
+  expect(style.outlineStyle).toBe("none");
+  expect(style.shadow).toBe("none");
+}
+
+/** Glisse une carte à la souris jusqu'au point donné ; l'enregistrement du dépôt est attendu. */
+async function dragTo(
+  page: Page,
+  id: string,
+  to: { x: number; y: number },
+): Promise<void> {
+  await boardCard(page, id).scrollIntoViewIfNeeded();
+  const from = await grabPoint(page, id);
+  await saved(page, () => dragWithMouse(page, from, to));
+}
+
+test("@mobile D5 : un défilement vertical au doigt avant 250 ms ne saisit pas la carte et n'ouvre pas le détail", async ({
+  page,
+}) => {
+  const messages = await start(page);
+  // Horloge de la page pilotable, posée avant le chargement du tableau.
+  await page.clock.install();
+  await openBoard(page);
+  const task = await make(page, "Défilement vertical");
+  await chooseTab(page, "unstarted");
+  // Carte au milieu de l'écran : de la place au-dessus et au-dessous pour que la page défile.
+  await boardCard(page, task).evaluate((el) =>
+    el.scrollIntoView({ block: "center" }),
+  );
+  const room = await page.evaluate(() => ({
+    before: window.scrollY,
+    max: document.documentElement.scrollHeight - window.innerHeight,
+  }));
+  expect(room.max).toBeGreaterThan(0);
+  const towards = room.max - room.before >= 120 ? -1 : 1;
+  const finger = await Finger.on(page);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<boolean>((resolve) => {
+            const before = window.scrollY;
+            setTimeout(() => resolve(window.scrollY === before), 120);
+          }),
+      ),
+    )
+    .toBe(true);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  const from = await middle(boardCard(page, task));
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+  await finger.down(from);
+  await finger.move(from, { x: from.x, y: from.y + towards * 100 }, 8);
+  // Doigt tenu bien au-delà de l'appui de 250 ms : la saisie, annulée par le défilement, ne vient pas.
+  await page.clock.runFor(600);
+  const overlayWhileHeld = await overlay(page).count();
+  await finger.up();
+  await page.clock.resume();
+
+  expect(overlayWhileHeld).toBe(0);
+  await expect
+    .poll(
+      async () => (await page.evaluate(() => window.scrollY)) - scrollBefore,
+    )
+    .not.toBe(0);
+  await twoFrames(page);
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(detailDialog(page)).toHaveCount(0);
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(inColumn(page, "unstarted", task)).toBeAttached();
+  expect(messages).toEqual([]);
+});
+
+test("@mobile D6 : au doigt, une carte n'a ni curseur main ni relief", async ({
+  page,
+}) => {
+  await start(page);
+  const task = await make(page, "Sans survol");
+  await chooseTab(page, "unstarted");
+  const target = boardCard(page, task);
+
+  const style = await target.evaluate((el) => ({
+    cursor: getComputedStyle(el).cursor,
+    shadow: getComputedStyle(el).boxShadow,
+  }));
+
+  expect(style.cursor).not.toBe("grab");
+  expect(style.shadow).toBe("none");
+  expect((await surfaceStyle(target)).shadow).toBe("none");
+  expect((await surfaceStyle(target)).outlineStyle).toBe("none");
+});
+
+test.describe("en colonnes, au doigt (tablette, 1024 px)", () => {
+  test.use({
+    viewport: { width: 1024, height: 768 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("@desktop D4 au doigt : pendant un glisser de « À faire » vers « Terminée », le tableau défile sans recul ni saut et la colonne d'origine reste en place", async ({
+    page,
+  }) => {
+    const messages = await start(page);
+    const task = await make(page, "Doigt 1024");
+    const finger = await Finger.on(page);
+    await boardCard(page, task).scrollIntoViewIfNeeded();
+    const from = await grabPoint(page, task);
+    const field = (await boardOf(page).boundingBox())!;
+    const edge = {
+      x: Math.min(field.x + field.width, page.viewportSize()!.width) - 12,
+      y: from.y,
+    };
+    await startSampling(page, "unstarted");
+
+    await saved(page, async () => {
+      await finger.down(from);
+      await expect(overlay(page)).toBeVisible();
+      await finger.move(from, edge, 20);
+      // Doigt tenu près du bord : le défilement automatique amène « Terminée ».
+      await expect
+        .poll(() =>
+          boardColumn(page, "completed").evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            const board = el.parentElement!.getBoundingClientRect();
+            return rect.left >= board.left - 1 && rect.right <= board.right + 1;
+          }),
+        )
+        .toBe(true);
+      await finger.move(edge, await columnPoint(page, "completed"), 10);
+      expectSteadyBoard(await stopSampling(page));
+      await finger.up();
+      await expect(overlay(page)).toHaveCount(0);
+    });
+
+    await expect(inColumn(page, "completed", task)).toBeAttached();
+    expect(messages).toEqual([]);
+  });
+
+  test("@desktop D5 au doigt : un glisser lancé sans attendre l'appui ne saisit pas la carte et fait défiler les colonnes", async ({
+    page,
+  }) => {
+    const messages = await start(page);
+    await page.clock.install();
+    await openBoard(page);
+    const task = await make(page, "Doigt pressé");
+    const board = boardOf(page);
+    await board.evaluate((el) => (el.scrollLeft = 0));
+    await boardCard(page, task).scrollIntoViewIfNeeded();
+    const scrollBefore = await board.evaluate((el) => el.scrollLeft);
+    const finger = await Finger.on(page);
+    const from = await grabPoint(page, task);
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+    await finger.down(from);
+    await finger.move(from, { x: from.x - 200, y: from.y }, 8);
+    // Doigt immobile bien au-delà de l'appui de 250 ms : la saisie, annulée par le mouvement, ne vient pas.
+    await page.clock.runFor(600);
+    const overlayWhileHeld = await overlay(page).count();
+    await finger.up();
+    await page.clock.resume();
+
+    expect(overlayWhileHeld).toBe(0);
+    await expect
+      .poll(() => board.evaluate((el) => el.scrollLeft))
+      .toBeGreaterThan(scrollBefore);
+    await expect(inColumn(page, "unstarted", task)).toBeAttached();
+    await expect(detailDialog(page)).toHaveCount(0);
+    expect(messages).toEqual([]);
+  });
+});
+
+// Défaut trouvé sur le vrai tableau (tâche 20) : les colonnes sont étirées à la plus haute. Une colonne ouverte
+// vide est alors un grand rectangle dont les coins sont loin de la carte portée : par les seuls coins les plus
+// proches, la carte lâchée au milieu restait dans sa colonne, et lâchée en haut elle partait dans la suivante.
+// « En cours » et « À planifier » sont vides sur le compte e2e (précondition vérifiée) ; fenêtre assez large
+// pour voir les cinq colonnes sans défilement horizontal.
+test.describe("colonnes ouvertes et hautes, 1920 px", () => {
+  test.use({ viewport: { width: 1920, height: 1000 } });
+
+  test("@desktop une carte lâchée au milieu d'une colonne ouverte vide et haute, puis une autre en haut d'une seconde, y arrivent, pas dans une colonne voisine", async ({
+    page,
+  }) => {
+    const messages = await start(page);
+    const middleCard = await make(page, "Colonne vide milieu");
+    const topCard = await make(page, "Colonne vide haut");
+    const started = boardColumn(page, "started");
+    const backlog = boardColumn(page, "backlog");
+    await expect(started.locator("[data-board-card]")).toHaveCount(0);
+    await expect(backlog.locator("[data-board-card]")).toHaveCount(0);
+    const startedBox = (await started.boundingBox())!;
+    // Colonne vide étirée à la hauteur de « À faire » : bien plus haute qu'une carte.
+    expect(startedBox.height).toBeGreaterThan(400);
+    const completedCount = await boardColumn(page, "completed")
+      .locator("[data-board-card]")
+      .count();
+
+    // Au milieu de la colonne vide.
+    await dragTo(page, middleCard, {
+      x: startedBox.x + startedBox.width / 2,
+      y: startedBox.y + startedBox.height / 2,
+    });
+
+    await expect(inColumn(page, "started", middleCard)).toBeAttached();
+    await expect(started.locator("[data-board-card]")).toHaveCount(1);
+    await expect(inColumn(page, "unstarted", middleCard)).toHaveCount(0);
+
+    // En haut d'une autre colonne vide, juste sous son en-tête.
+    const backlogBox = (await backlog.boundingBox())!;
+    await dragTo(page, topCard, {
+      x: backlogBox.x + backlogBox.width / 2,
+      y: backlogBox.y + 90,
+    });
+
+    await expect(inColumn(page, "backlog", topCard)).toBeAttached();
+    await expect(backlog.locator("[data-board-card]")).toHaveCount(1);
+    await expect(started.locator("[data-board-card]")).toHaveCount(1);
+    await expect(inColumn(page, "unstarted", topCard)).toHaveCount(0);
+    await expect(
+      boardColumn(page, "completed").locator("[data-board-card]"),
+    ).toHaveCount(completedCount);
+    expect(messages).toEqual([]);
+  });
+
+  test("@desktop une carte lâchée loin sous la dernière carte d'une colonne courte y est rangée après elle", async ({
+    page,
+  }) => {
+    const messages = await start(page);
+    const first = await make(page, "Colonne courte première");
+    const second = await make(page, "Colonne courte seconde");
+    const started = boardColumn(page, "started");
+    await expect(started.locator("[data-board-card]")).toHaveCount(0);
+    const box = (await started.boundingBox())!;
+    const x = box.x + box.width / 2;
+    await dragTo(page, first, { x, y: box.y + 90 });
+    await expect(inColumn(page, "started", first)).toBeAttached();
+    const lastBottom = (await boardCard(page, first).boundingBox())!;
+    // Aux 70 % de la fenêtre : hors des 20 % du bas où le défilement automatique de la page se déclenche. Un
+    // dépôt tenu dans cette bande, pointeur dans une colonne, plante la page (erreur React 185, « Tâches
+    // indisponibles », mesuré le 2026-11-27 sur `next start`, colonne vide ou non) : défaut du tableau, signalé
+    // dans le rapport de R4, pas couvert ici.
+    const farBelow = page.viewportSize()!.height * 0.7;
+    // Plus de 150 px sous la dernière carte, dans la colonne : le pointeur est dans le vide de la colonne.
+    expect(farBelow - (lastBottom.y + lastBottom.height)).toBeGreaterThan(150);
+    expect(farBelow).toBeLessThan(box.y + box.height - 40);
+
+    await dragTo(page, second, { x, y: farBelow });
+
+    await expect(inColumn(page, "started", second)).toBeAttached();
+    expect(await orderOf(page, "started", [first, second])).toEqual([
+      first,
+      second,
+    ]);
+    await expect(inColumn(page, "unstarted", second)).toHaveCount(0);
+    expect(messages).toEqual([]);
+  });
+});
+
+// Correctif de relecture de la tâche 13 : le survol est tenu par `:hover`, il suit le pointeur réel. Tenu par une
+// bibliothèque d'animation, il se terminait avant le `mouseup` du glisser et la carte déposée pouvait rester
+// montée. La mesure porte sur la carte déposée elle-même, toujours rendue (colonne ouverte), pointeur écarté.
+test("@desktop une carte survolée, glissée à la souris puis déposée dans une colonne ouverte revient au repos une fois le pointeur écarté : ni montée, ni contour, ni ombre", async ({
+  page,
+}) => {
+  const messages = await start(page);
+  const task = await make(page, "Repos après dépôt");
+  const neighbour = await make(page, "Repos voisine");
+  const target = boardCard(page, task);
+  await target.scrollIntoViewIfNeeded();
+  await target.hover();
+  await expect.poll(() => liftOffset(target)).toBe(-2);
+  const from = await grabPoint(page, task);
+  await showColumn(page, "started");
+  const to = await columnPoint(page, "started");
+
+  await saved(page, async () => {
+    await page.mouse.down();
+    await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+    await expect(overlay(page)).toBeVisible();
+    await page.mouse.move(to.x, to.y, { steps: 15 });
+    await page.mouse.up();
+    await expect(overlay(page)).toHaveCount(0);
+  });
+  const dropped = inColumn(page, "started", task);
+  await expect(dropped).toBeAttached();
+  await page.mouse.move(5, 5, { steps: 5 });
+
+  await expectAtRest(dropped);
+  // Aucun style posé par script sur la partie qui monte : rien ne peut rester figé.
+  expect(await lift(dropped).getAttribute("style")).toBeNull();
+  await expectAtRest(boardCard(page, neighbour));
+  expect(messages).toEqual([]);
+});
+
+test("@desktop une carte survolée, saisie à la souris puis relâchée par Échap revient au repos une fois le pointeur parti", async ({
+  page,
+}) => {
+  const messages = await start(page);
+  const task = await make(page, "Repos après Échap");
+  const neighbour = await make(page, "Repos Échap voisine");
+  const target = boardCard(page, task);
+  await target.scrollIntoViewIfNeeded();
+  await target.hover();
+  await expect.poll(() => liftOffset(target)).toBe(-2);
+  const from = await grabPoint(page, task);
+
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y + 30, { steps: 3 });
+  await expect(overlay(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await page.mouse.move(5, 5, { steps: 5 });
+
+  await expect(overlay(page)).toHaveCount(0);
+  await expect(page.getByTestId("board-footprint")).toHaveCount(0);
+  await expectAtRest(target);
+  await expectAtRest(boardCard(page, neighbour));
+  await expect(inColumn(page, "unstarted", task)).toBeAttached();
+  expect(messages).toEqual([]);
+});
+
+for (const backdrop of [
+  { name: "sur la brume", halo: false },
+  { name: "au cœur du halo bleu", halo: true },
+]) {
+  test(`@desktop ${backdrop.name}, l'empreinte d'une carte saisie à la souris se détache de la colonne : pointillé de 2 px à 3:1 au moins, fond plus clair`, async ({
+    page,
+  }) => {
+    const messages = await start(page);
+    const task = await make(page, "Empreinte");
+    // Fond de la page forcé derrière le tableau, le temps d'une mesure : brume seule, ou cœur du halo bleu partout
+    // (90 % sur la brume, le cas le plus défavorable de DESIGN.md § 2). `style` en ligne par le DOM : la CSP à
+    // nonce refuse une feuille injectée.
+    await page.evaluate(
+      (layers) => {
+        document.documentElement.style.setProperty("--halo-layers", layers);
+      },
+      backdrop.halo
+        ? "linear-gradient(color-mix(in srgb, var(--halo-blue) 90%, transparent), color-mix(in srgb, var(--halo-blue) 90%, transparent))"
+        : "none",
+    );
+    const target = boardCard(page, task);
+    await target.scrollIntoViewIfNeeded();
+    const footprint = target.getByTestId("board-footprint");
+    const from = await grabPoint(page, task);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+    await expect(footprint).toBeVisible();
+    // La copie saisie recouvre l'empreinte tant que le pointeur n'a pas bougé : masquée le temps de la mesure.
+    await overlay(page).evaluate((el) =>
+      el.style.setProperty("visibility", "hidden"),
+    );
+    const box = (await footprint.boundingBox())!;
+    const left = Math.round(box.x);
+    const top = Math.round(box.y);
+    const middleY = top + Math.round(box.height / 2);
+    // Partie droite du bord haut, hors des coins arrondis (14 px) : deuxième rangée du pointillé.
+    const edge = Array.from({ length: 80 }, (_, index) => ({
+      x: left + 24 + index,
+      y: top + 1,
+    }));
+
+    const [column, fill, ...row] = await pixelsAt(page, [
+      // Fond de la colonne : marge à gauche de la carte (aucune ombre de carte à cet endroit).
+      { x: left - 3, y: middleY },
+      { x: left + Math.round(box.width / 2), y: middleY },
+      ...edge,
+    ]);
+    const darkest = row.reduce((a, b) =>
+      contrast(b, column) > contrast(a, column) ? b : a,
+    );
+    const outline = await footprint.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return [style.outlineStyle, style.outlineWidth, style.outlineOffset];
+    });
+    // Saisie annulée : rien n'est déplacé, rien à enregistrer.
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+
+    expect(outline).toEqual(["dashed", "2px", "-2px"]);
+    expect(contrast(darkest, column)).toBeGreaterThanOrEqual(3);
+    // Fond `row`, plus clair que la colonne : 1,171:1 sur brume et 1,433:1 au cœur du halo bleu, mesures stables
+    // sur trois passages (relecture du 2026-11-26). Avant la tâche 13, l'empreinte laissait voir le fond de la
+    // colonne (1,08:1). Seuil à 1,15 : sous la mesure la plus basse, au-dessus de l'ancien fond.
+    expect(contrast(fill, column)).toBeGreaterThanOrEqual(1.15);
+    expect(fill[0] + fill[1] + fill[2]).toBeGreaterThan(
+      column[0] + column[1] + column[2],
+    );
+    // Le pointillé alterne : des pixels du bord sont au fond de l'empreinte, pas un trait plein.
+    expect(row.some((pixel) => contrast(pixel, fill) < 1.05)).toBe(true);
+    expect(messages).toEqual([]);
+  });
+}
