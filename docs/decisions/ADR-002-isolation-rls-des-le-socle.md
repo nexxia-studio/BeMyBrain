@@ -21,5 +21,5 @@ Chaque module a un test qui crée deux workspaces et vérifie, au niveau de la b
 ## Conséquences
 - Chaque nouvelle table coûte un peu plus : policies + test d'isolation. Le `reviewer` refuse une table sans les deux.
 - La façon de transmettre l'identité de l'utilisateur à la base (jeton de l'auth passé à la connexion, ou variable de session dans une transaction) se tranche dans le plan du socle, à partir de la doc Neon « RLS avec Drizzle ».
-- Les liens de partage publics (liste de courses) sont le seul accès sans session ; ils passent par un jeton dédié et une policy dédiée.
+- Les liens de partage publics (liste de courses) sont le seul accès sans session ; ils passent par un jeton dédié, un rôle Postgres sans aucun droit sur les tables et des fonctions `SECURITY DEFINER` qui ne touchent que la liste du lien (spec `listes`, § Partage sans compte, 2026-11-28 ; remplace l'idée première d'une « policy dédiée », qui aurait ouvert les tables à ce rôle). Les policies des tables restent réservées aux membres du workspace.
 - L'ouverture multi-comptes ne demande plus de chantier RLS, seulement un audit.
