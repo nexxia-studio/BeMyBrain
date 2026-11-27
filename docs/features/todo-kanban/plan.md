@@ -165,7 +165,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « repère présent ; Entrée enregistre une fois ; vide → erreur et valeur d'avant ; notes "\n\n\n\n" puis clic sur la corbeille en un clic (e2e `todo-detail-notes`) »
   - Fini quand : tests et e2e du détail verts ; essai sur iPhone demandé à Antoine (clavier au tap).
 
-- [ ] **24. Écrire la liste de sélection de tâche**
+- [x] **24. Écrire la liste de sélection de tâche** — terminée le 2026-11-27 (`105a1f7`) ; lecture par `runAppAction("tasks.list")` existante (aucune action nouvelle), « ouvertes d'abord » = deux lectures
   - Fichiers : `src/components/tasks/TaskPicker.tsx` + test, `src/app/(app)/tasks/actions.ts` (lecture par `tasks.list`), `messages/{fr,en}.json`
   - Contenu : `Autocomplete` de Base UI, recherche par titre avec délai, 20 résultats, toujours limitée au côté de la tâche ouverte, exclusions passées en props, chaque ligne : titre + icône de statut + pastille d'espace ; états vide / chargement / erreur, clavier, focus rendu, relais de focus iOS si la liste s'ouvre dans un popup. Recherche : statuts ouverts d'abord ; `tasks.list` trie par échéance, donc deux lectures (ouvertes, puis closes pour compléter jusqu'à 20) ou un tri dédié, à décider dans la tâche.
   - Test à écrire d'abord : « filtre par titre ; demande le côté de la tâche ; exclut la tâche et les identifiants donnés ; `topLevelOnly` demandé pour une parente ; espace affiché ; Entrée choisit ; Échap rend le focus »
