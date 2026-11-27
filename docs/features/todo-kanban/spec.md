@@ -44,7 +44,10 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Tap, clic ou Entrée sur une carte : détail de la tâche, même fenêtre et même adresse que depuis la liste (`/tasks/[id]`), fermeture = retour au tableau.
 - Mise à jour optimiste, exception limitée au déplacement : la carte reste où elle est lâchée ; les enregistrements partent dans l'ordre des dépôts ; échec → la carte revient à sa place, animée, et « Déplacement non enregistré. » avec Réessayer. Échec d'un dépôt dépassé par un dépôt plus récent de la même carte : ni retour ni message.
 - Vue mémorisée : Liste ou Tableau, par un sélecteur dans l'en-tête de `/tasks`, gardée dans un cookie (comme le côté). Liste par défaut. L'interrupteur « Terminées » n'existe que dans la vue liste.
-- Carte : titre (deux lignes au plus), puis légende : parente (sous-tâche), « Bloquée », pastille d'espace, échéance (braise si en retard), tags, compteur de sous-tâches, priorité. La priorité n'est jamais seule sur une ligne.
+- Carte : titre (deux lignes au plus), puis légende : parente (sous-tâche), « Bloquée », pastille d'espace, échéance (braise si en retard) suivie de son heure quand elle existe (« 3 déc. · 14:30 », 24 h comme la liste ; décision d'Antoine du 2026-11-27), tags, compteur de sous-tâches, priorité. La priorité n'est jamais seule sur une ligne.
+- Tableau sans aucune tâche (décision du 2026-11-27) : une phrase au tutoiement et un bouton « Ajouter une tâche » qui ouvre l'ajout rapide, au-dessus des colonnes. Avec un filtre d'espace actif, le message de la liste (« Rien dans cet espace » et « tous les espaces »). Une tâche seulement terminée ou annulée suffit à le retirer.
+- Options du tableau (sous-tâches visibles, sous-tâches terminées masquées, Annulée dépliée) : mémorisées dès le clic. Le cookie est posé côté client au geste, puis par l'action serveur (mêmes valeur et attributs) : un rechargement lancé aussitôt relit le bon état. Échec d'enregistrement : cookie et affichage reviennent à l'ancienne valeur.
+- Carte déposée dans une colonne fermée de plus de 20 cartes : non déplaçable avant « Tout voir » ; état gardé, ticket BRAIN-65.
 
 ### Ordre manuel
 - `tasks.sort_key` : clé d'ordre fractionnaire, texte comparé octet par octet (`COLLATE "C"`). Une clé se calcule entre deux voisines sans réécrire les autres lignes.
