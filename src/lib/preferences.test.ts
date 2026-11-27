@@ -11,7 +11,6 @@ vi.mock("next/headers", () => ({
 }));
 
 import {
-  BOARD_OPTION_COOKIES,
   contextsCookie,
   parseBoardOption,
   parseContextSelection,
@@ -22,6 +21,7 @@ import {
   SIDE_COOKIE,
   TASKS_VIEW_COOKIE,
 } from "./preferences";
+import { BOARD_OPTION_COOKIES } from "./board-option-cookie";
 
 const TRUSTUP = "6f1c2b9e-3a4d-4e5f-8a7b-1c2d3e4f5a6b";
 const NEXXIA = "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d";

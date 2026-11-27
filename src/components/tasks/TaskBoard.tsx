@@ -58,9 +58,9 @@ import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { TASKS_PATH } from "@/components/shell/nav-items";
 import { PreferenceStatus } from "@/components/shell/PreferenceStatus";
 import { useOptimisticPreference } from "@/components/shell/use-optimistic-preference";
-import { writeBoardOptionCookie } from "@/lib/board-option-cookie";
-import { setBoardOption } from "@/lib/preferences-actions";
+import { saveBoardOption } from "@/lib/save-board-option";
 import { settleAction } from "@/lib/settle-action";
+import type { Side } from "@/modules/core/sides";
 import type { BoardColumn, Task } from "@/modules/tasks/queries";
 import {
   BOARD_CLOSED_DEFAULT_LIMIT,
@@ -68,6 +68,7 @@ import {
   TASK_LIST_MAX_LIMIT,
 } from "@/modules/tasks/sides";
 
+import { ShowAllSpacesButton } from "./ShowAllSpacesButton";
 import { TaskCard } from "./TaskCard";
 
 // Ressort sans rebond de DESIGN.md § 7 (apparition / retrait d'un élément de liste), bulle et retour de carte.
@@ -84,10 +85,8 @@ function cardElement(id: string) {
   return document.querySelector<HTMLElement>(`[data-task-card="${id}"]`);
 }
 
-const saveCanceledOpen = (next: boolean) => {
-  writeBoardOptionCookie("canceledOpen", next);
-  return setBoardOption("canceledOpen", next);
-};
+const saveCanceledOpen = (next: boolean) =>
+  saveBoardOption("canceledOpen", next, !next);
 
 /** Enregistre un déplacement par le registre : vrai seulement si l'action a réussi (un refus est un échec). */
 async function save(move: BoardMove): Promise<boolean> {
@@ -125,6 +124,10 @@ type TaskBoardProps = {
   /** Colonne Annulée dépliée (cookie bmb_board_canceled_open, lu par le serveur). */
   canceledOpen: boolean;
   seeAll: Record<ClosedCategory, SeeAll>;
+  /** Côté affiché : « tous les espaces » du tableau vide filtré retire le filtre de ce côté. */
+  side: Side;
+  /** Filtre d'espace actif (même sens que `filtered` de la liste). */
+  filtered: boolean;
   /** Périmètre lu (côté, espace, options de sous-tâches) : une carte gardée de mémoire ne vaut que pour lui. */
   scopeKey: string;
 };
@@ -136,9 +139,12 @@ export function TaskBoard({
   listQuery,
   canceledOpen,
   seeAll,
+  side,
+  filtered,
   scopeKey,
 }: TaskBoardProps) {
   const t = useTranslations("tasks.board");
+  const tList = useTranslations("tasks.list");
   const tStatus = useTranslations("tasks.detail.status");
   const router = useRouter();
   const reducedMotion = useReducedMotion() ?? false;
@@ -333,8 +339,8 @@ export function TaskBoard({
     };
   });
 
-  // Aucune tâche, tous statuts : message et invitation (comme l'état vide de la liste). Un filtre d'espace qui
-  // cache tout donne le même message : « de ce côté » reste vrai, sans prop de plus.
+  // Aucune tâche, tous statuts : message et invitation (comme l'état vide de la liste) ; avec un filtre d'espace,
+  // le message de la liste et « tous les espaces ».
   const boardEmpty =
     shownColumns.every((column) => column.total === 0) && kept.size === 0;
 
@@ -343,15 +349,26 @@ export function TaskBoard({
       <div className="relative" aria-busy={pendingCount > 0}>
         {boardEmpty && (
           <div className="mb-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <p className="max-w-prose text-body text-foreground">
-              {t("empty")}
-            </p>
-            <QuickAddTrigger
-              label={t("add")}
-              className="min-h-11 shrink-0 rounded-full bg-primary px-5 text-body font-semibold text-primary-foreground hover:bg-primary-hover"
-            >
-              {t("add")}
-            </QuickAddTrigger>
+            {filtered ? (
+              <>
+                <p className="max-w-prose text-body text-foreground">
+                  {tList("emptyFiltered")}
+                </p>
+                <ShowAllSpacesButton side={side} />
+              </>
+            ) : (
+              <>
+                <p className="max-w-prose text-body text-foreground">
+                  {t("empty")}
+                </p>
+                <QuickAddTrigger
+                  label={t("add")}
+                  className="min-h-11 shrink-0 rounded-full bg-primary px-5 text-body font-semibold text-primary-foreground hover:bg-primary-hover"
+                >
+                  {t("add")}
+                </QuickAddTrigger>
+              </>
+            )}
           </div>
         )}
         <SortableBoard

@@ -108,6 +108,8 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
           listQuery={listQuery(search)}
           canceledOpen={options.canceledOpen}
           seeAll={seeAll}
+          side={scope.side}
+          filtered={scope.contextId !== null}
           scopeKey={[
             scope.side,
             scope.contextId,

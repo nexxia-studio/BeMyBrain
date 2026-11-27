@@ -1,4 +1,10 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { MotionGlobalConfig } from "motion/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -78,7 +84,10 @@ vi.mock("motion/react", async (importOriginal) => ({
   useReducedMotion: () => reducedMotion.current,
 }));
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
-vi.mock("@/lib/preferences-actions", () => ({ setBoardOption }));
+vi.mock("@/lib/preferences-actions", () => ({
+  setBoardOption,
+  setContextSelection: vi.fn(),
+}));
 vi.mock("@/lib/settle-action", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/settle-action")>();
   return { ...actual, settleAction: vi.fn(actual.settleAction) };
@@ -136,6 +145,8 @@ function board(props: Props, locale: "fr" | "en" = "fr") {
         listQuery=""
         canceledOpen={false}
         seeAll={NO_SEE_ALL}
+        side="private"
+        filtered={false}
         scopeKey="private"
         {...props}
       />
@@ -1133,6 +1144,27 @@ describe("tableau des tâches : Terminée et Annulée", () => {
     await act(async () => saving.resolve());
   });
 
+  it("déplier Annulée : le cookie est posé aussitôt, restauré si l'enregistrement échoue", async () => {
+    document.cookie = "bmb_board_canceled_open=; Path=/; Max-Age=0";
+    const saving = deferred<void>();
+    setBoardOption.mockReturnValueOnce(saving.promise);
+    render(
+      board({
+        columns: serverColumns({ canceled: [buildTask()] }),
+        canceledOpen: false,
+      }),
+    );
+
+    await act(async () =>
+      boardProps.current!.onCollapsedChange!("canceled", false),
+    );
+    expect(document.cookie).toContain("bmb_board_canceled_open=1");
+
+    await act(async () => saving.reject(new Error("panne")));
+    await settle();
+    expect(document.cookie).toContain("bmb_board_canceled_open=0");
+  });
+
   it("préférence d'Annulée non enregistrée : retour à l'état enregistré, avec un message", async () => {
     setBoardOption.mockRejectedValueOnce(new Error("panne"));
     render(
@@ -1181,9 +1213,7 @@ describe("tableau des tâches : tableau sans tâche", () => {
     render(withQuickAdd(open, { columns: serverColumns({}) }));
 
     expect(screen.getByText(fr.tasks.board.empty)).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole("button", { name: fr.tasks.board.add }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: fr.tasks.board.add }));
     expect(open).toHaveBeenCalledTimes(1);
   });
 
@@ -1193,6 +1223,39 @@ describe("tableau des tâches : tableau sans tâche", () => {
     expect(screen.getByText(en.tasks.board.empty)).toBeTruthy();
     expect(
       screen.getByRole("button", { name: en.tasks.board.add }),
+    ).toBeTruthy();
+  });
+
+  it("sans tâche et filtré par espace : message de la liste et « tous les espaces », pas d'invitation", () => {
+    render(
+      withQuickAdd(vi.fn(), {
+        columns: serverColumns({}),
+        filtered: true,
+      }),
+    );
+
+    expect(screen.getByText(fr.tasks.list.emptyFiltered)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: fr.tasks.list.showAllSpaces }),
+    ).toBeTruthy();
+    expect(screen.queryByText(fr.tasks.board.empty)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: fr.tasks.board.add }),
+    ).toBeNull();
+  });
+
+  it("sans tâche et filtré, en anglais", () => {
+    render(
+      withQuickAdd(
+        vi.fn(),
+        { columns: serverColumns({}), filtered: true },
+        "en",
+      ),
+    );
+
+    expect(screen.getByText(en.tasks.list.emptyFiltered)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: en.tasks.list.showAllSpaces }),
     ).toBeTruthy();
   });
 

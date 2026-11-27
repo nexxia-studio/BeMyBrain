@@ -11,19 +11,14 @@ import { useTranslations } from "next-intl";
 
 import { PreferenceStatus } from "@/components/shell/PreferenceStatus";
 import { useOptimisticPreference } from "@/components/shell/use-optimistic-preference";
-import { writeBoardOptionCookie } from "@/lib/board-option-cookie";
-import { setBoardOption } from "@/lib/preferences-actions";
+import { saveBoardOption } from "@/lib/save-board-option";
 
 import { BoardOptionSwitch } from "./BoardOptionSwitch";
 
-const saveSubtasks = (next: boolean) => {
-  writeBoardOptionCookie("subtasks", next);
-  return setBoardOption("subtasks", next);
-};
-const saveHideDone = (next: boolean) => {
-  writeBoardOptionCookie("hideDoneSubtasks", next);
-  return setBoardOption("hideDoneSubtasks", next);
-};
+const saveSubtasks = (next: boolean) =>
+  saveBoardOption("subtasks", next, !next);
+const saveHideDone = (next: boolean) =>
+  saveBoardOption("hideDoneSubtasks", next, !next);
 
 type BoardOptionsProps = {
   /** Sous-tâches en cartes (cookie bmb_board_subtasks, lu par le serveur). */

@@ -205,7 +205,26 @@ describe("options du tableau", () => {
   });
 });
 
+function clearCookies() {
+  for (const part of document.cookie.split("; ")) {
+    const name = part.split("=")[0];
+    if (name) document.cookie = `${name}=; Path=/; Max-Age=0`;
+  }
+}
+
 describe("cookie posé au clic (rechargement pendant l'enregistrement)", () => {
+  beforeEach(clearCookies);
+
+  it("échec de l'action : le cookie retrouve l'ancienne valeur", async () => {
+    setBoardOption.mockRejectedValueOnce(new Error("panne"));
+    renderOptions(true, false);
+
+    fireEvent.click(toggle(SUBTASKS));
+    await waitFor(() =>
+      expect(document.cookie).toContain("bmb_board_subtasks=1"),
+    );
+  });
+
   it("garde le choix dans document.cookie tant que l'action serveur est en vol", () => {
     setBoardOption.mockReturnValue(new Promise(() => {}));
     renderOptions(true, false);
