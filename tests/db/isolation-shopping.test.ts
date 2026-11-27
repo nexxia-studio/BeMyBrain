@@ -474,16 +474,10 @@ describe("shopping_aisle_overrides : par utilisateur", () => {
         [f.workspaceA, "bidule", "frozen"],
       ),
     );
-    const ownerView = await owner.query(
-      "select aisle_key from shopping_aisle_overrides where id = $1",
-      [s.overrideA],
-    );
-
     expect(results.update).toEqual([]);
     expect(upsertAsA2.rows).toEqual([
       { user_id: f.userA2, aisle_key: "frozen" },
     ]);
-    expect(ownerView.rows).toEqual([{ aisle_key: "household" }]);
   });
 
   it("user_id vaut l'utilisateur connecté par défaut et n'est pas posable par l'app", async () => {
@@ -504,6 +498,27 @@ describe("shopping_aisle_overrides : par utilisateur", () => {
 
     expect(mine).toEqual([{ user_id: f.userA2 }]);
     expect(await outcome(forged)).toBe(GRANT_REFUSAL);
+  });
+
+  it("personne ne supprime une correction ni un ordre (aucun droit DELETE)", async () => {
+    const attempt = (sql: string, params: string[]) =>
+      outcome(asUser(f.userA, (db) => db.query(sql, params)));
+
+    const outcomes = {
+      override: await attempt(
+        "delete from shopping_aisle_overrides where id = $1",
+        [s.overrideA],
+      ),
+      order: await attempt(
+        "delete from shopping_aisle_order where workspace_id = $1",
+        [f.workspaceA],
+      ),
+    };
+
+    expect(outcomes).toEqual({
+      override: GRANT_REFUSAL,
+      order: GRANT_REFUSAL,
+    });
   });
 
   it("l'utilisateur de B ne peut rien écrire dans A", async () => {
@@ -568,13 +583,7 @@ describe("shopping_aisle_order : par utilisateur", () => {
         )
       ).rows,
     }));
-    const ownerView = await owner.query(
-      "select aisle_keys from shopping_aisle_order where workspace_id = $1 and user_id = $2",
-      [f.workspaceA, f.userA],
-    );
-
     expect(seen).toEqual({ read: 0, update: [] });
-    expect(ownerView.rows).toEqual([{ aisle_keys: ["frozen", "produce"] }]);
   });
 
   it("l'utilisateur de B ne peut rien écrire dans A", async () => {

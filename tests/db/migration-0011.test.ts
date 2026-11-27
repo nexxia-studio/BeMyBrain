@@ -86,26 +86,57 @@ describe("migration 0011 : le catalogue Postgres", () => {
     expect(result.rows).toEqual([{ relrowsecurity: true }]);
   });
 
-  it.each(TABLES)(
-    "%s a une policy par verbe, jamais FOR ALL, jamais USING (true)",
-    async (table) => {
+  const EXPECTED_VERBS: [string, string[]][] = [
+    ["shopping_lists", ["INSERT", "SELECT", "UPDATE"]],
+    ["shopping_items", ["DELETE", "INSERT", "SELECT", "UPDATE"]],
+    ["shopping_aisle_overrides", ["INSERT", "SELECT", "UPDATE"]],
+    ["shopping_aisle_order", ["INSERT", "SELECT", "UPDATE"]],
+  ];
+
+  it.each(EXPECTED_VERBS)(
+    "%s a exactement une policy par verbe attendu, jamais FOR ALL",
+    async (table, verbs) => {
       const result = await tagged(
         owner.query(
-          `select cmd, count(*)::int as n,
-                  bool_and(coalesce(qual, with_check) !~ '^\\(?true\\)?$') as filtered
-           from pg_policies where schemaname = 'public' and tablename = $1
+          `select cmd, count(*)::int as n from pg_policies
+           where schemaname = 'public' and tablename = $1
            group by cmd order by cmd`,
           [table],
         ),
       );
-      const perVerb = result.rows.map((r) => [r.cmd, r.n, r.filtered]);
 
-      expect(
-        perVerb.every(
-          ([cmd, n, filtered]) => cmd !== "ALL" && n === 1 && filtered,
+      expect(result.rows).toEqual(verbs.map((cmd) => ({ cmd, n: 1 })));
+    },
+  );
+
+  it.each(TABLES)(
+    "les policies de %s filtrent : ni USING (true) ni WITH CHECK (true)",
+    async (table) => {
+      const result = await tagged(
+        owner.query(
+          `select cmd, qual, with_check from pg_policies
+           where schemaname = 'public' and tablename = $1`,
+          [table],
         ),
-      ).toBe(true);
-      expect(perVerb.map(([cmd]) => cmd)).toContain("SELECT");
+      );
+      const trivial = /^\(?true\)?$/;
+
+      for (const row of result.rows) {
+        if (row.cmd !== "INSERT") expect(row.qual).not.toMatch(trivial);
+        if (row.cmd !== "SELECT" && row.cmd !== "DELETE") {
+          expect(row.with_check).not.toMatch(trivial);
+        }
+        if (row.cmd === "SELECT" || row.cmd === "DELETE") {
+          expect(row.qual).toContain("is_workspace_member");
+        }
+        if (row.cmd === "INSERT") {
+          expect(row.with_check).toContain("is_workspace_member");
+        }
+        if (row.cmd === "UPDATE") {
+          expect(row.qual).toContain("is_workspace_member");
+          expect(row.with_check).toContain("is_workspace_member");
+        }
+      }
     },
   );
 
