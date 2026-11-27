@@ -4,7 +4,8 @@
 // Carte d'une tâche du tableau (spec todo-kanban, « Tableau »), purement d'affichage : titre (deux lignes au
 // plus), puis légende dans l'ordre parente (sous-tâche), « Bloquée », pastille d'espace, échéance (braise en
 // retard), tags, compteur de sous-tâches, badge de priorité (accroché à l'information qui le précède, jamais seul
-// sur une ligne : `TaskLegendItems`). Sans information, pas de légende.
+// sur une ligne : `TaskLegendItems`). Priorité seule : pas de légende, le badge se pose à droite du titre, sur sa
+// première ligne (la carte garde la hauteur d'une carte sans légende). Sans information, pas de légende.
 // Compteur de sous-tâches : il signale les sous-tâches encore ouvertes, à l'encre tant qu'il en reste, en texte
 // secondaire sinon ; sur une parente fermée qui en a encore, la mention « n ouvertes » en clair (terminer une
 // parente ne ferme pas ses sous-tâches).
@@ -60,14 +61,29 @@ export function TaskCard({ task, today, showContext, state }: TaskCardProps) {
   const hasParent = task.parentTitle !== null;
   const showChip = showContext && task.contextName !== null;
   const hasTags = task.tags.length > 0;
-  const hasLegend =
+  const hasOtherInfo =
     hasParent ||
     task.blocked ||
     showChip ||
     task.dueDate !== null ||
     hasTags ||
-    counter !== null ||
-    hasPriority;
+    counter !== null;
+  // Priorité seule : le badge se pose à droite du titre (première ligne) au lieu d'une rangée de légende.
+  const badgeBesideTitle = hasPriority && !hasOtherInfo;
+
+  // Contenu saisi : jamais traduit.
+  const title = (
+    <span
+      className={cn(
+        TASK_CARD_TITLE_TEXT,
+        "line-clamp-2 break-words",
+        badgeBesideTitle && "min-w-0 flex-1",
+        closed && "text-muted-foreground",
+      )}
+    >
+      {task.title}
+    </span>
+  );
 
   return (
     <div
@@ -79,17 +95,23 @@ export function TaskCard({ task, today, showContext, state }: TaskCardProps) {
         !state.overlay && TASK_CARD_SHADOW,
       )}
     >
-      {/* Contenu saisi : jamais traduit. */}
-      <span
-        className={cn(
-          TASK_CARD_TITLE_TEXT,
-          "line-clamp-2 break-words",
-          closed && "text-muted-foreground",
-        )}
-      >
-        {task.title}
-      </span>
-      {hasLegend && (
+      {badgeBesideTitle ? (
+        <div className="flex items-start gap-2">
+          {title}
+          <span
+            className={cn(
+              TASK_CARD_TITLE_TEXT,
+              "flex h-lh shrink-0 items-center",
+              closed && "grayscale",
+            )}
+          >
+            <PriorityBadge priority={task.priority} />
+          </span>
+        </div>
+      ) : (
+        title
+      )}
+      {hasOtherInfo && (
         <span
           data-card-legend=""
           className={cn(

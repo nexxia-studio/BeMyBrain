@@ -344,11 +344,25 @@ describe("carte d'une tâche du tableau", () => {
     expect(within(group).queryByText("3 déc.")).toBeNull();
   });
 
-  it("priorité seule : badge sans groupe", () => {
-    const { legend } = renderCard({ priority: 4 });
+  it("priorité seule : le badge est accroché à droite du titre, sans rangée de légende", () => {
+    const { card, legend } = renderCard({
+      priority: 4,
+      title: "Titre seul",
+    });
+
+    expect(legend).toBeNull();
+    const title = within(card).getByText("Titre seul");
+    const badge = within(card).getByText("Priorité basse").parentElement!;
+    expect(badge.parentElement!.parentElement).toBe(title.parentElement);
+    expect(title.parentElement).toBe(card.firstElementChild);
+    expect(card.querySelector("[data-legend-group]")).toBeNull();
+  });
+
+  it("priorité avec une autre information : le badge reste dans la légende", () => {
+    const { card, legend } = renderCard({ priority: 4, tags: ["devis"] });
 
     expect(within(legend!).getByText("Priorité basse")).toBeDefined();
-    expect(legend!.querySelector("[data-legend-group]")).toBeNull();
+    expect(card.children).toHaveLength(2);
   });
 
   it("s'affiche en anglais", () => {
