@@ -18,7 +18,12 @@ const DEPLOYMENT_ID = "dpl_fake";
 const URL_HOST = "projet-fake-abc.vercel.example";
 
 type Call = { method: string; url: URL; headers: Headers; body?: unknown };
-type Reply = { status?: number; body: unknown; raw?: string };
+type Reply = {
+  status?: number;
+  body: unknown;
+  raw?: string;
+  fail?: boolean;
+};
 type Handler = Reply | (() => Reply);
 
 /** Faux fetch : API Vercel et API GitHub, une route par « méthode + chemin ». */
@@ -37,6 +42,7 @@ function fakeNetwork(routes: Record<string, Handler>) {
     if (!handler)
       return Response.json({ error: { code: "inconnu" } }, { status: 404 });
     const reply = typeof handler === "function" ? handler() : handler;
+    if (reply.fail) throw new Error("réseau secret.example");
     if (reply.raw !== undefined)
       return new Response(reply.raw, { status: reply.status ?? 200 });
     return Response.json(reply.body, { status: reply.status ?? 200 });
@@ -227,7 +233,7 @@ describe("déploiement de production", () => {
     ).toBe(true);
   });
 
-  it("annule le déploiement puis échoue au délai dépassé (15 min)", async () => {
+  it("annule le déploiement puis échoue au délai dépassé (12 min en temps réel)", async () => {
     const t = setup(
       baseRoutes({
         [`GET api.vercel.com/v13/deployments/${DEPLOYMENT_ID}`]: {
@@ -240,10 +246,7 @@ describe("déploiement de production", () => {
 
     const cancels = t.calls.filter((c) => c.method === "PATCH");
     expect(cancels).toHaveLength(1);
-    expect(t.sleep.mock.calls.length * 10_000).toBeGreaterThanOrEqual(
-      15 * 60_000 - 10_000,
-    );
-    expect(t.sleep.mock.calls.length * 10_000).toBeLessThanOrEqual(15 * 60_000);
+    expect(t.sleep.mock.calls.length * 10_000).toBe(12 * 60_000);
   });
 
   it("n'écrit nulle part jeton, identifiant, URL ni corps de réponse", async () => {
@@ -394,5 +397,120 @@ describe("déploiement de production", () => {
         (c) => c.method === "GET" && c.url.pathname.includes("/v13/"),
       ),
     ).toHaveLength(0);
+  });
+
+  it("annule le déploiement quand l'attente échoue en HTTP, sans citer de corps", async () => {
+    const t = setup(
+      baseRoutes({
+        [`GET api.vercel.com/v13/deployments/${DEPLOYMENT_ID}`]: {
+          status: 500,
+          body: { error: { message: "corps secret.example" } },
+        },
+      }),
+    );
+
+    const error = await run(t.env, t.io).catch((e: Error) => e);
+
+    expect(String(error)).toContain("annulé");
+    expect(String(error)).not.toContain("secret.example");
+    expect(t.calls.filter((c) => c.method === "PATCH")).toHaveLength(1);
+  });
+
+  it("annule le déploiement quand l'état renvoyé est null", async () => {
+    const t = setup(
+      baseRoutes({
+        [`GET api.vercel.com/v13/deployments/${DEPLOYMENT_ID}`]: { body: null },
+      }),
+    );
+
+    const error = await run(t.env, t.io).catch((e: Error) => e);
+
+    expect(String(error)).toContain("annulé");
+    expect(String(error)).not.toMatch(/null|reading/);
+    expect(t.calls.filter((c) => c.method === "PATCH")).toHaveLength(1);
+  });
+
+  it("n'annule pas un déploiement en échec définitif (ERROR)", async () => {
+    const t = setup(
+      baseRoutes({
+        [`GET api.vercel.com/v13/deployments/${DEPLOYMENT_ID}`]: {
+          body: { readyState: "ERROR", target: "production" },
+        },
+      }),
+    );
+
+    await expect(run(t.env, t.io)).rejects.toThrow(/en échec \(ERROR\)/);
+
+    expect(t.calls.some((c) => c.method === "PATCH")).toBe(false);
+  });
+
+  it("n'annule pas un déploiement prêt quand le résumé ne s'écrit pas, et échoue", async () => {
+    const t = setup(baseRoutes(), {
+      GITHUB_STEP_SUMMARY: "/dossier/absent/summary.md",
+    });
+
+    await expect(run(t.env, t.io)).rejects.toThrow(/résumé du job non écrit/);
+
+    expect(t.calls.some((c) => c.method === "PATCH")).toBe(false);
+  });
+
+  it("ne réessaie jamais la création après une absence de réponse : un seul POST", async () => {
+    const t = setup(
+      baseRoutes({
+        "POST api.vercel.com/v13/deployments": { body: null, fail: true },
+      }),
+    );
+
+    const error = await run(t.env, t.io).catch((e: Error) => e);
+
+    expect(t.calls.filter((c) => c.method === "POST")).toHaveLength(1);
+    expect(String(error)).toContain("à vérifier dans Vercel");
+    expect(String(error)).not.toContain("secret.example");
+  });
+
+  it("ne cite pas une cible ou un état de Vercel qui n'a pas la forme d'un identifiant", async () => {
+    const t = setup(
+      baseRoutes({
+        "POST api.vercel.com/v13/deployments": {
+          body: { id: DEPLOYMENT_ID, target: "https://secret.example/x" },
+        },
+      }),
+    );
+
+    const error = await run(t.env, t.io).catch((e: Error) => e);
+
+    expect(String(error)).toContain("annulé");
+    expect(String(error)).not.toContain("secret.example");
+  });
+
+  it.each([
+    ["GITHUB_REPOSITORY", "org/repo/../x"],
+    ["GITHUB_REPOSITORY", "pas-un-depot"],
+    ["GITHUB_REPOSITORY_ID", "42; rm"],
+    ["DEFAULT_GIT_BRANCH", "ma\nbranche"],
+    ["DEFAULT_GIT_BRANCH", "x".repeat(251)],
+  ])("refuse %s = %j avant tout appel", async (name, value) => {
+    const t = setup(baseRoutes(), { [name]: value });
+
+    await expect(run(t.env, t.io)).rejects.toThrow(/refusée/);
+
+    expect(t.calls).toHaveLength(0);
+    expect(t.logs).toHaveLength(0);
+  });
+
+  it("distingue une tête de main illisible d'un remplacement", async () => {
+    const t = setup(
+      baseRoutes({
+        "GET api.github.com/repos/org/repo/git/ref/heads/main": {
+          body: { object: { sha: "pas-un-sha" } },
+        },
+      }),
+    );
+
+    await expect(run(t.env, t.io)).rejects.toThrow(/illisible/);
+
+    expect(t.summary()).toContain("illisible");
+    expect(t.summary()).not.toContain("remplacé par");
+    expect(t.calls.some((c) => c.method === "POST")).toBe(false);
   });
 });
