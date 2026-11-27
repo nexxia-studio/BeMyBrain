@@ -45,6 +45,10 @@
 // Retour d'une carte : sa position au moment de l'échec est relevée avant le rendu ; l'appelant la consomme dans
 // un `useLayoutEffect` (`consumeReturn`) et anime la carte depuis ce départ.
 //
+// Fermeture de la page. Tant qu'un déplacement est en attente ou en vol (`pendingCount` > 0), un garde
+// `beforeunload` fait confirmer le rechargement ou la fermeture par le navigateur (texte non personnalisable) ;
+// retiré dès que la file est vide, en échec comme en réussite. La navigation interne de Next n'est pas concernée.
+//
 // Démontage : les dépôts déjà faits sont quand même enregistrés ; plus aucun état mis à jour, aucune carte
 // relevée, aucune erreur remise à `onSaveError`.
 import { useEffect, useRef, useState } from "react";
@@ -193,6 +197,16 @@ export function useBoardMoves<K extends string>({
     });
   }
 
+  const pendingCount = replayed.filter((entry) => !entry.confirmed).length;
+
+  const hasPending = pendingCount > 0;
+  useEffect(() => {
+    if (!hasPending) return;
+    const guard = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [hasPending]);
+
   // Carte disparue du tableau enregistré : rien à réessayer.
   const failure = failed !== null && boardHas(held, failed.id) ? failed : null;
 
@@ -214,7 +228,7 @@ export function useBoardMoves<K extends string>({
       held,
     ),
     move,
-    pendingCount: replayed.filter((entry) => !entry.confirmed).length,
+    pendingCount,
     failure,
     dismissFailure: () => setFailed(null),
     consumeReturn,

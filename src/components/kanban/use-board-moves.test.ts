@@ -750,4 +750,68 @@ describe("file des déplacements optimistes d'un tableau", () => {
 
     expect(vi.getTimerCount()).toBe(0);
   });
+  describe("garde de fermeture de la page (beforeunload)", () => {
+    function unloadEvent() {
+      const event = new Event("beforeunload", { cancelable: true });
+      const preventDefault = vi.spyOn(event, "preventDefault");
+      window.dispatchEvent(event);
+      return { event, preventDefault };
+    }
+
+    it("ne pose rien au repos", () => {
+      const { save } = controllableSave();
+      renderBoardMoves({ saved: SAVED, save });
+
+      const { preventDefault } = unloadEvent();
+
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("demande confirmation tant qu'un envoi est en attente ou en vol", async () => {
+      const { save, calls } = controllableSave();
+      const { result } = renderBoardMoves({ saved: SAVED, save });
+
+      await drop(result, A_TO_DOING);
+      await drop(result, B_TO_DONE);
+      const enVol = unloadEvent();
+      await settle(calls[0], true);
+      const enAttente = unloadEvent();
+
+      expect(enVol.preventDefault).toHaveBeenCalled();
+      expect(enAttente.preventDefault).toHaveBeenCalled();
+    });
+
+    it("retire la garde quand la file est vide", async () => {
+      const { save, calls } = controllableSave();
+      const { result } = renderBoardMoves({ saved: SAVED, save });
+      await drop(result, A_TO_DOING);
+
+      await settle(calls[0], true);
+      const { preventDefault } = unloadEvent();
+
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("retire la garde après un échec", async () => {
+      const { save, calls } = controllableSave();
+      const { result } = renderBoardMoves({ saved: SAVED, save });
+      await drop(result, A_TO_DOING);
+
+      await settle(calls[0], false);
+      const { preventDefault } = unloadEvent();
+
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("retire l'écouteur au démontage", async () => {
+      const { save } = controllableSave();
+      const { result, unmount } = renderBoardMoves({ saved: SAVED, save });
+      await drop(result, A_TO_DOING);
+
+      unmount();
+      const { preventDefault } = unloadEvent();
+
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+  });
 });
