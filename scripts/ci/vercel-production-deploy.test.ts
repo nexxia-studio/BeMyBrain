@@ -18,7 +18,7 @@ const DEPLOYMENT_ID = "dpl_fake";
 const URL_HOST = "projet-fake-abc.vercel.example";
 
 type Call = { method: string; url: URL; headers: Headers; body?: unknown };
-type Reply = { status?: number; body: unknown };
+type Reply = { status?: number; body: unknown; raw?: string };
 type Handler = Reply | (() => Reply);
 
 /** Faux fetch : API Vercel et API GitHub, une route par « méthode + chemin ». */
@@ -37,6 +37,8 @@ function fakeNetwork(routes: Record<string, Handler>) {
     if (!handler)
       return Response.json({ error: { code: "inconnu" } }, { status: 404 });
     const reply = typeof handler === "function" ? handler() : handler;
+    if (reply.raw !== undefined)
+      return new Response(reply.raw, { status: reply.status ?? 200 });
     return Response.json(reply.body, { status: reply.status ?? 200 });
   });
   return { fetch, calls };
@@ -300,22 +302,97 @@ describe("déploiement de production", () => {
     expect(order.indexOf(`log:::add-mask::${TEAM}`)).toBeLessThan(firstFetch);
   });
 
-  it("réessaie un 5xx sans créer deux déploiements du même appel réussi", async () => {
-    let attempts = 0;
+  it.each([429, 503])(
+    "réessaie un %i sans créer deux déploiements du même appel réussi",
+    async (status) => {
+      let attempts = 0;
+      const t = setup(
+        baseRoutes({
+          "POST api.vercel.com/v13/deployments": () =>
+            ++attempts === 1
+              ? { status, body: {} }
+              : { body: { id: DEPLOYMENT_ID, target: "production" } },
+        }),
+      );
+
+      await run(t.env, t.io);
+
+      expect(attempts).toBe(2);
+      expect(
+        vercelCalls(t.calls).filter((c) => c.method === "POST"),
+      ).toHaveLength(2);
+    },
+  );
+
+  it("n'écrit pas le message d'alias de Vercel, ni au journal, ni au résumé, ni dans l'erreur", async () => {
     const t = setup(
       baseRoutes({
-        "POST api.vercel.com/v13/deployments": () =>
-          ++attempts === 1
-            ? { status: 503, body: {} }
-            : { body: { id: DEPLOYMENT_ID, target: "production" } },
+        [`GET api.vercel.com/v13/deployments/${DEPLOYMENT_ID}`]: {
+          body: { ...ready, aliasError: { message: "alias secret.example" } },
+        },
       }),
     );
 
-    await run(t.env, t.io);
+    const error = await run(t.env, t.io).catch((e: Error) => e);
 
-    expect(attempts).toBe(2);
+    const written = [...t.logs, t.summary(), String(error)].join("\n");
+    expect(String(error)).toMatch(/alias/);
+    expect(written).not.toContain("secret.example");
+  });
+
+  it("n'écrit pas un corps GitHub non JSON dans l'erreur", async () => {
+    const t = setup(
+      baseRoutes({
+        "GET api.github.com/repos/org/repo/git/ref/heads/main": {
+          body: null,
+          raw: "<html>corps secret.example",
+        },
+      }),
+    );
+
+    const error = await run(t.env, t.io).catch((e: Error) => e);
+
+    expect(String(error)).toContain("illisible");
+    expect(String(error)).not.toContain("secret.example");
+    expect(t.calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it.each([
+    ["le nom du projet", "GET api.vercel.com/v9/projects/prj_fake"],
+    ["la création", "POST api.vercel.com/v13/deployments"],
+    ["le sondage", `GET api.vercel.com/v13/deployments/${DEPLOYMENT_ID}`],
+  ])(
+    "n'écrit pas un corps Vercel non JSON dans l'erreur (%s)",
+    async (_name, route) => {
+      const t = setup(
+        baseRoutes({
+          [route]: { body: null, raw: "<html>corps secret.example" },
+        }),
+      );
+
+      const error = await run(t.env, t.io).catch((e: Error) => e);
+
+      expect(String(error)).toContain("illisible");
+      expect(String(error)).not.toContain("secret.example");
+    },
+  );
+
+  it("échoue sans identifiant de déploiement et n'attend rien", async () => {
+    const t = setup(
+      baseRoutes({
+        "POST api.vercel.com/v13/deployments": {
+          body: { target: "production" },
+        },
+      }),
+    );
+
+    await expect(run(t.env, t.io)).rejects.toThrow(/sans identifiant/);
+
+    expect(t.sleep).not.toHaveBeenCalled();
     expect(
-      vercelCalls(t.calls).filter((c) => c.method === "POST"),
-    ).toHaveLength(2);
+      t.calls.filter(
+        (c) => c.method === "GET" && c.url.pathname.includes("/v13/"),
+      ),
+    ).toHaveLength(0);
   });
 });
