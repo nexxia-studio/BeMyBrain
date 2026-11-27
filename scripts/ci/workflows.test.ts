@@ -187,6 +187,14 @@ describe("tous les workflows", () => {
     expect(withStatuses).toEqual([]);
   });
 
+  it("aucun workflow ne pose de commit status (gh api, /statuses/)", () => {
+    const withStatusCalls = names.filter((name) =>
+      /gh api[^\n]*statuses|\/statuses\//.test(workflow(name)),
+    );
+
+    expect(withStatusCalls).toEqual([]);
+  });
+
   it("ne lit en vars.* que des noms Neon anodins : une variable n'est jamais masquée dans les journaux", () => {
     const anodyne = [
       "NEON_CI_PARENT_BRANCH",

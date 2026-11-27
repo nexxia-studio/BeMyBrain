@@ -2,7 +2,8 @@
 # l'environnement GitHub protégé `production`, seul endroit où existe l'accès propriétaire de la base.
 # Deux jobs : la migration, puis le déploiement. L'ordre est garanti par `needs` : migration en échec
 # ou annulée, pas de déploiement. Plus de Deployment Check Vercel ni de commit status.
-# Le jeton Vercel de production n'existe que dans deploy-production ; aucun secret de base ici.
+# Le jeton Vercel de production n'existe que dans deploy-production, l'accès à la base que dans
+# migrate-production.
 name: Production
 
 on:
