@@ -125,11 +125,22 @@ export function TaskCard({ task, today, showContext, state }: TaskCardProps) {
             )}
             {task.dueDate !== null &&
               (task.dueDate === today ? (
-                <span className={cn(!closed && "text-foreground")}>
+                <span
+                  className={cn(
+                    "whitespace-nowrap",
+                    !closed && "text-foreground",
+                  )}
+                >
                   {t("list.sections.today")}
+                  {task.dueTime !== null && ` · ${task.dueTime}`}
                 </span>
               ) : (
-                <span className={cn(overdue && "text-destructive")}>
+                <span
+                  className={cn(
+                    "whitespace-nowrap",
+                    overdue && "text-destructive",
+                  )}
+                >
                   {overdue && (
                     <span className="sr-only">
                       {t("list.sections.overdue")}
@@ -139,6 +150,7 @@ export function TaskCard({ task, today, showContext, state }: TaskCardProps) {
                     day: "numeric",
                     month: "short",
                   })}
+                  {task.dueTime !== null && ` · ${task.dueTime}`}
                 </span>
               ))}
             {hasTags && (

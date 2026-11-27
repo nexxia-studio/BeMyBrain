@@ -187,6 +187,38 @@ describe("carte d'une tâche du tableau", () => {
     expect(legend!.textContent).toContain("20 nov.");
   });
 
+  it("échéance avec heure : l'heure suit la date dans le même élément, en FR comme en EN", () => {
+    const fr = renderCard({ dueDate: "2026-12-03", dueTime: "14:30" });
+    const en = renderCard(
+      { dueDate: "2026-12-03", dueTime: "14:30" },
+      { locale: "en" },
+    );
+
+    expect(fr.legend!.textContent).toContain("3 déc. · 14:30");
+    expect(en.legend!.textContent).toContain("Dec 3 · 14:30");
+  });
+
+  it("échéance du jour avec heure : « Aujourd'hui · 09:00 »", () => {
+    const { legend } = renderCard({ dueDate: TODAY, dueTime: "09:00" });
+
+    expect(legend!.textContent).toContain("Aujourd'hui · 09:00");
+  });
+
+  it("échéance sans heure : rendu inchangé, aucun séparateur", () => {
+    const { legend } = renderCard({ dueDate: "2026-12-03", dueTime: null });
+
+    expect(legend!.textContent).not.toContain("·");
+    expect(legend!.textContent).toContain("3 déc.");
+  });
+
+  it("en retard avec heure : l'heure est en braise avec la date", () => {
+    const { legend } = renderCard({ dueDate: "2026-11-20", dueTime: "08:15" });
+
+    const overdue = within(legend!).getByText("En retard").parentElement!;
+    expect(classes(overdue)).toContain("text-destructive");
+    expect(overdue.textContent).toContain("20 nov. · 08:15");
+  });
+
   it("échéance du jour : « Aujourd'hui » à la place de la date", () => {
     const { legend } = renderCard({ dueDate: TODAY });
 
