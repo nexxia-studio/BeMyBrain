@@ -372,34 +372,6 @@ describe("file des déplacements optimistes d'un tableau", () => {
     expect(result.current.failure).toBe(A_TO_DOING);
   });
 
-  it("Réessayer rejoue le même déplacement et efface l'échec", async () => {
-    const { save, calls } = controllableSave();
-    const { result } = renderBoardMoves({ saved: SAVED, save });
-    await drop(result, A_TO_DOING);
-    await settle(calls[0], false);
-
-    await act(async () => result.current.retry());
-
-    expect(result.current.failure).toBeNull();
-    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
-    expect(result.current.pendingCount).toBe(1);
-    await settle(calls[1], true);
-
-    expect(calls[1].move).toBe(A_TO_DOING);
-    expect(result.current.board.doing).toEqual(["a", "d", "e"]);
-    expect(result.current.pendingCount).toBe(0);
-  });
-
-  it("Réessayer sans échec : rien ne part", () => {
-    const { save } = controllableSave();
-    const { result } = renderBoardMoves({ saved: SAVED, save });
-
-    act(() => result.current.retry());
-
-    expect(save).not.toHaveBeenCalled();
-    expect(result.current.pendingCount).toBe(0);
-  });
-
   it("efface l'échec après 5 s", async () => {
     vi.useFakeTimers();
     const { save, calls } = controllableSave();

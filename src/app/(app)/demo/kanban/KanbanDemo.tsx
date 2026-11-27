@@ -148,7 +148,7 @@ export function KanbanDemo({ today }: KanbanDemoProps) {
 
   function retry() {
     setFailNext(false);
-    moves.retry();
+    if (failure !== null) moves.move(failure);
   }
 
   const columns: BoardColumn<DemoTask>[] = DEMO_STATUSES.map((status) => {

@@ -90,8 +90,6 @@ export type BoardMoves<K extends string> = {
   pendingCount: number;
   /** Déplacement échoué à proposer en « Réessayer », sinon `null`. */
   failure: BoardMove | null;
-  /** Rejoue le déplacement échoué ; sans échec, rien. */
-  retry: () => void;
   /** Efface `failure` sans rien rejouer (bulle d'échec fermée par l'utilisateur). */
   dismissFailure: () => void;
   /**
@@ -218,9 +216,6 @@ export function useBoardMoves<K extends string>({
     move,
     pendingCount: replayed.filter((entry) => !entry.confirmed).length,
     failure,
-    retry: () => {
-      if (failure !== null) move(failure);
-    },
     dismissFailure: () => setFailed(null),
     consumeReturn,
   };
