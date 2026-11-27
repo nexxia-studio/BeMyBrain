@@ -21,6 +21,7 @@ import type { Task } from "@/modules/tasks/queries";
 import { dueDateInstant, subtaskCounter, tagList } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
+import { BlockedChip } from "./BlockedChip";
 import { CHIP_SHAPE_CLASSES, contextChipClass } from "./context-chip-class";
 import { isRowPriority } from "./priority-icons";
 import { PriorityBadge } from "./PriorityBadge";
@@ -80,8 +81,11 @@ export function TaskRow({
   const shownDueDate = showDate ? task.dueDate : null;
   const hasTime = task.dueTime !== null;
   const hasTags = task.tags.length > 0;
+  // Pastille « Bloquée » : ligne de liste seulement, la tuile du tableau de bord reste sur une ligne.
+  const showBlocked = task.blocked && !oneLine;
   const hasLegend =
     canceled ||
+    showBlocked ||
     hasParent ||
     showChip ||
     shownDueDate !== null ||
@@ -182,6 +186,7 @@ export function TaskRow({
                     </span>
                   )}
                   {/* Pastille de la couleur de l'espace ; nom et couleur viennent de la même ligne de contexts. */}
+                  {showBlocked && <BlockedChip />}
                   {showChip && (
                     <span
                       className={`truncate ${contextChipClass(task.contextColor ?? "neutral")}`}

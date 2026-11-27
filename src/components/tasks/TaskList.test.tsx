@@ -339,6 +339,24 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
   });
 });
 
+describe("liste des tâches : bloquée", () => {
+  it("une tâche bloquée porte la pastille « Bloquée » dans sa légende, une autre non", () => {
+    renderList(
+      [
+        buildTask({ title: "Attend", blocked: true }),
+        buildTask({ title: "Libre" }),
+      ],
+      { showContext: false },
+    );
+
+    const blocked = screen.getByRole("link", { name: /Attend/ });
+    const free = screen.getByRole("link", { name: /Libre/ });
+
+    expect(within(blocked).getByText("Bloquée")).not.toBeNull();
+    expect(within(free).queryByText("Bloquée")).toBeNull();
+  });
+});
+
 describe("liste des tâches : focus clavier", () => {
   it("le lien de la ligne suit le rayon de la ligne (rounded-lg), anneau de focus arrondi", () => {
     renderList([buildTask({ title: "Payer la crèche" })]);

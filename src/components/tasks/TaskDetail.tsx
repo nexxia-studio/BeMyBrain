@@ -7,7 +7,7 @@
 // Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : titre éditable
 // d'un tap (`TaskTitleField`), puis
 // les propriétés groupées (Statut, Priorité, Échéance, Côté et espace, Tags, Tâche parente — `ParentField`, seule mention de la parente ; statut et priorité marqués par leur
-// icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), notes en bas, repliées
+// icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), relations (`RelationList`), notes en bas, repliées
 // sur une ligne à l'ouverture quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
 // Corbeille : retour à la liste ; une sous-tâche revient au détail de sa parente, où le message et « Annuler »
 // s'affichent dans la fenêtre (emplacement collé en bas du panneau, au-dessus du contenu qui défile).
@@ -33,6 +33,7 @@ import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
 import { ParentField } from "./ParentField";
 import { priorityChoiceStyle } from "./priority-icons";
+import { RelationList } from "./RelationList";
 import { STATUS_ICONS } from "./status-icons";
 import { SubtaskList } from "./SubtaskList";
 import { loadWorkspaceTags } from "./load-workspace-tags";
@@ -360,6 +361,12 @@ export function TaskDetail({
                   listQuery={listQuery}
                 />
               )}
+              <RelationList
+                taskId={task.id}
+                side={task.side}
+                relations={task.relations}
+                listQuery={listQuery}
+              />
               <TaskNotesField
                 value={notesDraft}
                 onChange={setNotesDraft}

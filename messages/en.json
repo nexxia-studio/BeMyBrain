@@ -368,6 +368,18 @@
         "add": "Add a subtask",
         "addFailed": "Subtask not added. Try again."
       },
+      "relations": {
+        "title": "Relations",
+        "add": "Add a relation",
+        "kindPrompt": "Relation type",
+        "blocks": "Blocks",
+        "blockedBy": "Blocked by",
+        "related": "Related to",
+        "remove": "Remove",
+        "removeLabel": "Remove the relation with {title}",
+        "removeFailed": "Relation not removed. Try again.",
+        "addFailed": "Relation not added. Try again."
+      },
       "trash": "Move to trash",
       "trashing": "Moving to trash…",
       "trashed": "Task moved to trash",

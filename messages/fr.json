@@ -368,6 +368,18 @@
         "add": "Ajouter une sous-tâche",
         "addFailed": "Sous-tâche non ajoutée. Réessaie."
       },
+      "relations": {
+        "title": "Relations",
+        "add": "Ajouter une relation",
+        "kindPrompt": "Type de relation",
+        "blocks": "Bloque",
+        "blockedBy": "Bloquée par",
+        "related": "Liée à",
+        "remove": "Retirer",
+        "removeLabel": "Retirer la relation avec {title}",
+        "removeFailed": "Relation non retirée. Réessaie.",
+        "addFailed": "Relation non ajoutée. Réessaie."
+      },
       "trash": "Mettre à la corbeille",
       "trashing": "Mise à la corbeille…",
       "trashed": "Tâche mise à la corbeille",
