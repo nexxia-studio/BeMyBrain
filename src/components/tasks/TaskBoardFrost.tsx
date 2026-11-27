@@ -65,7 +65,7 @@ export function TaskBoardFrost({
           <div className={BOARD_TAB_HEIGHT} />
         </div>
       </FrostTile>
-      <div className={BOARD_COLUMNS_CLASSES}>
+      <div className={BOARD_COLUMNS_CLASSES} data-board-columns="">
         {statusCategories.map((category, column) => {
           const folded = category === "canceled" && !canceledOpen;
           return (

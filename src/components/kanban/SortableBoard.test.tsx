@@ -318,8 +318,8 @@ describe("SortableBoard", () => {
       expect(canceled.getByText("2")).toBeDefined();
       expect(screen.queryByText("x")).toBeNull();
       expect(classesOf(columnSection("canceled"))).toContain("md:w-auto");
-      expect(classesOf(columnSection("canceled"))).not.toContain("md:w-80");
-      expect(classesOf(columnSection("todo"))).toContain("md:w-80");
+      expect(classesOf(columnSection("canceled"))).not.toContain("md:w-70");
+      expect(classesOf(columnSection("todo"))).toContain("md:w-70");
     });
 
     it("le libellé du bandeau reste entier, à l'horizontale", () => {
@@ -367,7 +367,7 @@ describe("SortableBoard", () => {
 
       expect(screen.getByText("x")).toBeDefined();
       expect(toggle().getAttribute("aria-expanded")).toBe("true");
-      expect(classesOf(columnSection("canceled"))).toContain("md:w-80");
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-70");
       expect(document.activeElement).toBe(toggle());
 
       fireEvent.click(toggle());
@@ -562,7 +562,7 @@ describe("SortableBoard", () => {
           name: /CANCELED/,
         }),
       ).toBeNull();
-      expect(classesOf(columnSection("canceled"))).toContain("md:w-80");
+      expect(classesOf(columnSection("canceled"))).toContain("md:w-70");
     });
 
     describe("sous 768 px", () => {
@@ -1148,6 +1148,36 @@ describe("SortableBoard", () => {
         await carryOverDoingTab();
 
         expect(scrollBy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("fondu des colonnes sur ordinateur", () => {
+      function scrollColumnsTo(scrollLeft: number) {
+        const row = document.querySelector<HTMLElement>("[data-board-columns]");
+        if (!row) throw new Error("rangée des colonnes absente");
+        Object.defineProperties(row, {
+          scrollWidth: { value: 1400, configurable: true },
+          clientWidth: { value: 900, configurable: true },
+          scrollLeft: { value: scrollLeft, configurable: true },
+        });
+        fireEvent.scroll(row);
+        return [
+          row.hasAttribute("data-more-start"),
+          row.hasAttribute("data-more-end"),
+        ];
+      }
+
+      it("fond à droite quand des colonnes dépassent, au début du défilement", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        expect(scrollColumnsTo(0)).toEqual([false, true]);
+      });
+
+      it("fond des deux côtés au milieu, à gauche seulement au bout", () => {
+        render(board(vi.fn(), COLUMNS));
+
+        expect(scrollColumnsTo(200)).toEqual([true, true]);
+        expect(scrollColumnsTo(500)).toEqual([true, false]);
       });
     });
 

@@ -307,7 +307,7 @@ describe("chargement du tableau des tâches (vue Tableau mémorisée)", () => {
       );
     }
     expectClasses(columns[4], BOARD_COLUMN_FOLDED_CLASSES);
-    expect(columns[4].classList.contains("md:w-80")).toBe(false);
+    expect(columns[4].classList.contains("md:w-70")).toBe(false);
     // Bandeau : large comme son libellé, écrit sans être montré.
     const label = columns[4].querySelector(".invisible") as HTMLElement;
     expect(label.textContent).toContain("Annulée");

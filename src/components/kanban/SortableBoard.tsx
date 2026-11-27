@@ -402,6 +402,11 @@ export function SortableBoard<T extends BoardItem>({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [chosenColumnId, setChosenColumnId] = useState(columns[0]?.id);
   const tablist = useRef<HTMLDivElement>(null);
+  const columnsRow = useRef<HTMLDivElement>(null);
+  const [columnsOverflow, setColumnsOverflow] = useState<TabsOverflow>({
+    start: false,
+    end: false,
+  });
   // En onglets (sous 768 px), la détection ne regarde pas les colonnes : rien n'y change.
   const collisionDetection = useMemo(
     () => createCollisionDetection(wide),
@@ -564,7 +569,26 @@ export function SortableBoard<T extends BoardItem>({
     );
   }
 
+  // Fondu des colonnes à droite (et à gauche une fois défilé) quand elles dépassent la rangée, à partir de 768 px.
+  function measureColumns() {
+    const row = columnsRow.current;
+    if (!row) return;
+    const next = tabsOverflowOf(row);
+    setColumnsOverflow((shown) =>
+      shown.start === next.start && shown.end === next.end ? shown : next,
+    );
+  }
+
   const columnCount = columns.length;
+  useEffect(() => {
+    const row = columnsRow.current;
+    if (!row || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measureColumns);
+    observer.observe(row);
+    for (const column of row.children) observer.observe(column);
+    return () => observer.disconnect();
+  }, [columnCount]);
+
   useEffect(() => {
     const bar = tablist.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
@@ -647,7 +671,14 @@ export function SortableBoard<T extends BoardItem>({
           className="pointer-events-none absolute inset-y-0 right-0 hidden w-8 rounded-r-full bg-linear-to-l from-pill-track to-transparent peer-data-more-end:block"
         />
       </div>
-      <div className="mt-grid flex flex-col md:mt-0 md:flex-row md:gap-grid md:overflow-x-auto md:pb-2">
+      <div
+        ref={columnsRow}
+        data-board-columns=""
+        data-more-start={columnsOverflow.start || undefined}
+        data-more-end={columnsOverflow.end || undefined}
+        onScroll={measureColumns}
+        className="mt-grid flex flex-col md:mt-0 md:flex-row md:gap-grid md:overflow-x-auto md:pb-2 md:data-more-end:mask-r-from-90% md:data-more-start:mask-l-from-90%"
+      >
         {columns.map((column) => (
           <BoardColumnView
             key={column.id}
@@ -748,7 +779,7 @@ function BoardColumnView<T extends BoardItem>({
       className={cn(
         "flex flex-col gap-2 rounded-tile bg-pill-track p-tile md:shrink-0",
         // Bandeau : large comme son libellé, écrit en entier à l'horizontale (ni tronqué, ni pivoté).
-        folded ? "md:relative md:w-auto md:items-center" : "md:w-80",
+        folded ? "md:relative md:w-auto md:items-center" : "md:w-70",
         isOver && "outline-2 outline-ring",
         className,
       )}

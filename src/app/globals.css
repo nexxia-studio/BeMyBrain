@@ -529,3 +529,8 @@ html:has(.frost) {
     accent-color: var(--primary);
   }
 }
+
+/* Tableau des tâches : la coque n'est plus bornée à 1400 px, les colonnes (280 px) ont toute la largeur. */
+html:has([data-board-columns]) {
+  --container-content: none;
+}
