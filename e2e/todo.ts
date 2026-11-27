@@ -136,7 +136,11 @@ export async function pickDueDate(
 // avant d'avoir noté un identifiant dans sa propre liste les laisserait sinon dans le compte e2e partagé.
 const quickAdded: string[] = [];
 
-/** Identifiants créés par `quickAddTask` depuis le dernier appel, à passer à `trashTasks` en fin de parcours. */
+/**
+ * Identifiants créés par `quickAddTask` depuis le dernier appel, à passer à `trashTasks` en fin de parcours. La
+ * liste est celle du processus (un seul worker : tous les fichiers la partagent) : un fichier qui s'en sert la
+ * vide aussi dans un `beforeEach`, pour ne pas mettre à la corbeille les tâches d'un autre fichier.
+ */
 export function takeQuickAdded(): string[] {
   return quickAdded.splice(0);
 }
@@ -195,6 +199,7 @@ export function detailDialog(page: Page): Locator {
  */
 export async function trashTasks(page: Page, ids: readonly string[]) {
   const failed: string[] = [];
+  let firstCause: unknown;
   // Un échec sur une tâche ne laisse pas les suivantes dans le compte : on les traite toutes, puis on le dit.
   for (const id of new Set(ids)) {
     try {
@@ -207,12 +212,15 @@ export async function trashTasks(page: Page, ids: readonly string[]) {
         .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
         .click();
       await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
-    } catch {
+    } catch (error) {
+      firstCause ??= error;
       failed.push(id);
     }
   }
   if (failed.length > 0) {
-    throw new Error(`Tâches non mises à la corbeille : ${failed.join(", ")}`);
+    throw new Error(`Tâches non mises à la corbeille : ${failed.join(", ")}`, {
+      cause: firstCause,
+    });
   }
 }
 

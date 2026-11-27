@@ -27,6 +27,7 @@ const created: string[] = [];
 
 test.beforeEach(async ({ context }) => {
   await context.clearCookies();
+  takeQuickAdded(); // repart d'une liste propre à ce test
 });
 
 // Tout ce que le parcours a créé finit à la corbeille, échec compris (voir `todo-parente.spec.ts`).

@@ -32,6 +32,7 @@ const created: string[] = [];
 
 test.beforeEach(async ({ context }) => {
   await context.clearCookies();
+  takeQuickAdded(); // repart d'une liste propre à ce test
 });
 
 // Tout ce que le parcours a créé finit à la corbeille, échec compris (`takeQuickAdded` : les tâches créées avant
@@ -256,6 +257,9 @@ test("une tâche qui a des sous-tâches : propriété désactivée avec sa raiso
   await expect(propertyField(page)).toHaveCSS("opacity", "0.6");
   await expect(propertyField(page)).toHaveCSS("cursor", "not-allowed");
   await expectLabelOnChip(parentLabel(detail), propertyField(page));
+  // Au clavier aussi : Entrée sur la pastille désactivée n'ouvre rien.
+  await propertyField(page).focus();
+  await page.keyboard.press("Enter");
   await propertyField(page).click({ force: true });
   await expect(
     detail.getByRole("combobox", { name: fr.tasks.picker.label }),

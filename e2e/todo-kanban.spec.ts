@@ -1259,6 +1259,61 @@ test("@desktop carte réelle terminée : légende sans couleur et lisible, texte
   ).toBeGreaterThanOrEqual(3);
 });
 
+test("carte réelle « priorité seule » : même hauteur qu'une carte sans priorité (titre d'une ligne comme de deux), le badge ne dépasse pas la première ligne du titre", async ({
+  page,
+}) => {
+  await start(page, { side: "private" });
+  const shortPlain = await make(page, "A");
+  const shortHigh = await make(page, "B");
+  const longTitle =
+    "Titre long qui passe sur deux lignes dans la carte du tableau, et même davantage encore";
+  const longPlain = await make(page, longTitle);
+  const longHigh = await make(page, `${longTitle} bis`);
+  await setTaskPriority(page, shortHigh, "2");
+  await setTaskPriority(page, longHigh, "2");
+  await openBoard(page);
+  if (!isWide(page)) await chooseTab(page, "unstarted");
+
+  const measure = (id: string) =>
+    boardCard(page, id).evaluate((wrapper) => {
+      const card = wrapper.querySelector("[data-task-card]")!;
+      const first = card.firstElementChild as HTMLElement;
+      // Priorité seule : le premier enfant est la rangée titre + badge ; sinon, le titre lui-même.
+      const row = first.tagName === "DIV" ? first : null;
+      const title = (row?.firstElementChild ?? first) as HTMLElement;
+      const badge = row?.lastElementChild ?? null;
+      const cardBox = card.getBoundingClientRect();
+      return {
+        height: cardBox.height,
+        legend: card.querySelector("[data-card-legend]") !== null,
+        firstLineBottom:
+          title.getBoundingClientRect().top +
+          parseFloat(getComputedStyle(title).lineHeight),
+        badgeBottom: badge?.getBoundingClientRect().bottom ?? null,
+        badgeInside:
+          badge === null ||
+          badge.getBoundingClientRect().right <= cardBox.right,
+      };
+    });
+  const [sp, sh, lp, lh] = [
+    await measure(shortPlain),
+    await measure(shortHigh),
+    await measure(longPlain),
+    await measure(longHigh),
+  ];
+
+  expect(sh.legend).toBe(false);
+  expect(lh.legend).toBe(false);
+  expect(Math.abs(sh.height - sp.height)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(lh.height - lp.height)).toBeLessThanOrEqual(0.5);
+  expect(lp.height).toBeGreaterThan(sp.height);
+  for (const card of [sh, lh]) {
+    expect(card.badgeBottom).not.toBeNull();
+    expect(card.badgeBottom!).toBeLessThanOrEqual(card.firstLineBottom + 0.5);
+    expect(card.badgeInside).toBe(true);
+  }
+});
+
 test("@mobile carte réelle à légende longue (espace, échéance, compteur, priorité) : le badge de priorité n'est jamais seul sur une ligne, rien ne déborde de la carte", async ({
   page,
 }) => {
