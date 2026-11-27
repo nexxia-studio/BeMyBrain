@@ -52,7 +52,7 @@ Pas d'URL dans le résumé (SHA court, état, durée) ; garde « tête de `main`
   - Épreuve : sur la branche de la PR, rejouer la procédure `vercel deploy` **sans `--prod`** depuis une copie propre du commit, vérifier qu'elle ne dépend d'aucun jeton stocké (`vercel login` personnel) et qu'elle n'atteint pas la production.
   - Vérifier aussi dans le tableau Vercel du projet qu'**aucun Deploy Hook** n'existe (il contournerait l'ordre) ; en supprimer un s'il existe, après accord d'Antoine.
   - Fini quand : l'entrée dit ce qui a été réellement tapé et vu ; ajustée si l'essai la contredit.
-- [ ] **7. Épreuve 1 : preview (avant fusion)**
+- [x] **7. Épreuve 1 : preview (avant fusion)**
   - Voir « Plan de vérification », épreuve 1. Rapport dans `qa-report.md` (qu'Antoine lit avant d'autoriser la fusion).
 - [ ] **8. Épreuves 2 et 3 : premier vrai merge, puis échec provoqué** (après accord d'Antoine pour fusionner)
   - Voir « Plan de vérification ». `/qa` n'a pas de scénario navigateur ici : le rapport `qa-report.md` consigne les constats GitHub et Vercel.
