@@ -28,7 +28,7 @@ Numérotation des migrations : 0011 (A), 0012 et 0013 (B), 0014 (C) ; si B et C 
 
 ## Gestes d'Antoine (hors code, à faire avant la tâche indiquée)
 - **Avant la tâche 18 (PR B)** :
-  1. Créer le compte Ably et une application ; créer une clé d'API serveur ; la ranger dans 1Password ; la poser dans Vercel (production et previews) sous `ABLY_API_KEY`, sensible. Jamais dans un fichier du dépôt.
+  1. Créer le compte Ably et **deux applications** : une pour la production, une pour les previews et le local ; créer une clé d'API serveur par application ; les ranger dans 1Password ; poser la clé de l'application « production » dans Vercel en **Production seulement**, celle de l'application « previews et local » en **Preview seulement** (et dans `.env` pour le local), toutes deux sous `ABLY_API_KEY`, sensible. Jamais dans un fichier du dépôt.
   2. **Créer `SHARE_TOKEN_KEY`** (jamais affichée) :
      - Terminal : `openssl rand -base64 32 | tr -d '\n' | pbcopy` → la clé (32 octets en base64, 44 caractères, sans retour à la ligne) est dans le presse-papiers, rien n'est imprimé.
      - 1Password : nouvel élément « BeMyBrain — SHARE_TOKEN_KEY (production) », coller dans le champ mot de passe.
@@ -125,7 +125,7 @@ Numérotation des migrations : 0011 (A), 0012 et 0013 (B), 0014 (C) ; si B et C 
 # PR B — Partage par lien et temps réel
 
 ## Tâches
-- [ ] **18. Gestes d'Antoine (voir « Gestes d'Antoine »)** — compte Ably, `ABLY_API_KEY`, `SHARE_TOKEN_KEY` en production, autorisation de `DATABASE_GUEST_URL`
+- [ ] **18. Gestes d'Antoine (voir « Gestes d'Antoine »)** — compte Ably et deux applications (production ; previews et local), une `ABLY_API_KEY` par environnement Vercel, `SHARE_TOKEN_KEY` en production, autorisation de `DATABASE_GUEST_URL`
   - Fini quand : Antoine confirme les trois gestes ; aucune valeur n'a été affichée ni écrite dans le dépôt
 - [ ] **19. Migration 0012 : table des liens de partage** [security]
   - Fichiers : `src/db/schema/shopping.ts`, `drizzle/0012_*.sql`, GRANT par colonne : `token_hash` jamais lisible par l'application ; `token_ciphertext` lisible par la seule lecture du propriétaire
@@ -172,14 +172,15 @@ Numérotation des migrations : 0011 (A), 0012 et 0013 (B), 0014 (C) ; si B et C 
   - Test à écrire d'abord : `src/lib/sentry-options.test.ts`, `src/lib/sentry-client-envelope.test.ts` étendu — « un événement portant `/l/<jeton>` à ces quatre endroits ressort nettoyé », « un message d'erreur de la page invitée ne contient pas le jeton »
   - Fini quand : tests verts ; la limite des journaux d'exécution de Vercel est écrite dans `docs/runbooks/` (au `/handoff`), Q13 rappelée
 - [ ] **30. Ably : publication serveur et jetons d'abonnement** [security]
-  - Fichiers : `package.json` (`ably`, version épinglée, > 14 jours, justification de taille et de chargement différé dans le commit), `src/modules/shopping/realtime.ts` (`publishRev(channelId, rev)`, message `{ rev }` seul), `src/app/(app)/lists/shopping/realtime-token.ts` et `src/app/l/[token]/realtime-token.ts` (jeton `subscribe` seul, un seul canal, 10 minutes, propriétaire sur session valide, invité sur lien valide non révoqué), `src/env.ts` (`ABLY_API_KEY` optionnelle : sans elle, publication ignorée sans erreur et rattrapage seul)
-  - Test à écrire d'abord : `realtime.test.ts` — « le message ne contient que `rev` », « l'échec de publication ne fait pas échouer l'écriture », « le jeton d'invité n'a que `subscribe` sur le canal de sa liste, 10 minutes », « un lien révoqué n'obtient pas de jeton », « un jeton d'un autre canal est refusé » (client Ably factice ; aucune clé réelle dans les tests)
+  - Fichiers : `package.json` (`ably`, version épinglée, > 14 jours, justification de taille et de chargement différé dans le commit), `src/modules/shopping/realtime.ts` (`publishRev(channelId, rev)`, message `{ rev }` seul), `src/app/(app)/lists/shopping/realtime-token.ts` et `src/app/l/[token]/realtime-token.ts` (jeton `subscribe` seul, un seul canal, 10 minutes, propriétaire sur session valide, invité sur lien valide non révoqué), `src/env.ts` (`ABLY_API_KEY` optionnelle : sans elle, publication ignorée sans erreur et rattrapage seul), `src/modules/shopping/channel-name.ts` (`channelName(channelId)` : canal préfixé par environnement, `prod:` en production, `preview:` sur les previews, `dev:` en local, préfixe dérivé côté serveur de `VERCEL_ENV` — jamais du client, jamais d'un paramètre ; le client reçoit le nom complet avec le jeton)
+  - Canaux préfixés (décision d'Antoine, 2026-11-28) : publication et jeton d'abonnement passent tous deux par `channelName` ; le jeton ne couvre que le canal préfixé de l'environnement qui l'émet
+  - Test à écrire d'abord : `realtime.test.ts` — « le préfixe vient de `VERCEL_ENV` (production → `prod:`, preview → `preview:`, absent → `dev:`) et d'aucune entrée client », « un jeton émis sur une preview ne peut pas s'abonner à un canal `prod:` », « la publication se fait sur le canal préfixé », « le message ne contient que `rev` », « l'échec de publication ne fait pas échouer l'écriture », « le jeton d'invité n'a que `subscribe` sur le canal de sa liste, 10 minutes », « un lien révoqué n'obtient pas de jeton », « un jeton d'un autre canal est refusé » (client Ably factice ; aucune clé réelle dans les tests)
   - Fini quand : publication branchée aux écritures de l'app (tâches 6, 7, 8) et de l'invité (tâche 28), tests verts
 - [ ] **31. Client temps réel et rattrapage**
   - Fichiers : `src/components/shopping/useShoppingSync.ts` (chargement différé du SDK, compare `rev`, relit la liste), `src/components/shopping/ShoppingSyncProvider.tsx`
   - Test à écrire d'abord : `useShoppingSync.test.tsx` — « un `rev` plus récent déclenche la relecture », « un `rev` ancien est ignoré », « relecture à la reconnexion du canal, au retour au premier plan (`visibilitychange`) et au retour du réseau (`online`) », « le jeton est renouvelé avant son expiration », « la modification du porteur de l'écran reste optimiste » ; `tests/build/initial-bundle.test.ts` — « le SDK n'est pas dans le bundle initial » (suivre l'indirection `.A(<id>)`, gotcha)
   - Fini quand : tests verts, aucun état reconstruit à partir des seuls messages
-- [ ] **32. CSP `connect-src` Ably par route**
+- [ ] **32. CSP `connect-src` Ably par route** (les origines Ably sont les mêmes pour tous les canaux ; le préfixe d'environnement ne change rien à la CSP, à vérifier par le test)
   - Fichiers : `src/lib/security-headers.ts`, `src/proxy.ts`
   - Test à écrire d'abord : `tests/security/csp-routes.test.ts` — « `connect-src` ouvre les origines Ably (HTTPS et WebSocket) seulement sur `/lists/shopping` et `/l/[token]`, nulle part ailleurs », « le nonce reste en place », « aucune autre directive ne change »
   - Fini quand : tests verts, vérifié sur `next start`
