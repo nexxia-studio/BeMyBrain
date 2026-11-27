@@ -3,7 +3,7 @@
 **Spec** : `spec.md` · **Branche** : `feat/[nom]` · **Créé le** : [date]
 
 <!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
-<!-- [security] = security-auditor passe après le reviewer. -->
+<!-- [security] obligatoire si la tâche touche une migration (`drizzle/`), la RLS ou une policy (`src/db/`), l'auth ou la session, une action du registre (`src/modules/actions/`), une action serveur qui écrit, ou les paiements. Tâche relue seule, puis security-auditor après le reviewer. -->
 
 ## Tâches
 - [ ] **1. [Verbe + objet]**

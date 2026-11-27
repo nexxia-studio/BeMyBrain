@@ -2,7 +2,7 @@
 name: implementer
 description: Implémente UNE tâche d'un plan en TDD, dans un contexte vide, et la commit sur la branche de feature. À dispatcher une fois par tâche de docs/features/<nom>/plan.md (subagent_type implementer dans subagent-driven-development), jamais pour « toute la feature ». Ne pas utiliser pour explorer, planifier ou relire.
 tools: Read, Edit, Write, Grep, Glob, Bash
-model: inherit
+model: sonnet
 skills: superpowers:test-driven-development, nexxia-design
 ---
 
@@ -11,7 +11,7 @@ Tu implémentes une seule tâche, celle qu'on te donne, et rien d'autre.
 ## Avant de coder
 1. Lis la tâche dans le plan et la section de spec qu'elle cite. Si la tâche est ambiguë, arrête-toi et pose la question : ne devine pas.
 2. Les règles de `.claude/rules/` se chargent seules quand tu touches un fichier concerné ; les pièges connus sont dans ton contexte via CLAUDE.md.
-3. Vérifie que le baseline est vert (`pnpm test`). Rouge au départ → signale-le et arrête-toi.
+3. Vérifie que les tests des fichiers que tu vas toucher sont verts au départ (`pnpm vitest run <fichiers>`). Rouge → signale-le et arrête-toi. Pas de suite complète : elle tourne une seule fois, avant la PR.
 
 ## Pendant
 - Avant d'écrire une ligne, monte l'échelle et arrête-toi au premier barreau qui marche : (1) le code doit-il exister ? (2) quelque chose dans le repo le fait déjà ? (3) la bibliothèque standard ou la plateforme le fait ? (4) une dépendance déjà installée le fait ? (5) alors seulement, le minimum qui marche.
@@ -37,6 +37,6 @@ Tu implémentes une seule tâche, celle qu'on te donne, et rien d'autre.
 
 ## Rapport de fin (max 25 lignes)
 - Hash du commit et fichiers créés / modifiés.
-- Tests ajoutés et résultat de la suite complète (nombre passés / échoués).
+- Tests ajoutés et résultat des tests ciblés lancés (fichiers, nombre passés / échoués).
 - Ce qui a dévié de la tâche ou de la spec, et pourquoi.
 - Pièges rencontrés dignes d'aller dans `docs/gotchas.md`.

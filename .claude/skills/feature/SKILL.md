@@ -20,9 +20,10 @@ Montre la spec par blocs et attends validation explicite d'Antoine.
 
 ## 3. Plan
 Utilise le skill `writing-plans` (superpowers). Écris `docs/features/<nom>/plan.md` : tâches de 1–2 h max, chacune avec fichiers touchés, test à écrire, critère de fin.
-Si une tâche touche `drizzle/`, `src/db/`, l'auth, la session, une policy, `src/modules/actions/` ou un paiement, marque-la `[security]` : la session principale devra dispatcher `security-auditor` après le reviewer sur cette tâche (rien ne le fait automatiquement).
+Obligatoire : toute tâche qui touche une migration (`drizzle/`), la RLS ou une policy (`src/db/`), l'auth ou la session, une action du registre (`src/modules/actions/`), une action serveur qui écrit, ou les paiements est marquée `[security]`. Elle sera relue seule (pas dans un bloc) et la session principale devra dispatcher `security-auditor` après le reviewer sur cette tâche (rien ne le fait automatiquement).
 
 ## 4. Handoff
 Mets à jour `docs/handoff.md` : feature en cours, tâche 1 à attaquer, commande pour lancer l'implémentation.
+Rappelle à Antoine : `/clear` puis `/model sonnet` avant l'exécution.
 Termine par la ligne exacte à copier pour la suite :
-`Exécute docs/features/<nom>/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer pour chaque review.`
+`Exécute docs/features/<nom>/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer par bloc de tâches (une par une pour les tâches [security] et les migrations), puis security-auditor après le reviewer de chaque tâche [security]. Tests ciblés pendant les tâches, suite complète une seule fois avant la PR.`
