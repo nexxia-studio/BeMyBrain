@@ -270,6 +270,8 @@
         "subtasks": "Sous-tâches",
         "hideDoneSubtasks": "Masquer les sous-tâches terminées"
       },
+      "empty": "Rien à faire de ce côté. Note ici ce qui te passe par la tête.",
+      "add": "Ajouter une tâche",
       "moveFailed": "Déplacement non enregistré.",
       "retry": "Réessayer",
       "seeAll": "Tout voir ({count})",

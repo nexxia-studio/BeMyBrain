@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MotionGlobalConfig } from "motion/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -13,6 +13,7 @@ import {
   vi,
 } from "vitest";
 
+import { OpenQuickAddContext } from "@/components/quick-add/quick-add-context";
 import type {
   BoardColumn as ShownColumn,
   BoardMove,
@@ -1163,5 +1164,49 @@ describe("tableau des tâches : ouverture du détail", () => {
     expect(push).toHaveBeenCalledExactlyOnceWith(`/tasks/${a.id}?done=all`, {
       scroll: false,
     });
+  });
+});
+
+describe("tableau des tâches : tableau sans tâche", () => {
+  function withQuickAdd(open: () => void, props: Props, locale?: "fr" | "en") {
+    return (
+      <OpenQuickAddContext value={open}>
+        {board(props, locale)}
+      </OpenQuickAddContext>
+    );
+  }
+
+  it("sans aucune tâche, dit une phrase en français et invite à ajouter, l'invitation ouvre l'ajout rapide", () => {
+    const open = vi.fn();
+    render(withQuickAdd(open, { columns: serverColumns({}) }));
+
+    expect(screen.getByText(fr.tasks.board.empty)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: fr.tasks.board.add }),
+    );
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("sans aucune tâche, dit la même chose en anglais", () => {
+    render(withQuickAdd(vi.fn(), { columns: serverColumns({}) }, "en"));
+
+    expect(screen.getByText(en.tasks.board.empty)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: en.tasks.board.add }),
+    ).toBeTruthy();
+  });
+
+  it("avec une tâche, même seulement terminée, rien n'est ajouté", () => {
+    const { tasks } = fixture();
+    render(withQuickAdd(vi.fn(), { columns: serverColumns(tasks) }));
+    expect(screen.queryByText(fr.tasks.board.empty)).toBeNull();
+
+    cleanup();
+    render(
+      withQuickAdd(vi.fn(), {
+        columns: serverColumns({ completed: [buildTask({ title: "Fait" })] }),
+      }),
+    );
+    expect(screen.queryByText(fr.tasks.board.empty)).toBeNull();
   });
 });

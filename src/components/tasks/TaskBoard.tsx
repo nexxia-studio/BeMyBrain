@@ -54,6 +54,7 @@ import {
   SortableBoard,
 } from "@/components/kanban/SortableBoard";
 import { useBoardMoves } from "@/components/kanban/use-board-moves";
+import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { TASKS_PATH } from "@/components/shell/nav-items";
 import { PreferenceStatus } from "@/components/shell/PreferenceStatus";
 import { useOptimisticPreference } from "@/components/shell/use-optimistic-preference";
@@ -329,9 +330,27 @@ export function TaskBoard({
     };
   });
 
+  // Aucune tâche, tous statuts : message et invitation (comme l'état vide de la liste). Un filtre d'espace qui
+  // cache tout donne le même message : « de ce côté » reste vrai, sans prop de plus.
+  const boardEmpty =
+    shownColumns.every((column) => column.total === 0) && kept.size === 0;
+
   return (
     <>
       <div className="relative" aria-busy={pendingCount > 0}>
+        {boardEmpty && (
+          <div className="mb-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <p className="max-w-prose text-body text-foreground">
+              {t("empty")}
+            </p>
+            <QuickAddTrigger
+              label={t("add")}
+              className="min-h-11 shrink-0 rounded-full bg-primary px-5 text-body font-semibold text-primary-foreground hover:bg-primary-hover"
+            >
+              {t("add")}
+            </QuickAddTrigger>
+          </div>
+        )}
         <SortableBoard
           columns={shownColumns}
           getItemLabel={(task) => task.title}

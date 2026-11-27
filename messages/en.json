@@ -270,6 +270,8 @@
         "subtasks": "Subtasks",
         "hideDoneSubtasks": "Hide completed subtasks"
       },
+      "empty": "Nothing to do on this side. Jot down here whatever is on your mind.",
+      "add": "Add a task",
       "moveFailed": "Move not saved.",
       "retry": "Retry",
       "seeAll": "See all ({count})",
