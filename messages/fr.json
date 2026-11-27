@@ -222,6 +222,13 @@
       "cross_side_relation": "Ces deux tâches ne sont pas du même côté (Privé, Pro). Choisis une tâche du même côté.",
       "relation_conflict": "Un blocage existe déjà dans l'autre sens entre ces deux tâches : une tâche ne bloque pas celle qui la bloque. Retire-le d'abord."
     },
+    "picker": {
+      "label": "Chercher une tâche",
+      "placeholder": "Chercher par titre",
+      "loading": "Chargement…",
+      "empty": "Aucune tâche trouvée.",
+      "failed": "La recherche a échoué. Réessaie."
+    },
     "quickAdd": {
       "title": "Tâche",
       "submit": "Ajouter",
