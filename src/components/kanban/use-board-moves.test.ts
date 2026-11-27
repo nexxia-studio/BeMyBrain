@@ -754,8 +754,14 @@ describe("file des déplacements optimistes d'un tableau", () => {
     function unloadEvent() {
       const event = new Event("beforeunload", { cancelable: true });
       const preventDefault = vi.spyOn(event, "preventDefault");
+      // jsdom suit la spec : écrire `true` dans `returnValue` ne change rien, on espionne l'écriture.
+      const returnValueSet = vi.fn();
+      Object.defineProperty(event, "returnValue", {
+        configurable: true,
+        set: returnValueSet,
+      });
       window.dispatchEvent(event);
-      return { event, preventDefault };
+      return { event, preventDefault, returnValueSet };
     }
 
     it("ne pose rien au repos", () => {
@@ -779,6 +785,7 @@ describe("file des déplacements optimistes d'un tableau", () => {
 
       expect(enVol.preventDefault).toHaveBeenCalled();
       expect(enAttente.preventDefault).toHaveBeenCalled();
+      expect(enVol.returnValueSet).toHaveBeenCalledWith(true);
     });
 
     it("retire la garde quand la file est vide", async () => {

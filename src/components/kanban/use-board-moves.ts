@@ -202,7 +202,10 @@ export function useBoardMoves<K extends string>({
   const hasPending = pendingCount > 0;
   useEffect(() => {
     if (!hasPending) return;
-    const guard = (event: BeforeUnloadEvent) => event.preventDefault();
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = true;
+    };
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
   }, [hasPending]);

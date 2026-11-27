@@ -792,6 +792,30 @@ describe("SortableBoard", () => {
         afterId: null,
       });
     });
+
+    it("après un changement de colonne, pointeur tenu sous toutes les colonnes (colonnes courtes), la carte reste dans sa colonne courante", async () => {
+      rowHeight = 400;
+      const onMove = vi.fn();
+      const columns = [
+        column("todo", ["a", "b", "c"]),
+        column("doing", ["d"]),
+        column("done", ["x", "y", "z"]),
+      ];
+      render(board(onMove, columns));
+
+      await mouse("mouseDown", cardHandle("a"), 140, 75);
+      await mouse("mouseMove", document, 150, 75);
+      await mouse("mouseMove", document, 435, 80);
+      // Dans « doing » : la carte y passe. Puis le pointeur descend sous toutes les colonnes.
+      await mouse("mouseMove", document, 440, 80);
+      await mouse("mouseMove", document, 440, 1400);
+      await mouse("mouseUp", document, 440, 1400);
+      await act(() => new Promise((resolve) => setTimeout(resolve, 60)));
+
+      expect(onMove.mock.calls.map(([move]) => move.toColumn)).toEqual([
+        "doing",
+      ]);
+    });
   });
 
   describe("sous 768 px, en onglets", () => {

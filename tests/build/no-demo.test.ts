@@ -67,6 +67,15 @@ describe("démos fermées, sauf les démos temporaires listées", () => {
     },
   );
 
+  it.each(["fr", "en"])(
+    "aucune clé kanbanDemo dans messages/%s.json",
+    (locale) => {
+      expect(
+        Object.keys(JSON.parse(read(`messages/${locale}.json`))),
+      ).not.toContain("kanbanDemo");
+    },
+  );
+
   it("aucune référence à isGlassDemoEnabled ni glass-demo dans src/", () => {
     expect(filesMatching(/isGlassDemoEnabled|glass-demo/)).toEqual([]);
   });

@@ -994,8 +994,8 @@ test("@desktop deux dépôts rapides sans attendre : aucune carte ne recule pend
   );
 
   expect(seen).toEqual(["started backlog"]);
-  expect(sent).toEqual(["one", "two"]);
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  expect(sent).toEqual(["one", "two"]);
   await expect(inColumn(page, "started", one)).toBeAttached();
   await expect(inColumn(page, "backlog", two)).toBeAttached();
   await reloadBoard(page);
@@ -1752,7 +1752,7 @@ test("@mobile D5 : un défilement vertical au doigt avant 250 ms ne saisit pas l
 test("@mobile D6 : au doigt, une carte n'a ni curseur main ni relief", async ({
   page,
 }) => {
-  await start(page);
+  const messages = await start(page);
   const task = await make(page, "Sans survol");
   await chooseTab(page, "unstarted");
   const target = boardCard(page, task);
@@ -1766,6 +1766,7 @@ test("@mobile D6 : au doigt, une carte n'a ni curseur main ni relief", async ({
   expect(style.shadow).toBe("none");
   expect((await surfaceStyle(target)).shadow).toBe("none");
   expect((await surfaceStyle(target)).outlineStyle).toBe("none");
+  expect(messages).toEqual([]);
 });
 
 test.describe("en colonnes, au doigt (tablette, 1024 px)", () => {
