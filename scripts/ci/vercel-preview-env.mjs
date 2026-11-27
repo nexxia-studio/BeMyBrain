@@ -58,7 +58,7 @@ const defaultSleep = (/** @type {number} */ ms) =>
  * @param {Api} api @param {string} label description sans identifiant, pour les messages d'erreur
  * @param {string} path @param {Record<string, string>} [query] @param {RequestInit} [init]
  */
-async function call(api, label, path, query = {}, init = {}) {
+export async function call(api, label, path, query = {}, init = {}) {
   const sleep = api.sleep ?? defaultSleep;
   const params = new URLSearchParams({ ...query, teamId: api.teamId });
   for (let attempt = 0; ; attempt++) {
