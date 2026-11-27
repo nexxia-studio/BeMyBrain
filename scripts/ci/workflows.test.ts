@@ -187,6 +187,15 @@ describe("tous les workflows", () => {
     expect(withStatuses).toEqual([]);
   });
 
+  it("aucun workflow n'a write-all ni de permission statuses, sous aucune forme", () => {
+    const wide = names.filter((name) => {
+      const text = workflow(name);
+      return /write-all/.test(text) || /^\s*permissions:.*statuses/m.test(text);
+    });
+
+    expect(wide).toEqual([]);
+  });
+
   it("aucun workflow ne pose de commit status (gh api, /statuses/)", () => {
     const withStatusCalls = names.filter((name) =>
       /gh api[^\n]*statuses|\/statuses\//.test(workflow(name)),
