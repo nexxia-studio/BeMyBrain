@@ -54,89 +54,109 @@ describe("workflow des previews", () => {
 
 describe("workflow de production", () => {
   const source = workflow("migrate-production.yml");
-  const pending = job(source, "status-pending");
   const migrate = job(source, "migrate-production");
-  const final = job(source, "status-final");
-  const statusContext = /-f context="Migrer la production"/;
+  const deploy = job(source, "deploy-production");
   /** Permissions d'un job : bloc à l'indentation 4, commentaires compris, jusqu'à la clé suivante. */
   const permissions = (block: string) =>
     /\n {4}permissions:\n((?: {6}.*\n)+)/
       .exec(block)?.[1]
       ?.replace(/^ {6}#.*\n/gm, "");
-  /** Script `run:` d'un job de statut, jusqu'à son bloc env. */
-  const script = (block: string) =>
-    block.slice(block.indexOf("run:"), block.indexOf("\n        env:"));
 
-  it("trois jobs, dans l'ordre : statut en attente, migration, statut final", () => {
+  it("deux jobs, dans l'ordre : migration puis déploiement", () => {
     const jobs = source.slice(source.indexOf("\njobs:\n"));
     const ids = [...jobs.matchAll(/^ {2}([\w-]+):\n/gm)].map((m) => m[1]);
 
-    expect(ids).toEqual([
-      "status-pending",
-      "migrate-production",
-      "status-final",
-    ]);
+    expect(ids).toEqual(["migrate-production", "deploy-production"]);
   });
 
-  it("n'utilise plus l'action vercel/repository-dispatch (aucun code tiers pour le statut)", () => {
+  it("n'utilise plus l'action vercel/repository-dispatch ni aucun commit status", () => {
     expect(source).not.toContain("vercel/repository-dispatch");
+    expect(source).not.toContain("gh api");
+    expect(source).not.toContain("/statuses/");
+    expect(source).not.toContain("Migrer la production");
   });
 
-  it("status-pending pose le commit status « Migrer la production » en attente sur github.sha, par gh api", () => {
-    expect(pending).toContain("gh api");
-    expect(pending).toContain("/statuses/");
-    expect(pending).toMatch(/\n {10}SHA: \$\{\{ github\.sha \}\}\n/);
-    expect(pending).toMatch(/state=pending/);
-    expect(pending).toMatch(statusContext);
-    expect(script(pending)).not.toContain("${{");
+  it("se déclenche seulement au push sur main", () => {
+    const head = source.slice(source.indexOf("\non:\n"));
+    const trigger = head.slice(0, head.indexOf("\n\n", 1));
+
+    expect(trigger).toBe("\non:\n  push:\n    branches: [main]");
+    expect(source).not.toMatch(
+      /workflow_dispatch|pull_request_target|workflow_run|pull_request:/,
+    );
   });
 
-  it("la migration attend status-pending, porte un nom affiché distinct du commit status et ne pose aucun statut", () => {
-    expect(migrate).toMatch(/\n {4}needs: status-pending\n/);
+  it("la migration n'attend rien, porte un nom affiché propre et ne pose aucun statut", () => {
+    expect(migrate).not.toMatch(/\n {4}needs:/);
     expect(migrate).toMatch(/\n {4}name: Migration production \(job\)\n/);
-    expect(migrate).not.toMatch(/\n {4}name: Migrer la production\n/);
-    expect(migrate).not.toContain("gh api");
-    expect(migrate).not.toContain("/statuses/");
     expect(migrate).not.toContain("GH_TOKEN");
   });
 
-  it("status-final tourne toujours et pose success seulement si la migration a réussi, sinon failure", () => {
-    expect(final).toMatch(
-      /\n {4}needs: \[status-pending, migrate-production\]\n/,
-    );
-    expect(final).toMatch(/\n {4}if: always\(\)\n/);
-    expect(final).toContain("gh api");
-    expect(final).toMatch(/\n {10}SHA: \$\{\{ github\.sha \}\}\n/);
-    expect(final).toMatch(statusContext);
-    // Le résultat passe par une variable d'environnement, jamais interpolé dans le script.
-    expect(final).toMatch(
-      /\n {10}MIGRATE_RESULT: \$\{\{ needs\.migrate-production\.result \}\}\n/,
-    );
-    const run = script(final);
-    expect(run).not.toContain("${{");
-    expect(run).toMatch(/"\$MIGRATE_RESULT" = "success"/);
-    expect(run).toMatch(/state=success/);
-    expect(run).toMatch(/state=failure/);
-    expect(run).not.toMatch(/state=(?:error|pending)/);
-  });
-
-  it("les jobs de statut : statuses: write seul, GITHUB_TOKEN seul, ni checkout, ni install, ni secret, ni environnement", () => {
-    for (const block of [pending, final]) {
-      expect(permissions(block)).toBe("      statuses: write\n");
-      expect(block).toMatch(/\n {10}GH_TOKEN: \$\{\{ github\.token \}\}\n/);
-      expect(block).toMatch(/\n {10}NODE_OPTIONS: ""/);
-      expect(block).toMatch(/\n {10}BASH_ENV: ""/);
-      expect(block).not.toMatch(/^\s*(?:- )?uses:/m);
-      expect(block).not.toMatch(/checkout|pnpm|npm |setup-node/);
-      expect(block).not.toContain("secrets.");
-      expect(block).not.toMatch(/\n {4}environment:/);
-    }
-  });
-
-  it("la migration seule porte l'environnement production, avec contents: read seul", () => {
+  it("la migration et le déploiement portent seuls l'environnement production, avec contents: read seul", () => {
     expect(migrate).toMatch(/\n {4}environment: production\n/);
+    expect(deploy).toMatch(/\n {4}environment: production\n/);
     expect(permissions(migrate)).toBe("      contents: read\n");
-    expect(source.match(/\n {4}environment:/g)).toHaveLength(1);
+    expect(permissions(deploy)).toBe("      contents: read\n");
+    expect(source.match(/\n {4}environment:/g)).toHaveLength(2);
+  });
+
+  it("deploy-production attend migrate-production, sans always() ni continue-on-error", () => {
+    expect(deploy).toMatch(/\n {4}needs: migrate-production\n/);
+    expect(deploy).toMatch(/\n {4}name: Déploiement production\n/);
+    expect(deploy).toMatch(/\n {4}timeout-minutes: 30\n/);
+    expect(deploy).not.toContain("always()");
+    expect(deploy).not.toContain("continue-on-error");
+    expect(deploy).not.toMatch(/\n {4}if:/);
+  });
+
+  it("deploy-production lance le script avec toutes les variables qu'il lit, sans installation", () => {
+    expect(deploy).toContain("node scripts/ci/vercel-production-deploy.mjs");
+    // GITHUB_REPOSITORY et GITHUB_STEP_SUMMARY viennent du runner : aucun `env:` ne les surcharge.
+    expect(deploy).not.toMatch(/GITHUB_REPOSITORY:|GITHUB_STEP_SUMMARY/);
+    for (const line of [
+      "VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}",
+      "VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}",
+      "VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}",
+      "SHA: ${{ github.sha }}",
+      "GITHUB_REPOSITORY_ID: ${{ github.repository_id }}",
+      "GH_TOKEN: ${{ github.token }}",
+      "DEFAULT_GIT_BRANCH: ${{ github.event.repository.default_branch }}",
+      'NODE_OPTIONS: ""',
+      'BASH_ENV: ""',
+    ]) {
+      expect(deploy).toContain(line);
+    }
+    expect(deploy).not.toMatch(/pnpm|npm |npx|corepack|cache:/);
+  });
+
+  it("deploy-production : jeton Vercel dans l'env de l'étape seule, aucun env au niveau du job, aucun jeton persisté", () => {
+    const step = deploy.slice(deploy.indexOf("- name: Déployer la production"));
+
+    expect(step).toContain(
+      "VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}",
+    );
+    expect(deploy).not.toMatch(/\n {4}env:/);
+    expect(deploy).toMatch(
+      /actions\/checkout@[0-9a-f]{40} # v[\d.]+\n {8}with:\n {10}persist-credentials: false\n/,
+    );
+  });
+
+  it("VERCEL_PRODUCTION_TOKEN n'apparaît que dans deploy-production, jamais VERCEL_TOKEN en secret", () => {
+    expect(source.match(/secrets\.VERCEL_PRODUCTION_TOKEN/g)).toHaveLength(1);
+    expect(deploy).toContain("secrets.VERCEL_PRODUCTION_TOKEN");
+    expect(source).not.toContain("secrets.VERCEL_TOKEN");
+    expect(source).not.toMatch(/secrets\[\s*['"]VERCEL_/);
+  });
+
+  it("DATABASE_URL et SEED_OWNER_USER_ID n'apparaissent que dans migrate-production", () => {
+    expect(deploy).not.toMatch(/DATABASE_URL|SEED_OWNER_USER_ID/);
+    expect(migrate).toContain("secrets.DATABASE_URL");
+  });
+
+  it("le groupe de concurrence reste migrate-production, sans annulation", () => {
+    expect(source).toMatch(
+      /\nconcurrency:\n(?: {2}#.*\n)* {2}group: migrate-production\n {2}cancel-in-progress: false\n/,
+    );
   });
 
   it("le seed lit l'id du propriétaire dans un secret, masqué dans le journal", () => {
@@ -159,12 +179,29 @@ describe("tous les workflows", () => {
     (name) => /\.ya?ml$/.test(name),
   );
 
-  it("statuses: write n'existe que dans le workflow de production", () => {
+  it("statuses: write n'existe dans aucun workflow", () => {
     const withStatuses = names.filter((name) =>
       /^\s*statuses:\s*write/m.test(workflow(name)),
     );
 
-    expect(withStatuses).toEqual(["migrate-production.yml"]);
+    expect(withStatuses).toEqual([]);
+  });
+
+  it("aucun workflow n'a write-all ni de permission statuses, sous aucune forme", () => {
+    const wide = names.filter((name) => {
+      const text = workflow(name);
+      return /write-all/.test(text) || /^\s*permissions:.*statuses/m.test(text);
+    });
+
+    expect(wide).toEqual([]);
+  });
+
+  it("aucun workflow ne pose de commit status (gh api, /statuses/)", () => {
+    const withStatusCalls = names.filter((name) =>
+      /gh api[^\n]*statuses|\/statuses\//.test(workflow(name)),
+    );
+
+    expect(withStatusCalls).toEqual([]);
   });
 
   it("ne lit en vars.* que des noms Neon anodins : une variable n'est jamais masquée dans les journaux", () => {

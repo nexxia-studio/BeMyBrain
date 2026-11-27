@@ -1,11 +1,9 @@
-# Migrations et seed de production (ADR-010) : au push sur main, depuis l'environnement GitHub protégé
-# `production`, le seul endroit où existe l'accès propriétaire de la branche Neon production.
-# Ordre avec Vercel : Vercel construit la production en parallèle, mais une « Deployment Check »
-# GitHub (Vercel > Settings > Build and Deployment > Deployment Checks) retient l'attribution du domaine
-# de production jusqu'au succès du commit status de contexte « Migrer la production ». Vercel lit ce
-# contexte (posé par gh api dans status-pending et status-final), pas le nom d'un job. Aucun secret Vercel.
-# Trois jobs : statuses: write vit dans deux jobs sans checkout, sans install, sans environnement ni
-# secret ; le job qui tient DATABASE_URL n'a que contents: read.
+# Migrations, seed et mise en ligne de production (ADR-010, BRAIN-37) : au push sur main, depuis
+# l'environnement GitHub protégé `production`, seul endroit où existe l'accès propriétaire de la base.
+# Deux jobs : la migration, puis le déploiement. L'ordre est garanti par `needs` : migration en échec
+# ou annulée, pas de déploiement. Plus de Deployment Check Vercel ni de commit status.
+# Le jeton Vercel de production n'existe que dans deploy-production, l'accès à la base que dans
+# migrate-production.
 name: Production
 
 on:
@@ -21,32 +19,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Deployment Check Vercel : commit status « Migrer la production » en attente sur le commit poussé.
-  # gh (préinstallé sur le runner) et le GITHUB_TOKEN du job : aucune action tierce, aucun code de
-  # dépendance, aucun secret, pas d'environnement `production`. Seul workflow du dépôt à avoir
-  # statuses: write (verrouillé par scripts/ci/workflows.test.ts).
-  status-pending:
-    name: Statut Vercel en attente
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      statuses: write
-    steps:
-      - name: Statut Vercel en attente
-        run: >-
-          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA"
-          -f state=pending -f context="Migrer la production"
-          -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.sha }}
-          NODE_OPTIONS: ""
-          BASH_ENV: ""
-
-  # Nom affiché distinct du commit status « Migrer la production » : seul ce contexte compte pour Vercel.
   migrate-production:
     name: Migration production (job)
-    needs: status-pending
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -84,27 +58,34 @@ jobs:
           NODE_OPTIONS: ""
           BASH_ENV: ""
 
-  # Toujours exécuté, échec, annulation et délai dépassé de la migration compris : success seulement si
-  # le job de migration a réussi, failure sinon (jamais laissé en attente). Le résultat passe par
-  # l'environnement, jamais interpolé dans le script.
-  status-final:
-    name: Statut Vercel final
-    needs: [status-pending, migrate-production]
-    if: always()
+  # Mise en ligne de la production (BRAIN-37) : seulement après une migration réussie (needs sans always() :
+  # migration en échec ou annulée, pas de déploiement). Le script crée par l'API Vercel le déploiement du SHA
+  # exact du push et attend qu'il soit prêt. Aucune installation : le script n'a aucune dépendance (Node 24).
+  # Le jeton Vercel de production n'existe que dans ce job ; aucun secret de base ici.
+  deploy-production:
+    name: Déploiement production
+    needs: migrate-production
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
+    environment: production
     permissions:
-      statuses: write
+      contents: read
     steps:
-      - name: Statut Vercel final
-        run: |
-          if [ "$MIGRATE_RESULT" = "success" ]; then state=success; else state=failure; fi
-          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
-            -f state="$state" -f context="Migrer la production" \
-            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Déployer la production
+        run: node scripts/ci/vercel-production-deploy.mjs
         env:
-          GH_TOKEN: ${{ github.token }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
           SHA: ${{ github.sha }}
-          MIGRATE_RESULT: ${{ needs.migrate-production.result }}
+          GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_GIT_BRANCH: ${{ github.event.repository.default_branch }}
           NODE_OPTIONS: ""
           BASH_ENV: ""

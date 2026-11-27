@@ -15,11 +15,12 @@ Dernière vérification : 2026-11-18 (tâche 18 du plan socle).
 5. Les branches créées par la console expirent seules après 24 h ; les supprimer quand même à la fin.
 6. Noter l'incident dans `docs/gotchas.md`.
 
-## Ancien code servi sur le schéma neuf (Deployment Check)
-- Relancer à la main un ancien run du workflow « Production » repose un succès « Migrer la production » sur un ancien commit : Vercel peut alors attribuer la production au déploiement de ce commit.
-- Une build Vercel plus lente peut finir après une plus récente et prendre la production sur un code plus ancien que le schéma.
-- À vérifier côté Vercel (Deployments, domaine de production) avant et après toute relance : le déploiement servi est bien celui du dernier commit de `main`. Sinon, le promouvoir à la main.
-- La parade reste la règle des migrations rétrocompatibles (`.claude/rules/neon.md`) : ajouter d'abord, retirer dans un déploiement suivant. Un ancien code doit toujours tourner sur le schéma neuf.
+## Ancien code servi sur le schéma neuf
+- Entre la fin de la migration et la fin du build, l'ancien code tourne sur le schéma neuf (la CI déploie après la migration, BRAIN-37).
+- Il n'y a plus de commit status « Migrer la production » : relancer un ancien run ne change pas la production.
+- La garde « tête de `main` » du job de déploiement refuse de redéployer un ancien SHA.
+- À vérifier côté Vercel (Deployments, domaine de production) après toute relance : le déploiement servi est celui de la tête de `main`.
+- La parade reste la règle des migrations rétrocompatibles (`.claude/rules/neon.md`) : ajouter d'abord, retirer dans un déploiement suivant.
 
 ## Test du 2026-11-18
 Fait : deux copies de `production` créées dans la console, lues, puis supprimées.
