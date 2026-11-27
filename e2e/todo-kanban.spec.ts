@@ -1912,10 +1912,7 @@ test.describe("colonnes ouvertes et hautes, 1920 px", () => {
     await dragTo(page, first, { x, y: box.y + 90 });
     await expect(inColumn(page, "started", first)).toBeAttached();
     const lastBottom = (await boardCard(page, first).boundingBox())!;
-    // Aux 70 % de la fenêtre : hors des 20 % du bas où le défilement automatique de la page se déclenche. Un
-    // dépôt tenu dans cette bande, pointeur dans une colonne, plante la page (erreur React 185, « Tâches
-    // indisponibles », mesuré le 2026-11-27 sur `next start`, colonne vide ou non) : défaut du tableau, signalé
-    // dans le rapport de R4, pas couvert ici.
+    // Aux 70 % de la fenêtre : hors de la bande du bas, couverte par le test suivant (défaut corrigé le 2026-11-27).
     const farBelow = page.viewportSize()!.height * 0.7;
     // Plus de 150 px sous la dernière carte, dans la colonne : le pointeur est dans le vide de la colonne.
     expect(farBelow - (lastBottom.y + lastBottom.height)).toBeGreaterThan(150);
@@ -1930,6 +1927,53 @@ test.describe("colonnes ouvertes et hautes, 1920 px", () => {
     ]);
     await expect(inColumn(page, "unstarted", second)).toHaveCount(0);
     expect(messages).toEqual([]);
+  });
+
+  // Défaut du 2026-11-27 (rapport de R4) : pointeur tenu dans les 20 % du bas de la fenêtre, dans une colonne, la
+  // page étant défilable. Le défilement automatique de la page se déclenche, la page plantait (erreur React 185).
+  test("@desktop un glisser tenu dans la bande du bas de la fenêtre, pointeur dans une colonne vide, ne plante pas la page et dépose la carte dans cette colonne", async ({
+    page,
+  }) => {
+    const messages = await start(page);
+    const task = await make(page, "Bande du bas");
+    const started = boardColumn(page, "started");
+    await expect(started.locator("[data-board-card]")).toHaveCount(0);
+    const box = (await started.boundingBox())!;
+    const bottomBand = page.viewportSize()!.height * 0.9;
+    // Bande des 20 % du bas, et pointeur dans la colonne (page défilable : la colonne dépasse la fenêtre).
+    expect(bottomBand).toBeGreaterThan(page.viewportSize()!.height * 0.8);
+    expect(bottomBand).toBeLessThan(box.y + box.height);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollHeight - window.innerHeight,
+      ),
+    ).toBeGreaterThan(0);
+    const from = await grabPoint(page, task);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 10, from.y, { steps: 2 });
+    await expect(overlay(page)).toBeVisible();
+    await page.mouse.move(box.x + box.width / 2, bottomBand, { steps: 15 });
+    // La carte tenue a rejoint la colonne ; le pointeur reste en place 60 images, le temps que la page se
+    // redessine, défile ou plante (le va-et-vient du défaut passait par ces rendus).
+    await expect(inColumn(page, "started", task)).toBeAttached();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          let frames = 60;
+          const next = () =>
+            --frames > 0 ? requestAnimationFrame(next) : resolve();
+          requestAnimationFrame(next);
+        }),
+    );
+    await saved(page, async () => {
+      await page.mouse.up();
+      await expect(overlay(page)).toHaveCount(0);
+    });
+
+    expect(messages).toEqual([]);
+    await expect(inColumn(page, "started", task)).toBeAttached();
+    await expect(inColumn(page, "unstarted", task)).toHaveCount(0);
   });
 });
 

@@ -333,6 +333,16 @@ function createCollisionDetection(wide: boolean): CollisionDetection {
           return closestCorners({ ...args, droppableContainers: own });
         }
       }
+      // Pointeur hors de toute colonne : la carte reste dans la colonne où elle est. Sans cela, une carte qui vient
+      // de changer de colonne raccourcit la colonne qu'elle quitte, donc la page ; le pointeur (en bas de la
+      // fenêtre) se retrouve sous toutes les colonnes, les coins les plus proches renvoient la carte à l'origine,
+      // la page se rallonge, le pointeur est de nouveau dans la colonne visée : va-et-vient à chaque rendu, jusqu'à
+      // l'erreur React 185 (« Maximum update depth exceeded »).
+      const home = args.droppableContainers
+        .find((container) => container.id === all.active?.id)
+        ?.node.current?.closest("[data-board-column]");
+      const own = home ? byColumn.get(home) : undefined;
+      if (own) return closestCorners({ ...args, droppableContainers: own });
     }
     return closestCorners(args);
   };
