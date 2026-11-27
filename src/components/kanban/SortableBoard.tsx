@@ -315,15 +315,20 @@ function createCollisionDetection(wide: boolean): CollisionDetection {
         ) {
           continue;
         }
-        byColumn.set(column, [...(byColumn.get(column) ?? []), container]);
+        const own = byColumn.get(column);
+        if (own) own.push(container);
+        else byColumn.set(column, [container]);
       }
       for (const [column, own] of byColumn) {
+        // Partie visible de la colonne : le tableau défilé en masque une partie, le pointeur sur la barre latérale
+        // ou la marge ne doit pas tomber dans le rectangle de la partie masquée.
         const box = column.getBoundingClientRect();
+        const view = column.parentElement?.getBoundingClientRect() ?? box;
         if (
-          pointer.x >= box.left &&
-          pointer.x <= box.right &&
-          pointer.y >= box.top &&
-          pointer.y <= box.bottom
+          pointer.x >= Math.max(box.left, view.left) &&
+          pointer.x <= Math.min(box.right, view.right) &&
+          pointer.y >= Math.max(box.top, view.top) &&
+          pointer.y <= Math.min(box.bottom, view.bottom)
         ) {
           return closestCorners({ ...args, droppableContainers: own });
         }

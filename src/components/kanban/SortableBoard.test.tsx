@@ -137,6 +137,10 @@ function fakeRect(this: Element): DOMRect {
   }
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   if (tabs.includes(this)) return rect(tabs.indexOf(this) * 100, -60, 90, 40);
+  // Conteneur défilant des colonnes : partie visible, assez grande pour tout contenir sauf test contraire.
+  if (columns[0] && this === columns[0].parentElement) {
+    return rect(0, -100, 5000, 3000);
+  }
   const columnIndex = columns.indexOf(this);
   if (columnIndex >= 0) {
     const count = this.querySelectorAll("[data-board-card]").length;
@@ -708,6 +712,39 @@ describe("SortableBoard", () => {
         beforeId: null,
         afterId: null,
       });
+    });
+
+    it("pointeur sorti de la partie visible du tableau, au-dessus d'une colonne masquée, cette colonne n'est pas la cible", async () => {
+      const onMove = vi.fn();
+      const columns = [
+        column("todo", MANY),
+        column("doing", []),
+        column("done", ["x"]),
+      ];
+      render(board(onMove, columns));
+      // Partie visible : de 0 à 400 px de haut ; le pointeur (y = 650) est sur la marge, dans le rectangle de « doing ».
+      const scroller = columnSection("todo").parentElement!;
+      Object.defineProperty(scroller, "getBoundingClientRect", {
+        configurable: true,
+        value: () =>
+          ({
+            x: 0,
+            y: 0,
+            left: 0,
+            top: 0,
+            width: 5000,
+            height: 400,
+            right: 5000,
+            bottom: 400,
+            toJSON: () => ({}),
+          }) as DOMRect,
+      });
+
+      await dragWithMouse("a", { x: 440, y: 650 });
+
+      expect(onMove.mock.calls.map(([move]) => move.toColumn)).not.toContain(
+        "doing",
+      );
     });
 
     it("loin sous la dernière carte d'une colonne courte, à côté d'une colonne longue, la carte arrive en fin de la colonne courte", async () => {
