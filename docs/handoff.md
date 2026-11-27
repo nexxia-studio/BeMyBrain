@@ -1,6 +1,6 @@
 # Handoff — état courant
 
-**Dernière mise à jour** : 2026-11-27 — `/handoff` sur la branche `docs/handoff-brain-37`, `main` à `6550b9f`
+**Dernière mise à jour** : 2026-11-28 — `/feature listes` sur `feat/listes` (spec validée, plan écrit), `main` à `6cc2a6d`
 
 ## Où on en est
 - `main` : BRAIN-46 kanban livré (PR #15 données, PR #14 écrans) ; BRAIN-37 livré (PR #16, `6550b9f`). Tout est en production.
@@ -9,7 +9,7 @@
 - Vérifié (PR #16) : `pnpm test` 3129 verts ; typecheck vert ; lint rouge à cause de `qa-screenshots/` (gitignoré).
 
 ## Prochaine étape
-Choisir la prochaine feature dans `docs/roadmap.md` avec Antoine. Reste BRAIN-37 (optionnel) : épreuve « deux merges rapprochés », au premier moment où deux PR sont prêtes.
+Feature `listes` (BRAIN-9, BRAIN-10) en cours sur `feat/listes` : spec validée le 2026-11-28 (`docs/features/listes/spec.md`), ADR-011 accepté (Ably en signal), plan écrit (`docs/features/listes/plan.md`, 49 tâches en trois PR : A Courses, B partage et temps réel, C Wishlist et Bucket List), **à relire par Antoine avant exécution**. Tâche 1 à attaquer : rayons (clés, ordre par défaut, libellés). Aucune PR ouverte ; B demande d'abord les gestes d'Antoine de la tâche 18 (compte Ably, `SHARE_TOKEN_KEY`). Reste BRAIN-37 (optionnel) : épreuve « deux merges rapprochés ».
 
 ## Règles et tests rouges
 - Push libre sur la branche ; `main` et PR sur accord. Migrations : `pnpm db:migrate:test` et `pnpm db:migrate` seulement après fusion de la PR qui les porte.
@@ -27,4 +27,4 @@ Choisir la prochaine feature dans `docs/roadmap.md` avec Antoine. Reste BRAIN-37
 - Tickets : BRAIN-64 (flèche après Espace, KO à 280 px), 65, 66 (faible), 51, 53, 55, 26, 35, 36, 37, 49 ; faible : 43, 44, 45.
 - Migrations BRAIN-46 (0008, 0009) : appliquées sur `test` et `dev` après fusion ? Non vérifié.
 
-**Reprise** : `Lis docs/handoff.md et docs/roadmap.md. Avec Antoine, choisis la prochaine feature, puis lance /feature <nom> sur Opus.`
+**Reprise** : `/clear`, `/model sonnet`, puis : `Exécute docs/features/listes/plan.md avec subagent-driven-development, en dispatchant subagent_type implementer pour chaque tâche et subagent_type reviewer par bloc de tâches (une par une pour les tâches [security] et les migrations), puis security-auditor après le reviewer de chaque tâche [security]. Tests ciblés pendant les tâches, suite complète une seule fois avant la PR.` (commencer par la PR A, tâches 1 à 17.)
