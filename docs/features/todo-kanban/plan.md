@@ -177,7 +177,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « rattacher appelle `tasks.setParent` ; détacher ; désactivée avec sous-tâches ; `subtask_depth` et `cross_side_parent` traduits » ; e2e scénario 8
   - Fini quand : tests et e2e verts (desktop, mobile).
 
-- [ ] **26. Ajouter la section « Relations » et « Bloquée » dans la liste**
+- [x] **26. Ajouter la section « Relations » et « Bloquée » dans la liste** — terminée le 2026-11-27 (`61512ad`) ; aucune action nouvelle (`tasks.addRelation` / `tasks.removeRelation` par `runAppAction`)
   - Fichiers : `src/components/tasks/RelationList.tsx` + test, `TaskDetail.tsx`, `TaskRow.tsx` (pastille « Bloquée »), `e2e/todo-relations.spec.ts`, `messages/{fr,en}.json`
   - Contenu : section sous les sous-tâches ; groupes non vides seulement ; ligne « + Ajouter une relation » : type puis tâche (`TaskPicker`) ; chaque relation : lien, icône de statut, « Retirer » ; vide = la seule ligne d'ajout.
   - Test à écrire d'abord : « ajout `blocked_by` → `tasks.addRelation` ; affichée inversée chez l'autre ; retirer ; `relation_conflict` et `cross_side_relation` traduits ; ligne de liste bloquée » ; e2e scénarios 9 et 10
