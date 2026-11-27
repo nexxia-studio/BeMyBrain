@@ -47,7 +47,7 @@ Pas d'URL dans le résumé (SHA court, état, durée) ; garde « tête de `main`
   - Fichiers : `docs/decisions/ADR-010-migrations-production-par-ci.md`, `.claude/rules/neon.md`, `docs/gotchas.md`.
   - ADR-010 : la section « Proposition BRAIN-37 » (déjà écrite, non en vigueur) devient « Ordre migration / mise en ligne » ; la section « Limite » disparaît ; ligne 9 et « Conséquences » mises à jour (nouveau jeton, date d'expiration réelle à rappeler avant). `neon.md` ligne 17 : l'ancien code tourne sur le nouveau schéma. `gotchas.md` : retirer l'entrée « Production mise en ligne avant la fin de sa migration » et la mention « les trois jobs restent », garder l'entrée Deployment Checks (leçon), activer la procédure de secours.
   - Fini quand : aucun document ne décrit encore le déploiement parallèle ; `grep -rn "BRAIN-37" docs .claude` ne montre que l'état « fait ».
-- [ ] **6. Procédure de secours jouée sur une preview** [security]
+- [x] **6. Procédure de secours jouée sur une preview** [security]
   - Contenu : `docs/gotchas.md`, entrée « CI de production en panne » (écrite avec ce plan, à valider ici).
   - Épreuve : sur la branche de la PR, rejouer la procédure `vercel deploy` **sans `--prod`** depuis une copie propre du commit, vérifier qu'elle ne dépend d'aucun jeton stocké (`vercel login` personnel) et qu'elle n'atteint pas la production.
   - Vérifier aussi dans le tableau Vercel du projet qu'**aucun Deploy Hook** n'existe (il contournerait l'ordre) ; en supprimer un s'il existe, après accord d'Antoine.
