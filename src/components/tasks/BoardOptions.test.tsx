@@ -204,3 +204,14 @@ describe("options du tableau", () => {
     );
   });
 });
+
+describe("cookie posé au clic (rechargement pendant l'enregistrement)", () => {
+  it("garde le choix dans document.cookie tant que l'action serveur est en vol", () => {
+    setBoardOption.mockReturnValue(new Promise(() => {}));
+    renderOptions(true, false);
+
+    fireEvent.click(toggle(SUBTASKS));
+
+    expect(document.cookie).toContain("bmb_board_subtasks=0");
+  });
+});

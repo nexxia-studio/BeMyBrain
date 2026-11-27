@@ -858,6 +858,25 @@ test("@desktop scénario 5 : au clavier, Espace saisit, flèche droite déplace,
   expect(messages).toEqual([]);
 });
 
+test("@desktop bandeau Annulée déplié puis rechargement immédiat, sans attendre l'enregistrement : l'état déplié est gardé", async ({
+  page,
+}) => {
+  const messages = await start(page);
+  const toggle = () =>
+    boardColumn(page, "canceled")
+      .locator("[data-board-header]")
+      .getByRole("button");
+  await expect(toggle()).toHaveAttribute("aria-expanded", "false");
+
+  await toggle().click();
+  await page.reload();
+
+  await expect(toggle()).toHaveAttribute("aria-expanded", "true");
+  await bandSaved(page, () => toggle().click());
+  await expect(toggle()).toHaveAttribute("aria-expanded", "false");
+  expect(messages).toEqual([]);
+});
+
 // ---------- Scénario 7 : sous-tâches sur le tableau
 
 test("scénario 7 : deux sous-tâches d'une parente Haute naissent en Haute, en cartes avec le titre de la parente ; terminée puis masquée, l'une quitte Terminée ; « Sous-tâches » éteint, il reste la parente à 1/2 ; options gardées au rechargement", async ({

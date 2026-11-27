@@ -58,6 +58,7 @@ import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { TASKS_PATH } from "@/components/shell/nav-items";
 import { PreferenceStatus } from "@/components/shell/PreferenceStatus";
 import { useOptimisticPreference } from "@/components/shell/use-optimistic-preference";
+import { writeBoardOptionCookie } from "@/lib/board-option-cookie";
 import { setBoardOption } from "@/lib/preferences-actions";
 import { settleAction } from "@/lib/settle-action";
 import type { BoardColumn, Task } from "@/modules/tasks/queries";
@@ -83,8 +84,10 @@ function cardElement(id: string) {
   return document.querySelector<HTMLElement>(`[data-task-card="${id}"]`);
 }
 
-const saveCanceledOpen = (next: boolean) =>
-  setBoardOption("canceledOpen", next);
+const saveCanceledOpen = (next: boolean) => {
+  writeBoardOptionCookie("canceledOpen", next);
+  return setBoardOption("canceledOpen", next);
+};
 
 /** Enregistre un déplacement par le registre : vrai seulement si l'action a réussi (un refus est un échec). */
 async function save(move: BoardMove): Promise<boolean> {

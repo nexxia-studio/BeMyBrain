@@ -11,6 +11,10 @@ import {
 } from "@/modules/dashboard/tile-heights";
 
 import {
+  BOARD_OPTION_COOKIES,
+  serializeBoardOption,
+} from "./board-option-cookie";
+import {
   type BoardOption,
   type BoardOptionValues,
   tasksViews,
@@ -34,11 +38,7 @@ export function contextsCookie(side: Side): string {
 export const TASKS_VIEW_COOKIE = "bmb_tasks_view";
 
 /** Options du tableau : un cookie par option, valeur « 1 » ou « 0 » (spec todo-kanban, « Tableau »). */
-export const BOARD_OPTION_COOKIES: Record<BoardOption, string> = {
-  subtasks: "bmb_board_subtasks",
-  hideDoneSubtasks: "bmb_board_hide_done_subtasks",
-  canceledOpen: "bmb_board_canceled_open",
-};
+export { BOARD_OPTION_COOKIES, serializeBoardOption };
 
 // Sous-tâches en cartes, terminées non masquées, Annulée repliée.
 const DEFAULT_BOARD_OPTIONS: BoardOptionValues = {
@@ -87,10 +87,6 @@ export function parseBoardOption(
 }
 
 /** Valeur écrite dans le cookie d'une option du tableau. */
-export function serializeBoardOption(value: boolean): string {
-  return value ? "1" : "0";
-}
-
 /**
  * Contextes retenus par le filtre, dans l'ordre de `available` (contextes du côté, lus en base).
  * Les identifiants inconnus du workspace sont ignorés ; sélection vide → tous.

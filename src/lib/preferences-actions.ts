@@ -6,10 +6,13 @@ import { requireSession } from "@/lib/session";
 import { sideSchema } from "@/modules/core/schemas";
 
 import {
+  BOARD_OPTION_COOKIE_OPTIONS,
   BOARD_OPTION_COOKIES,
+  serializeBoardOption,
+} from "./board-option-cookie";
+import {
   contextsCookie,
   PREFERENCE_COOKIE_OPTIONS,
-  serializeBoardOption,
   serializeContextSelection,
   SIDE_COOKIE,
   TASKS_VIEW_COOKIE,
@@ -52,7 +55,7 @@ export async function setBoardOption(
   (await cookies()).set(
     BOARD_OPTION_COOKIES[known],
     serializeBoardOption(value),
-    PREFERENCE_COOKIE_OPTIONS,
+    BOARD_OPTION_COOKIE_OPTIONS,
   );
 }
 

@@ -150,7 +150,7 @@ describe("options du tableau (Server Action)", () => {
 
       expect(cookieStore.set).toHaveBeenCalledTimes(1);
       expect(cookieStore.set).toHaveBeenCalledWith(cookie, written, {
-        httpOnly: true,
+        httpOnly: false,
         secure: false,
         sameSite: "lax",
         path: "/",
