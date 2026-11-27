@@ -357,7 +357,7 @@
         "none": "Aucune",
         "change": "Changer",
         "detach": "Détacher",
-        "hasSubtasks": "Une tâche qui a des sous-tâches ne peut pas devenir une sous-tâche.",
+        "hasSubtasks": "Impossible : elle a déjà des sous-tâches.",
         "followsParent": "Côté et espace : comme la tâche parente"
       },
       "due": "Échéance",

@@ -357,7 +357,7 @@
         "none": "None",
         "change": "Change",
         "detach": "Detach",
-        "hasSubtasks": "A task that has subtasks cannot become a subtask.",
+        "hasSubtasks": "Not possible: it already has subtasks.",
         "followsParent": "Side and space: same as the parent task"
       },
       "due": "Due",

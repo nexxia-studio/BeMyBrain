@@ -64,6 +64,19 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("liste de sélection de tâche", () => {
+  it("se met dans le champ de vision à l'ouverture et quand les résultats arrivent, sans toucher au focus", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    serve([buildTask({ title: "Devis Trustup" })]);
+    renderPicker();
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    const before = scrollIntoView.mock.calls.length;
+    await screen.findByText("Devis Trustup");
+
+    expect(scrollIntoView.mock.calls.length).toBeGreaterThan(before);
+  });
+
   it("ouverte sans recherche : tâches ouvertes du côté demandé, une seule lecture, titre + statut + espace", async () => {
     serve([
       buildTask({

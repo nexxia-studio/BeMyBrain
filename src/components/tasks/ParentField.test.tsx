@@ -169,15 +169,64 @@ describe("propriété « Tâche parente »", () => {
     });
   });
 
-  it("désactivée avec la raison quand la tâche a des sous-tâches", () => {
+  it("quand la tâche a des sous-tâches : pastille « Aucune » désactivée, reliée à sa raison, qui n'ouvre rien", () => {
     serve([]);
     renderField({ hasSubtasks: true });
 
-    expect(
-      screen.getByText(messages.tasks.detail.parentField.hasSubtasks),
-    ).not.toBeNull();
-    expect(screen.queryByRole("button", { name: /Tâche parente/ })).toBeNull();
+    const chip = screen.getByRole("button", { name: "Tâche parente : Aucune" });
+    expect(chip.getAttribute("aria-disabled")).toBe("true");
+    expect(chip.className).toContain("opacity-60");
+    expect(chip.className).toContain("cursor-not-allowed");
+    const reason = screen.getByText(
+      messages.tasks.detail.parentField.hasSubtasks,
+    );
+    expect(chip.getAttribute("aria-describedby")).toBe(reason.id);
+    fireEvent.click(chip);
+    expect(screen.queryByRole("combobox")).toBeNull();
     expect(runAppAction).not.toHaveBeenCalled();
+  });
+
+  it("avec une parente : le lien est la valeur de la ligne, la légende d'héritage le suit avant les boutons", () => {
+    serve([]);
+    renderField({ parentId: PARENT_ID, parentTitle: "Relancer le devis" });
+
+    const link = screen.getByRole("link", { name: /Relancer le devis/ });
+    const legend = screen.getByText(
+      messages.tasks.detail.parentField.followsParent,
+    );
+    const change = screen.getByRole("button", { name: "Changer" });
+    const label = screen.getByText(messages.tasks.detail.parentField.label);
+    expect(link.parentElement).toBe(legend.parentElement);
+    expect(link.parentElement).toBe(change.parentElement);
+    expect(label.parentElement).toBe(link.parentElement?.parentElement);
+    expect(
+      link.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      legend.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("la liste s'ouvre sous la ligne, hors de la colonne de valeur, et se met dans le champ de vision", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    serve([buildTask({ title: "Dossier" })]);
+    renderField();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Tâche parente : Aucune" }),
+    );
+
+    const search = await screen.findByRole("combobox", {
+      name: "Chercher une tâche",
+    });
+    const trigger = screen.getByRole("button", {
+      name: "Tâche parente : Aucune",
+    });
+    const row = trigger.parentElement?.parentElement as HTMLElement;
+    expect(row.contains(search)).toBe(false);
+    expect(document.activeElement).toBe(search);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
   });
 
   it.each([

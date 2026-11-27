@@ -3,7 +3,7 @@
 // Curseurs nexxia-design (DESIGN.md § 1, détail) : VARIANCE 3 · MOTION 2 · DENSITY 6.
 // Section « Relations » du détail (spec todo-kanban, « Relations » et « Listes de sélection »), sous les
 // sous-tâches, même titre de section. Groupes « Bloque », « Bloquée par », « Liée à » : non vides seulement ;
-// chaque relation est un lien vers l'autre tâche (icône de statut) et un bouton « Retirer ». Une relation est
+// chaque relation est un lien vers l'autre tâche (icône de statut) et un bouton texte « Retirer » (`text-link`, 44 px). Une relation est
 // lue des deux côtés : « Bloque » chez A est « Bloquée par » chez B (la lecture du module l'inverse déjà).
 // Vide : la seule ligne « + Ajouter une relation » (même gabarit que l'ajout de sous-tâche). Ajouter : le type
 // (trois boutons), puis `TaskPicker` en ligne ; ni la tâche ni celles déjà reliées par ce type ne sont proposées.
@@ -14,7 +14,7 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
@@ -69,6 +69,11 @@ export function RelationList({
   const [error, setError] = useState<string | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
+
+  // Le panneau d'ajout s'ouvre sous le bouton : dans le champ de vision, le panneau du détail défile.
+  useEffect(() => {
+    if (adding) panel.current?.scrollIntoView({ block: "nearest" });
+  }, [adding]);
 
   function chooseKind(next: Group) {
     flushSync(() => setKind(next));
@@ -269,7 +274,7 @@ function RelationRow({
         aria-label={t("detail.relations.removeLabel", { title: other.title })}
         aria-describedby={describedBy}
         onClick={onRemove}
-        className={cn(chipTriggerClass, "mr-1 shrink-0")}
+        className="mr-1 min-h-11 shrink-0 rounded-md px-3 text-small font-semibold text-link hover:text-link-hover disabled:cursor-not-allowed disabled:opacity-60"
       >
         {t("detail.relations.remove")}
       </button>

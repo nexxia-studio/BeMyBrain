@@ -194,6 +194,33 @@ describe("section « Relations » du détail", () => {
     expect(writes("tasks.addRelation")).toHaveLength(0);
   });
 
+  it("« Retirer » est un bouton texte discret de 44 px, pas une pastille pleine", () => {
+    serve([]);
+    renderList({ ...none, related: [item("Livrer le site")] });
+
+    const remove = screen.getByRole("button", {
+      name: "Retirer la relation avec Livrer le site",
+    });
+
+    expect(remove.className).toContain("text-link");
+    expect(remove.className).toContain("min-h-11");
+    expect(remove.className).not.toContain("bg-secondary");
+    expect(remove.className).not.toContain("rounded-full");
+  });
+
+  it("l'ajout se met dans le champ de vision à l'ouverture du panneau", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    serve([]);
+    renderList();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ajouter une relation" }),
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+  });
+
   it("une relation affichée inversée chez l'autre : « Bloque » retire avec kind blocks", async () => {
     const blocked = item("Livrer le site");
     serve([]);

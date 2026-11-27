@@ -61,6 +61,7 @@ export function TaskPicker({
 }: TaskPickerProps) {
   const t = useTranslations("tasks");
   const hintId = useId();
+  const root = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   // Une réponse tardive d'une frappe précédente ne remplace jamais la dernière.
@@ -121,6 +122,12 @@ export function TaskPicker({
     return () => clearTimeout(timer);
   }, [query, side, topLevelOnly]);
 
+  // Dans le champ de vision à l'ouverture et quand la liste change de hauteur (résultats reçus) : le panneau
+  // du détail défile, la liste s'ouvre sous la ligne. Aucun effet sur le focus (déjà donné dans le geste).
+  useEffect(() => {
+    root.current?.scrollIntoView({ block: "nearest" });
+  }, [loaded]);
+
   const items = loaded.state === "ready" ? loaded.tasks : [];
   const status =
     loaded.state === "loading"
@@ -132,77 +139,79 @@ export function TaskPicker({
           : "";
 
   return (
-    <Autocomplete.Root
-      open
-      inline
-      items={items}
-      value={query}
-      onValueChange={(value, details) => {
-        // Choisir une ligne ne réécrit pas la recherche : seule la saisie la change.
-        if (
-          details.reason === "input-change" ||
-          details.reason === "input-clear"
-        ) {
-          setQuery(value);
-          // Pendant le délai de la frappe, ni l'ancien résultat ni l'ancienne erreur.
-          setLoaded({ state: "loading" });
-        }
-      }}
-      filter={null}
-      itemToStringValue={(task: Task) => task.title}
-      autoHighlight="always"
-      keepHighlight
-    >
-      <div className="flex items-center gap-2.5 border-b border-border px-3 focus-within:border-ring">
-        <Search
-          aria-hidden="true"
-          className="size-4.5 shrink-0 text-muted-foreground"
-          strokeWidth={2}
-        />
-        <Autocomplete.Input
-          aria-label={t("picker.label")}
-          aria-describedby={hintId}
-          placeholder={t("picker.placeholder")}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              // Le tiroir du détail (Dialog de Base UI) écoute Échap sur le document : sans cela il se fermerait.
-              event.stopPropagation();
-              onCancel();
-            }
-          }}
-          // 16 px au moins (`text-base`) : sinon Safari iOS zoome au focus.
-          className="min-h-11 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-      <Autocomplete.List
-        aria-busy={loaded.state === "loading"}
-        className="max-h-72 overflow-y-auto overscroll-contain p-1"
+    <div ref={root}>
+      <Autocomplete.Root
+        open
+        inline
+        items={items}
+        value={query}
+        onValueChange={(value, details) => {
+          // Choisir une ligne ne réécrit pas la recherche : seule la saisie la change.
+          if (
+            details.reason === "input-change" ||
+            details.reason === "input-clear"
+          ) {
+            setQuery(value);
+            // Pendant le délai de la frappe, ni l'ancien résultat ni l'ancienne erreur.
+            setLoaded({ state: "loading" });
+          }
+        }}
+        filter={null}
+        itemToStringValue={(task: Task) => task.title}
+        autoHighlight="always"
+        keepHighlight
       >
-        {(task: Task) => (
-          <Autocomplete.Item
-            key={task.id}
-            value={task}
-            onClick={() => onSelect(task)}
-            className={cn(chipItemClass, "justify-between")}
-          >
-            <PickerRow task={task} />
-          </Autocomplete.Item>
-        )}
-      </Autocomplete.List>
-      {/* Zone de message propre à la liste : Base UI ajoute ses propres `role="status"` (docs/gotchas.md). */}
-      <p
-        id={hintId}
-        role="status"
-        data-testid="picker-status"
-        className={cn(
-          "px-3 py-3 text-small text-muted-foreground",
-          status === "" && "sr-only",
-        )}
-      >
-        {status}
-      </p>
-    </Autocomplete.Root>
+        <div className="flex items-center gap-2.5 border-b border-border px-3 focus-within:border-ring">
+          <Search
+            aria-hidden="true"
+            className="size-4.5 shrink-0 text-muted-foreground"
+            strokeWidth={2}
+          />
+          <Autocomplete.Input
+            aria-label={t("picker.label")}
+            aria-describedby={hintId}
+            placeholder={t("picker.placeholder")}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                // Le tiroir du détail (Dialog de Base UI) écoute Échap sur le document : sans cela il se fermerait.
+                event.stopPropagation();
+                onCancel();
+              }
+            }}
+            // 16 px au moins (`text-base`) : sinon Safari iOS zoome au focus.
+            className="min-h-11 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <Autocomplete.List
+          aria-busy={loaded.state === "loading"}
+          className="max-h-64 overflow-y-auto overscroll-contain p-1"
+        >
+          {(task: Task) => (
+            <Autocomplete.Item
+              key={task.id}
+              value={task}
+              onClick={() => onSelect(task)}
+              className={cn(chipItemClass, "justify-between")}
+            >
+              <PickerRow task={task} />
+            </Autocomplete.Item>
+          )}
+        </Autocomplete.List>
+        {/* Zone de message propre à la liste : Base UI ajoute ses propres `role="status"` (docs/gotchas.md). */}
+        <p
+          id={hintId}
+          role="status"
+          data-testid="picker-status"
+          className={cn(
+            "px-3 py-3 text-small text-muted-foreground",
+            status === "" && "sr-only",
+          )}
+        >
+          {status}
+        </p>
+      </Autocomplete.Root>
+    </div>
   );
 }
 
