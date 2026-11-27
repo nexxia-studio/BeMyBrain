@@ -58,7 +58,10 @@ export function TaskBoardFrost({
         testId="tasks-board-frost-tabs"
         className={BOARD_TABS_CLASSES}
       >
-        <div className={BOARD_TABLIST_CLASSES}>
+        <div
+          className={BOARD_TABLIST_CLASSES}
+          data-testid="tasks-board-frost-tablist"
+        >
           <div className={BOARD_TAB_HEIGHT} />
         </div>
       </FrostTile>

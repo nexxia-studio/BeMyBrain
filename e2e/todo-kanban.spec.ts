@@ -42,8 +42,9 @@ import {
 // pendant un glisser (D4), tap contre appui long (D5), curseur, survol et empreinte (D6), onglet visé.
 test.use({ locale: "fr-FR" });
 // Chaque test crée ses tâches par l'interface et les met à la corbeille à la fin : jusqu'à 31 s mesurées pour le
-// plus long (sous-tâches, options, rechargements), au-delà du délai par défaut de 30 s.
-test.describe.configure({ timeout: 90_000 });
+// plus long (sous-tâches, options, rechargements), au-delà du délai par défaut de 30 s ; 60 s laissent de la marge
+// sans masquer un test qui dérive.
+test.describe.configure({ timeout: 60_000 });
 
 const PREFIX = "KBe2e";
 const STATUS = fr.tasks.detail.status;
@@ -143,6 +144,19 @@ function orderOf(
           .filter((id) => wanted.includes(id)),
       [...ids],
     );
+}
+
+/** Vraie tabulation depuis le début de la page jusqu'à `target` (au plus 80 arrêts). */
+async function tabTo(page: Page, target: Locator): Promise<void> {
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.scrollTo(0, 0);
+  });
+  for (let stop = 0; stop < 80; stop++) {
+    await page.keyboard.press("Tab");
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+  }
+  throw new Error("carte jamais atteinte par Tab");
 }
 
 /** Attend l'enregistrement du dépôt fait par `gesture` : réponse de l'action, puis tableau au repos. */
@@ -814,9 +828,9 @@ test("@desktop scénario 5 : au clavier, Espace saisit, flèche droite déplace,
   const messages = await start(page);
   const task = await make(page, "Clavier");
   const target = boardCard(page, task);
-  // Une carte = un arrêt de tabulation : Tab l'atteint depuis la carte qui la précède ou le contrôle d'avant.
+  // Une carte = un arrêt de tabulation : vraie tabulation depuis le haut de la page jusqu'à la carte.
   await expect(target).toHaveAttribute("tabindex", "0");
-  await target.focus();
+  await tabTo(page, target);
 
   // Chaque touche attend l'annonce de la précédente : le capteur clavier s'arme après la saisie.
   const announced = page.locator('[id^="DndLiveRegion-"]');
@@ -824,8 +838,12 @@ test("@desktop scénario 5 : au clavier, Espace saisit, flèche droite déplace,
     await page.keyboard.press("Space");
     await expect(overlay(page)).toBeVisible();
     await expect(announced).toContainText(STATUS.unstarted);
-    // Juste après la saisie, dnd-kit n'a pas encore mesuré les colonnes : une flèche pressée dans l'instant
-    // est sans effet. Elle est rejouée jusqu'à l'annonce de la colonne voisine.
+    // BRAIN-64 : juste après la saisie, une flèche est sans effet. Mesuré le 2026-11-27 sur `next start` : aucun
+    // signal visible ne la rend fiable (annonce de la saisie, fin des animations de la copie à ~300 ms, 1 s
+    // d'attente : une frappe isolée reste sans effet) ; des frappes rapprochées (25 ms) finissent par agir
+    // après ~150 à 300 ms, des frappes espacées de 1,5 s après la deuxième ou troisième. Une seule frappe
+    // après un signal borné n'est donc pas possible aujourd'hui : frappe rejouée jusqu'à l'annonce de la
+    // colonne voisine, bornée par le délai du test. À resserrer quand BRAIN-64 est réglé.
     await expect(async () => {
       await page.keyboard.press("ArrowRight");
       await expect(announced).toContainText(STATUS.started, { timeout: 1500 });
@@ -835,7 +853,7 @@ test("@desktop scénario 5 : au clavier, Espace saisit, flèche droite déplace,
   });
   await expect(inColumn(page, "started", task)).toBeAttached();
 
-  await boardCard(page, task).focus();
+  await tabTo(page, boardCard(page, task));
   await page.keyboard.press("Enter");
   await expect(detailDialog(page)).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/tasks/${task}$`));
@@ -846,7 +864,7 @@ test("@desktop scénario 5 : au clavier, Espace saisit, flèche droite déplace,
   const toggle = boardColumn(page, "canceled")
     .locator("[data-board-header]")
     .getByRole("button");
-  await toggle.focus();
+  await tabTo(page, toggle);
   await page.keyboard.press("Enter");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(toggle).toHaveAttribute(
@@ -944,9 +962,12 @@ test("@desktop deux dépôts rapides sans attendre : aucune carte ne recule pend
   const messages = await start(page);
   const one = await make(page, "Rapide un");
   const two = await make(page, "Rapide deux");
-  let moves = 0;
-  page.on("response", (response) => {
-    if ((response.request().postData() ?? "").includes('"tasks.move"')) moves++;
+  // Sonde posée avant le premier dépôt : tâche visée par chaque requête `tasks.move`, dans l'ordre d'envoi.
+  const sent: string[] = [];
+  page.on("request", (request) => {
+    const body = request.postData() ?? "";
+    if (request.method() !== "POST" || !body.includes('"tasks.move"')) return;
+    sent.push(body.includes(one) ? "one" : body.includes(two) ? "two" : "?");
   });
 
   await mouseToColumn(page, one, "started");
@@ -973,7 +994,7 @@ test("@desktop deux dépôts rapides sans attendre : aucune carte ne recule pend
   );
 
   expect(seen).toEqual(["started backlog"]);
-  await expect.poll(() => moves).toBe(2);
+  expect(sent).toEqual(["one", "two"]);
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   await expect(inColumn(page, "started", one)).toBeAttached();
   await expect(inColumn(page, "backlog", two)).toBeAttached();
@@ -983,7 +1004,7 @@ test("@desktop deux dépôts rapides sans attendre : aucune carte ne recule pend
   expect(messages).toEqual([]);
 });
 
-test("@desktop session expirée pendant un dépôt : arrivée sur /login, sans bulle « Déplacement non enregistré. », et le retour arrière ne boucle pas", async ({
+test("@desktop session expirée pendant un dépôt : arrivée sur /login, sans bulle « Déplacement non enregistré. » et sans boucle", async ({
   page,
   context,
 }) => {
@@ -1004,16 +1025,11 @@ test("@desktop session expirée pendant un dépôt : arrivée sur /login, sans b
     await expect(page.getByLabel(fr.auth.login.email)).toBeVisible();
     await expect(page.getByText(BOARD.moveFailed)).toHaveCount(0);
 
-    // Retour arrière : Next rend le tableau gardé en mémoire (aucune requête, aucune donnée nouvelle), une seule
-    // fois, sans repartir vers /login en boucle et sans bulle ; la première lecture du serveur ramène à /login.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/tasks$/);
+    // Pas de boucle : l'adresse reste /login après deux images, toujours sans bulle. Le tableau que le retour
+    // arrière réaffiche ensuite est une décision produit (à relire par le security-auditor) : non asserté.
     await twoFrames(page);
-    await expect(page).toHaveURL(/\/tasks$/);
-    await expect(page.getByText(BOARD.moveFailed)).toHaveCount(0);
-    await page.reload();
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByLabel(fr.auth.login.email)).toBeVisible();
+    await expect(page.getByText(BOARD.moveFailed)).toHaveCount(0);
   } finally {
     // Session rendue pour le ménage de fin de test.
     await signIn(page);
@@ -1081,10 +1097,7 @@ test("givre de chargement : celui de la vue mémorisée, colonne et barre d'ongl
     await expect(frozen.getByTestId("tasks-frost")).toHaveCount(0);
     expect({
       column: await shown(frozen, '[data-testid="tasks-board-frost-column"]'),
-      tabs: await shown(
-        frozen,
-        '[data-testid="tasks-board-frost-tabs"] > div:not(.frost)',
-      ),
+      tabs: await shown(frozen, '[data-testid="tasks-board-frost-tablist"]'),
     }).toEqual(content);
 
     await still.addCookies([
@@ -1098,44 +1111,19 @@ test("givre de chargement : celui de la vue mémorisée, colonne et barre d'ongl
   }
 });
 
-test("Terminée : 20 cartes au plus, « ?done=1 » n'y change rien ; au-delà de 20, « Tout voir » montre tout et la requête est gardée à l'ouverture et à la fermeture du détail", async ({
+// « Tout voir » (au-delà de 20 tâches terminées : lien, `?done=all`, requête gardée à l'ouverture et à la fermeture
+// du détail) n'est plus joué ici : il exige plus de 20 tâches terminées permanentes sur le compte e2e, et les
+// créer par l'interface (21 ajouts, 21 passages en Terminée, corbeille) alourdirait et polluerait la suite.
+// Renvoyé à /qa todo-kanban.
+test("Terminée : 20 cartes au plus, « ?done=1 » n'y change rien", async ({
   page,
-}, testInfo) => {
+}) => {
   const messages = await start(page);
   await openBoard(page, "?done=1");
+  if (!isWide(page)) await chooseTab(page, "completed");
   const cards = boardColumn(page, "completed").locator("[data-board-card]");
-  const seeAll = page.getByRole("link", { name: /^Tout voir \(\d+\)$/ });
   expect(await cards.count()).toBeLessThanOrEqual(20);
   await expect(page.getByRole("link", { name: /^Voir les 20/ })).toHaveCount(0);
-
-  if (!isWide(page)) await chooseTab(page, "completed");
-  if ((await seeAll.count()) === 0) {
-    // Compte e2e sans plus de 20 tâches terminées de ce côté : la suite n'est pas jouable aujourd'hui.
-    testInfo.annotations.push({
-      type: "non joué",
-      description: "« Tout voir » : moins de 21 tâches terminées sur le compte",
-    });
-    expect(messages).toEqual([]);
-    return;
-  }
-  const total = Number((await seeAll.innerText()).replace(/\D/g, ""));
-  expect(await cards.count()).toBe(20);
-
-  await seeAll.click();
-
-  await expect(page).toHaveURL(/\/tasks\?done=all$/);
-  await expect(cards).toHaveCount(Math.min(total, 200));
-  await cards.first().click();
-  await expect(detailDialog(page)).toBeVisible();
-  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}\?done=all$/);
-  await detailDialog(page)
-    .getByRole("button", { name: fr.tasks.detail.close })
-    .click();
-  await expect(page).toHaveURL(/\/tasks\?done=all$/);
-  await expect(cards).toHaveCount(Math.min(total, 200));
-  await page.getByRole("link", { name: /^Voir les 20/ }).click();
-  await expect(page).toHaveURL(/\/tasks$/);
-  await expect(cards).toHaveCount(20);
   expect(messages).toEqual([]);
 });
 
