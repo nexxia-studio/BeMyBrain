@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -30,8 +31,10 @@ function serve(candidates: Task[], setParent: unknown = { ok: true }) {
   });
 }
 
-function renderField(props: Partial<Parameters<typeof ParentField>[0]> = {}) {
-  render(
+type FieldProps = Parameters<typeof ParentField>[0];
+
+function field(props: Partial<FieldProps>) {
+  return (
     <NextIntlClientProvider locale="fr" messages={messages}>
       <ParentField
         taskId={TASK_ID}
@@ -42,8 +45,14 @@ function renderField(props: Partial<Parameters<typeof ParentField>[0]> = {}) {
         listQuery=""
         {...props}
       />
-    </NextIntlClientProvider>,
+    </NextIntlClientProvider>
   );
+}
+
+// Renvoie de quoi simuler le nouveau rendu serveur (nouvelle `parentId` en prop).
+function renderField(props: Partial<FieldProps> = {}) {
+  const { rerender } = render(field(props));
+  return (next: Partial<FieldProps>) => rerender(field(next));
 }
 
 const setParentCalls = () =>
@@ -108,6 +117,41 @@ describe("propriété « Tâche parente »", () => {
       taskId: TASK_ID,
       parentId: null,
     });
+  });
+
+  it("après avoir rattaché, le focus passe à « Changer » (le bouton « Aucune » est démonté)", async () => {
+    const candidate = buildTask({ title: "Dossier" });
+    serve([candidate]);
+    const rerender = renderField();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Tâche parente : Aucune" }),
+    );
+    fireEvent.click(await screen.findByText("Dossier"));
+    await waitFor(() => expect(setParentCalls()).toHaveLength(1));
+
+    await act(async () =>
+      rerender({ parentId: candidate.id, parentTitle: "Dossier" }),
+    );
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Changer" }),
+    );
+  });
+
+  it("après « Détacher », le focus passe à « Aucune » (le bouton « Détacher » est démonté)", async () => {
+    serve([]);
+    const rerender = renderField({
+      parentId: PARENT_ID,
+      parentTitle: "Relancer le devis",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Détacher" }));
+    await waitFor(() => expect(setParentCalls()).toHaveLength(1));
+
+    await act(async () => rerender({ parentId: null, parentTitle: null }));
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Tâche parente : Aucune" }),
+    );
   });
 
   it("changer de parente : une seule écriture, l'ancienne parente n'est pas proposée", async () => {

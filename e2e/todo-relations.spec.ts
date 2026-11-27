@@ -122,6 +122,38 @@ test("scénario 9 : bloquer une tâche, pastille « Bloquée », relation invers
   expect(violations).toEqual([]);
 });
 
+test("Échap ferme la liste de sélection, le détail reste ouvert, le focus revient au bouton d'ajout", async ({
+  page,
+}) => {
+  const title = uniqueTitle("Livrer le site");
+  await signIn(page);
+  created.push(await quickAddTask(page, title));
+  const detail = await openFromList(page, title);
+  const add = detail.getByRole("button", { name: relations.add, exact: true });
+
+  await add.click();
+  await detail
+    .getByRole("group", { name: relations.kindPrompt })
+    .getByRole("button", { name: relations.related, exact: true })
+    .click();
+  const search = detail.getByRole("combobox", { name: fr.tasks.picker.label });
+  await expect(search).toBeFocused();
+  await search.press("Escape");
+
+  await expect(search).toHaveCount(0);
+  await expect(detail).toBeVisible();
+  await expect(add).toBeFocused();
+
+  // Au stade du choix du type, Échap ferme l'ajout sans fermer le détail.
+  await add.click();
+  const kinds = detail.getByRole("group", { name: relations.kindPrompt });
+  await kinds.getByRole("button", { name: relations.related }).focus();
+  await page.keyboard.press("Escape");
+  await expect(kinds).toHaveCount(0);
+  await expect(detail).toBeVisible();
+  await expect(add).toBeFocused();
+});
+
 test("@desktop scénario 10 : une tâche reliée à la corbeille disparaît des relations et de la liste de sélection, restaurée elle revient", async ({
   page,
 }) => {

@@ -173,6 +173,15 @@ export function RelationList({
           <div
             role="group"
             aria-label={t("detail.relations.kindPrompt")}
+            onKeyDown={(event) => {
+              // Échap au stade du choix du type (le champ de la liste a le sien) : ferme l'ajout.
+              if (event.key === "Escape") {
+                event.preventDefault();
+                // Le tiroir du détail écoute Échap sur le document : ne pas le fermer avec l'ajout.
+                event.stopPropagation();
+                close();
+              }
+            }}
             className="flex flex-wrap gap-2 p-2"
           >
             {GROUPS.map(({ group }) => (
@@ -192,7 +201,9 @@ export function RelationList({
           </div>
           {kind !== null && (
             <div className="border-t border-border">
+              {/* `key` : changer de type relit la liste avec les exclusions du nouveau type. */}
               <TaskPicker
+                key={kind}
                 side={side}
                 excludeIds={excludeIds}
                 onSelect={choose}

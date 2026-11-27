@@ -117,7 +117,7 @@ describe("section « Relations » du détail", () => {
     expect(list?.[1]).toMatchObject({ side: "pro" });
   });
 
-  it("la liste n'propose pas les tâches déjà reliées par ce type, ni la tâche", async () => {
+  it("la liste ne propose pas les tâches déjà reliées par ce type, ni la tâche", async () => {
     const already = item("Déjà bloquante");
     const free = buildTask({ title: "Libre" });
     serve([free]);
@@ -136,6 +136,47 @@ describe("section « Relations » du détail", () => {
     await waitFor(() =>
       expect(within(listbox).queryByText("Déjà bloquante")).toBeNull(),
     );
+  });
+
+  it("changer de type relit la liste avec les nouvelles exclusions", async () => {
+    const already = item("Déjà bloquante");
+    const alreadyTask = buildTask({ id: already.id, title: "Déjà bloquante" });
+    const free = buildTask({ title: "Libre" });
+    serve([alreadyTask, free]);
+    renderList({ ...none, blockedBy: [already] });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ajouter une relation" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Bloquée par" }));
+    await screen.findByText("Libre");
+    expect(
+      within(screen.getByRole("listbox")).queryByText("Déjà bloquante"),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Liée à" }));
+
+    const listbox = screen.getByRole("listbox");
+    expect(await within(listbox).findByText("Déjà bloquante")).not.toBeNull();
+  });
+
+  it("Échap au choix du type ferme l'ajout et rend le focus au bouton", () => {
+    serve([]);
+    renderList();
+    const add = screen.getByRole("button", { name: "Ajouter une relation" });
+    fireEvent.click(add);
+    const group = screen.getByRole("group", {
+      name: messages.tasks.detail.relations.kindPrompt,
+    });
+
+    fireEvent.keyDown(group, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("group", {
+        name: messages.tasks.detail.relations.kindPrompt,
+      }),
+    ).toBeNull();
+    expect(document.activeElement).toBe(add);
   });
 
   it("Échap ferme sans écrire et rend le focus au bouton d'ajout", async () => {

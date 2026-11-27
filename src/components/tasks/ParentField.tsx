@@ -11,7 +11,7 @@
 import { CornerLeftUp } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
@@ -52,6 +52,17 @@ export function ParentField({
   const [failure, setFailure] = useState<FieldFailure>(null);
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  // Après une écriture, au changement de parente (le bouton qui avait le focus est démonté : « Aucune » ↔
+  // « Changer » / « Détacher »), le focus passe à celui qui reste. `refocus` garde la parente de départ ; on
+  // attend la fin de l'écriture (un bouton désactivé ne prend pas le focus) et le nouveau `parentId`.
+  const refocus = useRef<{ from: string | null } | null>(null);
+
+  useEffect(() => {
+    if (refocus.current === null || pending) return;
+    if (refocus.current.from === parentId) return;
+    refocus.current = null;
+    trigger.current?.focus();
+  }, [parentId, pending]);
 
   function show() {
     flushSync(() => setOpen(true));
@@ -66,11 +77,13 @@ export function ParentField({
   function save(next: string | null) {
     if (pending) return;
     setFailure(null);
+    refocus.current = { from: parentId };
     startTransition(async () => {
       const outcome = await settleAction(() =>
         runAppAction("tasks.setParent", { taskId, parentId: next }),
       );
       if (outcome.ok && outcome.value.ok) return;
+      refocus.current = null;
       setFailure({
         code: outcome.ok && !outcome.value.ok ? outcome.value.code : undefined,
       });

@@ -142,8 +142,11 @@ export function TaskPicker({
         if (
           details.reason === "input-change" ||
           details.reason === "input-clear"
-        )
+        ) {
           setQuery(value);
+          // Pendant le délai de la frappe, ni l'ancien résultat ni l'ancienne erreur.
+          setLoaded({ state: "loading" });
+        }
       }}
       filter={null}
       itemToStringValue={(task: Task) => task.title}
@@ -163,6 +166,8 @@ export function TaskPicker({
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
+              // Le tiroir du détail (Dialog de Base UI) écoute Échap sur le document : sans cela il se fermerait.
+              event.stopPropagation();
               onCancel();
             }
           }}

@@ -221,6 +221,29 @@ describe("liste de sélection de tâche", () => {
     );
   });
 
+  it("une nouvelle frappe repasse tout de suite en chargement : ni l'ancien résultat ni l'ancienne erreur pendant le délai", async () => {
+    serve([buildTask({ title: "Devis Trustup" })]);
+    renderPicker();
+    await screen.findByText("Devis Trustup");
+
+    fireEvent.change(input(), { target: { value: "dev" } });
+
+    expect(screen.getByTestId("picker-status").textContent).toBe("Chargement…");
+    expect(screen.queryByText("Devis Trustup")).toBeNull();
+    cleanup();
+
+    runAppAction.mockResolvedValue({ ok: false });
+    renderPicker();
+    await waitFor(() =>
+      expect(screen.getByTestId("picker-status").textContent).toBe(
+        "La recherche a échoué. Réessaie.",
+      ),
+    );
+    fireEvent.change(input(), { target: { value: "dev" } });
+
+    expect(screen.getByTestId("picker-status").textContent).toBe("Chargement…");
+  });
+
   it("une panne de l'appel (exception) est attrapée comme un échec", async () => {
     runAppAction.mockRejectedValue(new Error("boom"));
     renderPicker();

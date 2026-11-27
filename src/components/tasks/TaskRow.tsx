@@ -185,8 +185,8 @@ export function TaskRow({
                       <span className="truncate">{task.parentTitle}</span>
                     </span>
                   )}
-                  {/* Pastille de la couleur de l'espace ; nom et couleur viennent de la même ligne de contexts. */}
                   {showBlocked && <BlockedChip />}
+                  {/* Pastille de la couleur de l'espace ; nom et couleur viennent de la même ligne de contexts. */}
                   {showChip && (
                     <span
                       className={`truncate ${contextChipClass(task.contextColor ?? "neutral")}`}

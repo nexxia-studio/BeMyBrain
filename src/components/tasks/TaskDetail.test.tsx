@@ -1122,18 +1122,30 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
     expect(notes.disabled).toBe(false);
   });
 
-  it("notes faites de retours à la ligne : un seul appel, enregistrées comme absentes, champ non rétréci", async () => {
-    const task = renderDetail(buildDetail({ notes: null }));
+  it("notes vides remplacées par des retours à la ligne : aucun appel, saisie gardée, champ non rétréci", async () => {
+    renderDetail(buildDetail({ notes: null }));
     const notes = screen.getByRole("textbox", { name: "Notes" });
 
     fireEvent.focus(notes);
     fireEvent.change(notes, { target: { value: "\n\n\n\n" } });
     fireEvent.blur(notes);
 
-    await waitFor(() => expect(runAppAction).not.toHaveBeenCalled());
+    await act(async () => {});
+    expect(runAppAction).toHaveBeenCalledTimes(0);
     expect((notes as HTMLTextAreaElement).value).toBe("\n\n\n\n");
     expect(notes.getAttribute("data-collapsed")).toBe("false");
-    expect(task.id).toBeTruthy();
+  });
+
+  it("notes remplies puis réduites à des retours à la ligne : un seul appel, notes à null", async () => {
+    const task = renderDetail(buildDetail({ notes: "Penser au devis" }));
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "\n\n" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() => expect(runAppAction).toHaveBeenCalledTimes(1));
+    expect(paramsOf("tasks.update")).toEqual({ taskId: task.id, notes: null });
   });
 
   it("notes vides focalisées puis quittées : restent dépliées (la corbeille ne bouge pas sous le clic), rien d'enregistré", () => {
