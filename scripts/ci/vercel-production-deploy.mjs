@@ -220,7 +220,7 @@ export async function run(env, io) {
     gitSource: { type: "github", repoId, ref: branch, sha },
   });
   const id = created?.id;
-  if (typeof id !== "string" || !id)
+  if (typeof id !== "string" || !/^dpl_[A-Za-z0-9]{1,64}$/.test(id))
     throw new Error("API Vercel : déploiement créé sans identifiant.");
   io.log(`::add-mask::${id}`);
 
@@ -259,8 +259,7 @@ export async function run(env, io) {
       if (state.target != null && state.target !== "production")
         await wrongTarget(state.target);
       // Messages de Vercel jamais cités : ils peuvent nommer un alias.
-      if (state.aliasError)
-        throw new Final("Déploiement Vercel : erreur d'alias.");
+      if (state.aliasError) await abort("Déploiement Vercel : erreur d'alias");
       if (FAILED.has(state.readyState)) {
         throw new Final(`Déploiement Vercel en échec (${state.readyState}).`);
       }

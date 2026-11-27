@@ -340,6 +340,7 @@ describe("déploiement de production", () => {
 
     const written = [...t.logs, t.summary(), String(error)].join("\n");
     expect(String(error)).toMatch(/alias/);
+    expect(t.calls.filter((c) => c.method === "PATCH")).toHaveLength(1);
     expect(written).not.toContain("secret.example");
   });
 
@@ -512,5 +513,25 @@ describe("déploiement de production", () => {
     expect(t.summary()).toContain("illisible");
     expect(t.summary()).not.toContain("remplacé par");
     expect(t.calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  it("refuse un identifiant de déploiement mal formé, sans le masquer ni l'utiliser", async () => {
+    const t = setup(
+      baseRoutes({
+        "POST api.vercel.com/v13/deployments": {
+          body: { id: "dpl_x\n::set-env::A", target: "production" },
+        },
+      }),
+    );
+
+    await expect(run(t.env, t.io)).rejects.toThrow(/sans identifiant/);
+
+    expect(t.logs.join("\n")).not.toContain("set-env");
+    expect(
+      t.calls.filter(
+        (c) =>
+          c.url.pathname.includes("/v13/deployments/") || c.method === "PATCH",
+      ),
+    ).toHaveLength(0);
   });
 });
