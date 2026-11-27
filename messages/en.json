@@ -352,7 +352,14 @@
       },
       "placement": "Side and space",
       "side": "Side",
-      "followsParent": "Same as the parent task",
+      "parentField": {
+        "label": "Parent task",
+        "none": "None",
+        "change": "Change",
+        "detach": "Detach",
+        "hasSubtasks": "A task that has subtasks cannot become a subtask.",
+        "followsParent": "Side and space: same as the parent task"
+      },
       "due": "Due",
       "tags": "Tags",
       "updateFailed": "Change not saved. Try again.",

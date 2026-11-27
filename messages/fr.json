@@ -352,7 +352,14 @@
       },
       "placement": "Côté et espace",
       "side": "Côté",
-      "followsParent": "Comme la tâche parente",
+      "parentField": {
+        "label": "Tâche parente",
+        "none": "Aucune",
+        "change": "Changer",
+        "detach": "Détacher",
+        "hasSubtasks": "Une tâche qui a des sous-tâches ne peut pas devenir une sous-tâche.",
+        "followsParent": "Côté et espace : comme la tâche parente"
+      },
       "due": "Échéance",
       "tags": "Tags",
       "updateFailed": "Modification non enregistrée. Réessaie.",

@@ -4,9 +4,9 @@
 // Détail `/tasks/[id]` (spec todo-unifiee, « Détail ») : au-dessus de la liste, URL propre. Fenêtre (panneau sur
 // ordinateur, tiroir sur mobile, fermeture) : `TaskDetailSheet`, partagée avec l'état d'erreur du détail.
 // Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
-// Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : parente en lien (sous-tâche), titre éditable
+// Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : titre éditable
 // d'un tap (`TaskTitleField`), puis
-// les propriétés groupées (Statut, Priorité, Échéance, Côté et espace, Tags ; statut et priorité marqués par leur
+// les propriétés groupées (Statut, Priorité, Échéance, Côté et espace, Tags, Tâche parente — `ParentField`, seule mention de la parente ; statut et priorité marqués par leur
 // icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), notes en bas, repliées
 // sur une ligne à l'ouverture quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
 // Corbeille : retour à la liste ; une sous-tâche revient au détail de sa parente, où le message et « Annuler »
@@ -15,9 +15,8 @@
 // d'optimiste, erreur sous le champ (code traduit, sinon message générique). Titre et notes : au départ du
 // champ ; Date et Tags : à la fermeture de leur pastille (une seule écriture pour plusieurs crans de roue iOS).
 // Aucune validation zod ici (zod interdit dans le bundle client, CSP) : le schéma du serveur tranche.
-import { CornerLeftUp, Flag, Layers, Trash2 } from "lucide-react";
+import { Flag, Layers, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 
@@ -32,6 +31,7 @@ import { ChoiceChip } from "./ChoiceChip";
 import { ContextChip } from "./ContextChip";
 import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
+import { ParentField } from "./ParentField";
 import { priorityChoiceStyle } from "./priority-icons";
 import { STATUS_ICONS } from "./status-icons";
 import { SubtaskList } from "./SubtaskList";
@@ -223,34 +223,11 @@ export function TaskDetail({
       {(closeButton) => (
         <>
           <div className="flex flex-col gap-5 px-4 pb-5 lg:p-5">
-            {subtask && (
-              <div className="flex items-start justify-between gap-3">
-                <Link
-                  href={`${TASKS_PATH}/${task.parentId}${listQuery}`}
-                  className="flex min-h-11 min-w-0 items-center gap-1.5 text-small font-semibold text-link no-underline hover:text-link-hover"
-                >
-                  <CornerLeftUp
-                    aria-hidden="true"
-                    className="size-4 shrink-0"
-                    strokeWidth={2}
-                  />
-                  <span className="sr-only">{t("detail.parent")}</span>
-                  {/* Contenu saisi : jamais traduit. */}
-                  <span className="truncate">{task.parentTitle}</span>
-                </Link>
-                {closeButton}
-              </div>
-            )}
-
-            {subtask ? (
+            {/* La parente n'a plus de lien en tête : sa seule mention est la propriété « Tâche parente ». */}
+            <div className="flex items-start justify-between gap-3">
               <TaskTitleField {...titleProps} />
-            ) : (
-              // Pas de lien vers une parente : la croix rejoint la rangée du titre (pas de rangée vide).
-              <div className="flex items-start justify-between gap-3">
-                <TaskTitleField {...titleProps} />
-                {closeButton}
-              </div>
-            )}
+              {closeButton}
+            </div>
 
             <div
               role="group"
@@ -307,18 +284,15 @@ export function TaskDetail({
                   emptyLabel="none"
                 />
               </DetailField>
-              <DetailField
-                label={t("detail.placement")}
-                errors={[
-                  ...errorOf(side, ids.side),
-                  ...errorOf(context, ids.context),
-                ]}
-              >
-                {subtask ? (
-                  <span className="text-small text-foreground">
-                    {t("detail.followsParent")}
-                  </span>
-                ) : (
+              {/* Sous-tâche : côté et espace suivent la parente, dit par la propriété « Tâche parente ». */}
+              {!subtask && (
+                <DetailField
+                  label={t("detail.placement")}
+                  errors={[
+                    ...errorOf(side, ids.side),
+                    ...errorOf(context, ids.context),
+                  ]}
+                >
                   <>
                     <ChoiceChip<Side>
                       label={t("detail.menuLabel", {
@@ -349,8 +323,8 @@ export function TaskDetail({
                       />
                     )}
                   </>
-                )}
-              </DetailField>
+                </DetailField>
+              )}
               <DetailField
                 label={t("detail.tags")}
                 errors={errorOf(tags, ids.tags)}
@@ -365,6 +339,14 @@ export function TaskDetail({
                   emptyLabel="none"
                 />
               </DetailField>
+              <ParentField
+                taskId={task.id}
+                side={task.side}
+                parentId={task.parentId}
+                parentTitle={task.parentTitle}
+                hasSubtasks={task.subtasks.length > 0}
+                listQuery={listQuery}
+              />
             </div>
 
             {/* Un seul filet sous les propriétés, sous-tâches ou non : le contenu libre commence ici. */}

@@ -506,7 +506,9 @@ describe("détail : sous-tâches", () => {
     ).toBeNull();
     expect(screen.queryByRole("button", { name: /^Côté :/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Espace :/ })).toBeNull();
-    expect(screen.getByText("Comme la tâche parente")).toBeTruthy();
+    expect(
+      screen.getByText("Côté et espace : comme la tâche parente"),
+    ).toBeTruthy();
   });
 });
 
@@ -896,7 +898,7 @@ describe("détail : mise en page", () => {
     expect(within(row).getByText("Titre", { selector: "label" })).toBeTruthy();
   });
 
-  it("sous-tâche : la croix reste à côté du lien vers la parente", () => {
+  it("sous-tâche : la croix reste sur la rangée du titre, sans lien vers la parente en tête", () => {
     renderDetail(
       buildDetail({
         parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
@@ -906,10 +908,8 @@ describe("détail : mise en page", () => {
 
     const row = screen.getByRole("button", { name: "Fermer" }).parentElement!;
 
-    expect(
-      within(row).getByRole("link", { name: /Relancer le devis/ }),
-    ).toBeTruthy();
-    expect(within(row).queryByText("Titre", { selector: "label" })).toBeNull();
+    expect(within(row).queryByRole("link")).toBeNull();
+    expect(within(row).getByRole("textbox", { name: "Titre" })).toBeTruthy();
   });
 
   it("sur ordinateur, le panneau démarre sous l'en-tête de la coque et s'aligne sur son bord droit", () => {
@@ -1050,10 +1050,11 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
       "Côté",
       "Espace",
       "Tags",
+      "Tâche parente",
     ]);
   });
 
-  it("sous-tâche : même ordre sans bloc sous-tâches, « Comme la tâche parente » dans les propriétés", () => {
+  it("sous-tâche : même ordre sans bloc sous-tâches, la parente mentionnée une seule fois, dans les propriétés", () => {
     renderDetail(
       buildDetail({
         parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
@@ -1063,7 +1064,17 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
 
     const properties = screen.getByRole("group", { name: "Propriétés" });
 
-    expect(within(properties).getByText("Comme la tâche parente")).toBeTruthy();
+    expect(
+      within(properties).getByRole("link", { name: /Relancer le devis/ }),
+    ).toBeTruthy();
+    expect(
+      within(properties).getByText("Côté et espace : comme la tâche parente"),
+    ).toBeTruthy();
+    // Une seule mention : plus de lien vers la parente en tête, plus de ligne « Côté et espace ».
+    expect(
+      screen.getAllByRole("link", { name: /Relancer le devis/ }),
+    ).toHaveLength(1);
+    expect(within(properties).queryByText("Côté et espace")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Sous-tâches" })).toBeNull();
     expect(precedes(titleField(), properties)).toBe(true);
     expect(
