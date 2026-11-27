@@ -222,6 +222,13 @@
       "cross_side_relation": "Ces deux tâches ne sont pas du même côté (Privé, Pro). Choisis une tâche du même côté.",
       "relation_conflict": "Un blocage existe déjà dans l'autre sens entre ces deux tâches : une tâche ne bloque pas celle qui la bloque. Retire-le d'abord."
     },
+    "picker": {
+      "label": "Chercher une tâche",
+      "placeholder": "Chercher par titre",
+      "loading": "Chargement…",
+      "empty": "Aucune tâche trouvée.",
+      "failed": "La recherche a échoué. Réessaie."
+    },
     "quickAdd": {
       "title": "Tâche",
       "submit": "Ajouter",
@@ -258,6 +265,25 @@
         "loadFailed": "Tags non chargés. Tu peux en créer.",
         "limit": "{max} tags au plus."
       }
+    },
+    "view": {
+      "label": "Vue",
+      "list": "Liste",
+      "board": "Tableau"
+    },
+    "board": {
+      "options": {
+        "label": "Options du tableau",
+        "subtasks": "Sous-tâches",
+        "hideDoneSubtasks": "Masquer les sous-tâches terminées"
+      },
+      "empty": "Rien à faire de ce côté. Note ici ce qui te passe par la tête.",
+      "add": "Ajouter une tâche",
+      "moveFailed": "Déplacement non enregistré.",
+      "retry": "Réessayer",
+      "seeAll": "Tout voir ({count})",
+      "seeLess": "Voir les {count} plus récentes",
+      "truncated": "Seules les {count} premières cartes sont affichées."
     },
     "list": {
       "title": "To-do",
@@ -305,6 +331,8 @@
       "title": "Titre",
       "titleRequired": "Le titre ne peut pas être vide.",
       "notes": "Notes",
+      "notesPlaceholder": "Ajouter une note",
+      "properties": "Propriétés",
       "menuLabel": "{field} : {current}",
       "status": {
         "label": "Statut",
@@ -324,7 +352,14 @@
       },
       "placement": "Côté et espace",
       "side": "Côté",
-      "followsParent": "Comme la tâche parente",
+      "parentField": {
+        "label": "Tâche parente",
+        "none": "Aucune",
+        "change": "Changer",
+        "detach": "Détacher",
+        "hasSubtasks": "Impossible : elle a déjà des sous-tâches.",
+        "followsParent": "Côté et espace : comme la tâche parente"
+      },
       "due": "Échéance",
       "tags": "Tags",
       "updateFailed": "Modification non enregistrée. Réessaie.",
@@ -332,6 +367,18 @@
         "title": "Sous-tâches",
         "add": "Ajouter une sous-tâche",
         "addFailed": "Sous-tâche non ajoutée. Réessaie."
+      },
+      "relations": {
+        "title": "Relations",
+        "add": "Ajouter une relation",
+        "kindPrompt": "Type de relation",
+        "blocks": "Bloque",
+        "blockedBy": "Bloquée par",
+        "related": "Liée à",
+        "remove": "Retirer",
+        "removeLabel": "Retirer la relation avec {title}",
+        "removeFailed": "Relation non retirée. Réessaie.",
+        "addFailed": "Relation non ajoutée. Réessaie."
       },
       "trash": "Mettre à la corbeille",
       "trashing": "Mise à la corbeille…",
@@ -350,6 +397,11 @@
       "side": "Côté :",
       "context": "Espace :",
       "subtasks": "+ {count, plural, one {# sous-tâche} other {# sous-tâches}}"
+    },
+    "blocked": "Bloquée",
+    "card": {
+      "subtasksOpen": "{count, plural, one {# ouverte} other {# ouvertes}}",
+      "subtasksOpenLabel": "{done, plural, one {# sous-tâche terminée} other {# sous-tâches terminées}} sur {total}, {open, plural, one {# encore ouverte} other {# encore ouvertes}}"
     }
   },
   "trash": {
@@ -365,5 +417,20 @@
       "body": "La corbeille n'a pas pu être chargée. Réessaie dans un instant.",
       "retry": "Réessayer"
     }
+  },
+  "kanban": {
+    "roleDescription": "carte déplaçable",
+    "instructions": "Pour saisir une carte, appuie sur Espace ou Entrée. Déplace-la avec les flèches, dépose-la avec Espace ou Entrée, ou annule avec Échap.",
+    "instructionsOpen": "Pour ouvrir une carte, appuie sur Entrée ; pour la saisir, appuie sur Espace. Déplace-la avec les flèches, dépose-la avec Espace ou Entrée, ou annule avec Échap.",
+    "columns": "Colonnes",
+    "picked": "Carte « {item} » saisie, dans « {column} », position {position} sur {count}.",
+    "over": "Carte « {item} » au-dessus de « {column} », position {position} sur {count}.",
+    "overColumn": "Carte « {item} » au-dessus de « {column} ».",
+    "overNone": "Carte « {item} » hors de toute colonne.",
+    "dropped": "Carte « {item} » déposée dans « {column} », position {position} sur {count}.",
+    "droppedColumn": "Carte « {item} » déposée dans « {column} ».",
+    "cancelled": "Déplacement de « {item} » annulé.",
+    "expand": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, déplier",
+    "collapse": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, replier"
   }
 }

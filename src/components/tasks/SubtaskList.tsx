@@ -3,26 +3,23 @@
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
 // Sous-tâches du détail (spec todo-unifiee, « Détail ») : titre de section et compteur « n/m », lignes
 // cochables (TaskRow : même case sans optimiste, lien vers le détail de la sous-tâche), puis le champ
-// « Ajouter une sous-tâche » envoyé par Entrée (`tasks.create` sous cette tâche). Une colonne à toutes les
+// « Ajouter une sous-tâche » (`SubtaskAddField`, toujours affiché ; `tasks.create` sous cette tâche). Une colonne à toutes les
 // largeurs. Lignes sur le `popover` opaque : contour `border` au lieu du fond `row` (blanc sur blanc), survol
 // en `pill-track` comme les menus. Apparition et retrait d'une ligne : `opacity` + `y` 8 (DESIGN.md § 7).
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
-import { useId, useState, useTransition } from "react";
+import { useId } from "react";
 
 import { runAppAction } from "@/app/(app)/tasks/actions";
 import { settleAction } from "@/lib/settle-action";
-import type { TaskErrorCode } from "@/modules/tasks/errors";
 import type { Task } from "@/modules/tasks/queries";
-import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 import { isOverdue } from "@/modules/tasks/view";
 
+import { SubtaskAddField } from "./SubtaskAddField";
 import { TaskRow } from "./TaskRow";
 
 const LEAVE = { opacity: 0, y: 8 };
 const SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
-
-type Failure = { code?: TaskErrorCode } | null;
 
 type SubtaskListProps = {
   parentId: string;
@@ -44,28 +41,15 @@ export function SubtaskList({
 }: SubtaskListProps) {
   const t = useTranslations("tasks");
   const headingId = useId();
-  const fieldId = useId();
-  const errorId = useId();
-  const [pending, startTransition] = useTransition();
-  const [title, setTitle] = useState("");
-  const [failure, setFailure] = useState<Failure>(null);
 
-  function add(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (title.trim() === "" || pending) return;
-    setFailure(null);
-    startTransition(async () => {
-      const outcome = await settleAction(() =>
-        runAppAction("tasks.create", { title, parentId }),
-      );
-      if (outcome.ok && outcome.value.ok) {
-        setTitle("");
-        return;
-      }
-      setFailure({
-        code: outcome.ok && !outcome.value.ok ? outcome.value.code : undefined,
-      });
-    });
+  async function add(title: string): Promise<string | null> {
+    const outcome = await settleAction(() =>
+      runAppAction("tasks.create", { title, parentId }),
+    );
+    if (outcome.ok && outcome.value.ok) return null;
+    return outcome.ok && !outcome.value.ok
+      ? t(`errors.${outcome.value.code}`)
+      : t("detail.subtasks.addFailed");
   }
 
   return (
@@ -108,34 +92,7 @@ export function SubtaskList({
           </AnimatePresence>
         </ul>
       )}
-      <form onSubmit={add} className="flex flex-col gap-1.5">
-        <label htmlFor={fieldId} className="text-small font-medium">
-          {t("detail.subtasks.add")}
-        </label>
-        <input
-          id={fieldId}
-          type="text"
-          value={title}
-          readOnly={pending}
-          maxLength={TASK_TITLE_MAX}
-          autoComplete="off"
-          enterKeyHint="done"
-          aria-describedby={failure !== null ? errorId : undefined}
-          onChange={(event) => setTitle(event.target.value)}
-          className="min-h-11 w-full rounded-lg border border-input bg-row px-3 text-base text-foreground read-only:opacity-60"
-        />
-        {failure !== null && (
-          <p
-            id={errorId}
-            role="alert"
-            className="text-caption text-destructive"
-          >
-            {failure.code !== undefined
-              ? t(`errors.${failure.code}`)
-              : t("detail.subtasks.addFailed")}
-          </p>
-        )}
-      </form>
+      <SubtaskAddField onAdd={add} />
     </section>
   );
 }

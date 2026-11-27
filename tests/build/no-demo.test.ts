@@ -1,32 +1,61 @@
 // @vitest-environment node
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-// Fermeture de la démo des effets de verre (BRAIN-33, tâche 9 ; spec, scénario 7). Lancé par `pnpm test:build`,
-// après `next build` : vérifie le code source et la build (aucune route /demo, donc 404 en build comme en dev).
+// Démos fermées (BRAIN-33, tâche 9 des effets de verre ; spec, scénario 7). Lancé par `pnpm test:build`, après
+// `next build` : vérifie le code source et la build. Seules les démos temporaires listées ici sont admises ;
+// tout autre dossier, route ou raccourci de démo est refusé.
+// /demo/kanban (BRAIN-46) retirée : la liste est vide. Une démo temporaire s'ajoute ici, avec sa date de retrait.
+const ALLOWED_DEMOS: readonly string[] = [];
+
 const ROOT = process.cwd();
+const DEMO_DIR = "src/app/(app)/demo";
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
+
+const allowedSegments = ALLOWED_DEMOS.map((route) =>
+  route.slice("/demo/".length),
+);
+const allowedDirs = allowedSegments.map((segment) => join(DEMO_DIR, segment));
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(join(ROOT, dir), { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
-    .map((entry) => join(entry.parentPath, entry.name));
+    .map((entry) => relative(ROOT, join(entry.parentPath, entry.name)));
 }
 
 const src = sourceFiles("src").map((file) => ({
   file,
-  text: readFileSync(file, "utf8"),
+  text: readFileSync(join(ROOT, file), "utf8"),
 }));
 
 function filesMatching(pattern: RegExp): string[] {
   return src.filter(({ text }) => pattern.test(text)).map(({ file }) => file);
 }
 
-describe("démo des effets de verre retirée", () => {
-  it("aucun fichier sous src/app/(app)/demo", () => {
-    expect(existsSync(join(ROOT, "src/app/(app)/demo"))).toBe(false);
+/** Fichier d'une démo admise : elle seule peut parler d'elle-même (garde, raccourci). */
+function inAllowedDemo(file: string): boolean {
+  return allowedDirs.some((dir) => file.startsWith(dir + sep));
+}
+
+function isAllowedRoute(route: string): boolean {
+  return ALLOWED_DEMOS.some(
+    (allowed) => route === allowed || route.startsWith(`${allowed}/`),
+  );
+}
+
+describe("démos fermées, sauf les démos temporaires listées", () => {
+  it("aucune démo admise", () => {
+    expect(ALLOWED_DEMOS).toEqual([]);
+  });
+
+  it("aucun dossier sous src/app/(app)/demo hors des démos admises", () => {
+    const dirs = existsSync(join(ROOT, DEMO_DIR))
+      ? readdirSync(join(ROOT, DEMO_DIR))
+      : [];
+
+    expect(dirs.filter((name) => !allowedSegments.includes(name))).toEqual([]);
   });
 
   it.each(["fr", "en"])(
@@ -38,14 +67,35 @@ describe("démo des effets de verre retirée", () => {
     },
   );
 
+  it.each(["fr", "en"])(
+    "aucune clé kanbanDemo dans messages/%s.json",
+    (locale) => {
+      expect(
+        Object.keys(JSON.parse(read(`messages/${locale}.json`))),
+      ).not.toContain("kanbanDemo");
+    },
+  );
+
   it("aucune référence à isGlassDemoEnabled ni glass-demo dans src/", () => {
-    expect(filesMatching(/isGlassDemoEnabled|glass-demo|demo-access/)).toEqual(
-      [],
-    );
+    expect(filesMatching(/isGlassDemoEnabled|glass-demo/)).toEqual([]);
   });
 
-  it("aucune route /demo/ ni cookie d'intensité du givre dans src/", () => {
-    expect(filesMatching(/\/demo\/|glass-demo-frost|FROST_LEVEL/)).toEqual([]);
+  it("garde demo-access seulement dans une démo admise", () => {
+    expect(
+      filesMatching(/demo-access/).filter((file) => !inAllowedDemo(file)),
+    ).toEqual([]);
+  });
+
+  it("route /demo/ citée seulement dans les fichiers de sa démo admise, aucun cookie d'intensité du givre dans src/", () => {
+    const routes = src.flatMap(({ file, text }) =>
+      [...text.matchAll(/\/demo\/[A-Za-z0-9_-]*/g)]
+        .map(([route]) => route)
+        .filter((route) => !(isAllowedRoute(route) && inAllowedDemo(file)))
+        .map((route) => `${file} : ${route}`),
+    );
+
+    expect(routes).toEqual([]);
+    expect(filesMatching(/glass-demo-frost|FROST_LEVEL/)).toEqual([]);
   });
 
   it("un seul chemin pour le cookie des hauteurs : plus de chemin passé par la page", () => {
@@ -54,18 +104,27 @@ describe("démo des effets de verre retirée", () => {
     ).toEqual([]);
   });
 
-  it("aucun raccourci lié à la démo dans src/", () => {
-    expect(filesMatching(/raccourci:[^\n]*d[ée]mo/i)).toEqual([]);
+  it("raccourci lié à une démo seulement dans une démo admise", () => {
+    expect(
+      filesMatching(/raccourci:[^\n]*d[ée]mo/i).filter(
+        (file) => !inAllowedDemo(file),
+      ),
+    ).toEqual([]);
   });
 
-  it("aucune route /demo dans la build", () => {
+  it("aucune route /demo dans la build hors des démos admises", () => {
     const routes = Object.values(
       JSON.parse(read(".next/app-path-routes-manifest.json")) as Record<
         string,
         string
       >,
     );
+
     expect(routes.length).toBeGreaterThan(0);
-    expect(routes.filter((route) => route.startsWith("/demo"))).toEqual([]);
+    expect(
+      routes.filter(
+        (route) => route.startsWith("/demo") && !isAllowedRoute(route),
+      ),
+    ).toEqual([]);
   });
 });

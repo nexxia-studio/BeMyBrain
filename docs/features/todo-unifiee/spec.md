@@ -15,7 +15,7 @@ Le calendrier iOS n'est pas une tranche de la to-do : c'est un module calendrier
 
 ## Hors périmètre
 - Import depuis `todo-perso-pro` : on part de zéro.
-- Kanban, ordre manuel, relations entre tâches : tranche 2.
+- Kanban, ordre manuel, relations entre tâches, parente modifiable : tranche 2, spécifiée dans `docs/features/todo-kanban/spec.md` (cette spec reste la référence du reste).
 - Calendrier, rappels, notifications : module calendrier à part.
 - Lien GitHub et toute synchro de dépôt : BRAIN-21.
 - Création par WhatsApp ou Slack, dictée intelligente, connecteur Claude : BRAIN-27, BRAIN-25, BRAIN-38. Aucun appel à un modèle dans cette feature ; les actions sont seulement prêtes à servir d'outils.
@@ -55,7 +55,7 @@ Côté `contexts` (additif) : unique `(workspace_id, id, kind)`, cible de la FK 
 
 Couleur des espaces (migration 0007, additive, décision d'Antoine du 2026-11-19) : `contexts.color text NOT NULL DEFAULT 'neutral' CHECK (color IN ('neutral','warm','indigo'))`, les trois pastilles de DESIGN.md (`chip-neutral`, `chip-warm`, `chip-indigo`). Valeurs posées pour les espaces existants : Privé `neutral`, Trustup `warm`, Nexxia `indigo` (seed et migration). Aucun écran pour la changer : BRAIN-30.
 
-**Statuts.** La colonne porte une catégorie au sens de Linear, pas un statut. Les cinq catégories sont figées : tout le code (tuiles, filtres, `completed_at`, kanban) raisonne sur elles. Des statuts personnalisés viendront plus tard par migration additive : table `task_statuses (id, workspace_id, name, category, position)` et colonne `tasks.status_id` nullable, FK composite `(workspace_id, status_id, status_category)` → `task_statuses(workspace_id, id, category)`. La catégorie de la tâche reste ainsi toujours celle de son statut, et une tâche sans statut personnalisé garde le statut par défaut de sa catégorie. Libellés par défaut de l'interface (décision d'Antoine, 2026-11-20), accordés avec « tâche » : À planifier (`backlog`), À faire (`unstarted`), En cours (`started`), Terminée (`completed`), Annulée (`canceled`) ; en anglais To plan, To do, In progress, Done, Canceled. Les valeurs en base ne changent pas. « En attente » est réservé à la tranche 2, pour les tâches bloquées (relations « bloquée par »).
+**Statuts.** La colonne porte une catégorie au sens de Linear, pas un statut. Les cinq catégories sont figées : tout le code (tuiles, filtres, `completed_at`, kanban) raisonne sur elles. Des statuts personnalisés viendront plus tard par migration additive : table `task_statuses (id, workspace_id, name, category, position)` et colonne `tasks.status_id` nullable, FK composite `(workspace_id, status_id, status_category)` → `task_statuses(workspace_id, id, category)`. La catégorie de la tâche reste ainsi toujours celle de son statut, et une tâche sans statut personnalisé garde le statut par défaut de sa catégorie. Libellés par défaut de l'interface (décision d'Antoine, 2026-11-20), accordés avec « tâche » : À planifier (`backlog`), À faire (`unstarted`), En cours (`started`), Terminée (`completed`), Annulée (`canceled`) ; en anglais To plan, To do, In progress, Done, Canceled. Les valeurs en base ne changent pas. Le libellé « Bloquée » (tranche 2, `docs/features/todo-kanban/spec.md`) n'est pas un statut : c'est un dérivé à la lecture, pour une tâche ouverte qui a une bloquante active (relations « bloquée par »).
 
 **Corbeille.** Aucune suppression définitive : `app_backend` n'a pas le droit DELETE sur `tasks` (pas de GRANT, pas de policy DELETE). Mettre une tâche à la corbeille = `deleted_at = now()`, la restaurer = `deleted_at = NULL`.
 - Sous-tâches : la mise à la corbeille d'une parente pose **le même horodatage** sur ses sous-tâches encore actives. La restauration de la parente restaure les sous-tâches qui portent cet horodatage, et seulement elles : une sous-tâche mise à la corbeille seule avant sa parente y reste. Une sous-tâche dont la parente est à la corbeille ne se restaure pas seule (erreur `parent_in_trash`).
@@ -87,14 +87,14 @@ Tags communs aux deux côtés. Pas de couleur (colonne additive plus tard). Pas 
 
 PK `(workspace_id, task_id, tag_id)` ; index `(workspace_id, tag_id)`. `workspace_id` est dans la clé pour qu'un membre de B ne puisse pas savoir si un lien existe chez A : sans lui, insérer `(B, tâche de A, tag de A)` renvoyait un doublon si le lien existait, une erreur de FK sinon (décision du 2026-11-19). DELETE autorisé (retirer un tag d'une tâche) ; pas d'UPDATE : un lien ne se modifie pas, il s'ajoute ou se retire.
 
-### `task_relations` — tranche 2 (non créée ici)
+### `task_relations` — tranche 2 (créée par `docs/features/todo-kanban/spec.md`, non créée ici)
 `id`, `workspace_id`, `from_task_id`, `to_task_id` (FK composites), `kind` CHECK `('blocks','related')`. « Bloquée par » = lecture inverse de `blocks`. CHECK `from_task_id <> to_task_id` ; unique `(from_task_id, to_task_id, kind)` ; `related` stocké une fois (plus petit id en `from`). Une relation vers une tâche à la corbeille est masquée à la lecture, pas supprimée.
 
 ### `task_links` — BRAIN-21 (non créée ici)
 `id`, `workspace_id`, `task_id`, `kind` CHECK `('url','github_repo','github_issue')`, `url`, `label`. Plusieurs liens par tâche.
 
 ### Ajouts prévus (additifs)
-- Tranche 2 : `tasks.sort_key text` (ordre manuel dans une colonne du kanban, index fractionnaire).
+- Tranche 2 : `tasks.sort_key text` (ordre manuel dans une colonne du kanban, index fractionnaire), spécifié et livré par `docs/features/todo-kanban/spec.md`.
 - Statuts personnalisés : `task_statuses` + `tasks.status_id` (voir « Statuts »).
 
 ### Ce que la tranche 1 utilise
@@ -103,7 +103,7 @@ Tout `tasks`, `tags`, `task_tags`. `task_relations` et `task_links` ne sont pas 
 ### Décisions que la tranche 2 pourrait remettre en cause
 1. Catégories figées : le kanban affiche une colonne par catégorie. Des colonnes personnalisées passent par les statuts personnalisés ci-dessus, sans toucher `status_category`.
 2. Échéance en date + heure locales, sans fuseau (validé). « Aujourd'hui » se calcule dans le fuseau de l'utilisateur, donné par une seule fonction `getUserTimeZone` (`src/modules/core/time-zone.ts`), qui renvoie `Europe/Brussels` en tranche 1 et lira une préférence plus tard. Le socle a déjà une constante `timeZone = "Europe/Brussels"` dans `src/i18n/config.ts` (formatage next-intl) : elle disparaît, `src/i18n/request.ts` appelle `getUserTimeZone`. Aucun autre fichier n'écrit un fuseau (verrou par test : recherche de `Europe/` dans `src/`).
-3. Un seul niveau de sous-tâches, contrôlé dans `mutations.ts` : le lever ne demande aucune migration.
+3. Un seul niveau de sous-tâches, contrôlé dans `mutations.ts` : le lever ne demande aucune migration. La parente devient modifiable en tranche 2 (`tasks.setParent`, même côté uniquement) ; une sous-tâche créée sans priorité hérite de celle de sa parente.
 4. Côté porté par la tâche et recopié de l'espace par la FK composite (validé).
 
 ## Registre d'actions : prêt pour un modèle
@@ -224,7 +224,7 @@ Curseurs nexxia-design : VARIANCE 3 · MOTION 4 · DENSITY 6 (outil quotidien, l
 
 ### Détail (`/tasks/[id]`)
 - Tiroir sur mobile, panneau latéral sur ordinateur, au-dessus de la liste ; URL propre pour le lien profond.
-- Titre modifiable, notes (zone de texte), puis lignes de champs : Statut (5 catégories, libellés par défaut : À planifier, À faire, En cours, Terminée, Annulée — voir « Statuts »), Priorité, Côté et espace, Échéance (date, heure), Tags. Chaque modification appelle `tasks.update` ; le champ est désactivé pendant l'appel, erreur sous le champ.
+- Titre modifiable, puis les propriétés : Statut (5 catégories, libellés par défaut : À planifier, À faire, En cours, Terminée, Annulée — voir « Statuts » ; une icône par catégorie), Priorité (icône du niveau), Échéance (date, heure), Côté et espace, Tags. Les notes viennent après les sous-tâches, repliées sur une ligne à l'ouverture quand elles sont vides ; une fois ouvertes (focus), elles restent dépliées jusqu'à la fermeture du détail, et des espaces seuls comptent pour vide (ordre revu le 2026-11-24, correctifs du 2026-11-25, BRAIN-46, D9 de `todo-kanban/demo-plan.md`). Chaque modification appelle `tasks.update` ; le champ est désactivé pendant l'appel, erreur sous le champ.
 - Chargement : pas d'écran de chargement pour le détail (décision du 2026-11-20). Il est rendu côté serveur dans l'emplacement `@detail`, par-dessus la liste déjà affichée (route interceptée `@detail/(.)[id]`) : l'ouverture est rapide et un squelette clignoterait ; la liste reste visible pendant la lecture.
 - Erreur de lecture : `TaskDetailPanel` ne rattrape rien, l'erreur remonte à `error.tsx` de `/tasks` (texte fixe et traduit, jamais le message de l'erreur ; « Réessayer » appelle `retry()` ; erreur envoyée à Sentry). Tâche absente, à la corbeille ou adresse invalide : 404, pas l'état d'erreur. Testé : `TaskDetailPanel.test.tsx`, `tasks/error.test.tsx`. Limite connue : cette `error.tsx` est celle de la liste (« Tâches indisponibles », « La liste n'a pas pu être chargée »), rendue sous la liste dans l'emplacement du détail ; un texte propre au détail reste à décider.
 - Sous-tâches : liste de lignes cochables + champ « Ajouter une sous-tâche » (Entrée). Pas de sous-tâche dans une sous-tâche : le champ n'existe pas sur le détail d'une sous-tâche, qui affiche sa parente en lien.

@@ -43,8 +43,23 @@ function frenchOnlyTexts(): string[] {
 const FRENCH_ONLY = frenchOnlyTexts();
 
 /** Textes français trouvés dans la page, contenu saisi (`typed`) retiré. */
-async function frenchLeftovers(page: Page, typed: string[]) {
-  let text = await page.locator("body").innerText();
+async function frenchLeftovers(
+  page: Page,
+  typed: string[],
+  // Corbeille : elle garde les tâches de tous les autres parcours, dont les titres contiennent des mots de
+  // l'interface (« Annuler », « Terminée ») ; on ne lit que la ligne de la tâche de ce test.
+  onlyRowOf?: string,
+) {
+  let text = await page.locator("body").evaluate((body, keep) => {
+    if (keep === undefined) return (body as HTMLElement).innerText;
+    const copy = body.cloneNode(true) as HTMLElement;
+    // `textContent` lit aussi les scripts (flux RSC : tous les titres, tous les messages).
+    copy.querySelectorAll("script, style").forEach((node) => node.remove());
+    for (const li of copy.querySelectorAll("main li")) {
+      if (!li.textContent?.includes(keep)) li.remove();
+    }
+    return copy.textContent ?? "";
+  }, onlyRowOf);
   for (const value of [...typed, ...CONTEXT_NAMES]) {
     text = text.replaceAll(value, "");
   }
@@ -152,6 +167,6 @@ test("en anglais, ajout rapide, liste, détail, corbeille et tuiles sont en angl
   await expect(page.getByText(en.tasks.detail.trashed)).toBeVisible();
   await page.goto("/trash");
   await expect(page.getByText(title)).toBeVisible();
-  expect(await frenchLeftovers(page, [title])).toEqual([]);
+  expect(await frenchLeftovers(page, [title], title)).toEqual([]);
   expect(violations).toEqual([]);
 });

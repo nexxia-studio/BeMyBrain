@@ -4,7 +4,7 @@
 
 Tranche 2 de la to-do (`docs/features/todo-unifiee/spec.md`, « Livraison en tranches »). Cette spec fait foi pour le kanban, l'ordre manuel, la parente modifiable et les relations ; `todo-unifiee/spec.md` reste la référence du reste (liste, corbeille, statuts, registre) et est corrigée là où cette spec la contredit.
 
-Décisions d'Antoine reprises ici : démo `/demo/kanban` et ses trois essais (`demo-plan.md`) ; décisions du 2026-11-25 : variante Creux, détail Nouveau, titre éditable d'un tap, priorités en pastel, parente et relations dans le détail, sous-tâches en cartes à part entière (comme Linear), colonne Annulée qui s'ouvre sur place, même côté uniquement pour parente et relations, registre compris. Appui long (250 ms, soulèvement, inclinaison) : validé, intouché.
+Décisions d'Antoine reprises ici : démo `/demo/kanban` et ses trois essais (retirée à la tâche 27 ; bibliothèque et décisions de glisser dans `plan.md`) ; décisions du 2026-11-25 : variante Creux, détail Nouveau, titre éditable d'un tap, priorités en pastel, parente et relations dans le détail, sous-tâches en cartes à part entière (comme Linear), colonne Annulée qui s'ouvre sur place, même côté uniquement pour parente et relations, registre compris. Appui long (250 ms, soulèvement, inclinaison) : validé, intouché.
 
 ## Objectif
 Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste au doigt ou à la souris, et relie les tâches entre elles (parente, bloque, liée à) depuis le détail, sans alourdir la création rapide.
@@ -36,15 +36,18 @@ Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste 
 - Colonnes ouvertes (À planifier, À faire, En cours) : ordre manuel de toutes les cartes, sous-tâches comprises (voir « Ordre »). Plafond de lecture : 200 cartes par colonne, message si dépassé.
 - Terminée : les 20 plus récentes par date de clôture, puis « Tout voir (n) » qui affiche tout (plafond 200). Ordre toujours par clôture décroissante.
 - Annulée : mêmes règles que Terminée (20 plus récentes par date d'annulation, « Tout voir »). La date d'annulation est `completed_at` ; une tâche terminée puis annulée garde sa date de clôture (règle existante de `updateTask`), limite assumée.
-  - À partir de 768 px : bandeau étroit replié avec compteur, cible de dépôt, qui se déplie en colonne normale au clic et se replie de la même façon ; état mémorisé. Bouton avec `aria-expanded` et un nom complet (« Annulée, 3 tâches, déplier »), atteignable au clavier.
+  - À partir de 768 px : bandeau étroit replié avec compteur, cible de dépôt, qui se déplie en colonne normale au clic et se replie de la même façon ; état mémorisé. Bouton avec `aria-expanded` et un nom complet (« Annulée, 3 cartes, déplier » : le tableau dit « carte » partout, comme ses annonces), atteignable au clavier.
   - Sous 768 px : « Annulée » est un onglet comme les autres, avec son compteur, sans bandeau.
   - Les tâches annulées s'y lisent et s'y ouvrent comme ailleurs.
 - Déplacer une carte dans une autre colonne = changer son statut (mêmes effets que `tasks.update` : `completed_at` posé ou vidé). Déplacer dans la même colonne ouverte = changer son ordre. Dans Terminée et Annulée, la position du dépôt est ignorée.
-- Sous 768 px, l'en-tête de colonne n'est pas répété sous l'onglet ; pendant un glisser, l'onglet visé est marqué et amené dans le champ.
+- Sous 768 px, l'en-tête de colonne n'est pas répété sous l'onglet ; pendant un glisser, l'onglet visé est marqué et amené dans le champ. La carte portée, large comme l'écran, masque la barre d'onglets : un repère « nom + compteur » de l'onglet visé l'accompagne (à valider par Antoine sur iPhone).
 - Tap, clic ou Entrée sur une carte : détail de la tâche, même fenêtre et même adresse que depuis la liste (`/tasks/[id]`), fermeture = retour au tableau.
 - Mise à jour optimiste, exception limitée au déplacement : la carte reste où elle est lâchée ; les enregistrements partent dans l'ordre des dépôts ; échec → la carte revient à sa place, animée, et « Déplacement non enregistré. » avec Réessayer. Échec d'un dépôt dépassé par un dépôt plus récent de la même carte : ni retour ni message.
 - Vue mémorisée : Liste ou Tableau, par un sélecteur dans l'en-tête de `/tasks`, gardée dans un cookie (comme le côté). Liste par défaut. L'interrupteur « Terminées » n'existe que dans la vue liste.
-- Carte : titre (deux lignes au plus), puis légende : parente (sous-tâche), « Bloquée », pastille d'espace, échéance (braise si en retard), tags, compteur de sous-tâches, priorité. La priorité n'est jamais seule sur une ligne.
+- Carte : titre (deux lignes au plus), puis légende : parente (sous-tâche), « Bloquée », pastille d'espace, échéance (braise si en retard) suivie de son heure quand elle existe (« 3 déc. · 14:30 », 24 h comme la liste ; décision d'Antoine du 2026-11-27), tags, compteur de sous-tâches, priorité. La priorité est accrochée à l'information qui la précède dans la légende (jamais seule sur une rangée) ; quand elle est la seule information, la carte n'a pas de légende et le badge se pose à droite du titre, sur sa première ligne : la carte garde la hauteur d'une carte sans légende.
+- Tableau sans aucune tâche (décision du 2026-11-27) : une phrase au tutoiement et un bouton « Ajouter une tâche » qui ouvre l'ajout rapide, au-dessus des colonnes. Avec un filtre d'espace actif, le message de la liste (« Rien dans cet espace » et « tous les espaces »). Une tâche seulement terminée ou annulée suffit à le retirer.
+- Options du tableau (sous-tâches visibles, sous-tâches terminées masquées, Annulée dépliée) : mémorisées dès le clic. Le cookie est posé côté client au geste, puis par l'action serveur (mêmes valeur et attributs) : un rechargement lancé aussitôt relit le bon état. Échec d'enregistrement : cookie et affichage reviennent à l'ancienne valeur.
+- Carte déposée dans une colonne fermée de plus de 20 cartes : non déplaçable avant « Tout voir » ; état gardé, ticket BRAIN-65.
 
 ### Ordre manuel
 - `tasks.sort_key` : clé d'ordre fractionnaire, texte comparé octet par octet (`COLLATE "C"`). Une clé se calcule entre deux voisines sans réécrire les autres lignes.
@@ -151,7 +154,7 @@ Données et registre
 - [ ] Migrations additives : l'ancien code tourne sur le nouveau schéma (colonnes nullables, table nouvelle, droits ajoutés).
 
 Retrait de la démo
-- [ ] `/demo/kanban`, ses messages, ses fixtures et ses e2e sont supprimés ; `pnpm test:build` refuse toute démo.
+- [x] `/demo/kanban`, ses messages, ses fixtures et ses e2e sont supprimés ; `pnpm test:build` refuse toute démo.
 
 ## Scénarios utilisateur (joués par /qa)
 1. **Faire avancer une tâche** — Antoine ouvre `/tasks`, passe en Tableau, glisse une carte de « À faire » à « En cours », recharge : elle y est. Variante mobile : oui (appui long, dépôt sur l'onglet).

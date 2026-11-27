@@ -10,9 +10,16 @@ export function redirectError(url: string): unknown {
   }
 }
 
-/** Renvoi vers /login d'une action dont la session a expiré (QA-1). */
+/**
+ * Renvoi vers /login d'une action dont la session a expiré (QA-1), tel que le client de Next le rend à
+ * l'appelant : il a déjà navigué lui-même et rejette la promesse de l'action avec l'erreur marquée `handled`
+ * (`createRedirectErrorForAction`, server-action-reducer). La frontière de Next qui la reçoit ne navigue pas une
+ * seconde fois, elle remonte seulement le sous-arbre.
+ */
 export const expiredSessionRedirect = () =>
-  redirectError("/login?next=%2Fdashboard");
+  Object.assign(redirectError("/login?next=%2Fdashboard") as object, {
+    handled: true,
+  });
 
 /**
  * Frontière d'erreur de test : tient la place de la RedirectBoundary de Next, qui reçoit l'erreur de

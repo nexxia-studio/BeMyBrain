@@ -7,7 +7,12 @@ const cookieStore = vi.hoisted(() => ({ set: vi.fn(), delete: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireSession }));
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
 
-import { setContextSelection, setSide } from "./preferences-actions";
+import {
+  setBoardOption,
+  setContextSelection,
+  setSide,
+  setTasksView,
+} from "./preferences-actions";
 
 const NEXXIA = "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d";
 
@@ -97,5 +102,95 @@ describe("filtre d'espace (Server Action)", () => {
       "REDIRECT:/login",
     );
     expect(cookieStore.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("vue de la to-do (Server Action)", () => {
+  it("enregistre la vue choisie dans bmb_tasks_view, avec les attributs du cookie du côté", async () => {
+    await setTasksView("board");
+
+    expect(cookieStore.set).toHaveBeenCalledTimes(1);
+    expect(cookieStore.set).toHaveBeenCalledWith("bmb_tasks_view", "board", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  });
+
+  it.each(["kanban", "", "BOARD", null, undefined, 1, ["board"], {}])(
+    "n'écrit rien pour une vue hors liste (%j)",
+    async (view) => {
+      await setTasksView(view);
+
+      expect(cookieStore.set).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuse sans session, avant toute écriture", async () => {
+    requireSession.mockRejectedValue(new Error("REDIRECT:/login"));
+
+    await expect(setTasksView("board")).rejects.toThrow("REDIRECT:/login");
+    expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+});
+
+describe("options du tableau (Server Action)", () => {
+  it.each([
+    ["subtasks", false, "bmb_board_subtasks", "0"],
+    ["subtasks", true, "bmb_board_subtasks", "1"],
+    ["hideDoneSubtasks", true, "bmb_board_hide_done_subtasks", "1"],
+    ["canceledOpen", true, "bmb_board_canceled_open", "1"],
+    ["canceledOpen", false, "bmb_board_canceled_open", "0"],
+  ])(
+    "enregistre %s = %s dans %s (« %s »), avec les attributs du cookie du côté",
+    async (option, value, cookie, written) => {
+      await setBoardOption(option, value);
+
+      expect(cookieStore.set).toHaveBeenCalledTimes(1);
+      expect(cookieStore.set).toHaveBeenCalledWith(cookie, written, {
+        httpOnly: false,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    },
+  );
+
+  it.each([
+    "sousTaches",
+    "bmb_board_subtasks",
+    "",
+    "__proto__",
+    "toString",
+    "constructor",
+    null,
+    undefined,
+    0,
+    ["subtasks"],
+  ])("n'écrit rien pour un nom d'option hors liste (%j)", async (option) => {
+    await setBoardOption(option, true);
+
+    expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+
+  it.each(["1", "0", "true", 1, 0, null, undefined, {}, []])(
+    "n'écrit rien pour une valeur qui n'est pas un booléen (%j)",
+    async (value) => {
+      await setBoardOption("subtasks", value);
+
+      expect(cookieStore.set).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuse sans session, avant toute écriture", async () => {
+    requireSession.mockRejectedValue(new Error("REDIRECT:/login"));
+
+    await expect(setBoardOption("subtasks", false)).rejects.toThrow(
+      "REDIRECT:/login",
+    );
+    expect(cookieStore.set).not.toHaveBeenCalled();
   });
 });

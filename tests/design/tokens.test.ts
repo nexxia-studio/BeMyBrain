@@ -28,6 +28,19 @@ const REFERENCE_RGB = new Set([
   "255,255,255", // blanc
 ]);
 
+// Teintes de priorité : seules couleurs hors de la référence, entrées par DESIGN.md § 2 (décision d'Antoine du
+// 2026-11-25). Base du fond pastel, puis encre, par niveau.
+const PRIORITY_RGB = new Set([
+  "236,71,100", // urgente, fond rouge (à 11 %)
+  "127,31,49", // #7F1F31 urgente, encre
+  "236,137,4", // haute, fond orangé (à 10 %)
+  "102,62,6", // #663E06 haute, encre
+  "236,210,25", // moyenne, fond jaune (à 17 %)
+  "86,75,1", // #564B01 moyenne, encre
+  "16,174,101", // basse, fond vert (à 10 %)
+  "1,82,44", // #01522C basse, encre
+]);
+
 function hexToRgb(hex: string): string {
   const value = hex.slice(1);
   const full =
@@ -87,11 +100,37 @@ describe("charte dans globals.css", () => {
     expect(css).toMatch(new RegExp(`${token}\\s*:`));
   });
 
-  it("n'utilise aucune couleur hors de la référence validée", () => {
+  it("n'utilise aucune couleur hors de la référence validée et des teintes de priorité", () => {
     const outside = declaredColors(css).filter(
-      (rgb) => !REFERENCE_RGB.has(rgb),
+      (rgb) => !REFERENCE_RGB.has(rgb) && !PRIORITY_RGB.has(rgb),
     );
     expect(outside).toEqual([]);
+  });
+
+  it("les teintes de priorité ne servent qu'aux tokens priority-*, écrites comme dans DESIGN.md", () => {
+    const declarations = [
+      ...css.matchAll(
+        /^\s*(--[a-z-]+):\s*((?:rgb\([^)]*\)|#[0-9a-fA-F]{6}));/gm,
+      ),
+    ].filter(([, , value]) => PRIORITY_RGB.has(declaredColors(value)[0]));
+
+    expect(declarations.map(([, name]) => name)).toEqual(
+      ["urgent", "high", "medium", "low"].flatMap((level) => [
+        `--priority-${level}-bg`,
+        `--priority-${level}-fg`,
+      ]),
+    );
+    for (const [, name, value] of declarations) {
+      expect(design.toLowerCase()).toContain(`${name.slice(2)}: "${value}"`);
+    }
+  });
+
+  it("chaque teinte de priorité n'apparaît qu'une fois dans globals.css : sa déclaration de token", () => {
+    const uses = declaredColors(css).filter((rgb) => PRIORITY_RGB.has(rgb));
+
+    // Ni dégradé, ni ombre, ni propriété ordinaire : les composants passent par les tokens.
+    expect(uses).toHaveLength(PRIORITY_RGB.size);
+    expect(new Set(uses).size).toBe(PRIORITY_RGB.size);
   });
 
   it("ne garde ni les neutres oklch du scaffold ni de valeurs sombres inventées", () => {

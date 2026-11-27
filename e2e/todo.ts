@@ -132,6 +132,19 @@ export async function pickDueDate(
 }
 
 /** Crée une tâche par l'ajout rapide (titre et échéance facultative), puis le referme. */
+// Identifiants des tâches créées par `quickAddTask` et pas encore mises à la corbeille : un parcours qui échoue
+// avant d'avoir noté un identifiant dans sa propre liste les laisserait sinon dans le compte e2e partagé.
+const quickAdded: string[] = [];
+
+/**
+ * Identifiants créés par `quickAddTask` depuis le dernier appel, à passer à `trashTasks` en fin de parcours. La
+ * liste est celle du processus (un seul worker : tous les fichiers la partagent) : un fichier qui s'en sert la
+ * vide aussi dans un `beforeEach`, pour ne pas mettre à la corbeille les tâches d'un autre fichier.
+ */
+export function takeQuickAdded(): string[] {
+  return quickAdded.splice(0);
+}
+
 export async function quickAddTask(
   page: Page,
   title: string,
@@ -141,6 +154,7 @@ export async function quickAddTask(
   await quickAddTitle(dialog).fill(title);
   if (due !== undefined) await pickDueDate(page, dialog, due.date, due.time);
   const id = await submitQuickAdd(dialog);
+  quickAdded.push(id);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   return id;
@@ -184,15 +198,180 @@ export function detailDialog(page: Page): Locator {
  * statut.
  */
 export async function trashTasks(page: Page, ids: readonly string[]) {
-  for (const id of ids) {
-    await page.goto(`/tasks/${id}`);
-    const detail = detailDialog(page);
-    const missing = page.getByRole("heading", { level: 1, name: "404" });
-    await expect(detail.or(missing)).toBeVisible();
-    if (await missing.isVisible()) continue;
-    await detail
-      .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
-      .click();
-    await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
+  const failed: string[] = [];
+  let firstCause: unknown;
+  // Un échec sur une tâche ne laisse pas les suivantes dans le compte : on les traite toutes, puis on le dit.
+  for (const id of new Set(ids)) {
+    try {
+      await page.goto(`/tasks/${id}`);
+      const detail = detailDialog(page);
+      const missing = page.getByRole("heading", { level: 1, name: "404" });
+      await expect(detail.or(missing)).toBeVisible();
+      if (await missing.isVisible()) continue;
+      await detail
+        .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
+        .click();
+      await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
+    } catch (error) {
+      firstCause ??= error;
+      failed.push(id);
+    }
   }
+  if (failed.length > 0) {
+    throw new Error(`Tâches non mises à la corbeille : ${failed.join(", ")}`, {
+      cause: firstCause,
+    });
+  }
+}
+
+/**
+ * La liste de sélection ouverte tient dans la fenêtre : champ de recherche en haut et bas de la liste dans le
+ * cadre de la page, et dans la fenêtre du détail (une liste coupée par le bas du panneau ou du tiroir échoue).
+ * Attend que le défilement se pose (la liste se met dans le champ de vision à l'ouverture).
+ */
+export async function expectPickerInView(page: Page, detail: Locator) {
+  const search = detail.getByRole("combobox", { name: fr.tasks.picker.label });
+  const list = detail.getByRole("listbox");
+  await expect(list.getByRole("option").first()).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [s, l, d] = await Promise.all([
+        search.boundingBox(),
+        list.boundingBox(),
+        detail.boundingBox(),
+      ]);
+      const view = page.viewportSize();
+      if (s === null || l === null || d === null || view === null) return "?";
+      const bottom = l.y + l.height;
+      const problems = [
+        s.y < Math.max(0, d.y) - 1 && "champ au-dessus",
+        bottom > Math.min(view.height, d.y + d.height) + 1 && "liste coupée",
+        l.height < 40 && "liste sans ligne visible",
+      ].filter(Boolean);
+      return problems.join(", ");
+    })
+    .toBe("");
+}
+
+/** Le libellé d'une propriété du détail est à la hauteur de sa pastille (centres à 2 px près). */
+export async function expectLabelOnChip(label: Locator, chip: Locator) {
+  const [l, c] = await Promise.all([label.boundingBox(), chip.boundingBox()]);
+  expect(l).not.toBeNull();
+  expect(c).not.toBeNull();
+  expect(
+    Math.abs(l!.y + l!.height / 2 - (c!.y + c!.height / 2)),
+  ).toBeLessThanOrEqual(2);
+}
+
+// Aides du tableau (spec todo-kanban, scénarios 1 à 5 et 7).
+
+/** Préférences d'affichage du tableau, posées en cookies avant d'ouvrir `/tasks` (jamais par l'interface). */
+export type BoardPreferences = {
+  view?: "list" | "board";
+  side?: "private" | "pro";
+  subtasks?: boolean;
+  hideDoneSubtasks?: boolean;
+  canceledOpen?: boolean;
+};
+
+export async function setBoardPreferences(
+  page: Page,
+  {
+    view = "board",
+    side = "private",
+    subtasks = true,
+    hideDoneSubtasks = false,
+    canceledOpen = false,
+  }: BoardPreferences = {},
+): Promise<void> {
+  const url = new URL(page.url()).origin;
+  const flag = (value: boolean) => (value ? "1" : "0");
+  await page.context().addCookies(
+    [
+      ["bmb_tasks_view", view],
+      ["bmb_side", side],
+      ["bmb_board_subtasks", flag(subtasks)],
+      ["bmb_board_hide_done_subtasks", flag(hideDoneSubtasks)],
+      ["bmb_board_canceled_open", flag(canceledOpen)],
+    ].map(([name, value]) => ({ name, value, url })),
+  );
+}
+
+/** Colonne du tableau (une par catégorie de statut). */
+export function boardColumn(page: Page, category: string): Locator {
+  return page.locator(`[data-board-column="${category}"]`);
+}
+
+/** Carte du tableau, par l'identifiant de sa tâche (nœud déplaçable : rôle bouton, focus, glisser). */
+export function boardCard(scope: Page | Locator, id: string): Locator {
+  return scope.locator(`[data-board-card="${id}"]`);
+}
+
+/** Ouvre `/tasks` en vue Tableau et attend l'hydratation (dnd-kit monte sa région d'annonces côté client). */
+export async function openBoard(page: Page, query = ""): Promise<void> {
+  await page.goto(`/tasks${query}`);
+  await expect(boardColumn(page, "unstarted")).toBeAttached();
+  await expect(page.locator('[id^="DndLiveRegion-"]')).toBeAttached();
+}
+
+/** Priorité d'une tâche, par la pastille de son détail (adresse directe). */
+export async function setTaskPriority(
+  page: Page,
+  id: string,
+  level: "1" | "2" | "3" | "4",
+): Promise<void> {
+  await page.goto(`/tasks/${id}`);
+  const detail = detailDialog(page);
+  const label = fr.tasks.detail.priority.label;
+  await detail.getByRole("button", { name: new RegExp(`^${label} :`) }).click();
+  await page
+    .getByRole("menuitemradio", { name: fr.tasks.detail.priority[level] })
+    .click();
+  await expect(
+    detail.getByRole("button", {
+      name: `${label} : ${fr.tasks.detail.priority[level]}`,
+    }),
+  ).toBeVisible();
+}
+
+/** Sous-tâche créée par la ligne d'ajout du détail de sa parente ; renvoie son identifiant. */
+export async function addSubtask(
+  page: Page,
+  parentId: string,
+  title: string,
+): Promise<string> {
+  if (!page.url().endsWith(`/tasks/${parentId}`)) {
+    await page.goto(`/tasks/${parentId}`);
+  }
+  const detail = detailDialog(page);
+  const field = detail.getByLabel(fr.tasks.detail.subtasks.add);
+  await field.fill(title);
+  await field.press("Enter");
+  const link = detail.getByRole("link", { name: title });
+  await expect(link).toBeVisible();
+  return idFromHref(await link.getAttribute("href"));
+}
+
+/**
+ * Restes d'un parcours interrompu : toute tâche active dont le titre commence par `prefix`, des deux côtés,
+ * terminées et annulées comprises, est mise à la corbeille. Renvoie le nombre de tâches trouvées.
+ */
+export async function sweepTasks(page: Page, prefix: string): Promise<number> {
+  const found = new Set<string>();
+  for (const side of ["private", "pro"] as const) {
+    await setBoardPreferences(page, { view: "list", side });
+    await page.goto("/tasks?completed=1");
+    await expect(
+      page.getByRole("heading", { level: 1, name: fr.tasks.list.title }),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const links = page.getByRole("link", { name: new RegExp(`^${prefix} `) });
+    for (const href of await links.evaluateAll((all) =>
+      all.map((link) => link.getAttribute("href")),
+    )) {
+      found.add(idFromHref(href));
+    }
+  }
+  await trashTasks(page, [...found]);
+  return found.size;
 }

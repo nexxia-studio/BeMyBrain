@@ -4,30 +4,26 @@
 // Détail `/tasks/[id]` (spec todo-unifiee, « Détail ») : au-dessus de la liste, URL propre. Fenêtre (panneau sur
 // ordinateur, tiroir sur mobile, fermeture) : `TaskDetailSheet`, partagée avec l'état d'erreur du détail.
 // Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
-// Contenu, une colonne : parente en lien (sous-tâche), titre, notes, puis lignes de champs (Statut, Priorité,
-// Côté et espace, Échéance, Tags), sous-tâches (pas sur une sous-tâche), pied « Mettre à la corbeille ».
+// Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : titre éditable
+// d'un tap (`TaskTitleField`), puis
+// les propriétés groupées (Statut, Priorité, Échéance, Côté et espace, Tags, Tâche parente — `ParentField`, seule mention de la parente ; statut et priorité marqués par leur
+// icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), relations (`RelationList`), notes en bas, repliées
+// sur une ligne à l'ouverture quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
 // Corbeille : retour à la liste ; une sous-tâche revient au détail de sa parente, où le message et « Annuler »
 // s'affichent dans la fenêtre (emplacement collé en bas du panneau, au-dessus du contenu qui défile).
 // Chaque champ appelle `tasks.update` seul (registre, origine `app`) : désactivé pendant l'appel, pas
 // d'optimiste, erreur sous le champ (code traduit, sinon message générique). Titre et notes : au départ du
 // champ ; Date et Tags : à la fermeture de leur pastille (une seule écriture pour plusieurs crans de roue iOS).
 // Aucune validation zod ici (zod interdit dans le bundle client, CSP) : le schéma du serveur tranche.
-import { CircleDot, CornerLeftUp, Flag, Layers, Trash2 } from "lucide-react";
+import { Flag, Layers, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 
-import { cn } from "@/lib/utils";
 import type { ContextOption } from "@/modules/core/context-colors";
 import { sides, type Side } from "@/modules/core/sides";
 import type { TaskDetail as TaskDetailData } from "@/modules/tasks/queries";
-import {
-  statusCategories,
-  type StatusCategory,
-  TASK_NOTES_MAX,
-  TASK_TITLE_MAX,
-} from "@/modules/tasks/sides";
+import { statusCategories, type StatusCategory } from "@/modules/tasks/sides";
 import { subtaskCounter, tagChanges } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
@@ -35,17 +31,20 @@ import { ChoiceChip } from "./ChoiceChip";
 import { ContextChip } from "./ContextChip";
 import { DetailField, type FieldError } from "./DetailField";
 import { type DueDate, DueDateChip } from "./DueDateChip";
-import { isRowPriority, PRIORITY_ICONS } from "./priority-icons";
+import { ParentField } from "./ParentField";
+import { priorityChoiceStyle } from "./priority-icons";
+import { RelationList } from "./RelationList";
+import { STATUS_ICONS } from "./status-icons";
 import { SubtaskList } from "./SubtaskList";
+import { loadWorkspaceTags } from "./load-workspace-tags";
 import { TagsChip } from "./TagsChip";
 import { TaskDetailSheet } from "./TaskDetailSheet";
+import { TaskNotesField } from "./TaskNotesField";
+import { TaskTitleField } from "./TaskTitleField";
 import { useTrashNoticeHost, useTrashTask } from "./task-trash-context";
 import { type TaskUpdate, useTaskUpdate } from "./use-task-update";
 
 const PRIORITIES = ["0", "1", "2", "3", "4"] as const;
-
-const fieldClass =
-  "w-full resize-none rounded-lg border border-input bg-row px-3 py-2.5 text-foreground field-sizing-content disabled:cursor-not-allowed disabled:opacity-60";
 
 type TaskDetailProps = {
   task: TaskDetailData;
@@ -83,8 +82,6 @@ export function TaskDetail({
   const trash = useTrashTask();
   const noticeHost = useTrashNoticeHost();
   const [trashing, setTrashing] = useState(false);
-  const titleId = useId();
-  const notesId = useId();
   const ids = {
     title: useId(),
     notes: useId(),
@@ -145,12 +142,23 @@ export function TaskDetail({
     : errorOf(title, ids.title);
   const notesErrors = errorOf(notes, ids.notes);
 
-  function saveTitle() {
-    const next = titleDraft.trim();
+  function saveTitle(value: string) {
+    const next = value.trim();
     setTitleEmpty(next === "");
     if (next === "" || next === task.title) return;
     title.save({ title: next });
   }
+
+  const titleProps = {
+    value: titleDraft,
+    onChange: (value: string) => {
+      setTitleEmpty(false);
+      setTitleDraft(value);
+    },
+    onSave: saveTitle,
+    disabled: title.pending,
+    errors: titleErrors,
+  };
 
   function saveNotes() {
     const next = notesDraft.trim() === "" ? null : notesDraft;
@@ -199,15 +207,14 @@ export function TaskDetail({
   const statusOptions = statusCategories.map((value) => ({
     value,
     label: t(`detail.status.${value}`),
+    ...STATUS_ICONS[value],
   }));
-  const priorityOptions = PRIORITIES.map((value) => {
-    const level = Number(value);
-    return {
-      value,
-      label: t(`detail.priority.${value}`),
-      icon: isRowPriority(level) ? PRIORITY_ICONS[level] : undefined,
-    };
-  });
+  // Niveaux 1 à 4 : pastille et badge du menu à la teinte du niveau ; « Aucune » : pastille ordinaire au drapeau.
+  const priorityOptions = PRIORITIES.map((value) => ({
+    value,
+    label: t(`detail.priority.${value}`),
+    ...priorityChoiceStyle(Number(value)),
+  }));
   const sideOptions = sides.map((value) => ({ value, label: tSide(value) }));
   const describedBy = (update: TaskUpdate, id: string) =>
     update.failure !== null ? id : undefined;
@@ -217,104 +224,17 @@ export function TaskDetail({
       {(closeButton) => (
         <>
           <div className="flex flex-col gap-5 px-4 pb-5 lg:p-5">
-            {subtask && (
-              <div className="flex items-start justify-between gap-3">
-                <Link
-                  href={`${TASKS_PATH}/${task.parentId}${listQuery}`}
-                  className="flex min-h-11 min-w-0 items-center gap-1.5 text-small font-semibold text-link no-underline hover:text-link-hover"
-                >
-                  <CornerLeftUp
-                    aria-hidden="true"
-                    className="size-4 shrink-0"
-                    strokeWidth={2}
-                  />
-                  <span className="sr-only">{t("detail.parent")}</span>
-                  {/* Contenu saisi : jamais traduit. */}
-                  <span className="truncate">{task.parentTitle}</span>
-                </Link>
-                {closeButton}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              {subtask ? (
-                <label htmlFor={titleId} className="text-small font-medium">
-                  {t("detail.title")}
-                </label>
-              ) : (
-                // Pas de lien vers une parente : la croix rejoint la rangée du libellé (pas de rangée vide).
-                <div className="flex items-center justify-between gap-3">
-                  <label htmlFor={titleId} className="text-small font-medium">
-                    {t("detail.title")}
-                  </label>
-                  {closeButton}
-                </div>
-              )}
-              <textarea
-                id={titleId}
-                rows={1}
-                value={titleDraft}
-                disabled={title.pending}
-                maxLength={TASK_TITLE_MAX}
-                enterKeyHint="done"
-                aria-describedby={
-                  titleErrors.length > 0 ? ids.title : undefined
-                }
-                onChange={(event) => {
-                  setTitleEmpty(false);
-                  setTitleDraft(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  // Un titre tient sur une ligne : Entrée valide.
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  event.currentTarget.blur();
-                }}
-                onBlur={saveTitle}
-                className={cn(fieldClass, "min-h-11 font-heading text-title")}
-              />
-              {titleErrors.map((error) => (
-                <p
-                  key={error.id}
-                  id={error.id}
-                  role="alert"
-                  className="text-caption text-destructive"
-                >
-                  {error.text}
-                </p>
-              ))}
+            {/* La parente n'a plus de lien en tête : sa seule mention est la propriété « Tâche parente ». */}
+            <div className="flex items-start justify-between gap-3">
+              <TaskTitleField {...titleProps} />
+              {closeButton}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={notesId} className="text-small font-medium">
-                {t("detail.notes")}
-              </label>
-              <textarea
-                id={notesId}
-                rows={3}
-                value={notesDraft}
-                disabled={notes.pending}
-                maxLength={TASK_NOTES_MAX}
-                aria-describedby={
-                  notesErrors.length > 0 ? ids.notes : undefined
-                }
-                onChange={(event) => setNotesDraft(event.target.value)}
-                onBlur={saveNotes}
-                className={cn(fieldClass, "min-h-24 text-base")}
-              />
-              {notesErrors.map((error) => (
-                <p
-                  key={error.id}
-                  id={error.id}
-                  role="alert"
-                  className="text-caption text-destructive"
-                >
-                  {error.text}
-                </p>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-1 border-t border-border pt-3">
+            <div
+              role="group"
+              aria-label={t("detail.properties")}
+              className="flex flex-col gap-1"
+            >
               <DetailField
                 label={t("detail.status.label")}
                 errors={errorOf(status, ids.status)}
@@ -324,7 +244,7 @@ export function TaskDetail({
                     field: t("detail.status.label"),
                     current: t(`detail.status.${task.statusCategory}`),
                   })}
-                  icon={CircleDot}
+                  icon={STATUS_ICONS[task.statusCategory].icon}
                   options={statusOptions}
                   value={task.statusCategory}
                   onChange={(value) => status.save({ statusCategory: value })}
@@ -352,17 +272,28 @@ export function TaskDetail({
                 />
               </DetailField>
               <DetailField
-                label={t("detail.placement")}
-                errors={[
-                  ...errorOf(side, ids.side),
-                  ...errorOf(context, ids.context),
-                ]}
+                label={t("detail.due")}
+                errors={errorOf(due, ids.due)}
               >
-                {subtask ? (
-                  <span className="text-small text-foreground">
-                    {t("detail.followsParent")}
-                  </span>
-                ) : (
+                <DueDateChip
+                  today={today}
+                  value={dueDraft}
+                  onChange={changeDue}
+                  onOpenChange={saveDue}
+                  disabled={due.pending}
+                  describedBy={describedBy(due, ids.due)}
+                  emptyLabel="none"
+                />
+              </DetailField>
+              {/* Sous-tâche : côté et espace suivent la parente, dit par la propriété « Tâche parente ». */}
+              {!subtask && (
+                <DetailField
+                  label={t("detail.placement")}
+                  errors={[
+                    ...errorOf(side, ids.side),
+                    ...errorOf(context, ids.context),
+                  ]}
+                >
                   <>
                     <ChoiceChip<Side>
                       label={t("detail.menuLabel", {
@@ -393,27 +324,14 @@ export function TaskDetail({
                       />
                     )}
                   </>
-                )}
-              </DetailField>
-              <DetailField
-                label={t("detail.due")}
-                errors={errorOf(due, ids.due)}
-              >
-                <DueDateChip
-                  today={today}
-                  value={dueDraft}
-                  onChange={changeDue}
-                  onOpenChange={saveDue}
-                  disabled={due.pending}
-                  describedBy={describedBy(due, ids.due)}
-                  emptyLabel="none"
-                />
-              </DetailField>
+                </DetailField>
+              )}
               <DetailField
                 label={t("detail.tags")}
                 errors={errorOf(tags, ids.tags)}
               >
                 <TagsChip
+                  loadTags={loadWorkspaceTags}
                   value={tagsDraft}
                   onChange={changeTags}
                   onOpenChange={saveTags}
@@ -422,10 +340,19 @@ export function TaskDetail({
                   emptyLabel="none"
                 />
               </DetailField>
+              <ParentField
+                taskId={task.id}
+                side={task.side}
+                parentId={task.parentId}
+                parentTitle={task.parentTitle}
+                hasSubtasks={task.subtasks.length > 0}
+                listQuery={listQuery}
+              />
             </div>
 
-            {!subtask && (
-              <div className="border-t border-border pt-4">
+            {/* Un seul filet sous les propriétés, sous-tâches ou non : le contenu libre commence ici. */}
+            <div className="flex flex-col gap-5 border-t border-border pt-4">
+              {!subtask && (
                 <SubtaskList
                   parentId={task.id}
                   subtasks={task.subtasks}
@@ -433,8 +360,21 @@ export function TaskDetail({
                   today={today}
                   listQuery={listQuery}
                 />
-              </div>
-            )}
+              )}
+              <RelationList
+                taskId={task.id}
+                side={task.side}
+                relations={task.relations}
+                listQuery={listQuery}
+              />
+              <TaskNotesField
+                value={notesDraft}
+                onChange={setNotesDraft}
+                onBlur={saveNotes}
+                disabled={notes.pending}
+                errors={notesErrors}
+              />
+            </div>
 
             <div className="border-t border-border pt-4">
               <motion.button

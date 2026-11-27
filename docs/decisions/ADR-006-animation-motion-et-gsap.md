@@ -15,6 +15,9 @@ La spec du socle imposait GSAP seul. Le § 5 de `nexxia-design` prévoit Motion 
 ## Écart assumé
 Au § 5 de `nexxia-design` : GSAP sert ici à des moments signature, pas seulement à pin, scrub ou défilement horizontal.
 
+## Exception : survol des cartes déplaçables (2026-11-27)
+Le survol d'une carte du tableau des tâches (contour `input`, `shadow-glass`, translation de 2 px) est écrit en CSS (`:hover`), sans Motion. Cause : `whileHover` de Motion se termine avant le `mouseup` de dnd-kit et laisse la carte montée de 2 px après un glisser à la souris. Règle : aucun composant d'animation Motion ou GSAP dans une carte déplaçable. Décision d'Antoine après l'essai iPhone du tableau réel (BRAIN-46).
+
 ## Alternatives écartées
 - GSAP seul : lourd pour les micro-interactions React, et en contradiction avec `nexxia-design`.
 - Motion seul : moins de contrôle sur des séquences chorégraphiées.

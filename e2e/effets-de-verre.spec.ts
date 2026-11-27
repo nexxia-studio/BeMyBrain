@@ -130,7 +130,7 @@ type FrostCase = {
   tile: (page: Page) => Locator;
 };
 
-/** Contenu réel : l'élément qui suit l'en-tête de la page (tuile de la liste ou de la corbeille). */
+/** Contenu réel : l'élément qui suit l'en-tête de la page (section de la liste des tâches, ou tuile de la corbeille). */
 const tileAfterHeader = (page: Page) =>
   page.getByRole("main").locator(":scope > header + *");
 

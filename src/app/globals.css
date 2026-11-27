@@ -5,7 +5,8 @@
 /*
  * Charte BeMyBrain — source unique : DESIGN.md (référence validée :
  * docs/design/references/dashboard-desktop.dc.html et dashboard-mobile.dc.html).
- * Aucune couleur hors de la référence (verrouillé par tests/design/tokens.test.ts).
+ * Aucune couleur hors de la référence, sauf les teintes de priorité de DESIGN.md § 2 (décision d'Antoine du
+ * 2026-11-25) ; verrouillé par tests/design/tokens.test.ts.
  * Thème clair seul ; le sombre redéfinira les mêmes tokens sémantiques (DESIGN.md § Thème sombre).
  */
 
@@ -126,6 +127,14 @@
   --color-chip-warm-foreground: var(--chip-warm-fg);
   --color-chip-indigo: var(--chip-indigo-bg);
   --color-chip-indigo-foreground: var(--chip-indigo-fg);
+  --color-priority-urgent: var(--priority-urgent-bg);
+  --color-priority-urgent-foreground: var(--priority-urgent-fg);
+  --color-priority-high: var(--priority-high-bg);
+  --color-priority-high-foreground: var(--priority-high-fg);
+  --color-priority-medium: var(--priority-medium-bg);
+  --color-priority-medium-foreground: var(--priority-medium-fg);
+  --color-priority-low: var(--priority-low-bg);
+  --color-priority-low-foreground: var(--priority-low-fg);
 
   --radius-tile: var(--tile-radius);
 
@@ -231,6 +240,18 @@
   --chip-warm-fg: var(--ember);
   --chip-indigo-bg: rgb(61 79 214 / 0.13);
   --chip-indigo-fg: var(--indigo-deep);
+  /* Teintes de priorité (DESIGN.md § 2 et § 5, 2026-11-25) : seules couleurs hors de la référence. Échelle rouge,
+     orangé, jaune, vert ; fond pastel un cran plus léger que les pastilles d'espace, encre foncée de la même
+     famille. Toujours avec l'icône du niveau, jamais la couleur seule. Le rouge n'est pas la braise, qui reste le
+     texte du retard et des erreurs. Contrastes verrouillés par src/components/tasks/priority-icons.test.ts. */
+  --priority-urgent-bg: rgb(236 71 100 / 0.11);
+  --priority-urgent-fg: #7f1f31;
+  --priority-high-bg: rgb(236 137 4 / 0.1);
+  --priority-high-fg: #663e06;
+  --priority-medium-bg: rgb(236 210 25 / 0.17);
+  --priority-medium-fg: #564b01;
+  --priority-low-bg: rgb(16 174 101 / 0.1);
+  --priority-low-fg: #01522c;
 
   /* Verre et ombres (mobile d'abord). */
   --glass-bg: rgb(255 255 255 / 0.58);
@@ -507,4 +528,9 @@ html:has(.frost) {
   input[type="radio"] {
     accent-color: var(--primary);
   }
+}
+
+/* Tableau des tâches : la coque n'est plus bornée à 1400 px, les colonnes (320 px) ont toute la largeur. */
+html:has([data-board-columns]) {
+  --container-content: none;
 }

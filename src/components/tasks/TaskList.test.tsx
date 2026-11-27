@@ -22,7 +22,13 @@ const setContextSelection = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/preferences-actions", () => ({ setContextSelection }));
 
 import {
-  TASK_LIST_TILE_CLASSES,
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "./priority-icons";
+import { SubtaskList } from "./SubtaskList";
+import {
+  TASK_LIST_CLASSES,
+  TASK_LIST_ROW_SURFACE_CLASSES,
   TASK_ROW_CLASSES,
   TASK_ROW_LEGEND_CLASSES,
   TASK_ROW_LEGEND_STRUT_CLASSES,
@@ -36,6 +42,7 @@ import {
   TASK_SECTION_HEADING_TEXT,
 } from "./task-list-layout";
 import { TaskList } from "./TaskList";
+import { TaskRow } from "./TaskRow";
 
 function expectClasses(element: HTMLElement, classes: string) {
   expect(element.className.split(/\s+/)).toEqual(
@@ -110,24 +117,101 @@ describe("liste des tâches : sections", () => {
     expect(within(overdue).getByRole("link", { name: /Hier/ })).toBeTruthy();
   });
 
-  it("une seule tuile de verre bornée en largeur, titres de section en surtitre à côté de leur compteur", () => {
+  it("aucun verre : liste bornée en largeur, chaque section est un creux pill-track, titre de section et compteur à l'encre", () => {
     renderList([
       buildTask({ title: "Hier", dueDate: "2026-11-18" }),
       buildTask({ title: "Demain", dueDate: "2026-11-20" }),
     ]);
 
-    const tiles = document.querySelectorAll(".glass");
+    const sections = screen.getAllByRole("region");
     const overdue = screen.getByRole("region", { name: "En retard" });
     const heading = within(overdue).getByRole("heading", { level: 2 });
+    const counter = heading.nextElementSibling as HTMLElement;
 
-    expect(tiles).toHaveLength(1);
-    expect(tiles[0].classList.contains("max-w-3xl")).toBe(true);
-    expect(overdue.classList.contains("glass")).toBe(false);
-    expect(heading.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["text-eyebrow", "text-muted-foreground"]),
-    );
+    expect(document.querySelectorAll(".glass")).toHaveLength(0);
+    expect(overdue.parentElement?.classList.contains("max-w-3xl")).toBe(true);
+    expect(sections).toHaveLength(2);
+    for (const section of sections) {
+      expectClasses(section, "rounded-tile bg-pill-track p-tile");
+    }
+    // Jamais de texte secondaire sur le creux (3,5:1 au cœur d'un halo) : encre, comme l'en-tête de colonne.
+    for (const text of [heading, counter]) {
+      expectClasses(text, "text-eyebrow text-foreground");
+      expect(text.classList.contains("text-muted-foreground")).toBe(false);
+    }
+    expect(counter.textContent).toBe("1");
     expect(heading.parentElement?.classList.contains("justify-between")).toBe(
       false,
+    );
+  });
+
+  it("ligne de la liste : carte claire et opaque (popover, contour border, shadow-raised), survol au contour input", () => {
+    renderList([buildTask({ title: "Hier", dueDate: "2026-11-18" })]);
+
+    const row = screen.getByRole("listitem").firstElementChild as HTMLElement;
+    const classes = row.className.split(/\s+/);
+
+    expectClasses(row, "rounded-lg bg-popover shadow-raised outline-border");
+    expect(classes).not.toContain("bg-row");
+    expect(classes).not.toContain("glass");
+    // Contour tracé vers l'intérieur : la ligne garde sa boîte (44 px sans légende).
+    expectClasses(row, "outline -outline-offset-1");
+    expect(classes).not.toContain("border");
+    expectClasses(
+      row,
+      "has-[a:hover]:bg-popover pointer-fine:has-[a:hover]:outline-input",
+    );
+    expect(classes).not.toContain("has-[a:hover]:bg-accent");
+    expect(classes.some((name) => name.includes("translate"))).toBe(false);
+  });
+
+  it("variante tile : surface row de la tuile strictement inchangée", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TaskRow
+          task={buildTask({ title: "Tuile" })}
+          overdue={false}
+          showDate
+          showContext={false}
+          layout="tile"
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const row = screen
+      .getByRole("link", { name: /Tuile/ })
+      .closest("div.flex-col") as HTMLElement;
+
+    expect(row.className).toBe(
+      "flex flex-col rounded-lg bg-row has-[a:hover]:bg-accent",
+    );
+  });
+
+  it("sous-tâches du détail : lignes bordées sur le popover, inchangées", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <SubtaskList
+          parentId={PARENT_ID}
+          subtasks={[buildTask({ title: "Sous-tâche", parentId: PARENT_ID })]}
+          counter="0/1"
+          today={TODAY}
+          listQuery=""
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const row = screen.getByRole("listitem").firstElementChild as HTMLElement;
+
+    expect(row.className).toBe(
+      "flex flex-col rounded-lg border border-border bg-transparent has-[a:hover]:bg-pill-track",
     );
   });
 
@@ -190,7 +274,7 @@ describe("liste des tâches : sections", () => {
 });
 
 describe("liste des tâches : géométrie partagée avec le givre", () => {
-  it("tuile, section, en-tête et ligne portent les classes de task-list-layout, lues aussi par le givre", () => {
+  it("liste, section, en-tête et ligne portent les classes de task-list-layout, lues aussi par le givre", () => {
     renderList([buildTask({ title: "Hier", dueDate: "2026-11-18" })]);
 
     const section = screen.getByRole("region", { name: "En retard" });
@@ -200,7 +284,7 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
     const line = row.firstElementChild as HTMLElement;
     const text = within(section).getByRole("link");
     const [title, legend] = Array.from(text.children) as HTMLElement[];
-    expectClasses(section.parentElement as HTMLElement, TASK_LIST_TILE_CLASSES);
+    expectClasses(section.parentElement as HTMLElement, TASK_LIST_CLASSES);
     expectClasses(section, TASK_SECTION_CLASSES);
     expectClasses(
       heading.parentElement as HTMLElement,
@@ -208,7 +292,9 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
     );
     expectClasses(heading, TASK_SECTION_HEADING_TEXT);
     expectClasses(item.parentElement as HTMLElement, TASK_ROWS_CLASSES);
-    expectClasses(row, TASK_ROW_CLASSES);
+    // `bg-row` de TASK_ROW_CLASSES est remplacé par la surface de la liste (carte claire).
+    expectClasses(row, TASK_ROW_CLASSES.replace(" bg-row", ""));
+    expectClasses(row, TASK_LIST_ROW_SURFACE_CLASSES);
     expectClasses(line, TASK_ROW_LINE_CLASSES);
     expectClasses(text, TASK_ROW_TEXT_CLASSES);
     expectClasses(title, TASK_ROW_TITLE_TEXT);
@@ -253,6 +339,24 @@ describe("liste des tâches : géométrie partagée avec le givre", () => {
   });
 });
 
+describe("liste des tâches : bloquée", () => {
+  it("une tâche bloquée porte la pastille « Bloquée » dans sa légende, une autre non", () => {
+    renderList(
+      [
+        buildTask({ title: "Attend", blocked: true }),
+        buildTask({ title: "Libre" }),
+      ],
+      { showContext: false },
+    );
+
+    const blocked = screen.getByRole("link", { name: /Attend/ });
+    const free = screen.getByRole("link", { name: /Libre/ });
+
+    expect(within(blocked).getByText("Bloquée")).not.toBeNull();
+    expect(within(free).queryByText("Bloquée")).toBeNull();
+  });
+});
+
 describe("liste des tâches : focus clavier", () => {
   it("le lien de la ligne suit le rayon de la ligne (rounded-lg), anneau de focus arrondi", () => {
     renderList([buildTask({ title: "Payer la crèche" })]);
@@ -290,7 +394,7 @@ describe("liste des tâches : tags", () => {
 });
 
 describe("liste des tâches : priorité", () => {
-  it("une icône distincte par niveau (modèle Linear), 16 px à l'encre, libellé lu inchangé", () => {
+  it("un badge teinté par niveau : forme du badge, teinte et icône du niveau (16 px), libellé lu inchangé", () => {
     renderList(
       [1, 2, 3, 4].map((priority) =>
         buildTask({ title: `Tâche ${priority}`, priority }),
@@ -307,18 +411,125 @@ describe("liste des tâches : priorité", () => {
       const link = screen.getByRole("link", {
         name: new RegExp(`Tâche ${priority}`),
       });
-      const svg = link.querySelector(`svg.${icon}`);
+      const badge = within(link).getByText(label).parentElement!;
+      expectClasses(badge, PRIORITY_BADGE_CLASSES);
+      expectClasses(badge, PRIORITY_TINT_CLASSES[priority]);
+      const svg = badge.querySelector(`svg.${icon}`);
       expect(svg?.getAttribute("class")).toContain("size-4");
-      expect(svg?.getAttribute("class")).toContain("text-foreground");
-      expect(within(link).getByText(label)).toBeTruthy();
+      // L'icône prend l'encre de la teinte, plus l'encre ordinaire.
+      expect(svg?.getAttribute("class")).not.toContain("text-foreground");
     }
   });
 
-  it("aucune icône de priorité pour 0", () => {
+  it("priorité 2 : classe de teinte haute et icône de signal haute dans le badge", () => {
+    renderList([buildTask({ title: "Haute", priority: 2 })]);
+
+    const link = screen.getByRole("link", { name: /Haute/ });
+    const badge = within(link).getByText("Priorité haute").parentElement!;
+
+    expectClasses(
+      badge,
+      "bg-priority-high text-priority-high-foreground size-5 rounded-sm",
+    );
+    expect(badge.querySelector("svg.lucide-signal-high")).not.toBeNull();
+  });
+
+  it("accroche le badge de priorité à la dernière information qui le précède (groupe insécable), compteur à part", () => {
+    renderList([
+      buildTask({
+        title: "Groupée",
+        priority: 2,
+        tags: ["client"],
+        subtaskTotal: 3,
+        subtaskDone: 1,
+      }),
+    ]);
+
+    const link = screen.getByRole("link", { name: /Groupée/ });
+    const group = link.querySelector("[data-legend-group]") as HTMLElement;
+
+    expect(group.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["flex", "flex-nowrap", "min-w-0"]),
+    );
+    expect(group.children).toHaveLength(2);
+    expect(within(group).getByText("client")).toBeTruthy();
+    const badge = within(group).getByText("Priorité haute").parentElement!;
+    expect(badge.parentElement).toBe(group);
+    expectClasses(badge, PRIORITY_TINT_CLASSES[2]);
+    expect(group.querySelector("svg.lucide-list-checks")).toBeNull();
+    expect(link.querySelector("svg.lucide-list-checks")).not.toBeNull();
+  });
+
+  it("sans information avant lui, le badge de priorité reste seul, sans groupe", () => {
+    renderList([buildTask({ title: "Seule", priority: 2 })], {
+      showContext: false,
+    });
+
+    const link = screen.getByRole("link", { name: /Seule/ });
+
+    expect(link.querySelector("[data-legend-group]")).toBeNull();
+    expect(within(link).getByText("Priorité haute")).toBeTruthy();
+  });
+
+  it("variante tile : légende sur une ligne inchangée, aucun groupe, badge teinté du niveau", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TaskRow
+          task={buildTask({ title: "Tuile", priority: 2, tags: ["client"] })}
+          overdue={false}
+          showDate
+          showContext={false}
+          layout="tile"
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const link = screen.getByRole("link", { name: /Tuile/ });
+
+    expect(link.querySelector("[data-legend-group]")).toBeNull();
+    const badge = within(link).getByText("Priorité haute").parentElement!;
+    expectClasses(badge, PRIORITY_BADGE_CLASSES);
+    expectClasses(badge, PRIORITY_TINT_CLASSES[2]);
+    expect(badge.querySelector("svg.lucide-signal-high")).not.toBeNull();
+    const legend = badge.parentElement!;
+    // Coupée au bord en largeur seulement : la hauteur du badge n'est pas rognée par la cale.
+    expectClasses(legend, "flex-nowrap overflow-x-clip whitespace-nowrap");
+    expect(legend.className.split(/\s+/)).not.toContain("overflow-hidden");
+  });
+
+  it("variante tile : ni badge ni icône pour 0", () => {
+    render(
+      <NextIntlClientProvider
+        locale="fr"
+        messages={messages}
+        timeZone={getUserTimeZone()}
+      >
+        <TaskRow
+          task={buildTask({ title: "Tuile", priority: 0, tags: ["client"] })}
+          overdue={false}
+          showDate
+          showContext={false}
+          layout="tile"
+        />
+      </NextIntlClientProvider>,
+    );
+
+    const link = screen.getByRole("link", { name: /Tuile/ });
+
+    expect(link.querySelector("[class*='bg-priority-']")).toBeNull();
+    expect(link.querySelector("svg[class*='lucide-signal']")).toBeNull();
+  });
+
+  it("ni badge ni icône de priorité pour 0", () => {
     renderList([buildTask({ title: "Sans priorité", priority: 0 })]);
 
     const link = screen.getByRole("link", { name: /Sans priorité/ });
 
+    expect(link.querySelector("[class*='bg-priority-']")).toBeNull();
     expect(link.querySelector("svg[class*='lucide-signal']")).toBeNull();
     expect(
       link.querySelector("svg.lucide-square-exclamation-point"),

@@ -26,6 +26,7 @@ import { TASK_TITLE_MAX } from "@/modules/tasks/sides";
 import type { QuickAddFormProps } from "../quick-add/quick-add-types";
 import { ContextChip } from "./ContextChip";
 import { type DueDate, DueDateChip } from "./DueDateChip";
+import { loadWorkspaceTags } from "./load-workspace-tags";
 import { TagsChip } from "./TagsChip";
 
 type Status =
@@ -138,6 +139,7 @@ export function TaskQuickAddForm({
             emptyLabel="label"
           />
           <TagsChip
+            loadTags={loadWorkspaceTags}
             key={`tags-${round}`}
             value={tags}
             onChange={setTags}

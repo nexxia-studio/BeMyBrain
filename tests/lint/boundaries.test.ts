@@ -607,3 +607,129 @@ describe("createRequire dans src", () => {
     );
   });
 });
+
+// Tableau kanban (BRAIN-46) : dnd-kit n'entre que par src/components/kanban/SortableBoard.tsx.
+// Une config par zone pose no-restricted-imports / no-restricted-syntax : un fichier par zone.
+const DND_KIT_GUARDED_FILES = [
+  "src/components/tasks/TaskList.tsx",
+  "src/components/kanban/SortableBoard.test.tsx",
+  "src/components/kanban/OtherBoard.tsx",
+  "src/components/tasks/TaskBoard.tsx",
+  "src/modules/tasks/queries.ts",
+  "src/modules/tasks/actions.ts",
+  "src/modules/actions/probe.ts",
+  "src/modules/actions/run.ts",
+  "src/lib/probe.ts",
+  "src/lib/probe.test.ts",
+  "src/db/probe.ts",
+  "src/db/probe.test.ts",
+  "src/db/migration-env.ts",
+  "tests/lint/probe.test.ts",
+  "e2e/probe.spec.ts",
+  "scripts/probe.ts",
+];
+
+// Chemins d'accès qui échappent à no-restricted-imports.
+const DND_KIT_INDIRECT_IMPORTS = {
+  "import()": 'export const x = await import("@dnd-kit/core");\n',
+  require: 'export const x = require("@dnd-kit/sortable");\n',
+  "typeof import()": 'export type X = typeof import("@dnd-kit/core");\n',
+  "vi.mock": 'vi.mock("@dnd-kit/core");\n',
+  "vi.doMock": 'vi.doMock("@dnd-kit/core", () => ({}));\n',
+  "vi.unmock": 'vi.unmock("@dnd-kit/core");\n',
+  "vi.doUnmock": 'vi.doUnmock("@dnd-kit/core");\n',
+  "vi.importActual":
+    'export const x = await vi.importActual("@dnd-kit/utilities");\n',
+  "vi.importMock": 'export const x = await vi.importMock("@dnd-kit");\n',
+};
+
+describe("verrou d'import de dnd-kit", () => {
+  const dndKitImport =
+    'import { DndContext } from "@dnd-kit/core";\nexport const x = DndContext;\n';
+  const isDndKitError = (message: string) => /dnd-kit/.test(message);
+
+  it.each(DND_KIT_GUARDED_FILES)(
+    "eslint refuse @dnd-kit/core dans %s",
+    async (filePath) => {
+      const errors = await restrictedImportRules(dndKitImport, filePath);
+
+      expect(errors.filter(isDndKitError).length).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(
+    DND_KIT_GUARDED_FILES.flatMap((filePath) =>
+      Object.entries(DND_KIT_INDIRECT_IMPORTS).map(
+        ([form, code]) => [form, filePath, code] as const,
+      ),
+    ),
+  )("eslint refuse dnd-kit par %s dans %s", async (_form, filePath, code) => {
+    const errors = await restrictedImportRules(code, filePath);
+
+    expect(errors.filter(isDndKitError).length).toBeGreaterThan(0);
+  });
+
+  it.each(Object.entries(DND_KIT_INDIRECT_IMPORTS))(
+    "eslint laisse dnd-kit par %s à SortableBoard.tsx",
+    async (_form, code) => {
+      const errors = await restrictedImportRules(
+        code,
+        "src/components/kanban/SortableBoard.tsx",
+      );
+
+      expect(errors.filter(isDndKitError)).toEqual([]);
+    },
+  );
+
+  it.each(["@dnd-kit/sortable", "@dnd-kit/utilities", "@dnd-kit"])(
+    "eslint refuse aussi %s hors de SortableBoard",
+    async (source) => {
+      const code = `import * as dnd from "${source}";\nexport const x = dnd;\n`;
+
+      const errors = await restrictedImportRules(
+        code,
+        "src/components/tasks/TaskList.tsx",
+      );
+
+      expect(errors.filter(isDndKitError).length).toBeGreaterThan(0);
+    },
+  );
+
+  it("eslint laisse dnd-kit à SortableBoard.tsx", async () => {
+    const errors = await restrictedImportRules(
+      dndKitImport,
+      "src/components/kanban/SortableBoard.tsx",
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  it.each([
+    [
+      "createRequire",
+      'import { createRequire } from "node:module";\nexport const x = createRequire;\n',
+    ],
+    ["require de src/db", 'export const x = require("@/db/client");\n'],
+  ])(
+    "SortableBoard.tsx garde le socle de syntaxe : %s y reste refusé",
+    async (_form, code) => {
+      const errors = await restrictedImportRules(
+        code,
+        "src/components/kanban/SortableBoard.tsx",
+      );
+
+      expect(errors.length).toBeGreaterThan(0);
+    },
+  );
+
+  it("SortableBoard.tsx garde les autres frontières de l'UI", async () => {
+    const code = 'import { db } from "@/db/client";\nexport const x = db;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/components/kanban/SortableBoard.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+});

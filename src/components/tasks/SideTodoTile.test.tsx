@@ -15,6 +15,10 @@ import { buildTask } from "../../../tests/factories/build-task";
 const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
+import {
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "./priority-icons";
 import { SideTodoTile } from "./SideTodoTile";
 
 const TODAY = "2026-11-19";
@@ -134,6 +138,29 @@ describe("tuile « To-do pro »", () => {
     expect(within(link).getByText("Trustup")).toBeTruthy();
   });
 
+  it("priorité en badge teinté à icône dans la ligne de la tuile, rien pour 0", () => {
+    renderTile([
+      buildTask({ side: "pro", title: "Urgente du jour", priority: 1 }),
+      buildTask({ side: "pro", title: "Ordinaire", priority: 0 }),
+    ]);
+
+    const urgent = within(tile()).getByRole("link", {
+      name: /Urgente du jour/,
+    });
+    const badge = within(urgent).getByText("Priorité urgente").parentElement!;
+    expect(badge.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        ...PRIORITY_BADGE_CLASSES.split(" "),
+        ...PRIORITY_TINT_CLASSES[1].split(" "),
+      ]),
+    );
+    expect(
+      badge.querySelector("svg.lucide-square-exclamation-point"),
+    ).not.toBeNull();
+    const plain = within(tile()).getByRole("link", { name: /Ordinaire/ });
+    expect(plain.querySelector("[class*='bg-priority-']")).toBeNull();
+  });
+
   it("espaces nommés dans leur couleur : Trustup chip-warm, Nexxia chip-indigo", () => {
     renderTile([]);
 
@@ -217,7 +244,8 @@ describe("tuile « To-do pro »", () => {
     expect(titleSpan.classList.contains("truncate")).toBe(true);
     expect(titleSpan.classList.contains("line-clamp-2")).toBe(false);
     expect(legend?.classList.contains("flex-nowrap")).toBe(true);
-    expect(legend?.classList.contains("overflow-hidden")).toBe(true);
+    // Coupée au bord en largeur seulement (`overflow-x-clip`) : le badge de priorité n'est pas rogné en hauteur.
+    expect(legend?.classList.contains("overflow-x-clip")).toBe(true);
     expect(spaces.classList.contains("flex-nowrap")).toBe(true);
     expect(spaces.classList.contains("overflow-hidden")).toBe(true);
   });

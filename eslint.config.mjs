@@ -49,13 +49,32 @@ const processImports = [
   { name: "node:process", message: processImportMessage },
 ];
 
-const restrictedImports = (...patterns) => [
-  "error",
-  {
-    paths: processImports,
-    patterns: [...patterns, privilegedDbImports, driverImports],
-  },
-];
+// Glisser-déposer (démo kanban, BRAIN-46) : dnd-kit n'entre que par SortableBoard.tsx, tests compris.
+// Imports statiques (dndKitImports) et chemins détournés (dndKitSyntax : import(), require, typeof import(),
+// vi.mock & co). Posé sur tout le dépôt (dndKitEverywhere), repris par chaque config de src qui pose la règle
+// (socles importSocle et syntaxSocle + dnd-kit), levé pour ce seul fichier en dernier (sortableBoardBoundaries).
+// Contournements délibérés non couverts (verrou de relecture, pas une barrière) : gabarit de chaîne dans import()
+// dans tests/, e2e/, scripts/ et src/db/ (ailleurs dans src/, commonSyntax refuse déjà toute source non
+// littérale) ; `vi` renommé (`const v = vi; v.mock(...)`) ou importé sous un autre nom.
+const SORTABLE_BOARD = "src/components/kanban/SortableBoard.tsx";
+const dndKitMessage =
+  "dnd-kit est réservé à src/components/kanban/SortableBoard.tsx : passer par ce composant.";
+const dndKitImports = {
+  group: ["@dnd-kit", "@dnd-kit/*"],
+  message: dndKitMessage,
+};
+
+const restrictedImportsOver =
+  (socle) =>
+  (...patterns) => [
+    "error",
+    { paths: processImports, patterns: [...patterns, ...socle] },
+  ];
+const importSocle = [privilegedDbImports, driverImports];
+const restrictedImports = restrictedImportsOver([
+  ...importSocle,
+  dndKitImports,
+]);
 
 // Sélecteurs esquery : une regex esquery ne peut pas contenir « / », d'où /.
 const DB_SOURCE = "/(^|\\u002F)db(\\u002F|$)/";
@@ -144,6 +163,17 @@ const localRegistryImportSyntax = importSyntaxFor(
   registryImportMessage,
 );
 
+// Sélecteurs dnd-kit (voir dndKitImports) : les formes de importSyntaxFor, plus le type importé et les mocks
+// de Vitest, qui chargent le module sans passer par no-restricted-imports.
+const DND_KIT_SOURCE = "/^@dnd-kit(\\u002F|$)/";
+const dndKitSyntax = [
+  ...importSyntaxFor(DND_KIT_SOURCE, dndKitMessage),
+  ...[
+    `TSImportType[argument.literal.value=${DND_KIT_SOURCE}]`,
+    `CallExpression[callee.object.name='vi'][callee.property.name=/^(mock|doMock|unmock|doUnmock|importActual|importMock)$/][arguments.0.value=${DND_KIT_SOURCE}]`,
+  ].map((selector) => ({ selector, message: dndKitMessage })),
+];
+
 // createRequire (et le module « module » qui le fournit) charge n'importe quel chemin sans passer par
 // no-restricted-imports ni par les sélecteurs require/import ci-dessus : interdit dans tout src/, src/db compris.
 // Les fichiers de test de src/ le gardent (testFileSyntax, sans ces sélecteurs).
@@ -157,12 +187,16 @@ const createRequireSyntax = [
   ...importSyntaxFor("/^(node:)?module$/", createRequireMessage),
 ];
 
-const restrictedSyntax = (...extra) => [
-  "error",
+const syntaxSocle = [
   ...commonSyntax,
   ...testsImportSyntax,
   ...registryImportSyntax,
   ...createRequireSyntax,
+];
+const restrictedSyntax = (...extra) => [
+  "error",
+  ...syntaxSocle,
+  ...dndKitSyntax,
   ...extra,
 ];
 
@@ -185,6 +219,7 @@ const dbBoundaries = {
       ...testsImportSyntax,
       ...registryImportSyntax,
       ...createRequireSyntax,
+      ...dndKitSyntax,
     ],
   },
 };
@@ -197,25 +232,49 @@ const migrationEnvBoundaries = {
       "error",
       ...testsImportSyntax,
       ...createRequireSyntax,
+      ...dndKitSyntax,
     ],
   },
 };
 
+const uiPatterns = [
+  {
+    group: [
+      "drizzle-orm",
+      "drizzle-orm/*",
+      "@/db",
+      "@/db/*",
+      "**/db",
+      "**/db/*",
+    ],
+    message:
+      "Pas d'accès base depuis l'UI : passer par src/modules/<module>/ (ADR-002).",
+  },
+];
+
 const uiBoundaries = {
   files: ["src/app/**", "src/components/**"],
   rules: {
-    "no-restricted-imports": restrictedImports({
-      group: [
-        "drizzle-orm",
-        "drizzle-orm/*",
-        "@/db",
-        "@/db/*",
-        "**/db",
-        "**/db/*",
-      ],
-      message:
-        "Pas d'accès base depuis l'UI : passer par src/modules/<module>/ (ADR-002).",
-    }),
+    "no-restricted-imports": restrictedImports(...uiPatterns),
+  },
+};
+
+// Tout le dépôt (tests/, e2e/, scripts/ compris) ; les configs de src/ qui suivent le reprennent.
+const dndKitEverywhere = {
+  files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+  rules: {
+    "no-restricted-imports": ["error", { patterns: [dndKitImports] }],
+    "no-restricted-syntax": ["error", ...dndKitSyntax],
+  },
+};
+
+// Seule exception : mêmes socles que src/components (srcBoundaries, uiBoundaries), sans dnd-kit.
+// Placé en dernier (la dernière config l'emporte).
+const sortableBoardBoundaries = {
+  files: [SORTABLE_BOARD],
+  rules: {
+    "no-restricted-imports": restrictedImportsOver(importSocle)(...uiPatterns),
+    "no-restricted-syntax": ["error", ...syntaxSocle],
   },
 };
 
@@ -265,6 +324,7 @@ const actionsModuleSyntax = [
         ...commonSyntax,
         ...testsImportSyntax,
         ...createRequireSyntax,
+        ...dndKitSyntax,
       ],
     },
   },
@@ -304,23 +364,37 @@ const testFileSyntax = [
   {
     files: TEST_FILES,
     ignores: ["src/db/**", "src/lib/**"],
-    rules: { "no-restricted-syntax": ["error", ...commonSyntax] },
+    rules: {
+      "no-restricted-syntax": ["error", ...commonSyntax, ...dndKitSyntax],
+    },
   },
   {
     files: TEST_FILES.map((glob) => glob.replace("src/", "src/lib/")),
     rules: {
-      "no-restricted-syntax": ["error", ...commonSyntax, ...libReexportSyntax],
+      "no-restricted-syntax": [
+        "error",
+        ...commonSyntax,
+        ...libReexportSyntax,
+        ...dndKitSyntax,
+      ],
     },
   },
   {
     files: TEST_FILES.map((glob) => glob.replace("src/", "src/db/")),
-    rules: { "no-restricted-syntax": ["error", ...processEnvDatabaseUrl] },
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...processEnvDatabaseUrl,
+        ...dndKitSyntax,
+      ],
+    },
   },
 ];
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  dndKitEverywhere,
   srcBoundaries,
   dbBoundaries,
   migrationEnvBoundaries,
@@ -330,6 +404,7 @@ const eslintConfig = defineConfig([
   ...actionsModuleSyntax,
   libBoundaries,
   ...testFileSyntax,
+  sortableBoardBoundaries,
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

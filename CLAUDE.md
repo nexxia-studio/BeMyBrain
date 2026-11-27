@@ -30,9 +30,11 @@
 
 ## Workflow
 0. Nouveau client Studio : `/brief-client <nom> <url>` d'abord (Firecrawl → brief, questions, curseurs design).
-1. `/feature <nom>` : `explorer` cartographie l'existant (via Graphify si `graphify-out/` existe) → `brainstorming` → spec → `writing-plans` → plan.
-2. Exécution : `subagent-driven-development` en dispatchant **`subagent_type: implementer`** pour chaque tâche et **`subagent_type: reviewer`** pour chaque review, à la place des prompts par défaut du skill. L'implementer commit sur la branche de feature ; le reviewer relit `git diff <base>..HEAD`.
-3. Tâche marquée `[security]` dans le plan → dispatcher `security-auditor` après le reviewer. Rien ne le lance automatiquement.
+1. `/feature <nom>` sur **Opus** : `explorer` cartographie l'existant (via Graphify si `graphify-out/` existe) → `brainstorming` → spec → `writing-plans` → plan. Plan committé, puis `/clear` et `/model sonnet` pour l'exécution.
+2. Exécution (session sur **Sonnet**) : `subagent-driven-development` en dispatchant **`subagent_type: implementer`** pour chaque tâche et **`subagent_type: reviewer`** pour les reviews, à la place des prompts par défaut du skill. L'implementer commit sur la branche de feature ; le reviewer relit `git diff <base>..HEAD`.
+   - Relecture **par bloc** de tâches (base = commit d'avant le bloc), pas par tâche. Exceptions relues une par une : tâches `[security]` et tâches qui portent une migration.
+   - Tests ciblés pendant une tâche (`pnpm vitest run <fichier>`, e2e du fichier concerné). Suite complète (`pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm e2e`) une seule fois, avant la PR.
+3. Marquage `[security]` **obligatoire** dans le plan pour toute tâche qui touche une migration (`drizzle/`), la RLS ou une policy (`src/db/`), l'auth ou la session, une action du registre (`src/modules/actions/`), une action serveur qui écrit, ou les paiements. Tâche marquée `[security]` → dispatcher `security-auditor` après son reviewer. Aucun autre audit, pas d'audit de clôture. Rien ne le lance automatiquement.
 4. `/qa <nom>` quand le plan est fini : `qa-tester` joue les scénarios de la spec dans le navigateur.
 5. `/handoff` en fin de session : `scribe` met à jour docs/ et donne la commande de reprise.
 6. Agents sans Bash restrictif : « lecture seule » est une convention écrite dans chaque agent, pas une barrière technique. Les commandes destructives sont bloquées dans `.claude/settings.json`.

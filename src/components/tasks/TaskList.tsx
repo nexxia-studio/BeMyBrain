@@ -1,11 +1,14 @@
 "use client";
 
 // Curseurs nexxia-design (spec todo-unifiee, UI) : VARIANCE 3 · MOTION 4 · DENSITY 6.
-// Liste `/tasks` (spec todo-unifiee, « Liste ») : une seule tuile en verre, sections d'échéance dedans (En
-// retard, Aujourd'hui, Demain, Plus tard, Sans échéance, puis Terminées si l'interrupteur les montre), titre de
-// section en surtitre suivi de son compteur, lignes `row` (jamais de verre sur du verre). Une colonne à toutes
-// les largeurs ; sur ordinateur, tuile bornée (`max-w-3xl`) pour que titre et légende restent dans le regard. Règles de sections et d'ordre : `groupBySection`
-// (src/modules/tasks/view.ts), pas ici.
+// Liste `/tasks` (spec todo-unifiee, « Liste » ; surfaces « Creux » de la spec todo-kanban, DESIGN.md § 5) :
+// sections d'échéance (En retard, Aujourd'hui, Demain, Plus tard, Sans échéance, puis Terminées si l'interrupteur
+// les montre), chacune dans un creux `pill-track` posé à nu sur la brume, comme une colonne du tableau : aucun
+// verre. Titre de section en surtitre suivi de son compteur, tous deux à l'encre (jamais de texte secondaire sur
+// le creux) ; lignes en cartes claires (`popover`, contour `border`, `shadow-raised`). Survol d'une ligne
+// (pointeur fin) : contour `input`, sans montée (une ligne n'est pas déplaçable). État vide : une tuile de verre.
+// Une colonne à toutes les largeurs ; sur ordinateur, liste bornée (`max-w-3xl`) pour que titre et légende
+// restent dans le regard. Règles de sections et d'ordre : `groupBySection` (src/modules/tasks/view.ts), pas ici.
 // Mouvement (DESIGN.md § 7) : une ligne qui quitte la liste (cochée, rendu serveur reçu) sort en `opacity`
 // + `y` 8, ressort sans rebond, 0,3 s ; une section vidée sort de même. Rien à l'affichage initial.
 // MotionConfig reducedMotion="user" (coque) coupe le déplacement.
@@ -21,7 +24,8 @@ import { groupBySection, type SectionKey } from "@/modules/tasks/view";
 
 import { ShowAllSpacesButton } from "./ShowAllSpacesButton";
 import {
-  TASK_LIST_TILE_CLASSES,
+  TASK_LIST_CLASSES,
+  TASK_LIST_ROW_SURFACE_CLASSES,
   TASK_ROWS_CLASSES,
   TASK_SECTION_CLASSES,
   TASK_SECTION_HEADER_CLASSES,
@@ -31,6 +35,13 @@ import { TaskRow } from "./TaskRow";
 
 const LEAVE = { opacity: 0, y: 8 };
 const SPRING = { type: "spring", bounce: 0, duration: 0.3 } as const;
+
+// Ligne de la liste : carte claire à la place de `row` ; au survol du lien, le fond reste opaque et le contour
+// passe à `input` (comme une carte du tableau, sans ombre ajoutée ni montée).
+const ROW_SURFACE = cn(
+  TASK_LIST_ROW_SURFACE_CLASSES,
+  "has-[a:hover]:bg-popover pointer-fine:has-[a:hover]:outline-input",
+);
 
 // La section dit déjà le jour : la date n'est pas répétée sur chaque ligne.
 const SECTIONS_WITHOUT_DATE: readonly SectionKey[] = ["today", "tomorrow"];
@@ -89,7 +100,7 @@ export function TaskList({
   }
 
   return (
-    <div className={cn("glass", TASK_LIST_TILE_CLASSES)}>
+    <div className={TASK_LIST_CLASSES}>
       <AnimatePresence initial={false}>
         {sections.map((section) => {
           const headingId = `tasks-section-${section.key}`;
@@ -106,7 +117,7 @@ export function TaskList({
                   id={headingId}
                   className={cn(
                     TASK_SECTION_HEADING_TEXT,
-                    "text-muted-foreground uppercase",
+                    "text-foreground uppercase",
                   )}
                 >
                   {t(`sections.${section.key}`)}
@@ -115,7 +126,7 @@ export function TaskList({
                   aria-hidden="true"
                   className={cn(
                     TASK_SECTION_HEADING_TEXT,
-                    "font-heading text-muted-foreground",
+                    "font-heading text-foreground",
                   )}
                 >
                   {section.tasks.length}
@@ -137,6 +148,7 @@ export function TaskList({
                         showDate={!SECTIONS_WITHOUT_DATE.includes(section.key)}
                         showContext={showContext}
                         listQuery={listQuery}
+                        className={ROW_SURFACE}
                       />
                     </motion.li>
                   ))}

@@ -1,11 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
-
-vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
 
 import { TagsChip } from "./TagsChip";
 
@@ -13,6 +11,7 @@ function renderChip(
   locale: "fr" | "en",
   value: string[],
   emptyLabel: "label" | "none" = "none",
+  loadTags: () => Promise<string[] | null> = async () => [],
 ) {
   render(
     <NextIntlClientProvider
@@ -24,6 +23,7 @@ function renderChip(
         onChange={vi.fn()}
         disabled={false}
         emptyLabel={emptyLabel}
+        loadTags={loadTags}
       />
     </NextIntlClientProvider>,
   );
@@ -65,5 +65,27 @@ describe("pastille Tags", () => {
     const chip = renderChip("en", ["client", "home"]);
 
     expect(chip.textContent).toBe("client, home");
+  });
+
+  it("lit les tags par le chargeur reçu, à la première ouverture seulement", async () => {
+    const loadTags = vi.fn(async () => ["client", "maison"]);
+    const chip = renderChip("fr", [], "none", loadTags);
+
+    fireEvent.click(chip);
+
+    expect(
+      await screen.findByRole("button", { name: "maison", pressed: false }),
+    ).toBeTruthy();
+    expect(loadTags).toHaveBeenCalledOnce();
+  });
+
+  it("chargeur en échec : message, la création reste possible", async () => {
+    const chip = renderChip("fr", [], "none", async () => null);
+
+    fireEvent.click(chip);
+
+    expect(
+      await screen.findByText(fr.tasks.quickAdd.tags.loadFailed),
+    ).toBeTruthy();
   });
 });

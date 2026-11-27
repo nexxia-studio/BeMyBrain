@@ -4,7 +4,7 @@
 // Pastille Tags de l'ajout rapide (Popover de Base UI : clavier, Échap, focus rendu à la pastille).
 // Champ de recherche (libellé visible), tags du workspace filtrés en tapant (boutons `aria-pressed`, plusieurs à la fois),
 // « Créer « … » » quand le nom n'existe pas (sans casse : `findTagName`). Entrée choisit le tag tapé.
-// Tags lus à la première ouverture de la pastille (`tasks.listTags`), relus après chaque ajout réussi (le
+// Tags lus à la première ouverture de la pastille par le chargeur reçu (`loadWorkspaceTags` : `tasks.listTags`), relus après chaque ajout réussi (le
 // formulaire remonte la pastille) : un ajout sans tag ne coûte aucune lecture. Lecture en échec : message, la création reste possible.
 import { Popover } from "@base-ui/react/popover";
 import { Check, Plus, Tag } from "lucide-react";
@@ -12,8 +12,6 @@ import { motion } from "motion/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
-import { runAppAction } from "@/app/(app)/tasks/actions";
-import { settleAction } from "@/lib/settle-action";
 import { cn } from "@/lib/utils";
 import { TAG_NAME_MAX, TASK_TAGS_PER_WRITE_MAX } from "@/modules/tasks/sides";
 import { findTagName, matchTagNames, tagList } from "@/modules/tasks/view";
@@ -40,6 +38,8 @@ type TagsChipProps = {
    * `none` dit l'absence (détail, où la ligne nomme déjà le champ). Le nom accessible garde `none`.
    */
   emptyLabel: "label" | "none";
+  /** Noms des tags connus, `null` si la lecture échoue (`loadWorkspaceTags`, ou une liste locale). */
+  loadTags: () => Promise<string[] | null>;
 };
 
 type Known =
@@ -49,17 +49,6 @@ type Known =
       names: string[];
     };
 
-/** Noms des tags renvoyés par `tasks.listTags` (forme vérifiée : la Server Action renvoie `unknown`). */
-function tagNames(result: unknown): string[] | null {
-  if (!Array.isArray(result)) return null;
-  const names = result.map((tag: unknown) =>
-    typeof tag === "object" && tag !== null && "name" in tag
-      ? tag.name
-      : undefined,
-  );
-  return names.every((name) => typeof name === "string") ? names : null;
-}
-
 export function TagsChip({
   value,
   onChange,
@@ -67,6 +56,7 @@ export function TagsChip({
   onOpenChange: notifyOpenChange,
   describedBy,
   emptyLabel,
+  loadTags,
 }: TagsChipProps) {
   const t = useTranslations("tasks.quickAdd.tags");
   const locale = useLocale();
@@ -89,11 +79,7 @@ export function TagsChip({
 
   async function load() {
     setKnown({ state: "loading" });
-    const outcome = await settleAction(() =>
-      runAppAction("tasks.listTags", {}),
-    );
-    const names =
-      outcome.ok && outcome.value.ok ? tagNames(outcome.value.result) : null;
+    const names = await loadTags();
     setKnown(names ? { state: "loaded", names } : { state: "failed" });
   }
 

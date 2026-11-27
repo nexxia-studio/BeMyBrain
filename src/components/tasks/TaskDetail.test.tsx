@@ -26,6 +26,10 @@ vi.mock("next/navigation", async (importOriginal) => ({
   usePathname: () => pathname.current,
 }));
 
+import {
+  PRIORITY_BADGE_CLASSES,
+  PRIORITY_TINT_CLASSES,
+} from "./priority-icons";
 import { TaskDetail } from "./TaskDetail";
 import { TaskTrashProvider } from "./TaskTrashProvider";
 
@@ -416,6 +420,58 @@ describe("détail : sous-tâches", () => {
     await waitFor(() => expect((field as HTMLInputElement).value).toBe(""));
   });
 
+  it("sans aucune sous-tâche : le champ est là, sur une ligne à icône « + », focus gardé après l'ajout", async () => {
+    renderDetail(buildDetail({ subtasks: [] }));
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    }) as HTMLInputElement;
+    expect(field.placeholder).toBe("Ajouter une sous-tâche");
+    expect(field.closest("form")!.querySelector("svg.lucide-plus")).not.toBe(
+      null,
+    );
+
+    // La fenêtre pose son focus de départ (croix) juste après le rendu : attendu avant de focaliser le champ.
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    field.focus();
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    await waitFor(() => expect(field.value).toBe(""));
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("ajout refusé par le registre : message du code sous le champ, saisie gardée", async () => {
+    runAppAction.mockImplementation(async () => ({
+      ok: false,
+      code: "not_found",
+    }));
+    renderDetail();
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    }) as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(messages.tasks.errors.not_found);
+    expect(field.value).toBe("Préparer le devis");
+  });
+
+  it("ajout en panne (action rejetée) : « Sous-tâche non ajoutée. Réessaie. »", async () => {
+    runAppAction.mockRejectedValue(new Error("panne"));
+    renderDetail();
+    const field = screen.getByRole("textbox", {
+      name: "Ajouter une sous-tâche",
+    });
+
+    fireEvent.change(field, { target: { value: "Préparer le devis" } });
+    fireEvent.submit(field.closest("form") as HTMLFormElement);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(messages.tasks.detail.subtasks.addFailed);
+  });
+
   it("sous-tâches listées, cochables, avec lien vers leur détail", () => {
     const subtask = buildTask({ title: "Préparer le devis", parentTitle: "x" });
     renderDetail(buildDetail({ subtasks: [subtask] }));
@@ -450,7 +506,9 @@ describe("détail : sous-tâches", () => {
     ).toBeNull();
     expect(screen.queryByRole("button", { name: /^Côté :/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Espace :/ })).toBeNull();
-    expect(screen.getByText("Comme la tâche parente")).toBeTruthy();
+    expect(
+      screen.getByText("Côté et espace : comme la tâche parente"),
+    ).toBeTruthy();
   });
 });
 
@@ -840,7 +898,7 @@ describe("détail : mise en page", () => {
     expect(within(row).getByText("Titre", { selector: "label" })).toBeTruthy();
   });
 
-  it("sous-tâche : la croix reste à côté du lien vers la parente", () => {
+  it("sous-tâche : la croix reste sur la rangée du titre, sans lien vers la parente en tête", () => {
     renderDetail(
       buildDetail({
         parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
@@ -850,10 +908,8 @@ describe("détail : mise en page", () => {
 
     const row = screen.getByRole("button", { name: "Fermer" }).parentElement!;
 
-    expect(
-      within(row).getByRole("link", { name: /Relancer le devis/ }),
-    ).toBeTruthy();
-    expect(within(row).queryByText("Titre", { selector: "label" })).toBeNull();
+    expect(within(row).queryByRole("link")).toBeNull();
+    expect(within(row).getByRole("textbox", { name: "Titre" })).toBeTruthy();
   });
 
   it("sur ordinateur, le panneau démarre sous l'en-tête de la coque et s'aligne sur son bord droit", () => {
@@ -867,40 +923,327 @@ describe("détail : mise en page", () => {
   });
 });
 
-describe("détail : icônes de priorité", () => {
-  it("la pastille Priorité prend l'icône du niveau, la même que dans la liste", () => {
-    renderDetail(buildDetail({ priority: 2 }));
+describe("détail : priorité teintée", () => {
+  it.each([
+    [1, "lucide-square-exclamation-point"],
+    [2, "lucide-signal-high"],
+    [3, "lucide-signal-medium"],
+    [4, "lucide-signal-low"],
+  ] as const)(
+    "niveau %i : la pastille Priorité prend l'icône du niveau sur son fond teinté, libellé à l'encre de la teinte",
+    (priority, icon) => {
+      renderDetail(buildDetail({ priority }));
 
-    const trigger = chip(/^Priorité :/);
+      const trigger = chip(/^Priorité :/);
+      const classes = trigger.className.split(/\s+/);
 
-    expect(trigger.querySelector("svg.lucide-signal-high")).not.toBeNull();
-  });
+      expect(classes).toEqual(
+        expect.arrayContaining(PRIORITY_TINT_CLASSES[priority].split(" ")),
+      );
+      expect(classes).not.toContain("bg-secondary");
+      expect(classes).not.toContain("text-foreground");
+      // Forme des pastilles de champ gardée (44 px, pilule).
+      expect(classes).toEqual(
+        expect.arrayContaining(["min-h-11", "rounded-full", "text-small"]),
+      );
+      const svg = trigger.querySelector(`svg.${icon}`)!;
+      expect(svg.getAttribute("class")).not.toMatch(/\btext-/);
+    },
+  );
 
-  it("sans priorité, la pastille garde l'icône du champ, sans point isolé", () => {
+  it("sans priorité, la pastille reste neutre et garde l'icône du champ, sans point isolé", () => {
     renderDetail(buildDetail({ priority: 0 }));
 
     const trigger = chip(/^Priorité :/);
 
     expect(trigger.querySelector("svg.lucide-flag")).not.toBeNull();
     expect(trigger.querySelector("svg.lucide-signal-zero")).toBeNull();
+    expect(trigger.className).not.toContain("priority");
+    expect(trigger.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["bg-secondary", "text-foreground"]),
+    );
   });
 
-  it("le menu montre une icône distincte pour chaque niveau, aucune pour « Aucune »", async () => {
+  it("le menu montre un badge teinté à icône distincte devant chaque niveau, rien devant « Aucune »", async () => {
     renderDetail();
 
     fireEvent.click(chip(/^Priorité :/));
 
-    const levelIcon = async (name: string) => {
+    const levels = [
+      ["Urgente", 1],
+      ["Haute", 2],
+      ["Moyenne", 3],
+      ["Basse", 4],
+    ] as const;
+    const icons: string[] = [];
+    for (const [name, level] of levels) {
       const item = await screen.findByRole("menuitemradio", { name });
-      return [...item.querySelectorAll("svg")]
-        .map((svg) => svg.getAttribute("class") ?? "")
-        .find((cls) => !cls.includes("lucide-check"));
-    };
-    const icons = await Promise.all(
-      ["Urgente", "Haute", "Moyenne", "Basse"].map(levelIcon),
-    );
+      const svg = [...item.querySelectorAll("svg")].find(
+        (each) => !each.classList.contains("lucide-check"),
+      )!;
+      icons.push(svg.getAttribute("class") ?? "");
+      const badge = svg.parentElement!;
+      expect(badge.className.split(/\s+/)).toEqual(
+        expect.arrayContaining([
+          ...PRIORITY_BADGE_CLASSES.split(" "),
+          ...PRIORITY_TINT_CLASSES[level].split(" "),
+        ]),
+      );
+      expect(badge.getAttribute("aria-hidden")).toBe("true");
+      // Le libellé du menu reste à l'encre ordinaire, hors du badge.
+      expect(badge.textContent).toBe("");
+    }
     expect(new Set(icons).size).toBe(4);
+    const none = await screen.findByRole("menuitemradio", { name: "Aucune" });
+    expect(none.querySelector("svg:not(.lucide-check)")).toBeNull();
+    expect(none.querySelector("[class*='bg-priority-']")).toBeNull();
+  });
+
+  it("Statut et Côté gardent la pastille ordinaire", () => {
+    renderDetail();
+
+    for (const field of [/^Statut :/, /^Côté :/]) {
+      const classes = chip(field).className.split(/\s+/);
+      expect(classes).toEqual(
+        expect.arrayContaining(["bg-secondary", "text-foreground"]),
+      );
+      expect(chip(field).className).not.toContain("priority");
+    }
+  });
+});
+
+/** `a` est avant `b` dans le document. */
+function precedes(a: Element, b: Element) {
+  return Boolean(
+    a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
+describe("détail : hiérarchie (BRAIN-46, D9)", () => {
+  it("ordre : titre, propriétés, sous-tâches, notes, corbeille", () => {
+    renderDetail();
+
+    const blocks = [
+      titleField(),
+      screen.getByRole("group", { name: "Propriétés" }),
+      screen.getByRole("heading", { name: "Sous-tâches" }),
+      screen.getByRole("textbox", { name: "Notes" }),
+      screen.getByRole("button", { name: "Mettre à la corbeille" }),
+    ];
+
+    blocks.slice(1).forEach((block, index) => {
+      expect(precedes(blocks[index], block)).toBe(true);
+    });
+  });
+
+  it("propriétés groupées : Statut, Priorité, Échéance, Côté et espace, Tags, dans cet ordre", () => {
+    renderDetail();
+
+    const names = within(screen.getByRole("group", { name: "Propriétés" }))
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label")?.split(" :")[0]);
+
+    expect(names).toEqual([
+      "Statut",
+      "Priorité",
+      "Échéance",
+      "Côté",
+      "Espace",
+      "Tags",
+      "Tâche parente",
+    ]);
+  });
+
+  it("sous-tâche : même ordre sans bloc sous-tâches, la parente mentionnée une seule fois, dans les propriétés", () => {
+    renderDetail(
+      buildDetail({
+        parentId: "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+        parentTitle: "Relancer le devis",
+      }),
+    );
+
+    const properties = screen.getByRole("group", { name: "Propriétés" });
+
+    expect(
+      within(properties).getByRole("link", { name: /Relancer le devis/ }),
+    ).toBeTruthy();
+    expect(
+      within(properties).getByText("Côté et espace : comme la tâche parente"),
+    ).toBeTruthy();
+    // Une seule mention : plus de lien vers la parente en tête, plus de ligne « Côté et espace ».
+    expect(
+      screen.getAllByRole("link", { name: /Relancer le devis/ }),
+    ).toHaveLength(1);
+    expect(within(properties).queryByText("Côté et espace")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Sous-tâches" })).toBeNull();
+    expect(precedes(titleField(), properties)).toBe(true);
+    expect(
+      precedes(properties, screen.getByRole("textbox", { name: "Notes" })),
+    ).toBe(true);
+  });
+
+  it("notes vides : repliées sur une ligne, invite « Ajouter une note »", () => {
+    renderDetail(buildDetail({ notes: null }));
+
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    expect(notes.getAttribute("data-collapsed")).toBe("true");
+    expect(notes.placeholder).toBe("Ajouter une note");
+  });
+
+  it("notes remplies : dépliées", () => {
+    renderDetail();
+
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    expect(notes.getAttribute("data-collapsed")).toBe("false");
+  });
+
+  it("notes saisies dans le champ replié puis quittées : tasks.update, champ désactivé pendant l'appel", async () => {
+    const pending = deferred<{ ok: true; result: null }>();
+    runAppAction.mockReturnValueOnce(pending.promise);
+    const task = renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "Penser au devis" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() => expect(notes.disabled).toBe(true));
+    expect(paramsOf("tasks.update")).toEqual({
+      taskId: task.id,
+      notes: "Penser au devis",
+    });
+    await act(async () => pending.resolve({ ok: true, result: null }));
+    expect(notes.disabled).toBe(false);
+  });
+
+  it("notes vides remplacées par des retours à la ligne : aucun appel, saisie gardée, champ non rétréci", async () => {
+    renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "\n\n\n\n" } });
+    fireEvent.blur(notes);
+
+    await act(async () => {});
+    expect(runAppAction).toHaveBeenCalledTimes(0);
+    expect((notes as HTMLTextAreaElement).value).toBe("\n\n\n\n");
+    expect(notes.getAttribute("data-collapsed")).toBe("false");
+  });
+
+  it("notes remplies puis réduites à des retours à la ligne : un seul appel, notes à null", async () => {
+    const task = renderDetail(buildDetail({ notes: "Penser au devis" }));
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "\n\n" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() => expect(runAppAction).toHaveBeenCalledTimes(1));
+    expect(paramsOf("tasks.update")).toEqual({ taskId: task.id, notes: null });
+  });
+
+  it("notes vides focalisées puis quittées : restent dépliées (la corbeille ne bouge pas sous le clic), rien d'enregistré", () => {
+    renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.focus(notes);
+    fireEvent.blur(notes);
+
+    expect(notes.getAttribute("data-collapsed")).toBe("false");
+    expect(paramsOf("tasks.update")).toBeUndefined();
+  });
+
+  it("espaces seuls saisis puis champ quitté : le champ redevient vide, rien d'enregistré", () => {
+    renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "   " } });
+    fireEvent.blur(notes);
+
+    expect(notes.value).toBe("");
+    expect(paramsOf("tasks.update")).toBeUndefined();
+  });
+
+  it("notes remplacées par des espaces puis quittées : enregistrées comme absentes (null), champ vide", async () => {
+    const task = renderDetail();
+    const notes = screen.getByRole("textbox", {
+      name: "Notes",
+    }) as HTMLTextAreaElement;
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "   " } });
+    fireEvent.blur(notes);
+
+    expect(notes.value).toBe("");
+    await waitFor(() =>
+      expect(paramsOf("tasks.update")).toEqual({
+        taskId: task.id,
+        notes: null,
+      }),
+    );
+  });
+});
+
+describe("détail : icônes de statut (BRAIN-46, D9)", () => {
+  const STATUS_ICON = {
+    backlog: "lucide-circle-dashed",
+    unstarted: "lucide-circle",
+    started: "lucide-circle-dot",
+    completed: "lucide-circle-check",
+    canceled: "lucide-circle-x",
+  } as const;
+
+  it.each(Object.entries(STATUS_ICON))(
+    "la pastille Statut d'une tâche « %s » montre son icône",
+    (statusCategory, icon) => {
+      renderDetail(
+        buildDetail({
+          statusCategory: statusCategory as keyof typeof STATUS_ICON,
+        }),
+      );
+
+      const svg = chip(/^Statut :/).querySelector("svg")!;
+
+      expect(svg.classList.contains(icon)).toBe(true);
+    },
+  );
+
+  it("le menu montre une icône distincte par statut", async () => {
+    renderDetail();
+
+    fireEvent.click(chip(/^Statut :/));
+
+    const items = await screen.findAllByRole("menuitemradio");
+    // La coche du choix courant porte la classe exacte `lucide-check` (« Terminée » : `lucide-circle-check`).
+    const icons = items.map((item) =>
+      [...item.querySelectorAll("svg")]
+        .find((svg) => !svg.classList.contains("lucide-check"))
+        ?.getAttribute("class"),
+    );
     expect(icons.every(Boolean)).toBe(true);
-    expect(await levelIcon("Aucune")).toBeUndefined();
+    expect(new Set(icons).size).toBe(5);
+  });
+
+  it("couleur : indigo pour En cours et Terminée, encre secondaire pour À planifier et Annulée, jamais la braise", () => {
+    const tone = (statusCategory: keyof typeof STATUS_ICON) => {
+      cleanup();
+      renderDetail(buildDetail({ statusCategory }));
+      return chip(/^Statut :/).querySelector("svg")!.classList;
+    };
+
+    expect(tone("started").contains("text-link")).toBe(true);
+    expect(tone("completed").contains("text-link")).toBe(true);
+    expect(tone("backlog").contains("text-muted-foreground")).toBe(true);
+    expect(tone("canceled").contains("text-muted-foreground")).toBe(true);
+    expect(tone("canceled").contains("text-destructive")).toBe(false);
   });
 });

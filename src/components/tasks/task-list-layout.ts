@@ -1,24 +1,34 @@
 import { CHIP_SHAPE_CLASSES } from "./context-chip-class";
 
 // Géométrie de la liste `/tasks` et des lignes de tâche de la corbeille (QA-3 d'effets-de-verre) : les classes qui
-// fixent la place et la hauteur de la tuile, des sections et des lignes, définies une seule fois. Lues par les vrais
+// fixent la place et la hauteur de la liste, des sections et des lignes, définies une seule fois. Lues par les vrais
 // composants (TaskList, TaskRow, TaskTrashRow) et par leur givre de chargement (`src/app/(app)/tasks/(list)/loading.tsx`,
 // `src/app/(app)/trash/loading.tsx`) : aucune valeur recopiée. Le givre reproduit une ligne « standard » (titre sur une ligne, légende sur une ligne)
 // avec des cales `h-lh` dans les mêmes tailles de texte : sa hauteur suit la charte, la langue et la police.
 
-/** Tuile de verre de la liste (sans `glass`, posé par le composant ou par FrostTile). */
-export const TASK_LIST_TILE_CLASSES =
-  "flex w-full max-w-3xl flex-col gap-6 rounded-tile p-tile";
-/** Section d'échéance : en-tête puis lignes. */
-export const TASK_SECTION_CLASSES = "flex flex-col gap-3";
+/** Liste : colonne de sections, bornée en largeur, posée à nu sur la brume (aucun verre). */
+export const TASK_LIST_CLASSES = "flex w-full max-w-3xl flex-col gap-grid";
+/**
+ * Section d'échéance : en-tête puis lignes, dans un creux `pill-track` (surface « Creux » de DESIGN.md § 5, la
+ * même qu'une colonne du tableau). Aucun texte secondaire directement dessus.
+ */
+export const TASK_SECTION_CLASSES =
+  "flex flex-col gap-3 rounded-tile bg-pill-track p-tile";
 /** En-tête de section (titre en surtitre et compteur). */
 export const TASK_SECTION_HEADER_CLASSES = "flex items-baseline gap-2 px-1";
 /** Taille du titre de section et de son compteur : donne la hauteur de l'en-tête. */
 export const TASK_SECTION_HEADING_TEXT = "text-eyebrow";
 /** Lignes d'une section. */
 export const TASK_ROWS_CLASSES = "flex flex-col gap-2";
-/** Ligne de la liste (surface `row`). */
+/** Ligne de tâche (surface `row` : celle d'une ligne posée dans une tuile de verre). */
 export const TASK_ROW_CLASSES = "flex flex-col rounded-lg bg-row";
+/**
+ * Surface d'une ligne de la liste `/tasks`, à la place de `row` : carte claire de la surface « Creux » (opaque,
+ * contour `border`, `shadow-raised`), comme une carte du tableau. Le contour est tracé vers l'intérieur
+ * (`outline`, pas `border`) : il ne prend aucune place, la ligne garde sa boîte (44 px sans légende).
+ */
+export const TASK_LIST_ROW_SURFACE_CLASSES =
+  "bg-popover shadow-raised outline -outline-offset-1 outline-border";
 /** Rangée de la ligne : case à cocher (44 px) puis texte. */
 export const TASK_ROW_LINE_CLASSES =
   "flex min-h-11 items-start gap-1 pr-3.5 pl-0.5";

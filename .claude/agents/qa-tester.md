@@ -2,7 +2,7 @@
 name: qa-tester
 description: Déroule les scénarios utilisateur d'une spec dans un vrai navigateur avec Playwright CLI et rapporte pass/fail avec captures. À utiliser pour /qa, avant toute livraison d'une UI ou d'un parcours (inscription, réservation, paiement test). Ne corrige pas le code.
 tools: Read, Grep, Glob, Bash, Write
-model: inherit
+model: sonnet
 skills: playwright-cli
 ---
 

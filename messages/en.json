@@ -222,6 +222,13 @@
       "cross_side_relation": "These two tasks are not on the same side (Personal, Work). Pick a task on the same side.",
       "relation_conflict": "A blocking relation already exists the other way round between these two tasks: a task cannot block the one that blocks it. Remove it first."
     },
+    "picker": {
+      "label": "Search for a task",
+      "placeholder": "Search by title",
+      "loading": "Loading…",
+      "empty": "No task found.",
+      "failed": "Search failed. Try again."
+    },
     "quickAdd": {
       "title": "Task",
       "submit": "Add",
@@ -258,6 +265,25 @@
         "loadFailed": "Tags not loaded. You can create some.",
         "limit": "{max} tags at most."
       }
+    },
+    "view": {
+      "label": "View",
+      "list": "List",
+      "board": "Board"
+    },
+    "board": {
+      "options": {
+        "label": "Board options",
+        "subtasks": "Subtasks",
+        "hideDoneSubtasks": "Hide completed subtasks"
+      },
+      "empty": "Nothing to do on this side. Jot down here whatever is on your mind.",
+      "add": "Add a task",
+      "moveFailed": "Move not saved.",
+      "retry": "Retry",
+      "seeAll": "See all ({count})",
+      "seeLess": "Show the {count} most recent",
+      "truncated": "Only the first {count} cards are shown."
     },
     "list": {
       "title": "To-do",
@@ -305,6 +331,8 @@
       "title": "Title",
       "titleRequired": "The title can't be empty.",
       "notes": "Notes",
+      "notesPlaceholder": "Add a note",
+      "properties": "Properties",
       "menuLabel": "{field}: {current}",
       "status": {
         "label": "Status",
@@ -324,7 +352,14 @@
       },
       "placement": "Side and space",
       "side": "Side",
-      "followsParent": "Same as the parent task",
+      "parentField": {
+        "label": "Parent task",
+        "none": "None",
+        "change": "Change",
+        "detach": "Detach",
+        "hasSubtasks": "Not possible: it already has subtasks.",
+        "followsParent": "Side and space: same as the parent task"
+      },
       "due": "Due",
       "tags": "Tags",
       "updateFailed": "Change not saved. Try again.",
@@ -332,6 +367,18 @@
         "title": "Subtasks",
         "add": "Add a subtask",
         "addFailed": "Subtask not added. Try again."
+      },
+      "relations": {
+        "title": "Relations",
+        "add": "Add a relation",
+        "kindPrompt": "Relation type",
+        "blocks": "Blocks",
+        "blockedBy": "Blocked by",
+        "related": "Related to",
+        "remove": "Remove",
+        "removeLabel": "Remove the relation with {title}",
+        "removeFailed": "Relation not removed. Try again.",
+        "addFailed": "Relation not added. Try again."
       },
       "trash": "Move to trash",
       "trashing": "Moving to trash…",
@@ -350,6 +397,11 @@
       "side": "Side:",
       "context": "Space:",
       "subtasks": "+ {count, plural, one {# subtask} other {# subtasks}}"
+    },
+    "blocked": "Blocked",
+    "card": {
+      "subtasksOpen": "{count} open",
+      "subtasksOpenLabel": "{done, plural, one {# subtask done} other {# subtasks done}} out of {total}, {open} still open"
     }
   },
   "trash": {
@@ -365,5 +417,20 @@
       "body": "The trash could not be loaded. Try again in a moment.",
       "retry": "Try again"
     }
+  },
+  "kanban": {
+    "roleDescription": "movable card",
+    "instructions": "To pick up a card, press Space or Enter. Move it with the arrow keys, drop it with Space or Enter, or cancel with Escape.",
+    "instructionsOpen": "To open a card, press Enter; to pick it up, press Space. Move it with the arrow keys, drop it with Space or Enter, or cancel with Escape.",
+    "columns": "Columns",
+    "picked": "Picked up card “{item}”, in “{column}”, position {position} of {count}.",
+    "over": "Card “{item}” is over “{column}”, position {position} of {count}.",
+    "overColumn": "Card “{item}” is over “{column}”.",
+    "overNone": "Card “{item}” is not over a column.",
+    "dropped": "Dropped card “{item}” in “{column}”, position {position} of {count}.",
+    "droppedColumn": "Dropped card “{item}” in “{column}”.",
+    "cancelled": "Moving “{item}” was cancelled.",
+    "expand": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, expand",
+    "collapse": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, collapse"
   }
 }
