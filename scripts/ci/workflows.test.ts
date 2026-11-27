@@ -57,6 +57,7 @@ describe("workflow de production", () => {
   const pending = job(source, "status-pending");
   const migrate = job(source, "migrate-production");
   const final = job(source, "status-final");
+  const deploy = job(source, "deploy-production");
   const statusContext = /-f context="Migrer la production"/;
   /** Permissions d'un job : bloc à l'indentation 4, commentaires compris, jusqu'à la clé suivante. */
   const permissions = (block: string) =>
@@ -67,7 +68,7 @@ describe("workflow de production", () => {
   const script = (block: string) =>
     block.slice(block.indexOf("run:"), block.indexOf("\n        env:"));
 
-  it("trois jobs, dans l'ordre : statut en attente, migration, statut final", () => {
+  it("quatre jobs, dans l'ordre : statut en attente, migration, statut final, déploiement", () => {
     const jobs = source.slice(source.indexOf("\njobs:\n"));
     const ids = [...jobs.matchAll(/^ {2}([\w-]+):\n/gm)].map((m) => m[1]);
 
@@ -75,6 +76,7 @@ describe("workflow de production", () => {
       "status-pending",
       "migrate-production",
       "status-final",
+      "deploy-production",
     ]);
   });
 
@@ -133,10 +135,59 @@ describe("workflow de production", () => {
     }
   });
 
-  it("la migration seule porte l'environnement production, avec contents: read seul", () => {
+  it("la migration et le déploiement portent seuls l'environnement production, avec contents: read seul", () => {
     expect(migrate).toMatch(/\n {4}environment: production\n/);
+    expect(deploy).toMatch(/\n {4}environment: production\n/);
     expect(permissions(migrate)).toBe("      contents: read\n");
-    expect(source.match(/\n {4}environment:/g)).toHaveLength(1);
+    expect(permissions(deploy)).toBe("      contents: read\n");
+    expect(source.match(/\n {4}environment:/g)).toHaveLength(2);
+  });
+
+  it("deploy-production attend migrate-production, sans always() ni continue-on-error", () => {
+    expect(deploy).toMatch(/\n {4}needs: migrate-production\n/);
+    expect(deploy).toMatch(/\n {4}name: Déploiement production\n/);
+    expect(deploy).toMatch(/\n {4}timeout-minutes: 30\n/);
+    expect(deploy).not.toContain("always()");
+    expect(deploy).not.toContain("continue-on-error");
+    expect(deploy).not.toMatch(/\n {4}if:/);
+    expect(final).not.toContain("deploy-production");
+  });
+
+  it("deploy-production lance le script avec toutes les variables qu'il lit, sans installation", () => {
+    expect(deploy).toContain("node scripts/ci/vercel-production-deploy.mjs");
+    for (const line of [
+      "VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}",
+      "VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}",
+      "VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}",
+      "SHA: ${{ github.sha }}",
+      "GITHUB_REPOSITORY_ID: ${{ github.repository_id }}",
+      "GH_TOKEN: ${{ github.token }}",
+      "DEFAULT_GIT_BRANCH: ${{ github.event.repository.default_branch }}",
+      'NODE_OPTIONS: ""',
+      'BASH_ENV: ""',
+    ]) {
+      expect(deploy).toContain(line);
+    }
+    expect(deploy).not.toMatch(/pnpm|npm /);
+  });
+
+  it("VERCEL_PRODUCTION_TOKEN n'apparaît que dans deploy-production, jamais VERCEL_TOKEN en secret", () => {
+    expect(source.match(/secrets\.VERCEL_PRODUCTION_TOKEN/g)).toHaveLength(1);
+    expect(deploy).toContain("secrets.VERCEL_PRODUCTION_TOKEN");
+    expect(source).not.toContain("secrets.VERCEL_TOKEN");
+  });
+
+  it("DATABASE_URL et SEED_OWNER_USER_ID n'apparaissent que dans migrate-production", () => {
+    for (const block of [pending, final, deploy]) {
+      expect(block).not.toMatch(/DATABASE_URL|SEED_OWNER_USER_ID/);
+    }
+    expect(migrate).toContain("secrets.DATABASE_URL");
+  });
+
+  it("le groupe de concurrence reste migrate-production, sans annulation", () => {
+    expect(source).toMatch(
+      /\nconcurrency:\n(?: {2}#.*\n)* {2}group: migrate-production\n {2}cancel-in-progress: false\n/,
+    );
   });
 
   it("le seed lit l'id du propriétaire dans un secret, masqué dans le journal", () => {

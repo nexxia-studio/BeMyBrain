@@ -4,7 +4,7 @@
 # GitHub (Vercel > Settings > Build and Deployment > Deployment Checks) retient l'attribution du domaine
 # de production jusqu'au succès du commit status de contexte « Migrer la production ». Vercel lit ce
 # contexte (posé par gh api dans status-pending et status-final), pas le nom d'un job. Aucun secret Vercel.
-# Trois jobs : statuses: write vit dans deux jobs sans checkout, sans install, sans environnement ni
+# Quatre jobs (le déploiement suit la migration, voir deploy-production) : statuses: write vit dans deux jobs sans checkout, sans install, sans environnement ni
 # secret ; le job qui tient DATABASE_URL n'a que contents: read.
 name: Production
 
@@ -106,5 +106,37 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
           MIGRATE_RESULT: ${{ needs.migrate-production.result }}
+          NODE_OPTIONS: ""
+          BASH_ENV: ""
+
+  # Mise en ligne de la production (BRAIN-37) : seulement après une migration réussie (needs sans always() :
+  # migration en échec ou annulée, pas de déploiement). Le script crée par l'API Vercel le déploiement du SHA
+  # exact du push et attend qu'il soit prêt. Aucune installation : le script n'a aucune dépendance (Node 24).
+  # Le jeton Vercel de production n'existe que dans ce job ; aucun secret de base ici.
+  deploy-production:
+    name: Déploiement production
+    needs: migrate-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Déployer la production
+        run: node scripts/ci/vercel-production-deploy.mjs
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_GIT_BRANCH: ${{ github.event.repository.default_branch }}
           NODE_OPTIONS: ""
           BASH_ENV: ""
