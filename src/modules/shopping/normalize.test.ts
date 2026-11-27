@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeLabel } from "./normalize";
+import { normalizeLabel, singularForms } from "./normalize";
 
 const norm = (label: string) => normalizeLabel(label).normalized;
 
@@ -62,16 +62,45 @@ describe("normalisation d'un libellé de courses", () => {
   });
 
   it("rend les mots du libellé normalisé", () => {
-    expect(normalizeLabel("Papier toilette x3").words).toEqual(["papier", "toilette"]);
+    expect(normalizeLabel("Papier toilette x3").words).toEqual([
+      "papier",
+      "toilette",
+    ]);
   });
 
   it("renvoie des listes vides pour un libellé vide", () => {
-    expect(normalizeLabel(" !! ")).toEqual({ display: "!!", normalized: "", words: [], forms: [] });
+    expect(normalizeLabel(" !! ")).toEqual({
+      display: "!!",
+      normalized: "",
+      words: [],
+      forms: [],
+    });
   });
 
   it("décompose les ligatures œ et æ", () => {
     expect(normalizeLabel("Œufs").normalized).toBe("oeufs");
-    expect(normalizeLabel("cœur de palmier").normalized).toBe("coeur de palmier");
+    expect(normalizeLabel("cœur de palmier").normalized).toBe(
+      "coeur de palmier",
+    );
     expect(normalizeLabel("Æther").normalized).toBe("aether");
+  });
+});
+
+describe("singularForms : nombre de formes borné", () => {
+  it("renvoie un nombre borné de formes, vite, pour un libellé de 80 caractères de mots à pluriel", () => {
+    const label = Array.from({ length: 15 }, () => "pommes")
+      .join(" ")
+      .slice(0, 80);
+    const start = performance.now();
+    const forms = singularForms(label);
+    expect(performance.now() - start).toBeLessThan(100);
+    expect(forms.length).toBeLessThanOrEqual(64);
+    expect(forms[0]).toBe(label);
+  });
+
+  it("garde toutes les variantes jusqu'à 6 mots", () => {
+    expect(singularForms("petits pois verts extra fins doux")).toHaveLength(
+      2 ** 5,
+    );
   });
 });
