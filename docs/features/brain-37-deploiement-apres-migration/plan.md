@@ -1,61 +1,16 @@
 # Plan — BRAIN-37 : déploiement de production après la migration
 
-**Spec** : `spec.md` · **Branche** : `feat/brain-37-deploiement-apres-migration` · **Créé le** : 2026-11-27
+**Spec** : `spec.md` · **Branche** : `feat/brain-37-deploiement-apres-migration` · **Créé le** : 2026-11-27 · **Fusionné** : 2026-11-27 (PR #16, `6550b9f`)
 
 Aucune nouvelle dépendance, aucune action tierce nouvelle. Toutes les tâches sont `[security]` (CI, secret, production) : reviewer seul par tâche, puis `security-auditor`. Tests : `pnpm vitest run <fichier>` ; suite complète une seule fois avant la PR.
-Les tâches 1 à 5 se livrent dans **une seule PR** : `vercel.json` (tâche 4) et le job de déploiement (tâche 2) doivent arriver ensemble, sinon la production n'a plus de déployeur ou en a deux.
 
 ## Prérequis d'Antoine (avant la fusion, pas avant le code)
 - Créer dans Vercel un jeton **`github-ci-bemybrain-production`** (portée équipe, expiration la plus courte raisonnable, noter la date).
 - GitHub → Settings → Environments → `production` → Environment secrets → **`VERCEL_PRODUCTION_TOKEN`**. Collé depuis 1Password. Pas au niveau du dépôt, pas de variable.
 - Rien d'autre : `VERCEL_PROJECT_ID` et `VERCEL_TEAM_ID` (dépôt) sont réutilisés.
-- Sans ce secret, la fusion échoue proprement (migration faite, déploiement refusé « VERCEL_TOKEN manquante », production inchangée) : voir tâche 8.
 
 ## Décisions prises (Antoine, 2026-11-27)
 Pas d'URL dans le résumé (SHA court, état, durée) ; garde « tête de `main` » conservée ; jobs de statut retirés (tâche 3 maintenue).
-
-## Tâches
-- [x] **1. Script de déploiement de production** [security]
-  - Fichiers : `scripts/ci/vercel-production-deploy.mjs`, `scripts/ci/vercel-production-deploy.test.ts`, `scripts/ci/vercel-preview-env.mjs` (seul changement : `export` devant `call`).
-  - Tests à écrire d'abord (faux `fetch`, comme `vercel-preview-env.test.ts`) :
-    - « envoie `target: production`, le SHA, le dépôt et `forceNew=1`, avec le nom du projet lu par `GET /v9/projects` (pas son identifiant) » ;
-    - « refuse un SHA qui n'a pas 40 caractères hexadécimaux » ;
-    - « ne crée aucun déploiement quand `main` est passée à un autre SHA, écrit « remplacé par `<sha7>` » dans le résumé, sort en succès » ;
-    - « attend `READY` avec alias assigné, puis écrit SHA court, état et durée dans le résumé, sans aucune URL (ni celle du déploiement, ni un alias, ni le lien du tableau de bord) » ;
-    - « échoue sur `ERROR`, `CANCELED`, `aliasError` » ;
-    - « annule le déploiement puis échoue quand la cible renvoyée n'est pas `production` » ;
-    - « annule le déploiement puis échoue au délai dépassé (15 min simulées par `sleep` factice) » ;
-    - « n'écrit nulle part jeton, identifiant de projet ou d'équipe, URL, corps de réponse (journal et résumé) » ; « masque projet et équipe avant tout appel » ;
-    - « réessaie 429 et 5xx sans créer deux déploiements du même appel réussi » (comportement de `call`, vérifié sur le POST).
-  - Variables lues : `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `SHA`, `GITHUB_REPOSITORY`, `GITHUB_REPOSITORY_ID`, `GH_TOKEN`, `DEFAULT_GIT_BRANCH`, `GITHUB_STEP_SUMMARY`. Aucune lecture hors de cette liste.
-  - Fini quand : tests verts, lint et typecheck verts, `vercel-preview-env.test.ts` inchangé et vert.
-- [x] **2. Job `deploy-production` dans le workflow** [security]
-  - Fichiers : `.github/workflows/migrate-production.yml`, `scripts/ci/workflows.test.ts`.
-  - Job : `needs: migrate-production` (sans `if: always()`), `environment: production`, `permissions: contents: read`, `timeout-minutes: 30`, checkout et setup-node aux SHA déjà épinglés, **aucune installation**, une étape `node scripts/ci/vercel-production-deploy.mjs` avec `VERCEL_TOKEN: ${{ secrets.VERCEL_PRODUCTION_TOKEN }}`, `NODE_OPTIONS: ""`, `BASH_ENV: ""`, `SHA: ${{ github.sha }}`. Nom affiché : « Déploiement production ».
-  - Tests à écrire d'abord (mêmes verrous textuels que l'existant) : « `deploy-production` attend `migrate-production`, sans `always()` ni `continue-on-error` » ; « `VERCEL_PRODUCTION_TOKEN` n'apparaît que dans ce job » ; « `DATABASE_URL` et `SEED_OWNER_USER_ID` n'apparaissent que dans `migrate-production` » ; « aucune étape `pnpm`/`npm` dans `deploy-production` » ; « aucune `uses:` hors de celles épinglées » (test existant) ; « aucun `secrets.VERCEL_TOKEN` dans ce workflow » ; test existant « la migration seule porte l'environnement `production` » adapté : deux jobs, `contents: read` seul chacun ; « le groupe de concurrence reste `migrate-production`, sans annulation ».
-  - Attention : le test « aucune permission large » refuse le mot `deployments` n'importe où dans le fichier (commentaires compris).
-  - Fini quand : tests verts, lint et typecheck verts.
-- [x] **3. Retirer `status-pending` et `status-final`** [security] — *maintenue, décision du 2026-11-27*
-  - Fichiers : `.github/workflows/migrate-production.yml`, `scripts/ci/workflows.test.ts`.
-  - Tests à adapter d'abord : « deux jobs, dans l'ordre : migration, déploiement » ; retrait des verrous sur les statuts ; « `statuses: write` n'existe dans aucun workflow » (le test actuel exige `migrate-production.yml`).
-  - Fini quand : plus aucun `gh api … statuses` dans les workflows, tests verts.
-- [x] **4. Couper le déploiement git de `main`** [security]
-  - Fichiers : `vercel.json`, `scripts/ci/vercel-json.test.ts`.
-  - Test à écrire d'abord : « `deploymentEnabled` vaut `false` pour `main` et pour `**` » (lecture de `vercel.json`, aucun parseur nouveau : `JSON.parse`).
-  - Fini quand : test vert. Les previews ne changent pas (`**` déjà à `false`).
-- [x] **5. Bascule des documents** [security]
-  - Fichiers : `docs/decisions/ADR-010-migrations-production-par-ci.md`, `.claude/rules/neon.md`, `docs/gotchas.md`.
-  - ADR-010 : la section « Proposition BRAIN-37 » (déjà écrite, non en vigueur) devient « Ordre migration / mise en ligne » ; la section « Limite » disparaît ; ligne 9 et « Conséquences » mises à jour (nouveau jeton, date d'expiration réelle à rappeler avant). `neon.md` ligne 17 : l'ancien code tourne sur le nouveau schéma. `gotchas.md` : retirer l'entrée « Production mise en ligne avant la fin de sa migration » et la mention « les trois jobs restent », garder l'entrée Deployment Checks (leçon), activer la procédure de secours.
-  - Fini quand : aucun document ne décrit encore le déploiement parallèle ; `grep -rn "BRAIN-37" docs .claude` ne montre que l'état « fait ».
-- [x] **6. Procédure de secours jouée sur une preview** [security]
-  - Contenu : `docs/gotchas.md`, entrée « CI de production en panne » (écrite avec ce plan, à valider ici).
-  - Épreuve : sur la branche de la PR, rejouer la procédure `vercel deploy` **sans `--prod`** depuis une copie propre du commit, vérifier qu'elle ne dépend d'aucun jeton stocké (`vercel login` personnel) et qu'elle n'atteint pas la production.
-  - Vérifier aussi dans le tableau Vercel du projet qu'**aucun Deploy Hook** n'existe (il contournerait l'ordre) ; en supprimer un s'il existe, après accord d'Antoine.
-  - Fini quand : l'entrée dit ce qui a été réellement tapé et vu ; ajustée si l'essai la contredit.
-- [x] **7. Épreuve 1 : preview (avant fusion)**
-  - Voir « Plan de vérification », épreuve 1. Rapport dans `qa-report.md` (qu'Antoine lit avant d'autoriser la fusion).
-- [ ] **8. Épreuves 2 et 3 : premier vrai merge, puis échec provoqué** (après accord d'Antoine pour fusionner)
-  - Voir « Plan de vérification ». `/qa` n'a pas de scénario navigateur ici : le rapport `qa-report.md` consigne les constats GitHub et Vercel.
 
 ## Plan de vérification
 
@@ -97,6 +52,14 @@ Cette épreuve prouve l'échec de migration. Elle ne prouve pas « build Vercel 
 
 ## Corrections QA
 <!-- Alimenté par /qa. -->
+Aucune correction. Constats et épreuves : `qa-report.md`.
 
 ## Terminé
-<!-- scribe déplace ici les tâches cochées avec la date. -->
+- 2026-11-27 — tâche 1 : script de déploiement de production `scripts/ci/vercel-production-deploy.mjs` et ses tests [security].
+- 2026-11-27 — tâche 2 : job `deploy-production` après `migrate-production` (sans `if: always()`) [security].
+- 2026-11-27 — tâche 3 : statuts de commit `status-pending` et `status-final` retirés [security].
+- 2026-11-27 — tâche 4 : `vercel.json` coupe le déploiement git de `main` [security].
+- 2026-11-27 — tâche 5 : ADR-010 « Ordre migration / mise en ligne », `neon.md`, `gotchas.md` [security].
+- 2026-11-27 — tâche 6 : procédure de secours jouée sur une preview, sans `--prod` [security].
+- 2026-11-27 — tâche 7 : épreuve 1 (preview, avant fusion), rapport dans `qa-report.md`.
+- 2026-11-27 — tâche 8 : épreuves 2 et 3 jouées après fusion (PR #16, `6550b9f`). Reste optionnel : « deux merges rapprochés ».
