@@ -1,6 +1,6 @@
 # ADR-011 — Synchro instantanée de la liste de courses : Ably en « signal », la donnée passe par nos chemins sécurisés
 
-**Date** : 2026-11-28 · **Statut** : proposé (à valider par Antoine avec la spec `listes`) · **Contexte** : BRAIN-9, décision d'Antoine du 2026-11-27 (synchro instantanée dans les deux sens, invité ↔ app)
+**Date** : 2026-11-28 · **Statut** : accepté par Antoine le 2026-11-28 (avec la spec `listes`) · **Contexte** : BRAIN-9, décision d'Antoine du 2026-11-27 (synchro instantanée dans les deux sens, invité ↔ app)
 
 ## Contexte
 La liste de courses partagée par lien doit se mettre à jour des deux côtés sans recharger. C'est la première brique temps réel du projet.
@@ -14,7 +14,7 @@ Contraintes :
 
 | | A. Neon Realtime | B. Service managé (Ably) | C. SSE maison + Postgres `LISTEN/NOTIFY` |
 | --- | --- | --- | --- |
-| Coût | gratuit pendant la bêta, puis facturation à venir (non annoncée) | gratuit dans les limites du palier (à revérifier au plan) | gratuit, mais une fonction Vercel et une connexion base tenues ouvertes par abonné |
+| Coût | gratuit pendant la bêta, puis facturation à venir (non annoncée) | gratuit : palier vérifié par Antoine le 2026-11-28, 6 M messages/mois, 200 connexions et 200 canaux simultanés, bridé et non coupé au-delà | gratuit, mais une fonction Vercel et une connexion base tenues ouvertes par abonné |
 | Sécurité du canal invité | requête scellée (60 s, renouvelée) : bon modèle, **mais refuse toute table avec RLS** (`upstream_rejected`) | jeton émis par notre serveur, droit « s'abonner » sur **un seul canal**, durée courte, vérifié par le fournisseur | tout est à écrire et à tenir : authentification de chaque flux, nettoyage à la révocation |
 | Simplicité | pas de fournisseur de plus, mais : bêta (protocole « pas encore stable »), Postgres 18 requis (OK ici), activation = **`wal_level = logical` permanent et redémarrage de tous les calculs du projet, toutes branches** (production comprise) | un SDK, un compte, deux variables d'environnement, CSP à ouvrir | `LISTEN` ne passe pas par le pooler de Neon et empêche la mise en veille de la base ; durée maximale des fonctions Vercel ⇒ reconnexions permanentes |
 | Verdict | écartée pour l'instant | **retenue** | écartée |
@@ -27,7 +27,7 @@ Pourquoi A est écartée malgré son charme (pas de fournisseur, gratuite, même
 
 Pourquoi B plutôt que C : C coûte plus de code sensible (cycle de vie des connexions sur Vercel) que B ne coûte de dépendance, et reste moins sûre.
 
-Ably plutôt que Pusher : le **jeton à capacités** (`subscribe` seul, sur un seul canal, durée courte) fait imposer par le fournisseur la règle « l'invité ne s'abonne qu'au canal de sa liste ». Chez Pusher, c'est notre point d'authentification qui l'impose seul. Limites du palier gratuit des deux : à revérifier sur leurs pages de tarifs avant le plan (chiffres non vérifiés ici).
+Ably plutôt que Pusher : le **jeton à capacités** (`subscribe` seul, sur un seul canal, durée courte) fait imposer par le fournisseur la règle « l'invité ne s'abonne qu'au canal de sa liste ». Chez Pusher, c'est notre point d'authentification qui l'impose seul. Palier gratuit d'Ably : 6 M messages/mois, 200 connexions et 200 canaux simultanés, bridé et non coupé au-delà (vérifié par Antoine le 2026-11-28). Marge : une liste de courses à deux personnes produit quelques dizaines de messages par sortie.
 
 ## Décision
 1. **Le temps réel ne transporte aucune donnée métier.** Message = `{ rev }` (numéro de version de la liste). À la réception, le client relit la liste par le chemin normal (Server Action : session pour Antoine, fonctions invité pour l'invité). Une fuite ou une erreur du canal ne révèle donc rien d'autre que « quelque chose a changé ».
@@ -45,7 +45,7 @@ Ably plutôt que Pusher : le **jeton à capacités** (`subscribe` seul, sur un s
 - Messages portant les articles : la donnée passerait par un tiers et contournerait nos deux verrous.
 
 ## Conséquences
-- Un compte et une clé chez Ably : action d'Antoine avant la PR « partage et temps réel » (le plan l'indique en tête de ce bloc).
+- Un compte et une clé chez Ably : Antoine les crée avant la PR « partage et temps réel » (le plan l'indique en tête de ce bloc).
 - Nouvelle dépendance : le SDK Ably (justification au plan, avec taille et chargement différé).
 - ADR-002, dernière puce des conséquences, corrigée : le lien de partage n'ouvre **pas** une policy dédiée mais passe par un rôle sans accès aux tables et des fonctions `SECURITY DEFINER` (spec `listes`, § Partage sans compte).
 - Risque résiduel accepté : un invité révoqué reçoit encore des signaux sans contenu pendant 10 minutes au plus.
