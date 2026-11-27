@@ -171,7 +171,7 @@ Règles communes à toutes les tâches :
   - Test à écrire d'abord : « filtre par titre ; demande le côté de la tâche ; exclut la tâche et les identifiants donnés ; `topLevelOnly` demandé pour une parente ; espace affiché ; Entrée choisit ; Échap rend le focus »
   - Fini quand : tests verts ; essai clavier iPhone demandé à Antoine.
 
-- [ ] **25. Ajouter la propriété « Tâche parente »**
+- [x] **25. Ajouter la propriété « Tâche parente »** — terminée le 2026-11-27 (`3d7980c`) ; aucune action nouvelle (`tasks.setParent` par `runAppAction`)
   - Fichiers : `src/components/tasks/TaskDetail.tsx`, `ParentField.tsx` + test, `TaskDetail.test.tsx`, `e2e/todo-parente.spec.ts`, `messages/{fr,en}.json`
   - Contenu : ligne de propriété après Tags ; une seule mention de la parente (le lien du haut disparaît, « Comme la tâche parente » rejoint cette ligne) ; lien vers la parente, « Détacher », changer ; désactivée avec la raison si la tâche a des sous-tâches ; erreurs du registre sous le champ.
   - Test à écrire d'abord : « rattacher appelle `tasks.setParent` ; détacher ; désactivée avec sous-tâches ; `subtask_depth` et `cross_side_parent` traduits » ; e2e scénario 8
