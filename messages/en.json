@@ -432,33 +432,5 @@
     "cancelled": "Moving “{item}” was cancelled.",
     "expand": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, expand",
     "collapse": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, collapse"
-  },
-  "kanbanDemo": {
-    "title": "Kanban demo",
-    "settings": {
-      "label": "Settings",
-      "latency": "Simulated latency",
-      "latencyNone": "None",
-      "latencyOne": "1 s",
-      "latencyThree": "3 s",
-      "failNext": "Fail the next drop",
-      "detail": "Detail",
-      "detailNew": "New",
-      "detailCurrent": "Current"
-    },
-    "tints": {
-      "title": "Priority tints",
-      "card": "Card",
-      "row": "List row",
-      "column": "Column",
-      "highWarm": "High next to a warm space",
-      "urgentOverdue": "Urgent next to an overdue date"
-    },
-    "saving": "{count, plural, one {Saving # move…} other {Saving # moves…}}",
-    "saved": "Everything is saved.",
-    "moveFailed": "Move not saved.",
-    "retry": "Retry",
-    "seeAll": "See all ({count})",
-    "seeLess": "Show the {count} most recent"
   }
 }

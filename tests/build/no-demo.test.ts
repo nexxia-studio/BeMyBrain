@@ -7,8 +7,8 @@ import { describe, expect, it } from "vitest";
 // Démos fermées (BRAIN-33, tâche 9 des effets de verre ; spec, scénario 7). Lancé par `pnpm test:build`, après
 // `next build` : vérifie le code source et la build. Seules les démos temporaires listées ici sont admises ;
 // tout autre dossier, route ou raccourci de démo est refusé.
-// /demo/kanban (BRAIN-46) : retirée à la dernière tâche de docs/features/todo-kanban/plan.md, qui vide cette liste.
-const ALLOWED_DEMOS: readonly string[] = ["/demo/kanban"];
+// /demo/kanban (BRAIN-46) retirée : la liste est vide. Une démo temporaire s'ajoute ici, avec sa date de retrait.
+const ALLOWED_DEMOS: readonly string[] = [];
 
 const ROOT = process.cwd();
 const DEMO_DIR = "src/app/(app)/demo";
@@ -46,6 +46,10 @@ function isAllowedRoute(route: string): boolean {
 }
 
 describe("démos fermées, sauf les démos temporaires listées", () => {
+  it("aucune démo admise", () => {
+    expect(ALLOWED_DEMOS).toEqual([]);
+  });
+
   it("aucun dossier sous src/app/(app)/demo hors des démos admises", () => {
     const dirs = existsSync(join(ROOT, DEMO_DIR))
       ? readdirSync(join(ROOT, DEMO_DIR))
@@ -53,13 +57,6 @@ describe("démos fermées, sauf les démos temporaires listées", () => {
 
     expect(dirs.filter((name) => !allowedSegments.includes(name))).toEqual([]);
   });
-
-  it.each(allowedDirs)(
-    "démo admise %s présente : une démo supprimée vide la liste",
-    (dir) => {
-      expect(existsSync(join(ROOT, dir))).toBe(true);
-    },
-  );
 
   it.each(["fr", "en"])(
     "aucune clé glassDemo dans messages/%s.json",

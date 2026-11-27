@@ -4,7 +4,7 @@
 
 Tranche 2 de la to-do (`docs/features/todo-unifiee/spec.md`, « Livraison en tranches »). Cette spec fait foi pour le kanban, l'ordre manuel, la parente modifiable et les relations ; `todo-unifiee/spec.md` reste la référence du reste (liste, corbeille, statuts, registre) et est corrigée là où cette spec la contredit.
 
-Décisions d'Antoine reprises ici : démo `/demo/kanban` et ses trois essais (`demo-plan.md`) ; décisions du 2026-11-25 : variante Creux, détail Nouveau, titre éditable d'un tap, priorités en pastel, parente et relations dans le détail, sous-tâches en cartes à part entière (comme Linear), colonne Annulée qui s'ouvre sur place, même côté uniquement pour parente et relations, registre compris. Appui long (250 ms, soulèvement, inclinaison) : validé, intouché.
+Décisions d'Antoine reprises ici : démo `/demo/kanban` et ses trois essais (retirée à la tâche 27 ; bibliothèque et décisions de glisser dans `plan.md`) ; décisions du 2026-11-25 : variante Creux, détail Nouveau, titre éditable d'un tap, priorités en pastel, parente et relations dans le détail, sous-tâches en cartes à part entière (comme Linear), colonne Annulée qui s'ouvre sur place, même côté uniquement pour parente et relations, registre compris. Appui long (250 ms, soulèvement, inclinaison) : validé, intouché.
 
 ## Objectif
 Antoine voit ses tâches par statut sur un tableau, les fait avancer d'un geste au doigt ou à la souris, et relie les tâches entre elles (parente, bloque, liée à) depuis le détail, sans alourdir la création rapide.
@@ -154,7 +154,7 @@ Données et registre
 - [ ] Migrations additives : l'ancien code tourne sur le nouveau schéma (colonnes nullables, table nouvelle, droits ajoutés).
 
 Retrait de la démo
-- [ ] `/demo/kanban`, ses messages, ses fixtures et ses e2e sont supprimés ; `pnpm test:build` refuse toute démo.
+- [x] `/demo/kanban`, ses messages, ses fixtures et ses e2e sont supprimés ; `pnpm test:build` refuse toute démo.
 
 ## Scénarios utilisateur (joués par /qa)
 1. **Faire avancer une tâche** — Antoine ouvre `/tasks`, passe en Tableau, glisse une carte de « À faire » à « En cours », recharge : elle y est. Variante mobile : oui (appui long, dépôt sur l'onglet).

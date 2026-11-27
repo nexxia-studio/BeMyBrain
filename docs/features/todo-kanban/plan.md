@@ -1,6 +1,6 @@
 # Plan — Kanban des tâches, parente et relations (BRAIN-46)
 
-**Spec** : `spec.md` · **Créé le** : 2026-11-25 · **Démo préalable** : `demo-plan.md` (D1–D9 faites)
+**Spec** : `spec.md` · **Créé le** : 2026-11-25 · **Démo préalable** : retirée à la tâche 27 (D1–D9 faites ; son `demo-plan.md` est supprimé, l'essentiel est dans « Décisions de la démo » ci-dessous)
 
 <!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
 <!-- [security] = security-auditor passe après le reviewer. -->
@@ -17,6 +17,12 @@ Règles communes à toutes les tâches :
 - Relecture : une faille se corrige dans la tâche ; un durcissement va en ticket.
 - Commits de chemins précis, jamais `git commit -a` ; sorties de commandes qui touchent une base masquées par `sed` ; aucune adresse de connexion dans une sortie ; processus d'arrière-plan fermés à la fin de chaque tâche.
 - Constats de `/impeccable critique` du 2026-11-25 (24/40) repris dans les tâches 11 à 15, 22 et 24 ; archive `.impeccable/critique/`.
+
+## Décisions de la démo (reprises de `demo-plan.md`, 2026-11-24)
+- Bibliothèque : dnd-kit classique (`@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0, `@dnd-kit/utilities` 3.2.2). Sur iPhone, le glisser ne démarre qu'après un appui, ce qui garde le défilement ; la carte suit le doigt ; défilement automatique près des bords ; clavier et lecteur d'écran gérés. Écartées : Pragmatic DnD (glisser natif, déclenchement et aperçu imposés par iOS), sans bibliothèque (environ 500 lignes de détection, défilement et accessibilité à maintenir).
+- Mobile : colonnes à défilement horizontal, ou une colonne à la fois avec onglets (dépôt sur un onglet = changement de colonne).
+- Mise à jour optimiste limitée au déplacement : échec → retour animé + « Déplacement non enregistré » avec Réessayer. Terminée : 20 plus récentes + « Tout voir » ; Annulée : bandeau replié, on peut y déposer.
+- Risque connu : `useUniqueId` de dnd-kit donne des `aria-describedby` différents serveur/client → `id` stable (`useId()`) passé à `DndContext`.
 
 ## Tâches
 

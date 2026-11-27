@@ -608,13 +608,13 @@ describe("createRequire dans src", () => {
   });
 });
 
-// Démo kanban (BRAIN-46) : dnd-kit n'entre que par src/components/kanban/SortableBoard.tsx.
+// Tableau kanban (BRAIN-46) : dnd-kit n'entre que par src/components/kanban/SortableBoard.tsx.
 // Une config par zone pose no-restricted-imports / no-restricted-syntax : un fichier par zone.
 const DND_KIT_GUARDED_FILES = [
   "src/components/tasks/TaskList.tsx",
   "src/components/kanban/SortableBoard.test.tsx",
   "src/components/kanban/OtherBoard.tsx",
-  "src/app/(app)/demo/kanban/KanbanDemo.tsx",
+  "src/components/tasks/TaskBoard.tsx",
   "src/modules/tasks/queries.ts",
   "src/modules/tasks/actions.ts",
   "src/modules/actions/probe.ts",

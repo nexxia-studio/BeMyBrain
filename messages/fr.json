@@ -432,33 +432,5 @@
     "cancelled": "Déplacement de « {item} » annulé.",
     "expand": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, déplier",
     "collapse": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, replier"
-  },
-  "kanbanDemo": {
-    "title": "Démo du kanban",
-    "settings": {
-      "label": "Réglages",
-      "latency": "Latence simulée",
-      "latencyNone": "Aucune",
-      "latencyOne": "1 s",
-      "latencyThree": "3 s",
-      "failNext": "Faire échouer le prochain dépôt",
-      "detail": "Détail",
-      "detailNew": "Nouveau",
-      "detailCurrent": "Actuel"
-    },
-    "tints": {
-      "title": "Teintes de priorité",
-      "card": "Carte",
-      "row": "Ligne de liste",
-      "column": "Colonne",
-      "highWarm": "Haute à côté d'un espace chaud",
-      "urgentOverdue": "Urgente à côté d'une date en retard"
-    },
-    "saving": "{count, plural, one {# déplacement en cours d'enregistrement…} other {# déplacements en cours d'enregistrement…}}",
-    "saved": "Tout est enregistré.",
-    "moveFailed": "Déplacement non enregistré.",
-    "retry": "Réessayer",
-    "seeAll": "Tout voir ({count})",
-    "seeLess": "Voir les {count} plus récentes"
   }
 }

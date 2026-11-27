@@ -37,7 +37,7 @@ import {
 // Après un dépôt, l'enregistrement est attendu (réponse de l'action `tasks.move`) avant tout rechargement : un
 // `page.reload()` lancé trop tôt relirait le tableau d'avant.
 // Gestes tactiles : vrais événements tactiles par le protocole Chromium (`Input.dispatchTouchEvent`), comme
-// `demo-kanban.spec.ts` ; projet mobile en local = Chromium avec l'émulation iPhone.
+// l'ancienne démo (retirée) ; projet mobile en local = Chromium avec l'émulation iPhone.
 // Reprend aussi, sur le tableau réel, l'intention des e2e de la démo (retirée à la tâche 27) : tableau immobile
 // pendant un glisser (D4), tap contre appui long (D5), curseur, survol et empreinte (D6), onglet visé.
 test.use({ locale: "fr-FR" });

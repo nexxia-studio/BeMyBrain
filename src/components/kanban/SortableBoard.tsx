@@ -20,7 +20,7 @@
 // (`createCollisionDetection`, qui dit pourquoi les coins les plus proches seuls échouent sur une colonne vide).
 // Défilement horizontal sans aimant (`scroll-snap`) : le défilement automatique de dnd-kit avance par petits
 // `scrollBy`, que l'aimant transforme chacun en saut d'une colonne entière (le tableau s'emballait jusqu'au bout,
-// la colonne d'origine sortait de l'écran ; mesuré dans Chromium et WebKit, D4 de demo-plan.md).
+// la colonne d'origine sortait de l'écran ; mesuré dans Chromium et WebKit, essai D4 de la démo, retirée).
 // Glisser : souris après 4 px, doigt après un appui de 250 ms (le défilement reste libre avant), clavier
 // (Espace, ou Entrée sans `onOpen` ; flèches, Échap). Défilement automatique près des bords (défaut de dnd-kit).
 // Ouvrir (`onOpen`, facultatif) : un tap ou un clic n'ouvre la carte que si le doigt ou la souris se relève
@@ -48,7 +48,7 @@
 // reste où elle a été lâchée.
 // Hydratation : `id` stable (`useId`) passé à DndContext, sinon le compteur de module de dnd-kit donne des
 // `aria-describedby` différents entre serveur et client.
-// Saisie (D6 de demo-plan.md) : la copie qui suit le pointeur se soulève (`y` −2, comme le survol d'une tuile) et
+// Saisie (essai D6 de la démo, retirée) : la copie qui suit le pointeur se soulève (`y` −2, comme le survol d'une tuile) et
 // s'incline de 2°, par le ressort du tiroir (`bounce` 0,2, 0,3 s, DESIGN.md § 7), avec `shadow-glass` (pas de token
 // d'ombre plus marquée). Au dépôt, elle revient à plat pendant l'animation de dépôt de dnd-kit : dnd-kit garde la
 // copie montée le temps du dépôt, et `LiftedContext` (hors de `DragOverlay`) lui dit que la saisie est finie. À sa

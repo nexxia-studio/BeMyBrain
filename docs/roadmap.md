@@ -15,7 +15,7 @@ Validée par Antoine le 2026-11-10. Un module = une `/feature`. L'encodage manue
 Hors périmètre pour l'instant : habitudes, routines, journal, bloc-notes, deep work.
 
 ## Notes par module (décisions déjà prises)
-- **To-do** (2026-11-19) : une seule liste filtrée par côté (Privé / Pro) et par espace ; on part de zéro, sans import de `todo-perso-pro`. Deux tranches : liste et ajout rapide, puis kanban et relations (`docs/features/todo-unifiee/spec.md`). Actions du registre utilisables telles quelles par un modèle (connecteur Claude BRAIN-38 d'abord, puis WhatsApp). État (2026-11-20) : tranche 1 fusionnée (PR #8 et #9) ; tranche 2 à spécifier.
+- **To-do** (2026-11-19) : une seule liste filtrée par côté (Privé / Pro) et par espace ; on part de zéro, sans import de `todo-perso-pro`. Deux tranches : liste et ajout rapide, puis kanban et relations (`docs/features/todo-unifiee/spec.md`). Actions du registre utilisables telles quelles par un modèle (connecteur Claude BRAIN-38 d'abord, puis WhatsApp). État (2026-11-20) : tranche 1 fusionnée (PR #8 et #9) ; tranche 2 (kanban, ordre manuel, parente modifiable, relations) : spec `docs/features/todo-kanban/spec.md`, PR A (données) fusionnée le 2026-11-25, PR B (écrans, BRAIN-46) en cours ; démo `/demo/kanban` retirée.
 - **Calendrier** (2026-11-19) : module à part, pas un export des tâches. Le calendrier iOS fait foi pour les rendez-vous ; lecture et écriture via le compte derrière le calendrier. Phase à fixer.
 - **Liste de courses** : modifiable par une personne externe via un lien, sans compte.
 - **Budget** : règle 50/20/20/10 (essentiels, non-essentiels, investissements, épargne), écart affiché en % et en €. Chaque ligne est saisie une seule fois ; le récap se calcule.
