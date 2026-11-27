@@ -30,6 +30,7 @@ import type { TaskRelationInput } from "@/modules/tasks/schemas";
 
 import { chipTriggerClass } from "./chip-styles";
 import { contextChipClass } from "./context-chip-class";
+import { revealInScrollParent } from "./reveal-in-scroll-parent";
 import { STATUS_ICONS } from "./status-icons";
 import { TASK_ROW_LINE_CLASSES } from "./task-list-layout";
 import { TaskPicker } from "./TaskPicker";
@@ -72,7 +73,7 @@ export function RelationList({
 
   // Le panneau d'ajout s'ouvre sous le bouton : dans le champ de vision, le panneau du détail défile.
   useEffect(() => {
-    if (adding) panel.current?.scrollIntoView({ block: "nearest" });
+    if (adding && panel.current !== null) revealInScrollParent(panel.current);
   }, [adding]);
 
   function chooseKind(next: Group) {

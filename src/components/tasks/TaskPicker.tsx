@@ -29,6 +29,7 @@ import {
 
 import { chipItemClass } from "./chip-styles";
 import { contextChipClass } from "./context-chip-class";
+import { revealInScrollParent } from "./reveal-in-scroll-parent";
 import { STATUS_ICONS } from "./status-icons";
 
 export const PICKER_MAX_RESULTS = 20;
@@ -122,10 +123,16 @@ export function TaskPicker({
     return () => clearTimeout(timer);
   }, [query, side, topLevelOnly]);
 
-  // Dans le champ de vision à l'ouverture et quand la liste change de hauteur (résultats reçus) : le panneau
-  // du détail défile, la liste s'ouvre sous la ligne. Aucun effet sur le focus (déjà donné dans le geste).
+  // Dans le champ de vision du conteneur défilant du détail : une fois à l'ouverture, une fois à la première
+  // arrivée de résultats (la liste prend alors sa hauteur), jamais à chaque frappe. Aucun effet sur le focus.
+  const revealed = useRef(false);
   useEffect(() => {
-    root.current?.scrollIntoView({ block: "nearest" });
+    if (root.current !== null) revealInScrollParent(root.current);
+  }, []);
+  useEffect(() => {
+    if (loaded.state !== "ready" || revealed.current) return;
+    revealed.current = true;
+    if (root.current !== null) revealInScrollParent(root.current);
   }, [loaded]);
 
   const items = loaded.state === "ready" ? loaded.tasks : [];

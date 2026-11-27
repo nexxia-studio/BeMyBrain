@@ -17,6 +17,9 @@ import { buildTask } from "../../../tests/factories/build-task";
 const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
+const reveal = vi.hoisted(() => vi.fn());
+vi.mock("./reveal-in-scroll-parent", () => ({ revealInScrollParent: reveal }));
+
 import { RelationList } from "./RelationList";
 
 const TASK_ID = "11111111-1111-4111-8111-111111111111";
@@ -63,7 +66,10 @@ const writes = (name: string) =>
 
 // `mockClear`, pas `mockReset` : avec `mockReset`, un `mockRejectedValue` posé ensuite fait échouer le test
 // même quand l'appel est attrapé. Chaque test pose son implémentation (`serve`).
-beforeEach(() => runAppAction.mockClear());
+beforeEach(() => {
+  runAppAction.mockClear();
+  reveal.mockClear();
+});
 afterEach(cleanup);
 
 describe("section « Relations » du détail", () => {
@@ -209,8 +215,6 @@ describe("section « Relations » du détail", () => {
   });
 
   it("l'ajout se met dans le champ de vision à l'ouverture du panneau", () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
     serve([]);
     renderList();
 
@@ -218,7 +222,8 @@ describe("section « Relations » du détail", () => {
       screen.getByRole("button", { name: "Ajouter une relation" }),
     );
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    expect(reveal).toHaveBeenCalledTimes(1);
+    expect(reveal.mock.calls[0]?.[0]).toBeInstanceOf(HTMLElement);
   });
 
   it("une relation affichée inversée chez l'autre : « Bloque » retire avec kind blocks", async () => {

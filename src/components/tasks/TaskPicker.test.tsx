@@ -16,6 +16,9 @@ import { buildTask } from "../../../tests/factories/build-task";
 const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
+const reveal = vi.hoisted(() => vi.fn());
+vi.mock("./reveal-in-scroll-parent", () => ({ revealInScrollParent: reveal }));
+
 import { TaskPicker } from "./TaskPicker";
 
 const OPEN = ["backlog", "unstarted", "started"];
@@ -60,21 +63,25 @@ const input = () =>
 
 beforeEach(() => {
   runAppAction.mockReset();
+  reveal.mockReset();
 });
 afterEach(cleanup);
 
 describe("liste de sélection de tâche", () => {
-  it("se met dans le champ de vision à l'ouverture et quand les résultats arrivent, sans toucher au focus", async () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
+  it("se met dans le champ de vision une fois à l'ouverture et une fois à l'arrivée des résultats, jamais à chaque frappe", async () => {
     serve([buildTask({ title: "Devis Trustup" })]);
     renderPicker();
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
-    const before = scrollIntoView.mock.calls.length;
+    expect(reveal).toHaveBeenCalledTimes(1);
+    await screen.findByText("Devis Trustup");
+    expect(reveal).toHaveBeenCalledTimes(2);
+    fireEvent.change(input(), { target: { value: "Dev" } });
+    await waitFor(() =>
+      expect(runAppAction.mock.calls.length).toBeGreaterThan(1),
+    );
     await screen.findByText("Devis Trustup");
 
-    expect(scrollIntoView.mock.calls.length).toBeGreaterThan(before);
+    expect(reveal).toHaveBeenCalledTimes(2);
   });
 
   it("ouverte sans recherche : tâches ouvertes du côté demandé, une seule lecture, titre + statut + espace", async () => {

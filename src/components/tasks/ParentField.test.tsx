@@ -17,6 +17,9 @@ import { buildTask } from "../../../tests/factories/build-task";
 const runAppAction = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction }));
 
+const reveal = vi.hoisted(() => vi.fn());
+vi.mock("./reveal-in-scroll-parent", () => ({ revealInScrollParent: reveal }));
+
 import { ParentField } from "./ParentField";
 
 const TASK_ID = "11111111-1111-4111-8111-111111111111";
@@ -58,7 +61,10 @@ function renderField(props: Partial<FieldProps> = {}) {
 const setParentCalls = () =>
   runAppAction.mock.calls.filter(([name]) => name === "tasks.setParent");
 
-beforeEach(() => runAppAction.mockReset());
+beforeEach(() => {
+  runAppAction.mockReset();
+  reveal.mockReset();
+});
 afterEach(cleanup);
 
 describe("propriété « Tâche parente »", () => {
@@ -208,8 +214,6 @@ describe("propriété « Tâche parente »", () => {
   });
 
   it("la liste s'ouvre sous la ligne, hors de la colonne de valeur, et se met dans le champ de vision", async () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
     serve([buildTask({ title: "Dossier" })]);
     renderField();
 
@@ -226,7 +230,7 @@ describe("propriété « Tâche parente »", () => {
     const row = trigger.parentElement?.parentElement as HTMLElement;
     expect(row.contains(search)).toBe(false);
     expect(document.activeElement).toBe(search);
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    expect(reveal).toHaveBeenCalled();
   });
 
   it.each([
