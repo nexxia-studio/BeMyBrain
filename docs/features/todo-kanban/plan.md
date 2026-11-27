@@ -159,7 +159,7 @@ Règles communes à toutes les tâches :
 
 ### C. Détail (PR B)
 
-- [ ] **23. Rendre le titre éditable d'un tap**
+- [x] **23. Rendre le titre éditable d'un tap** — terminée le 2026-11-27
   - Fichiers : `src/components/tasks/TaskDetail.tsx`, `TaskTitleField.tsx` + test, `TaskNotesField.tsx`, `TaskDetail.test.tsx`
   - Contenu : titre au style de titre, libellé `sr-only`, repère d'édition visible au repos, survol `pill-track`, focus en champ net, `text-balance` ; Entrée ou sortie du champ enregistre (inchangé) ; restes de D9 : notes faites de retours à la ligne (plus de rétrécissement au départ du champ), compte d'appels asserté.
   - Test à écrire d'abord : « repère présent ; Entrée enregistre une fois ; vide → erreur et valeur d'avant ; notes "\n\n\n\n" puis clic sur la corbeille en un clic (e2e `todo-detail-notes`) »

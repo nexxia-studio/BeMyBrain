@@ -11,7 +11,10 @@
 // sur « Mettre à la corbeille » serait perdu. Replié ou non, c'est le même `textarea`, toujours monté : le tap le
 // focalise directement et le clavier d'iOS s'ouvre (un bouton qui monterait le champ ensuite ne l'ouvrirait pas,
 // gotchas).
-// Des espaces seuls comptent pour vide : au départ du champ, la valeur redevient vide (l'invite revient).
+// Des espaces seuls comptent pour vide : au départ du champ, la valeur redevient vide (l'invite revient). Sauf s'il y
+// a des retours à la ligne : le texte reste, le champ garde sa hauteur (`\n\n\n\n` effacé rétrécirait d'un coup, le
+// bouton « Mettre à la corbeille » remonterait entre l'appui et le relâchement, clic perdu). L'enregistrement
+// (l'appelant) traite les deux comme vides.
 // Aucune animation : le champ change de hauteur d'un coup (animer une hauteur est exclu, anti-slop de nexxia-design).
 // Sans logique de données : l'appelant tient la valeur et enregistre (au départ du champ dans le vrai détail).
 import { useTranslations } from "next-intl";
@@ -70,7 +73,10 @@ export function TaskNotesField({
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => setOpened(true)}
         onBlur={() => {
-          if (value !== "" && value.trim() === "") onChange("");
+          // Espaces seuls sur une ligne : l'invite revient. Avec des retours à la ligne, le texte reste : l'effacer
+          // rétrécirait le champ sous le pointeur.
+          if (value !== "" && value.trim() === "" && !value.includes("\n"))
+            onChange("");
           onBlur?.();
         }}
         className={cn(

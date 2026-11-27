@@ -1111,6 +1111,20 @@ describe("détail : hiérarchie (BRAIN-46, D9)", () => {
     expect(notes.disabled).toBe(false);
   });
 
+  it("notes faites de retours à la ligne : un seul appel, enregistrées comme absentes, champ non rétréci", async () => {
+    const task = renderDetail(buildDetail({ notes: null }));
+    const notes = screen.getByRole("textbox", { name: "Notes" });
+
+    fireEvent.focus(notes);
+    fireEvent.change(notes, { target: { value: "\n\n\n\n" } });
+    fireEvent.blur(notes);
+
+    await waitFor(() => expect(runAppAction).not.toHaveBeenCalled());
+    expect((notes as HTMLTextAreaElement).value).toBe("\n\n\n\n");
+    expect(notes.getAttribute("data-collapsed")).toBe("false");
+    expect(task.id).toBeTruthy();
+  });
+
   it("notes vides focalisées puis quittées : restent dépliées (la corbeille ne bouge pas sous le clic), rien d'enregistré", () => {
     renderDetail(buildDetail({ notes: null }));
     const notes = screen.getByRole("textbox", { name: "Notes" });

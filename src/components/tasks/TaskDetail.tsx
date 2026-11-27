@@ -4,7 +4,8 @@
 // Détail `/tasks/[id]` (spec todo-unifiee, « Détail ») : au-dessus de la liste, URL propre. Fenêtre (panneau sur
 // ordinateur, tiroir sur mobile, fermeture) : `TaskDetailSheet`, partagée avec l'état d'erreur du détail.
 // Fermer : animation de sortie, puis retour à la liste, requête gardée (`listQuery`).
-// Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : parente en lien (sous-tâche), titre, puis
+// Contenu, une colonne, du plus décisif au plus libre (BRAIN-46, D9) : parente en lien (sous-tâche), titre éditable
+// d'un tap (`TaskTitleField`), puis
 // les propriétés groupées (Statut, Priorité, Échéance, Côté et espace, Tags ; statut et priorité marqués par leur
 // icône, `status-icons.ts` et `priority-icons.ts`), sous-tâches (pas sur une sous-tâche), notes en bas, repliées
 // sur une ligne à l'ouverture quand elles sont vides (`TaskNotesField`), pied « Mettre à la corbeille ».
@@ -20,15 +21,10 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 
-import { cn } from "@/lib/utils";
 import type { ContextOption } from "@/modules/core/context-colors";
 import { sides, type Side } from "@/modules/core/sides";
 import type { TaskDetail as TaskDetailData } from "@/modules/tasks/queries";
-import {
-  statusCategories,
-  type StatusCategory,
-  TASK_TITLE_MAX,
-} from "@/modules/tasks/sides";
+import { statusCategories, type StatusCategory } from "@/modules/tasks/sides";
 import { subtaskCounter, tagChanges } from "@/modules/tasks/view";
 
 import { TASKS_PATH } from "../shell/nav-items";
@@ -43,13 +39,11 @@ import { loadWorkspaceTags } from "./load-workspace-tags";
 import { TagsChip } from "./TagsChip";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 import { TaskNotesField } from "./TaskNotesField";
+import { TaskTitleField } from "./TaskTitleField";
 import { useTrashNoticeHost, useTrashTask } from "./task-trash-context";
 import { type TaskUpdate, useTaskUpdate } from "./use-task-update";
 
 const PRIORITIES = ["0", "1", "2", "3", "4"] as const;
-
-const fieldClass =
-  "w-full resize-none rounded-lg border border-input bg-row px-3 py-2.5 text-foreground field-sizing-content disabled:cursor-not-allowed disabled:opacity-60";
 
 type TaskDetailProps = {
   task: TaskDetailData;
@@ -87,7 +81,6 @@ export function TaskDetail({
   const trash = useTrashTask();
   const noticeHost = useTrashNoticeHost();
   const [trashing, setTrashing] = useState(false);
-  const titleId = useId();
   const ids = {
     title: useId(),
     notes: useId(),
@@ -148,12 +141,23 @@ export function TaskDetail({
     : errorOf(title, ids.title);
   const notesErrors = errorOf(notes, ids.notes);
 
-  function saveTitle() {
-    const next = titleDraft.trim();
+  function saveTitle(value: string) {
+    const next = value.trim();
     setTitleEmpty(next === "");
     if (next === "" || next === task.title) return;
     title.save({ title: next });
   }
+
+  const titleProps = {
+    value: titleDraft,
+    onChange: (value: string) => {
+      setTitleEmpty(false);
+      setTitleDraft(value);
+    },
+    onSave: saveTitle,
+    disabled: title.pending,
+    errors: titleErrors,
+  };
 
   function saveNotes() {
     const next = notesDraft.trim() === "" ? null : notesDraft;
@@ -238,54 +242,15 @@ export function TaskDetail({
               </div>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              {subtask ? (
-                <label htmlFor={titleId} className="text-small font-medium">
-                  {t("detail.title")}
-                </label>
-              ) : (
-                // Pas de lien vers une parente : la croix rejoint la rangée du libellé (pas de rangée vide).
-                <div className="flex items-center justify-between gap-3">
-                  <label htmlFor={titleId} className="text-small font-medium">
-                    {t("detail.title")}
-                  </label>
-                  {closeButton}
-                </div>
-              )}
-              <textarea
-                id={titleId}
-                rows={1}
-                value={titleDraft}
-                disabled={title.pending}
-                maxLength={TASK_TITLE_MAX}
-                enterKeyHint="done"
-                aria-describedby={
-                  titleErrors.length > 0 ? ids.title : undefined
-                }
-                onChange={(event) => {
-                  setTitleEmpty(false);
-                  setTitleDraft(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  // Un titre tient sur une ligne : Entrée valide.
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  event.currentTarget.blur();
-                }}
-                onBlur={saveTitle}
-                className={cn(fieldClass, "min-h-11 font-heading text-title")}
-              />
-              {titleErrors.map((error) => (
-                <p
-                  key={error.id}
-                  id={error.id}
-                  role="alert"
-                  className="text-caption text-destructive"
-                >
-                  {error.text}
-                </p>
-              ))}
-            </div>
+            {subtask ? (
+              <TaskTitleField {...titleProps} />
+            ) : (
+              // Pas de lien vers une parente : la croix rejoint la rangée du titre (pas de rangée vide).
+              <div className="flex items-start justify-between gap-3">
+                <TaskTitleField {...titleProps} />
+                {closeButton}
+              </div>
+            )}
 
             <div
               role="group"

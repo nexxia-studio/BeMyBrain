@@ -55,3 +55,45 @@ test("@desktop notes vides focalisées, puis corbeille en un seul clic", async (
 
   await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
 });
+
+test("@desktop notes faites de retours à la ligne : corbeille en un seul clic", async ({
+  page,
+}) => {
+  const title = uniqueTitle("Ranger le grenier");
+  await signIn(page);
+  created.push(await quickAddTask(page, title));
+  await page.goto("/tasks");
+  await taskLink(listSection(page, "none"), title).click();
+  const detail = detailDialog(page);
+  const notes = detail.getByLabel(fr.tasks.detail.notes, { exact: true });
+
+  await notes.click();
+  await notes.fill("\n\n\n\n");
+  await detail
+    .getByRole("button", { name: fr.tasks.detail.trash, exact: true })
+    .click();
+
+  await expect(page.getByText(fr.tasks.detail.trashed)).toBeVisible();
+});
+
+test("@desktop titre modifié d'un clic dessus, Entrée enregistre", async ({
+  page,
+}) => {
+  const title = uniqueTitle("Ranger la cave");
+  await signIn(page);
+  created.push(await quickAddTask(page, title));
+  await page.goto("/tasks");
+  await taskLink(listSection(page, "none"), title).click();
+  const detail = detailDialog(page);
+  const field = detail.getByLabel(fr.tasks.detail.title, { exact: true });
+  const renamed = `${title} (bis)`;
+
+  await field.click();
+  await field.fill(renamed);
+  await field.press("Enter");
+
+  await expect(field).toBeEnabled();
+  await page.goto("/tasks");
+
+  await expect(taskLink(listSection(page, "none"), renamed)).toBeVisible();
+});

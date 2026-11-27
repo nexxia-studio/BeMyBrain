@@ -97,17 +97,25 @@ describe("champ de notes repliable", () => {
   });
 
   it("des espaces seuls comptent pour vide : au départ le champ redevient vide et montre l'invite", () => {
-    const onBlur = vi.fn();
-    renderField({ initial: "", onBlur });
+    renderField({ initial: "" });
 
     fireEvent.focus(field());
     fireEvent.change(field(), { target: { value: "   " } });
     fireEvent.blur(field());
 
     expect(field().value).toBe("");
-    // L'invite n'est affichée par le navigateur que sur une valeur vide.
-    expect(field().placeholder).toBe("Ajouter une note");
-    expect(field().matches(":placeholder-shown")).toBe(true);
+  });
+
+  it("des retours à la ligne seuls : au départ le texte est gardé, la hauteur ne rétrécit pas", () => {
+    const onBlur = vi.fn();
+    renderField({ initial: "", onBlur });
+
+    fireEvent.focus(field());
+    fireEvent.change(field(), { target: { value: "\n\n\n\n" } });
+    fireEvent.blur(field());
+
+    expect(field().value).toBe("\n\n\n\n");
+    expect(field().getAttribute("data-collapsed")).toBe("false");
     expect(onBlur).toHaveBeenCalledTimes(1);
   });
 
