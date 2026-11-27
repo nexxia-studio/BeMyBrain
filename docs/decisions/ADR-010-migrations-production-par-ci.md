@@ -40,6 +40,7 @@ Statut : proposé, en attente de relecture d'Antoine. Devient la section « Ordr
 - API Vercel retenue contre un Deploy Hook : le hook déploie le dernier commit de la branche (pas le SHA du run) et ne rend pas l'identifiant du déploiement.
 - Jeton `VERCEL_PRODUCTION_TOKEN`, environnement `production` seulement (branche `main`), lu par le seul job de déploiement, qui n'installe rien et n'a pas `DATABASE_URL`. Le job de migration (qui installe) ne voit jamais de jeton Vercel. Réserve : un jeton Vercel ne se limite ni à la production ni à un projet ; tant que `VERCEL_TOKEN` (équipe entière) reste au niveau du dépôt, l'environnement protège le jeton, pas la capacité de déployer en production. Risque déjà accepté ci-dessus (seul Antoine a l'écriture).
 - Garde : le job ne déploie pas un SHA qui n'est plus la tête de `main` (un run relancé tard ne remplace pas la production par un vieux commit).
+- Date d'expiration du jeton `VERCEL_PRODUCTION_TOKEN` : **à renseigner (Antoine la donnera)** ; rappel de renouvellement à inscrire dans « Conséquences » à la bascule (plan, tâche 5).
 - Ordre inversé pour les migrations : l'ancien code tourne sur le nouveau schéma entre la fin de la migration et la fin du build, sans limite si le build échoue. La règle des migrations rétrocompatibles reste obligatoire.
 
 ## Dépôt public (2026-11-16)

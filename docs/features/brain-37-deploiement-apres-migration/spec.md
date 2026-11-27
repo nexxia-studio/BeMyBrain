@@ -1,6 +1,6 @@
 # Spec — BRAIN-37 : la production n'est mise en ligne qu'après la migration de sa base
 
-**Créée le** : 2026-11-27 · **Statut** : brouillon, à relire par Antoine · **Plan** : `plan.md`
+**Créée le** : 2026-11-27 · **Statut** : validée (relecture d'Antoine du 2026-11-27) · **Plan** : `plan.md`
 
 ## Objectif
 Au merge dans `main`, la production ne passe jamais en ligne avant la fin de la migration de sa base : migration réussie → déploiement de production par la CI ; migration en échec → rien n'est déployé, le job est rouge, la production reste sur son déploiement actuel.
@@ -39,7 +39,7 @@ Jeton : nouveau secret **`VERCEL_PRODUCTION_TOKEN`**, environnement `production`
 - **Garde « tête de `main` »** : juste avant de créer le déploiement, le job lit le SHA de `main` (GitHub API, `GITHUB_TOKEN`, `contents: read`). Si ce n'est plus le SHA du run, il ne déploie pas : job vert, résumé « remplacé par `<sha7>` ». Raison : un run relancé à la main le lendemain (« Re-run all jobs ») redéploierait un vieux commit par-dessus un plus récent. Effet de bord à valider : dans la séquence A puis B rapprochés, A migre mais ne déploie pas (B suit tout de suite). Voir question 2.
 - **Attente** : sondage de `GET /v13/deployments/{id}` toutes les 10 s, 15 min maximum. Succès = `readyState: READY`, `target: production`, `aliasAssigned` vrai, pas d'`aliasError`. `ERROR` ou `CANCELED` → échec. Cible différente de `production` → déploiement annulé puis échec (même garde que les previews). Délai dépassé → déploiement **annulé** avant l'échec, pour qu'un job rouge ne mette pas la production en ligne plus tard.
 - **Re-déclenchement** : `forceNew=1`, comme les previews : sans lui, Vercel peut renvoyer un déploiement déjà en `ERROR` du même SHA.
-- **Résumé du job** (`$GITHUB_STEP_SUMMARY`) : SHA court, état, durée, URL du déploiement. Aucun jeton, aucun identifiant de projet ou d'équipe, aucun corps de réponse. Voir question 1.
+- **Résumé du job** (`$GITHUB_STEP_SUMMARY`) : SHA court, état, durée. **Aucune URL** (dépôt public, décision d'Antoine du 2026-11-27), aucun jeton, aucun identifiant de projet ou d'équipe, aucun corps de réponse. Le déploiement se retrouve dans Vercel par son SHA.
 - **Journaux** : dépôt public. Identifiants de projet et d'équipe masqués avant tout appel (`::add-mask::`), comme dans `vercel-preview-env.mjs`.
 
 ## Ce que l'ordre change pour les migrations
@@ -56,7 +56,7 @@ Avant : le nouveau code pouvait tourner un moment sur l'ancien schéma. Après :
 - [ ] `deploy-production` dépend de `migrate-production` sans `always()` ni `continue-on-error` ; un test le verrouille.
 - [ ] `VERCEL_PRODUCTION_TOKEN` n'est lu que par `deploy-production`, jamais dans le job qui lance `pnpm install` ni dans un job sans environnement `production` ; `DATABASE_URL` n'est lue que par `migrate-production`.
 - [ ] Le job de déploiement : `contents: read` seul, aucune action tierce hors celles déjà épinglées par SHA (checkout, setup-node), pas d'installation, `NODE_OPTIONS` et `BASH_ENV` vidés.
-- [ ] Le script envoie `target: "production"`, le SHA et `forceNew=1` ; refuse un SHA qui n'est pas celui du run ; ne déploie pas quand `main` a avancé ; échoue sur `ERROR`, `CANCELED`, délai, alias en erreur, cible inattendue ; annule le déploiement sur délai ou cible inattendue ; n'écrit jamais jeton, identifiant ni corps de réponse.
+- [ ] Le script envoie `target: "production"`, le SHA et `forceNew=1` ; refuse un SHA qui n'est pas celui du run ; ne déploie pas quand `main` a avancé ; échoue sur `ERROR`, `CANCELED`, délai, alias en erreur, cible inattendue ; annule le déploiement sur délai ou cible inattendue ; n'écrit jamais jeton, identifiant, URL ni corps de réponse (journal et résumé).
 - [ ] Merge sans migration : déploiement créé. Migration en échec : `deploy-production` « Skipped », aucun déploiement créé (vérifié sur Vercel).
 - [ ] La procédure manuelle de secours est dans `docs/gotchas.md` et a été jouée une fois sur une preview.
 
@@ -68,7 +68,7 @@ Pas de scénario navigateur : le résultat se lit dans GitHub Actions et Vercel.
 - Toutes les tâches sont `[security]` (CI, secret, production) : reviewer seul par tâche, puis `security-auditor`.
 - Surface nouvelle : un jeton de déploiement de production dans l'environnement `production`. Limites : branche `main` seule, job sans installation ni checkout de dépendances, jeton distinct révocable, aucune action tierce.
 
-## Questions ouvertes
-- [ ] **1. URL dans le résumé du job** (dépôt public). Tu l'as demandée ; l'URL du déploiement (`bemybrain-<hash>-<équipe>.vercel.app`) contient le nom d'équipe, que tu as déjà fait masquer dans les journaux (gotchas, 2026-11-17). Elle est derrière Deployment Protection (SSO), donc inutilisable sans compte. Proposition : la mettre dans le résumé (rien d'autre n'identifie l'infrastructure), remplaçable par « SHA court + lien depuis Vercel » en une ligne si tu préfères. Ta décision avant la tâche 1.
-- [ ] **2. Garde « tête de `main` »** : accepter qu'un run dépassé par un push plus récent ne déploie pas (migration appliquée, déploiement laissé au run suivant). C'est un écart à « les déploiements partent dans l'ordre » ; l'alternative stricte (A puis B toujours déployés) laisse un rejouage tardif écraser la production avec un vieux commit. Avis : garder la garde.
-- [ ] **3. Jobs de statut `status-pending` / `status-final`** : ils posaient le commit status lu par les Deployment Checks, que Vercel n'a jamais lu. Avis : les retirer (code mort, seul `statuses: write` du dépôt, tests à adapter), le job de déploiement tient lieu d'état de production. Si tu préfères les garder, la tâche 3 saute et les tests actuels restent.
+## Décisions (Antoine, 2026-11-27)
+- [x] **1. URL dans le résumé du job** : non. SHA court, état et durée seulement.
+- [x] **2. Garde « tête de `main` »** : conservée. Un run dépassé par un push plus récent ne déploie pas.
+- [x] **3. Jobs `status-pending` / `status-final`** : retirés (tâche 3 maintenue).

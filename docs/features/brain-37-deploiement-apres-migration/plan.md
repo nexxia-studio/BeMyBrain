@@ -11,8 +11,8 @@ Les tâches 1 à 5 se livrent dans **une seule PR** : `vercel.json` (tâche 4) e
 - Rien d'autre : `VERCEL_PROJECT_ID` et `VERCEL_TEAM_ID` (dépôt) sont réutilisés.
 - Sans ce secret, la fusion échoue proprement (migration faite, déploiement refusé « VERCEL_TOKEN manquante », production inchangée) : voir tâche 8.
 
-## Décisions à prendre avant la tâche 1
-Questions 1 et 2 de la spec (URL dans le résumé, garde « tête de `main` »). La question 3 décide de la tâche 3.
+## Décisions prises (Antoine, 2026-11-27)
+Pas d'URL dans le résumé (SHA court, état, durée) ; garde « tête de `main` » conservée ; jobs de statut retirés (tâche 3 maintenue).
 
 ## Tâches
 - [ ] **1. Script de déploiement de production** [security]
@@ -21,11 +21,11 @@ Questions 1 et 2 de la spec (URL dans le résumé, garde « tête de `main` »).
     - « envoie `target: production`, le SHA, le dépôt et `forceNew=1`, avec le nom du projet lu par `GET /v9/projects` (pas son identifiant) » ;
     - « refuse un SHA qui n'a pas 40 caractères hexadécimaux » ;
     - « ne crée aucun déploiement quand `main` est passée à un autre SHA, écrit « remplacé par `<sha7>` » dans le résumé, sort en succès » ;
-    - « attend `READY` avec alias assigné, puis écrit SHA court, état, durée et URL dans le résumé » ;
+    - « attend `READY` avec alias assigné, puis écrit SHA court, état et durée dans le résumé, sans aucune URL (ni celle du déploiement, ni un alias, ni le lien du tableau de bord) » ;
     - « échoue sur `ERROR`, `CANCELED`, `aliasError` » ;
     - « annule le déploiement puis échoue quand la cible renvoyée n'est pas `production` » ;
     - « annule le déploiement puis échoue au délai dépassé (15 min simulées par `sleep` factice) » ;
-    - « n'écrit nulle part jeton, identifiant de projet ou d'équipe, corps de réponse (journal et résumé) » ; « masque projet et équipe avant tout appel » ;
+    - « n'écrit nulle part jeton, identifiant de projet ou d'équipe, URL, corps de réponse (journal et résumé) » ; « masque projet et équipe avant tout appel » ;
     - « réessaie 429 et 5xx sans créer deux déploiements du même appel réussi » (comportement de `call`, vérifié sur le POST).
   - Variables lues : `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `SHA`, `GITHUB_REPOSITORY`, `GITHUB_REPOSITORY_ID`, `GH_TOKEN`, `DEFAULT_GIT_BRANCH`, `GITHUB_STEP_SUMMARY`. Aucune lecture hors de cette liste.
   - Fini quand : tests verts, lint et typecheck verts, `vercel-preview-env.test.ts` inchangé et vert.
@@ -35,7 +35,7 @@ Questions 1 et 2 de la spec (URL dans le résumé, garde « tête de `main` »).
   - Tests à écrire d'abord (mêmes verrous textuels que l'existant) : « `deploy-production` attend `migrate-production`, sans `always()` ni `continue-on-error` » ; « `VERCEL_PRODUCTION_TOKEN` n'apparaît que dans ce job » ; « `DATABASE_URL` et `SEED_OWNER_USER_ID` n'apparaissent que dans `migrate-production` » ; « aucune étape `pnpm`/`npm` dans `deploy-production` » ; « aucune `uses:` hors de celles épinglées » (test existant) ; « aucun `secrets.VERCEL_TOKEN` dans ce workflow » ; test existant « la migration seule porte l'environnement `production` » adapté : deux jobs, `contents: read` seul chacun ; « le groupe de concurrence reste `migrate-production`, sans annulation ».
   - Attention : le test « aucune permission large » refuse le mot `deployments` n'importe où dans le fichier (commentaires compris).
   - Fini quand : tests verts, lint et typecheck verts.
-- [ ] **3. Retirer `status-pending` et `status-final`** [security] — *saute si la question 3 de la spec est refusée*
+- [ ] **3. Retirer `status-pending` et `status-final`** [security] — *maintenue, décision du 2026-11-27*
   - Fichiers : `.github/workflows/migrate-production.yml`, `scripts/ci/workflows.test.ts`.
   - Tests à adapter d'abord : « deux jobs, dans l'ordre : migration, déploiement » ; retrait des verrous sur les statuts ; « `statuses: write` n'existe dans aucun workflow » (le test actuel exige `migrate-production.yml`).
   - Fini quand : plus aucun `gh api … statuses` dans les workflows, tests verts.
@@ -59,7 +59,7 @@ Questions 1 et 2 de la spec (URL dans le résumé, garde « tête de `main` »).
 ## Plan de vérification
 
 ### Ce que prouve une preview, et ce qu'elle ne prouve pas
-Une preview ne peut pas créer de déploiement de production : l'environnement `production` n'admet que la branche `main`, donc aucun run d'une branche de feature ne peut lire `VERCEL_PRODUCTION_TOKEN`. C'est voulu. Le chemin « création + attente en production » n'est donc prouvé qu'au premier vrai merge, après avoir été couvert par les tests au faux `fetch` (tâche 1). Pour que ce premier merge soit sans danger, il porte un commit sans migration ni changement d'app, et son échec possible laisse la production sur son déploiement actuel (procédure de secours, tâche 6).
+Une preview ne peut pas créer de déploiement de production : l'environnement `production` n'admet que la branche `main`, donc aucun run d'une branche de feature ne peut lire `VERCEL_PRODUCTION_TOKEN`. C'est voulu. Le chemin « création + attente en production » n'est donc prouvé qu'au premier vrai merge, après avoir été couvert par les tests au faux `fetch` (tâche 1). Ce premier merge est cette PR, sans migration ni changement d'application ; son échec possible laisse la production sur son déploiement actuel (procédure de secours, tâche 6).
 
 ### Épreuve 1 — avant fusion, sur la PR
 1. **Previews inchangées** : la CI « Preview database » de la PR est verte et la preview se déploie (le `vercel.json` modifié ne touche pas `**`). Constat : Actions → « Preview database » → jobs verts ; Vercel → Deployments → un déploiement `Preview` du dernier commit de la PR.
@@ -67,16 +67,18 @@ Une preview ne peut pas créer de déploiement de production : l'environnement `
 3. **Procédure de secours** : tâche 6.
 4. **Verrous textuels** : `pnpm vitest run scripts/ci` vert (ordre, secrets, jobs).
 
-### Épreuve 2 — le premier vrai merge (accord d'Antoine requis)
-Condition : secret `VERCEL_PRODUCTION_TOKEN` créé, dernier déploiement de production noté (identifiant et SHA).
+### Épreuve 2 — le premier vrai merge, qui est cette PR elle-même (accord d'Antoine requis)
+Le premier vrai merge est la PR de BRAIN-37 : aucune migration, aucun changement d'application, et son `vercel.json` coupe le déploiement git de `main`. Le déploiement de production de son commit de fusion est donc créé par la CI, et par elle seule : c'est ce run qui sert de preuve.
+**Condition bloquante** : le secret `VERCEL_PRODUCTION_TOKEN` doit exister dans l'environnement `production` avant la fusion (inscrite en tête de `qa-report.md`). Sans lui, la migration passe, le déploiement échoue « VERCEL_TOKEN manquante » et, `main` n'étant plus déployée par Vercel, la production reste sur son déploiement actuel : sans casse, mais sans preuve.
+Autre condition : dernier déploiement de production noté (identifiant et SHA).
 Constats, avec la commande qui les donne :
 - **Ordre dans GitHub Actions** : run « Production » du commit de fusion, deux jobs : `Migration production (job)` vert, puis `Déploiement production` démarré **après** la fin du premier.
   `gh run view <id> --json jobs --jq '.jobs[] | {name, conclusion, startedAt, completedAt}'` : `startedAt` du déploiement ≥ `completedAt` de la migration.
 - **Ordre dans Vercel** : Deployments → un seul déploiement `Production` pour ce SHA, créé après `completedAt` de la migration, `READY`, SHA = commit de fusion (colonne source / `meta.githubCommitSha`). Un seul : s'il y en a deux (un « git », un « API »), la coupure de `main` n'a pas pris.
   Depuis Claude : `list_deployments` avec `target=production` et `sha=<sha>`.
-- **Résumé du job** : SHA court, `READY`, durée, URL (selon la décision de la question 1) ; ni jeton ni identifiant de projet ou d'équipe dans le journal ni dans le résumé (public).
+- **Résumé du job** : SHA court, `READY`, durée, aucune URL ; ni jeton ni identifiant de projet ou d'équipe dans le journal ni dans le résumé (public).
 - **Production vivante** : l'application répond sur son adresse de production, la nouvelle version est servie (ex. SHA ou changement visible).
-- **Sans migration** : ce premier merge n'en porte pas, ce qui prouve aussi « un merge sans migration déploie quand même ». Le premier merge avec migration vérifie ensuite la chaîne complète.
+- **Sans migration** : cette PR n'en porte pas, ce qui prouve aussi « un merge sans migration déploie quand même ». Le premier merge suivant qui porte une migration vérifie la chaîne complète.
 - **Deux merges rapprochés** (optionnel, au premier moment où deux PR sont prêtes) : fusionner les deux à quelques secondes. Constat : un run actif, un en attente ; le premier ne déploie pas s'il n'est plus la tête de `main` (« remplacé par »), le second déploie.
 
 ### Épreuve 3 — une migration en échec bloque le déploiement sans casser la production
