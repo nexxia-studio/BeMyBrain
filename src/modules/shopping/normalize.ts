@@ -5,6 +5,7 @@ const UNITS = new Set(["g", "kg", "l", "cl", "ml", "pce", "pcs", "boite", "boite
 const FILLERS = new Set(["de", "d", "du", "of"]);
 
 const isNumber = (t: string) => /^\d+(_\d+)?x?$/.test(t) || /^x\d+$/.test(t) || t === "x";
+const isGlued = (t: string) => /^\d+(_\d+)?(g|kg|l|cl|ml|pce|pcs)$/.test(t); // « 1l », « 500g »
 const isPureNumber = (t: string) => /^\d+(_\d+)?$/.test(t);
 
 export type NormalizedLabel = {
@@ -14,21 +15,32 @@ export type NormalizedLabel = {
   normalized: string;
   /** Mots du texte normalisé. */
   words: string[];
-  /** Formes à essayer pour une expression : telle quelle, puis sans `s`/`x` final. */
+  /** Formes à essayer pour une expression : telle quelle, puis chaque mot sans `s`/`x` final. */
   forms: string[];
 };
 
-/** Un terme tel quel, puis sans `s`/`x` final (ni pour un mot de deux lettres ou moins). */
+const singularWord = (w: string) => (w.length > 3 && /[sx]$/.test(w) ? w.slice(0, -1) : w);
+
+/**
+ * Un terme tel quel d'abord, puis ses variantes où chaque mot peut perdre son `s`/`x` final
+ * (« haricots verts » → « haricot vert »). Les mots de trois lettres ou moins restent intacts.
+ */
 export function singularForms(term: string): string[] {
-  return term.length > 3 && /[sx]$/.test(term) ? [term, term.slice(0, -1)] : [term];
+  let forms = [""];
+  for (const w of term.split(" ")) {
+    const options = [...new Set([w, singularWord(w)])];
+    forms = forms.flatMap((f) => options.map((o) => (f ? `${f} ${o}` : o)));
+  }
+  // raccourci: produit de toutes les variantes (2^n pour n mots à pluriel) — plafonner si une expression dépasse ~6 mots
+  return forms;
 }
 
 function stripQuantity(tokens: string[]): string[] {
   let t = [...tokens];
   // En tête : nombre(s), puis unité (seulement après un nombre), puis « de ».
   let sawNumber = false;
-  while (t.length > 1 && isNumber(t[0])) {
-    sawNumber ||= isPureNumber(t[0]) || t[0] !== "x";
+  while (t.length > 1 && (isNumber(t[0]) || isGlued(t[0]))) {
+    sawNumber ||= t[0] !== "x";
     t.shift();
   }
   if (sawNumber) {
@@ -41,7 +53,7 @@ function stripQuantity(tokens: string[]): string[] {
     const prev = t.at(-2);
     if (t.length > 2 && last !== undefined && UNITS.has(last) && prev !== undefined && isPureNumber(prev)) {
       t = t.slice(0, -2);
-    } else if (t.length > 1 && last !== undefined && isNumber(last)) {
+    } else if (t.length > 1 && last !== undefined && (isNumber(last) || isGlued(last))) {
       t.pop();
     } else break;
   }

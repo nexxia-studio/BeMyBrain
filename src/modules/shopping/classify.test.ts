@@ -33,9 +33,18 @@ describe("classifyAisle", () => {
 
   it("l'expression la plus longue l'emporte", () => {
     expect(classifyAisle("pomme de terre", none).aisle).toBe("produce");
-    expect(classifyAisle("lait de coco", none).source).toBe("dictionary");
+    expect(classifyAisle("lait de coco", none)).toEqual({ aisle: "pantrySavory", source: "dictionary" });
+    expect(classifyAisle("lait d'avoine", none).aisle).toBe("drinks");
     expect(classifyAisle("Œufs x12", none).aisle).toBe("dairyEggs");
     expect(classifyAisle("haricots verts", none).aisle).toBe("produce");
+  });
+
+  it("essaie le singulier de chaque mot d'une expression", () => {
+    expect(classifyAisle("petits pois", none).aisle).toBe("produce");
+    expect(classifyAisle("haricots blancs", none).aisle).toBe("pantrySavory");
+    expect(classifyAisle("sacs congélation", none).aisle).toBe("household");
+    expect(classifyAisle("haricots verts en boîte", none).aisle).toBe("pantrySavory");
+    expect(classifyAisle("2 sacs poubelle", none).aisle).toBe("household");
   });
 
   it("classe au moins 95 % du jeu de référence comme attendu", () => {

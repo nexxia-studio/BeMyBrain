@@ -4,14 +4,17 @@
  * au singulier : la recherche essaie aussi le terme sans `s`/`x` final.
  * Une même clé ne figure qu'une fois (test) : un mot ambigu est tranché ici, par un commentaire.
  * Ce fichier ne fait que déclarer ; la recherche (expression la plus longue d'abord) vit dans `classify.ts`.
+ * Ambiguïtés : « pate » (singulier) = pâté, charcuterie ; « pates » = pâtes, féculents (le pluriel est donc une entrée
+ * à part, essayée avant le singulier). « the » = thé (boissons) ; l'article anglais « the » dans « the milk » sera
+ * donc pris pour du thé, les mots seuls étant essayés dans l'ordre : limite connue, à lever si l'anglais le demande.
  * Fichier sans dépendance serveur.
  */
 import type { AisleKey } from "../aisles";
 
 export const DICTIONARY: Readonly<Record<AisleKey, readonly string[]>> = {
   produce: [
-    // pluriels internes ou irréguliers, hors de portée de « sans s final »
-    "haricots verts", "sweet potatoes", "potatoes", "tomatoes", "strawberries", "raspberries", "blueberries", "cherries",
+    // pluriels irréguliers (-oes, -ies), hors de portée de « sans s final »
+    "potatoes", "tomatoes", "strawberries", "raspberries", "blueberries", "cherries",
     // fruits
     "pomme", "apple", "poire", "pear", "banane", "banana", "orange", "citron", "lemon", "lime", "citron vert",
     "clementine", "mandarine", "pamplemousse", "grapefruit", "fraise", "strawberry", "framboise", "raspberry",
@@ -66,10 +69,8 @@ export const DICTIONARY: Readonly<Record<AisleKey, readonly string[]>> = {
     "lait fermente", "babeurre", "buttermilk", "kefir", "lait concentre", "evaporated milk",
   ],
   pantrySavory: [
-    // pluriels internes ou irréguliers, hors de portée de « sans s final »
-    "tomates pelees",
     // féculents
-    "pates", "pasta", "spaghetti", "tagliatelle", "penne", "fusilli", "macaroni", "lasagne", "ravioli",
+    "pates", /* pluriel gardé : « pate » seul est le pâté (charcuterie) */ "pasta", "spaghetti", "tagliatelle", "penne", "fusilli", "macaroni", "lasagne", "ravioli",
     "nouille", "noodle", "ramen", "vermicelle", "riz", "rice", "riz basmati", "basmati rice", "semoule", "couscous",
     "quinoa", "boulgour", "bulgur", "polenta", "lentille", "lentil", "pois chiche", "chickpea",
     "haricot rouge", "kidney bean", "haricot blanc", "haricot sec", "dried beans", "feve", "mais", "puree flocon",
@@ -135,8 +136,6 @@ export const DICTIONARY: Readonly<Record<AisleKey, readonly string[]>> = {
     "tomato juice", "eau de coco", "coconut water", "chocolat chaud", "hot chocolate", "chocolat en poudre",
   ],
   household: [
-    // pluriels internes ou irréguliers, hors de portée de « sans s final »
-    "sacs poubelle", "pastilles lave vaisselle",
     "papier toilette", "toilet paper", "pq", "papier wc", "papier hygienique", "toilet roll", "sopalin",
     "essuie tout", "paper towel", "kitchen roll", "mouchoir", "tissue", "kleenex", "serviette en papier",
     "napkin", "lessive", "laundry detergent", "detergent", "assouplissant", "fabric softener", "adoucissant",
@@ -183,8 +182,6 @@ export const DICTIONARY: Readonly<Record<AisleKey, readonly string[]>> = {
     "huile de massage", "massage oil", "epilateur", "cire depilatoire", "wax strips", "mouchoir de poche",
   ],
   babyPets: [
-    // pluriels internes ou irréguliers, hors de portée de « sans s final »
-    "lingettes bebe", "petits pots",
     "couche", "diaper", "nappy", "lingette bebe", "baby wipes", "creme change", "diaper cream",
     "lait infantile", "infant formula", "formula", "lait bebe", "lait 1er age", "petit pot", "baby food",
     "compote bebe", "cereale bebe", "baby cereal", "biberon", "baby bottle", "tetine", "pacifier",
@@ -198,8 +195,6 @@ export const DICTIONARY: Readonly<Record<AisleKey, readonly string[]>> = {
     "vermifuge", "worming", "shampoing chien", "dog shampoo", "gamelle", "pet bowl",
   ],
   frozen: [
-    // pluriels internes ou irréguliers, hors de portée de « sans s final »
-    "legumes surgeles",
     "surgele", "frozen", "glace", "ice cream", "creme glacee", "sorbet", "esquimau", "ice lolly", "popsicle",
     "cornet", "cone", "bac de glace", "tub of ice cream", "glacon", "ice cube", "ice", "pizza", "frozen pizza",
     "pizza surgelee", "frites", "fries", "french fries", "frites surgelees", "legume surgele",

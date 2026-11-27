@@ -1,28 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { AISLE_KEYS, type AisleKey } from "../aisles";
-import { normalizeLabel, singularForms } from "../normalize";
+import { classifyAisle } from "../classify";
+import { normalizeLabel } from "../normalize";
 import { DICTIONARY, DICTIONARY_LOOKUP } from "./dictionary";
 import { REFERENCE_SET } from "./reference-set";
 
 const entries = AISLE_KEYS.flatMap((aisle) => DICTIONARY[aisle].map((term) => ({ aisle, term })));
 
-// Contrôle de couverture seulement : la vraie recherche est `classifyAisle` (tâche 4).
+// Contrôle de couverture : la vraie recherche est `classifyAisle`, appelée ici sans correction mémorisée.
 function lookup(label: string): AisleKey | undefined {
-  const { words, forms } = normalizeLabel(label);
-  for (const form of forms) {
-    const hit = DICTIONARY_LOOKUP.get(form);
-    if (hit) return hit;
-  }
-  for (let size = words.length - 1; size >= 1; size--) {
-    for (let start = 0; start + size <= words.length; start++) {
-      for (const form of singularForms(words.slice(start, start + size).join(" "))) {
-        const hit = DICTIONARY_LOOKUP.get(form);
-        if (hit) return hit;
-      }
-    }
-  }
-  return undefined;
+  const hit = classifyAisle(label, { overrides: new Map() });
+  return hit.source === "dictionary" ? hit.aisle : undefined;
 }
 
 describe("dictionnaire des rayons", () => {

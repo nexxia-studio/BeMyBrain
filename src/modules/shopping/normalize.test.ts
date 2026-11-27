@@ -21,6 +21,15 @@ describe("normalisation d'un libellé de courses", () => {
     expect(norm("2 kg de pommes")).toBe("pommes");
   });
 
+  it("retire une unité collée au nombre, en tête ou en queue", () => {
+    expect(norm("lait 1L")).toBe("lait");
+    expect(norm("500g farine")).toBe("farine");
+    expect(norm("2kg de pommes")).toBe("pommes");
+    expect(norm("farine 500g")).toBe("farine");
+    expect(norm("eau 1,5l")).toBe("eau");
+    expect(norm("1l")).toBe("1l");
+  });
+
   it("retire une quantité en queue", () => {
     expect(norm("lait x2")).toBe("lait");
     expect(norm("farine 500 g")).toBe("farine");
@@ -41,6 +50,15 @@ describe("normalisation d'un libellé de courses", () => {
     expect(normalizeLabel("choux").forms).toEqual(["choux", "chou"]);
     expect(normalizeLabel("oeufs").forms).toEqual(["oeufs", "oeuf"]);
     expect(normalizeLabel("lait").forms).toEqual(["lait"]);
+  });
+
+  it("essaie les formes singulières mot par mot", () => {
+    expect(normalizeLabel("haricots verts").forms).toEqual([
+      "haricots verts",
+      "haricots vert",
+      "haricot verts",
+      "haricot vert",
+    ]);
   });
 
   it("rend les mots du libellé normalisé", () => {
