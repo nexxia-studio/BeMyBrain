@@ -78,6 +78,13 @@
       "when": 1795626527915,
       "tag": "0010_tasks_order_and_parent_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795823764671,
+      "tag": "0011_shopping_lists",
+      "breakpoints": true
     }
   ]
 }
