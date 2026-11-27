@@ -1,6 +1,7 @@
 # Plan — Kanban des tâches, parente et relations (BRAIN-46)
 
 **Spec** : `spec.md` · **Créé le** : 2026-11-25 · **Démo préalable** : retirée à la tâche 27 (D1–D9 faites ; son `demo-plan.md` est supprimé, l'essentiel est dans « Décisions de la démo » ci-dessous)
+**Statut** : livrée le 2026-11-27 (PR #14 fusionnée en `20b06d4`, `/qa` 11/11 PASS).
 
 <!-- Une tâche = 1–2 h max, un seul implementer, un seul commit. Si une tâche dépasse, découpe-la. -->
 <!-- [security] = security-auditor passe après le reviewer. -->
@@ -26,7 +27,7 @@ Règles communes à toutes les tâches :
 
 ## Tâches
 
-Toutes les tâches sont cochées : voir « Terminé ». Il reste la correction R2 (ci-dessous).
+Toutes les tâches sont terminées : voir « Terminé ». Aucune correction ouverte (R2 tranchée, BRAIN-65).
 
 ## Tickets à créer (hors de cette tranche)
 - Automatismes parente / sous-tâches à la Linear (parente terminée quand toutes ses sous-tâches le sont, et inversement).
@@ -41,7 +42,7 @@ Toutes les tâches sont cochées : voir « Terminé ». Il reste la correction R
 - Date d'annulation : une tâche terminée puis annulée garde sa date de clôture.
 
 ## Corrections de relecture (2026-11-26)
-- [ ] **R2. Carte « gardée de mémoire » refusée en silence** — `src/components/tasks/TaskBoard.tsx` : dans une colonne fermée de plus de 20 cartes, la carte tout juste déposée se saisit puis revient sans message. Tranchée : ticket BRAIN-65 (carte non déplaçable dans une colonne fermée de plus de 20 cartes), pas de correction dans cette PR.
+- Aucune correction ouverte. R2 (carte « gardée de mémoire » refusée en silence) : tranchée, ticket BRAIN-65, pas de correction dans cette PR.
 
 ## Corrections QA
 <!-- Alimenté par /qa. Même format que les tâches. -->
@@ -81,3 +82,4 @@ Toutes les tâches sont cochées : voir « Terminé ». Il reste la correction R
 - **R4. Porter sur le tableau réel avant retrait de la démo** — 2026-11-27 (`b53ccfb`)
 - **R5. Mineurs (`retry` retiré, exception de survol, commentaire)** — 2026-11-27 (`cc77ab1`)
 - **R6. Garde beforeunload pendant un déplacement en attente** — 2026-11-27 (`bbc8b0b`)
+- **R2. Carte « gardée de mémoire » en colonne fermée > 20 cartes** — 2026-11-27 : tranchée, ticket BRAIN-65, sans correction

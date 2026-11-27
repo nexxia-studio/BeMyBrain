@@ -192,3 +192,6 @@
 - Sous-tâche visible sur le tableau mais absente de la liste → la liste de tâches cache les sous-tâches sans échéance → vérifier par le tableau, ou donner une échéance dans le test.
 - Liste `quickAdded` d'`e2e/todo.ts` qui grossit d'un test à l'autre → partagée par tout le run → `takeQuickAdded()` en tête de test pour repartir d'une liste propre.
 - e2e `effets-de-verre` (parcours `/trash`) en échec sur un espace déjà plein → restes d'un parcours interrompu, l'espace de test n'est pas vide → mettre à la corbeille ses tâches avant de conclure.
+- Déplacement au clavier du tableau KO (première flèche après Espace déplace la copie sans annonce ni cible, dépôt non enregistré ; rejouer la frappe emmène plus loin ; BRAIN-64, e2e scénario 5) → colonnes passées de 320 à 280 px → colonnes à 320 px (`md:w-80`) ; ne pas les réduire avant d'avoir réglé BRAIN-64.
+- Playwright avec `E2E_BASE_URL` en `http://localhost` lance quand même `pnpm dev` (webServer `isLocal`) si rien n'écoute sur ce port → webServer de Playwright non désactivé pour une URL locale → lancer le serveur de dev ou de prod visé avant l'e2e.
+- e2e qui échouent sans rapport avec le diff juste après l'arrêt d'une commande d'arrière-plan → cette commande lançait un `next dev` en sous-processus, qu'elle tue aussi → relancer le serveur avant de rejouer l'e2e.
