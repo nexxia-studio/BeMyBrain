@@ -432,5 +432,21 @@
     "cancelled": "Déplacement de « {item} » annulé.",
     "expand": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, déplier",
     "collapse": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, replier"
+  },
+  "shopping": {
+    "aisles": {
+      "produce": "Fruits et légumes",
+      "bakery": "Boulangerie et pâtisserie",
+      "butcherFish": "Boucherie, poissonnerie et charcuterie",
+      "dairyEggs": "Crèmerie et œufs",
+      "pantrySavory": "Épicerie salée",
+      "pantrySweet": "Épicerie sucrée et petit-déjeuner",
+      "drinks": "Boissons",
+      "household": "Entretien et maison",
+      "hygiene": "Hygiène et soins",
+      "babyPets": "Bébé et animaux",
+      "frozen": "Surgelés",
+      "other": "Divers"
+    }
   }
 }

@@ -432,5 +432,21 @@
     "cancelled": "Moving “{item}” was cancelled.",
     "expand": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, expand",
     "collapse": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, collapse"
+  },
+  "shopping": {
+    "aisles": {
+      "produce": "Fruit and vegetables",
+      "bakery": "Bakery and pastries",
+      "butcherFish": "Butcher, fishmonger and deli",
+      "dairyEggs": "Dairy and eggs",
+      "pantrySavory": "Savory pantry",
+      "pantrySweet": "Sweet pantry and breakfast",
+      "drinks": "Drinks",
+      "household": "Household and cleaning",
+      "hygiene": "Hygiene and personal care",
+      "babyPets": "Baby and pets",
+      "frozen": "Frozen",
+      "other": "Other"
+    }
   }
 }
