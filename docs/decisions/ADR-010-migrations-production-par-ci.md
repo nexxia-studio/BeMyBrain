@@ -6,7 +6,7 @@
 Le 2026-11-12, une migration lancée en local a atterri sur la branche Neon `production` : le `.env` local contenait l'accès propriétaire de la production. ADR-005 dit « migrations lancées au déploiement » sans dire par qui. Lancées dans le build Vercel, elles mettraient l'URL propriétaire dans l'environnement de toutes les fonctions.
 
 ## Décision
-- Les migrations de production s'appliquent par un workflow GitHub Actions, au merge dans `main`, avant le déploiement Vercel. Même commande `pnpm db:migrate` que partout (ADR-005).
+- Les migrations de production s'appliquent par un workflow GitHub Actions, au merge dans `main`, avant la mise en ligne : la CI ne déploie la production qu'après une migration réussie (section « Ordre migration / mise en ligne »). Même commande `pnpm db:migrate` que partout (ADR-005).
 - L'accès propriétaire de la production n'existe que dans les secrets GitHub (environnement protégé) et dans 1Password. Jamais dans un `.env` local, jamais dans les variables Vercel.
 - En local, `drizzle.config.ts` refuse toute cible égale à `NEON_PRODUCTION_HOST` (garde-fou testé).
 - Les previews migrent aussi par la CI (GitHub Actions), sur leur propre branche Neon ; leur accès propriétaire est limité à cette branche et n'existe que dans la CI.
@@ -26,22 +26,16 @@ Toute personne qui a l'écriture sur le dépôt peut modifier un workflow et uti
 - Neon reste en formule gratuite (décision d'Antoine) : la branche `production` n'est **pas protégée** (suppression et reset possibles par toute clé du projet ; les branches filles héritent des mots de passe du parent, d'où leur réinitialisation par `scripts/ci/neon-branch.mjs`). Fenêtre de restauration : 6 h.
 - Vercel reste en formule gratuite (Hobby).
 
-## Limite : ordre migration / mise en ligne (2026-11-18)
-- Aujourd'hui, rien n'empêche Vercel de mettre la production en ligne avant la fin de la migration : au merge dans `main`, le build Vercel et « Migrer la production » tournent en parallèle. La décision « avant le déploiement Vercel » ci-dessus n'est donc pas garantie.
-- Deployment Checks essayé sans succès : l'import « Import from GitHub » répond « No configured checks found », avec le check run du job comme avec le commit status « Migrer la production » posé par `gh api` (vérifié sur le commit de fusion de la PR #5). Recherches arrêtées (décision d'Antoine).
-- Parade en vigueur : migrations rétrocompatibles (`.claude/rules/neon.md`) : ajouter d'abord, retirer dans un déploiement suivant ; le nouveau code doit tourner sur l'ancien schéma.
-- Suite : BRAIN-37, avant le premier module sensible : la CI déploie la production après la migration (déploiement automatique de `main` coupé dans `vercel.json`), comme pour les previews.
-- À réexaminer quand la to-do (premier module à vraies données) part en production.
-
-## Proposition BRAIN-37 : la CI déploie la production après la migration (2026-11-27, **non en vigueur**)
-Statut : proposé, en attente de relecture d'Antoine. Devient la section « Ordre migration / mise en ligne » et remplace « Limite » ci-dessus à la fusion (plan, tâche 5). Détail et comparatif : `docs/features/brain-37-deploiement-apres-migration/spec.md`. Pas d'ADR-011 : c'est la suite annoncée de cette ADR.
+## Ordre migration / mise en ligne (BRAIN-37, 2026-11-27)
+Avant BRAIN-37, Vercel construisait `main` en parallèle de la migration : rien ne garantissait l'ordre. Deployment Checks essayé sans succès (« No configured checks found », check run comme commit status ; recherches arrêtées, décision d'Antoine). Détail et comparatif : `docs/features/brain-37-deploiement-apres-migration/spec.md`.
 - `vercel.json` : plus aucun déploiement git automatique, `main` comprise. La CI est le seul déployeur (previews et production).
-- `migrate-production.yml` : après une migration réussie, un job crée par l'API Vercel le déploiement de production du SHA exact du push, attend `READY` avec l'alias assigné, échoue sinon. Migration en échec : rien n'est déployé, la production reste sur son déploiement actuel.
+- `migrate-production.yml` : après une migration réussie (`needs`), le job `deploy-production` crée par l'API Vercel le déploiement de production du SHA exact du push, attend `READY` avec l'alias assigné, échoue sinon. Migration en échec ou annulée : rien n'est déployé, la production reste sur son déploiement actuel.
 - API Vercel retenue contre un Deploy Hook : le hook déploie le dernier commit de la branche (pas le SHA du run) et ne rend pas l'identifiant du déploiement.
-- Jeton `VERCEL_PRODUCTION_TOKEN`, environnement `production` seulement (branche `main`), lu par le seul job de déploiement, qui n'installe rien et n'a pas `DATABASE_URL`. Le job de migration (qui installe) ne voit jamais de jeton Vercel. Réserve : un jeton Vercel ne se limite ni à la production ni à un projet ; tant que `VERCEL_TOKEN` (équipe entière) reste au niveau du dépôt, l'environnement protège le jeton, pas la capacité de déployer en production. Risque déjà accepté ci-dessus (seul Antoine a l'écriture).
+- Jeton `VERCEL_PRODUCTION_TOKEN`, environnement `production` seulement (branche `main`), lu par le seul job de déploiement, qui n'installe rien et n'a pas `DATABASE_URL`. Le job de migration (qui installe) ne voit jamais de jeton Vercel.
 - Garde : le job ne déploie pas un SHA qui n'est plus la tête de `main` (un run relancé tard ne remplace pas la production par un vieux commit).
-- Date d'expiration du jeton `VERCEL_PRODUCTION_TOKEN` : **à renseigner (Antoine la donnera)** ; rappel de renouvellement à inscrire dans « Conséquences » à la bascule (plan, tâche 5).
-- Ordre inversé pour les migrations : l'ancien code tourne sur le nouveau schéma entre la fin de la migration et la fin du build, sans limite si le build échoue. La règle des migrations rétrocompatibles reste obligatoire.
+- Ordre inversé pour les migrations : l'ancien code tourne sur le nouveau schéma entre la fin de la migration et la fin du build, sans limite si le build échoue. La règle des migrations rétrocompatibles reste obligatoire (`.claude/rules/neon.md`).
+- Limites assumées : le jeton `VERCEL_TOKEN` de dépôt (portée équipe) peut lui aussi créer un déploiement de production, la séparation des jetons ne restreint pas la capacité ; l'environnement `production` autorise le contournement par un administrateur (`can_admins_bypass`), acceptable à un seul administrateur ; un Deploy Hook éventuel dans Vercel contournerait l'ordre (à vérifier en tâche 6).
+- À réexaminer quand la to-do (premier module à vraies données) part en production.
 
 ## Dépôt public (2026-11-16)
 - `nexxia-studio/BeMyBrain` reste public jusqu'à la commercialisation, puis passe en privé (décision d'Antoine).
@@ -55,3 +49,4 @@ Statut : proposé, en attente de relecture d'Antoine. Devient la section « Ordr
 - Mot de passe propriétaire de production changé le 2026-11-12 et rangé dans 1Password.
 - Jeton Vercel `github-ci-bemybrain` (secret `VERCEL_TOKEN`) créé le 2026-11-17, **expire le 2027-02-15** (portée : équipe entière) : le renouveler avant le 2027-02-08 (nouveau jeton, mise à jour du secret GitHub et de 1Password, révocation de l'ancien).
 - Intégration GitHub de Neon déconnectée et sa clé de projet révoquée le 2026-11-17 (elle écrivait elle-même des secrets et variables dans le dépôt public). Seule clé Neon restante : `github-ci-bemybrain`, limitée au projet.
+- Jeton Vercel `github-ci-bemybrain-production` (secret `VERCEL_PRODUCTION_TOKEN`, environnement `production`) **expire le 2027-02-25**. Rappel de renouvellement : BRAIN-73, échéance 2027-02-08, qui couvre aussi `VERCEL_TOKEN` (expire le 2027-02-15).
