@@ -191,7 +191,7 @@ Règles communes à toutes les tâches :
 
 ### D. Clôture (PR B)
 
-- [ ] **27. Retirer la démo et aligner les docs**
+- [x] **27. Retirer la démo et aligner les docs**
   - Fichiers : suppression de `src/app/(app)/demo/kanban/`, `e2e/demo-kanban*.spec.ts`, messages `kanbanDemo` ; `tests/build/no-demo.test.ts` (`ALLOWED_DEMOS` vide), `tests/lint/boundaries.test.ts` ; `docs/features/todo-unifiee/spec.md` (tranche 2 renvoyée ici, « En attente » remplacé par « Bloquée », parente modifiable, priorité héritée), `docs/roadmap.md`
   - Test à écrire d'abord : `no-demo.test.ts` — « aucune démo admise »
   - Fini quand : `pnpm test`, `pnpm test:build`, `pnpm lint`, `pnpm typecheck` verts ; les e2e utiles de la démo (saut du tableau D4, tap contre appui long D5, curseur D6, colonne repliable) vivent dans `e2e/todo-kanban.spec.ts`.
