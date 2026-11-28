@@ -1,7 +1,7 @@
 -- Listes (BRAIN-9, spec docs/features/listes/spec.md) : courses, tranche A. Quatre tables neuves.
 -- Additive (BRAIN-37) : rien d'existant touché, l'ancien code les ignore. Générée par drizzle-kit,
 -- complétée à la main pour ce que Drizzle n'exprime pas : triggers updated_at et droits d'app_backend.
--- Ordre : tables, RLS, clés étrangères, index, policies, triggers, GRANT. Aucune fonction ici.
+-- Ordre : tables, RLS, clés étrangères, index, policies, fonction, triggers, GRANT.
 -- RLS : une policy par verbe accordé. shopping_aisle_overrides et shopping_aisle_order sont propres à
 -- l'utilisateur : membre du workspace ET user_id = app.current_user_id(). Aucune policy pour un invité
 -- (le partage, PR B, passe par des fonctions SECURITY DEFINER).
@@ -58,7 +58,8 @@ CREATE TABLE "shopping_lists" (
 	"updated_at" timestamp with time zone,
 	CONSTRAINT "shopping_lists_workspace_id_unique" UNIQUE("workspace_id"),
 	CONSTRAINT "shopping_lists_workspace_id_id_unique" UNIQUE("workspace_id","id"),
-	CONSTRAINT "shopping_lists_name_check" CHECK (char_length(btrim("shopping_lists"."name")) between 1 and 80)
+	CONSTRAINT "shopping_lists_name_check" CHECK (char_length(btrim("shopping_lists"."name")) between 1 and 80),
+	CONSTRAINT "shopping_lists_rev_check" CHECK ("shopping_lists"."rev" >= 0)
 );
 --> statement-breakpoint
 ALTER TABLE "shopping_lists" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -82,7 +83,27 @@ CREATE POLICY "shopping_lists_select" ON "shopping_lists" AS PERMISSIVE FOR SELE
 CREATE POLICY "shopping_lists_insert" ON "shopping_lists" AS PERMISSIVE FOR INSERT TO "app_backend" WITH CHECK (app.is_workspace_member("shopping_lists"."workspace_id"));--> statement-breakpoint
 CREATE POLICY "shopping_lists_update" ON "shopping_lists" AS PERMISSIVE FOR UPDATE TO "app_backend" USING (app.is_workspace_member("shopping_lists"."workspace_id")) WITH CHECK (app.is_workspace_member("shopping_lists"."workspace_id"));
 
+-- rev tenu par la base : le GRANT UPDATE (rev) laisse l'app l'écrire, ce trigger ne l'autorise qu'inchangé
+-- ou en +1 (un recul rendrait les clients aveugles, une valeur extrême ferait échouer rev + 1 pour tout
+-- le workspace). Même forme qu'app.set_updated_at : SECURITY INVOKER, search_path vide, aucun GRANT requis.
+CREATE FUNCTION app.guard_shopping_rev() RETURNS trigger
+  LANGUAGE plpgsql SECURITY INVOKER SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.rev IS DISTINCT FROM OLD.rev AND NEW.rev IS DISTINCT FROM OLD.rev + 1 THEN
+    RAISE EXCEPTION 'shopping_lists.rev ne peut qu''avancer de 1' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION app.guard_shopping_rev() FROM PUBLIC;
+--> statement-breakpoint
+
 -- updated_at tenu par la base (fonction de 0005, SECURITY INVOKER, aucun GRANT requis).
+--> statement-breakpoint
+CREATE TRIGGER shopping_lists_guard_rev BEFORE UPDATE ON public.shopping_lists
+  FOR EACH ROW EXECUTE FUNCTION app.guard_shopping_rev();
 --> statement-breakpoint
 CREATE TRIGGER shopping_lists_set_updated_at BEFORE UPDATE ON public.shopping_lists
   FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();

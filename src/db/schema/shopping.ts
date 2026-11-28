@@ -65,6 +65,8 @@ export const shoppingLists = pgTable(
       "shopping_lists_name_check",
       sql`char_length(btrim(${t.name})) between 1 and 80`,
     ),
+    // Jamais négatif ; ne bouge que de 0 ou +1 (trigger shopping_lists_guard_rev, migration 0011).
+    check("shopping_lists_rev_check", sql`${t.rev} >= 0`),
     pgPolicy("shopping_lists_select", {
       for: "select",
       to: appBackend,

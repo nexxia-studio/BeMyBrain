@@ -240,6 +240,60 @@ describe("shopping_lists : écriture et défauts", () => {
     },
   );
 
+  it("rev ne bouge que de 0 ou de +1 : recul, saut et valeur extrême sont refusés, +1 et inchangé passent", async () => {
+    // Deux incréments d'abord (rev = 2), puis la mise à jour testée, dans la même transaction annulée.
+    const attempt = (set: string) =>
+      outcome(
+        asUser(f.userA, async (db) => {
+          await db.query(
+            "update shopping_lists set rev = rev + 1 where id = $1",
+            [s.listA],
+          );
+          await db.query(
+            "update shopping_lists set rev = rev + 1 where id = $1",
+            [s.listA],
+          );
+          await db.query(
+            `update shopping_lists set ${set} where id = $1`,
+            [s.listA],
+          );
+        }),
+      );
+
+    const outcomes = {
+      toZero: await attempt("rev = 0"),
+      minusOne: await attempt("rev = rev - 1"),
+      plusTwo: await attempt("rev = rev + 2"),
+      max: await attempt("rev = 9223372036854775807"),
+      negative: await attempt("rev = -1"),
+      plusOne: await attempt("rev = rev + 1"),
+      unchanged: await attempt("rev = rev"),
+      renamed: await attempt("name = 'Courses bis'"),
+    };
+
+    expect(outcomes).toEqual({
+      toZero: CHECK_VIOLATION,
+      minusOne: CHECK_VIOLATION,
+      plusTwo: CHECK_VIOLATION,
+      max: CHECK_VIOLATION,
+      negative: CHECK_VIOLATION,
+      plusOne: OK,
+      unchanged: OK,
+      renamed: OK,
+    });
+  });
+
+  it("une valeur extrême de rev ne peut pas être posée, donc rev + 1 reste possible", async () => {
+    const attempt = asUser(f.userA, (db) =>
+      db.query(
+        "update shopping_lists set rev = 9223372036854775807 where id = $1",
+        [s.listA],
+      ),
+    );
+
+    expect(await outcome(attempt)).toBe(CHECK_VIOLATION);
+  });
+
   it("app_backend ne peut pas poser channel_id ni rev à la création (droit de colonne)", async () => {
     const attempt = (column: string, value: string) =>
       outcome(
@@ -566,6 +620,69 @@ describe("shopping_aisle_overrides : par utilisateur", () => {
     };
 
     expect(outcomes).toEqual({ sameUser: UNIQUE_VIOLATION, otherUser: OK });
+  });
+});
+
+describe("tables par utilisateur : colonnes d'identité figées", () => {
+  it.each([
+    ["shopping_aisle_overrides", "workspace_id", "workspace_id"],
+    ["shopping_aisle_overrides", "user_id", "user_id"],
+    ["shopping_aisle_order", "workspace_id", "workspace_id"],
+    ["shopping_aisle_order", "user_id", "user_id"],
+  ])(
+    "app_backend ne peut pas modifier %s.%s (droit, pas RLS)",
+    async (table, column) => {
+      const update = asUser(f.userA, (db) =>
+        db.query(`update ${table} set ${column} = ${column}`),
+      );
+
+      expect(await outcome(update)).toBe(GRANT_REFUSAL);
+    },
+  );
+});
+
+describe("droits du catalogue sur les tables de courses", () => {
+  it("seuls le propriétaire et app_backend ont des droits de table, rien pour PUBLIC ni app_guest", async () => {
+    const result = await tagged(
+      owner.query(
+        `select distinct grantee::text as grantee from information_schema.role_table_grants
+         where table_schema = 'public' and table_name = any($1)`,
+        [TABLES],
+      ),
+    );
+    const owned = await tagged(
+      owner.query(
+        "select distinct pg_get_userbyid(relowner)::text as owner from pg_class where oid = any($1::regclass[])",
+        [TABLES.map((t) => `public.${t}`)],
+      ),
+    );
+    const allowed = new Set(["app_backend", owned.rows[0].owner]);
+
+    const grantees = result.rows.map((row) => row.grantee as string);
+
+    expect(owned.rows).toHaveLength(1);
+    expect(grantees.filter((g) => !allowed.has(g))).toEqual([]);
+  });
+
+  it("seuls le propriétaire et app_backend ont des droits de colonne, rien pour PUBLIC ni app_guest", async () => {
+    const result = await tagged(
+      owner.query(
+        `select distinct grantee::text as grantee from information_schema.column_privileges
+         where table_schema = 'public' and table_name = any($1)`,
+        [TABLES],
+      ),
+    );
+    const owned = await tagged(
+      owner.query(
+        "select distinct pg_get_userbyid(relowner)::text as owner from pg_class where oid = any($1::regclass[])",
+        [TABLES.map((t) => `public.${t}`)],
+      ),
+    );
+    const allowed = new Set(["app_backend", owned.rows[0].owner]);
+
+    const grantees = result.rows.map((row) => row.grantee as string);
+
+    expect(grantees.filter((g) => !allowed.has(g))).toEqual([]);
   });
 });
 

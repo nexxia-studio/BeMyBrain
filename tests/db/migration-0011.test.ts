@@ -186,4 +186,37 @@ describe("migration 0011 : le catalogue Postgres", () => {
       { column_name: "rev", column_default: "0" },
     ]);
   });
+
+  it("rev est borné par un CHECK rev >= 0", async () => {
+    const definition = await checkDefinition("shopping_lists_rev_check");
+
+    expect(definition).toMatch(/rev\W+>=\s*0/);
+  });
+
+  it("un trigger BEFORE UPDATE garde rev (fonction app, SECURITY INVOKER, search_path vide, rien pour PUBLIC)", async () => {
+    const trigger = await tagged(
+      owner.query(
+        `select p.proname, p.prosecdef, p.proconfig, n.nspname,
+                (t.tgtype & 2) <> 0 as before_row, (t.tgtype & 16) <> 0 as on_update,
+                has_function_privilege('public', p.oid, 'EXECUTE') as public_exec
+         from pg_trigger t
+         join pg_proc p on p.oid = t.tgfoid
+         join pg_namespace n on n.oid = p.pronamespace
+         where t.tgrelid = 'public.shopping_lists'::regclass and not t.tgisinternal
+           and t.tgname = 'shopping_lists_guard_rev'`,
+      ),
+    );
+
+    expect(trigger.rows).toEqual([
+      {
+        proname: "guard_shopping_rev",
+        prosecdef: false,
+        proconfig: ["search_path="],
+        nspname: "app",
+        before_row: true,
+        on_update: true,
+        public_exec: false,
+      },
+    ]);
+  });
 });

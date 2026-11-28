@@ -867,6 +867,10 @@
         "shopping_lists_name_check": {
           "name": "shopping_lists_name_check",
           "value": "char_length(btrim(\"shopping_lists\".\"name\")) between 1 and 80"
+        },
+        "shopping_lists_rev_check": {
+          "name": "shopping_lists_rev_check",
+          "value": "\"shopping_lists\".\"rev\" >= 0"
         }
       },
       "isRLSEnabled": true
