@@ -8,6 +8,7 @@
 // pose la coche et la descente en bas du rayon dans le geste, avant tout `await` ; le rendu serveur
 // (`refresh()` de l'action) apporte l'état enregistré. Échec (refus, panne, pare-feu : `settleAction`) : retour
 // à l'état d'avant et « Pas enregistré, réessaie » sous la ligne. Un article n'a jamais deux appels en vol.
+// Ordre des rayons : `AisleSortable` (tâche 14), poignée dans l'en-tête de chaque rayon.
 // Emplacement `quickAdd` : le champ d'ajout rapide (tâche 13), sous les rayons.
 import { ShoppingBasket } from "lucide-react";
 import { useOptimistic, useRef, useState, useTransition } from "react";
@@ -21,6 +22,7 @@ import { settleAction } from "@/lib/settle-action";
 import type { AisleGroup, ShoppingItem } from "@/modules/shopping/list-view";
 
 import { AisleSection } from "./AisleSection";
+import { AisleSortable } from "./AisleSortable";
 
 type Toggle = { itemId: string; checked: boolean };
 
@@ -95,14 +97,17 @@ export function ShoppingList({ aisles, quickAdd }: ShoppingListProps) {
           <p className="max-w-prose text-body text-foreground">{t("empty")}</p>
         </section>
       ) : (
-        shown.map((aisle) => (
-          <AisleSection
-            key={aisle.aisleKey}
-            aisle={aisle}
-            failedIds={failedIds}
-            onToggle={toggle}
-          />
-        ))
+        <AisleSortable
+          aisles={shown}
+          renderAisle={(aisle, handle) => (
+            <AisleSection
+              aisle={aisle}
+              failedIds={failedIds}
+              onToggle={toggle}
+              handle={handle}
+            />
+          )}
+        />
       )}
       {quickAdd}
     </div>

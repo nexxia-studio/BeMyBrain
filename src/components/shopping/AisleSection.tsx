@@ -21,12 +21,15 @@ type AisleSectionProps = {
   /** Identifiants des articles dont le dernier tap n'a pas été enregistré. */
   failedIds: ReadonlySet<string>;
   onToggle: (item: ShoppingItem) => void;
+  /** Poignée de glisser du rayon (`AisleSortable`), à droite de l'en-tête ; absente s'il n'y a qu'un rayon. */
+  handle?: React.ReactNode;
 };
 
 export function AisleSection({
   aisle,
   failedIds,
   onToggle,
+  handle,
 }: AisleSectionProps) {
   const t = useTranslations("shopping.aisles");
   const headingId = `shopping-aisle-${aisle.aisleKey}`;
@@ -47,6 +50,7 @@ export function AisleSection({
         >
           {toBuy}
         </span>
+        {handle}
       </div>
       <ul className={TASK_ROWS_CLASSES}>
         {aisle.items.map((item) => (

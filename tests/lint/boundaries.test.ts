@@ -695,6 +695,35 @@ describe("verrou d'import de dnd-kit", () => {
     },
   );
 
+  it("eslint laisse dnd-kit à AisleSortable.tsx (ordre des rayons de Courses)", async () => {
+    const errors = await restrictedImportRules(
+      dndKitImport,
+      "src/components/shopping/AisleSortable.tsx",
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  it("eslint refuse dnd-kit aux autres fichiers de l'écran Courses", async () => {
+    const errors = await restrictedImportRules(
+      dndKitImport,
+      "src/components/shopping/ShoppingList.tsx",
+    );
+
+    expect(errors.filter(isDndKitError).length).toBeGreaterThan(0);
+  });
+
+  it("AisleSortable.tsx garde les autres frontières de l'UI", async () => {
+    const code = 'import { db } from "@/db/client";\nexport const x = db;\n';
+
+    const errors = await restrictedImportRules(
+      code,
+      "src/components/shopping/AisleSortable.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+  });
+
   it("eslint laisse dnd-kit à SortableBoard.tsx", async () => {
     const errors = await restrictedImportRules(
       dndKitImport,

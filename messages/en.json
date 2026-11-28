@@ -471,6 +471,16 @@
       "empty": "Your shopping list is empty. Add a first item.",
       "notSaved": "Not saved, try again."
     },
+    "aisleSort": {
+      "roleDescription": "movable aisle",
+      "handle": "Move the \u201c{aisle}\u201d aisle",
+      "instructions": "To pick up an aisle, press Space or Enter. Move it with the up and down arrows, drop it with Space or Enter, or cancel with Escape.",
+      "picked": "Picked up aisle \u201c{aisle}\u201d, position {position} of {count}.",
+      "over": "Aisle \u201c{aisle}\u201d is over position {position} of {count}.",
+      "dropped": "Dropped aisle \u201c{aisle}\u201d, position {position} of {count}.",
+      "cancelled": "Move of aisle \u201c{aisle}\u201d cancelled.",
+      "notSaved": "Aisle order not saved, try again."
+    },
     "quickAdd": {
       "label": "Add an item",
       "submit": "Add",

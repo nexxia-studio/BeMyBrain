@@ -471,6 +471,16 @@
       "empty": "Ta liste de courses est vide. Ajoute un premier article.",
       "notSaved": "Pas enregistré, réessaie."
     },
+    "aisleSort": {
+      "roleDescription": "rayon déplaçable",
+      "handle": "Déplacer le rayon « {aisle} »",
+      "instructions": "Pour saisir un rayon, appuie sur Espace ou Entrée. Déplace-le avec les flèches haut et bas, dépose-le avec Espace ou Entrée, ou annule avec Échap.",
+      "picked": "Rayon « {aisle} » saisi, position {position} sur {count}.",
+      "over": "Rayon « {aisle} » au-dessus de la position {position} sur {count}.",
+      "dropped": "Rayon « {aisle} » déposé, position {position} sur {count}.",
+      "cancelled": "Déplacement du rayon « {aisle} » annulé.",
+      "notSaved": "Ordre des rayons pas enregistré, réessaie."
+    },
     "quickAdd": {
       "label": "Ajouter un article",
       "submit": "Ajouter",
