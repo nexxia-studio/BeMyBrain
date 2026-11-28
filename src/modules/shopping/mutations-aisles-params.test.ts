@@ -73,12 +73,14 @@ describe("setAisleOrder : lecture unique et non-membre", () => {
 
   it("lit le tableau une seule fois et écrit les clés validées", async () => {
     let reads = 0;
-    const order = [...AISLE_KEYS];
+    const order: string[] = [...AISLE_KEYS];
     const native = order[Symbol.iterator].bind(order);
-    order[Symbol.iterator] = function* () {
-      reads += 1;
-      yield* native();
-    };
+    Object.defineProperty(order, Symbol.iterator, {
+      value: () => {
+        reads += 1;
+        return native();
+      },
+    });
     const { tx, execute } = fakeTx(true);
 
     const saved = await setAisleOrder(WORKSPACE, order, tx);
