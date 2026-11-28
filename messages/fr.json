@@ -466,6 +466,10 @@
       "babyPets": "Bébé et animaux",
       "frozen": "Surgelés",
       "other": "Divers"
+    },
+    "list": {
+      "empty": "Ta liste de courses est vide. Ajoute un premier article.",
+      "notSaved": "Pas enregistré, réessaie."
     }
   }
 }

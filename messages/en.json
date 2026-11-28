@@ -466,6 +466,10 @@
       "babyPets": "Baby and pets",
       "frozen": "Frozen",
       "other": "Other"
+    },
+    "list": {
+      "empty": "Your shopping list is empty. Add a first item.",
+      "notSaved": "Not saved, try again."
     }
   }
 }
