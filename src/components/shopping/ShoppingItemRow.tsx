@@ -15,11 +15,14 @@ import { cn } from "@/lib/utils";
 import type { ShoppingItem } from "@/modules/shopping/list-view";
 
 import { TASK_LIST_ROW_SURFACE_CLASSES } from "../tasks/task-list-layout";
+import { SavingStatus } from "./SavingStatus";
 
 type ShoppingItemRowProps = {
   item: ShoppingItem;
   /** Dernier tap non enregistré : message sous la ligne, l'article est revenu à son état. */
   failed: boolean;
+  /** Écriture en cours sur cette ligne : « Enregistrement… » après 1 s. */
+  saving?: boolean;
   onToggle: (item: ShoppingItem) => void;
   /** Emplacement du menu de ligne (tâche 15). */
   actions?: React.ReactNode;
@@ -28,6 +31,7 @@ type ShoppingItemRowProps = {
 export function ShoppingItemRow({
   item,
   failed,
+  saving = false,
   onToggle,
   actions,
 }: ShoppingItemRowProps) {
@@ -37,7 +41,7 @@ export function ShoppingItemRow({
   return (
     <div
       className={cn(
-        "flex flex-col rounded-lg",
+        "relative flex flex-col rounded-lg",
         TASK_LIST_ROW_SURFACE_CLASSES,
         "pointer-fine:has-[button:hover]:outline-input",
       )}
@@ -67,6 +71,11 @@ export function ShoppingItemRow({
           {/* Contenu saisi : jamais traduit. */}
           <span className="min-w-0">{item.label}</span>
         </button>
+        {/* Superposé, sans décaler la ligne ; juste avant le menu (44 px). */}
+        <SavingStatus
+          pending={saving}
+          className="pointer-events-none absolute right-11 bottom-0.5 rounded bg-row px-1.5"
+        />
         {actions}
       </div>
       {failed && (

@@ -25,6 +25,7 @@ type AisleSectionProps = {
   aisle: AisleGroup;
   /** Identifiants des articles dont le dernier tap n'a pas été enregistré. */
   failedIds: ReadonlySet<string>;
+  savingIds: ReadonlySet<string>;
   onToggle: (item: ShoppingItem) => void;
   /** Suppression demandée depuis le menu de la ligne (« Annuler » 5 s, géré par l'écran). */
   onRemove: (item: ShoppingItem) => void;
@@ -35,6 +36,7 @@ type AisleSectionProps = {
 export function AisleSection({
   aisle,
   failedIds,
+  savingIds,
   onToggle,
   onRemove,
   handle,
@@ -94,6 +96,7 @@ export function AisleSection({
             <ShoppingItemRow
               item={item}
               failed={failedIds.has(item.id)}
+              saving={savingIds.has(item.id)}
               onToggle={onToggle}
               actions={<ItemMenu item={item} onRemove={onRemove} />}
             />

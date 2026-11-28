@@ -19,6 +19,7 @@ import { SHOPPING_LABEL_MAX } from "@/modules/shopping/limits";
 import type { ShoppingItem } from "@/modules/shopping/list-view";
 
 import { ListSheet } from "./ListSheet";
+import { SavingStatus } from "./SavingStatus";
 
 type RenameItemSheetProps = {
   item: ShoppingItem;
@@ -114,6 +115,7 @@ export function RenameItemSheet({
             {error}
           </p>
         )}
+        <SavingStatus pending={pending} className="block min-h-5" />
         <div className="flex justify-end gap-2">
           <button
             type="button"

@@ -479,6 +479,7 @@
       "aisleAllChecked": "All checked",
       "notSaved": "Not saved, try again."
     },
+    "saving": "Saving…",
     "aisleSort": {
       "roleDescription": "movable aisle",
       "handle": "Move the \u201c{aisle}\u201d aisle",

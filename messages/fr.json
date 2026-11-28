@@ -479,6 +479,7 @@
       "aisleAllChecked": "Tout coché",
       "notSaved": "Pas enregistré, réessaie."
     },
+    "saving": "Enregistrement…",
     "aisleSort": {
       "roleDescription": "rayon déplaçable",
       "handle": "Déplacer le rayon « {aisle} »",

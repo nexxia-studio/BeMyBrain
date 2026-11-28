@@ -106,6 +106,34 @@ describe("QuickAddField", () => {
     expect(document.activeElement).toBe(before);
   });
 
+  it("indicateur « Enregistrement… » après 1 s, le champ reste le même nœud et garde le focus", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolve!: (v: unknown) => void;
+      addShoppingItem.mockReturnValue(new Promise((r) => (resolve = r)));
+      renderField();
+      const before = field();
+      before.focus();
+      fireEvent.change(before, { target: { value: "Pain" } });
+      act(() => {
+        fireEvent.submit(before.form!);
+      });
+      const status = screen.getByTestId("saving-status");
+      act(() => vi.advanceTimersByTime(999));
+      expect(status.textContent).toBe("");
+      act(() => vi.advanceTimersByTime(1));
+      expect(status.textContent).toBe("Enregistrement…");
+      expect(field()).toBe(before);
+      expect(document.activeElement).toBe(before);
+      await act(async () => resolve({ ok: true, result: {} }));
+      expect(screen.getByTestId("saving-status").textContent).toBe("");
+      expect(field()).toBe(before);
+      expect(document.activeElement).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("le bouton rend le focus au champ dans le geste", async () => {
     // Résolue en fin de test : une action en attente retient les transitions des tests suivants (gotcha).
     let resolve!: (v: unknown) => void;

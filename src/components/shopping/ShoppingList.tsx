@@ -107,6 +107,7 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
   const [toggled, applyOptimistic] = useOptimistic(aisles, applyToggle);
   const [, startTransition] = useTransition();
   const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(new Set());
+  const [savingIds, setSavingIds] = useState<ReadonlySet<string>>(new Set());
   const inFlight = useRef(new Set<string>());
   // Ordre figé au premier tap d'une rafale ; levé 600 ms après le dernier tap (les lignes glissent alors à leur place).
   const [frozen, setFrozen] = useState<ReadonlyMap<string, number> | null>(
@@ -159,15 +160,19 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
     reorderTimer.current = setTimeout(() => setFrozen(null), REORDER_DELAY_MS);
     const checked = item.checkedAt === null;
     setFailedIds((ids) => without(ids, item.id));
+    setSavingIds((ids) => new Set(ids).add(item.id));
     startTransition(async () => {
       applyOptimistic({ itemId: item.id, checked });
       const outcome = await settleAction(() =>
         checked ? checkShoppingItem(item.id) : uncheckShoppingItem(item.id),
       );
       inFlight.current.delete(item.id);
-      if (outcome.ok && outcome.value.ok) return;
       // Après un `await`, une mise à jour sort de la transition : remise dedans (gotchas).
-      startTransition(() => setFailedIds((ids) => new Set(ids).add(item.id)));
+      startTransition(() => {
+        setSavingIds((ids) => without(ids, item.id));
+        if (!(outcome.ok && outcome.value.ok))
+          setFailedIds((ids) => new Set(ids).add(item.id));
+      });
     });
   }
 
@@ -199,6 +204,7 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
               <AisleSection
                 aisle={aisle}
                 failedIds={failedIds}
+                savingIds={savingIds}
                 onToggle={toggle}
                 onRemove={removal.schedule}
                 handle={handle}

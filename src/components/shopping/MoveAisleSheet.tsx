@@ -17,6 +17,7 @@ import { type AisleKey, DEFAULT_AISLE_ORDER } from "@/modules/shopping/aisles";
 import type { ShoppingItem } from "@/modules/shopping/list-view";
 
 import { ListSheet } from "./ListSheet";
+import { SavingStatus } from "./SavingStatus";
 
 type MoveAisleSheetProps = {
   item: ShoppingItem;
@@ -104,6 +105,7 @@ export function MoveAisleSheet({
           );
         })}
       </ul>
+      <SavingStatus pending={pending} className="mt-2 block min-h-5" />
       {failed && (
         <p role="alert" className="text-small font-medium text-destructive">
           {t("list.notSaved")}

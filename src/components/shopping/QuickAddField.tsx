@@ -33,6 +33,8 @@ import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { settleAction } from "@/lib/settle-action";
 import { SHOPPING_LABEL_MAX } from "@/modules/shopping/limits";
 
+import { SavingStatus } from "./SavingStatus";
+
 const DESKTOP = "(min-width: 1024px)";
 
 /**
@@ -103,12 +105,16 @@ export function QuickAddField() {
       data-quick-add=""
       className="glass sticky bottom-page z-(--z-sticky) mt-auto flex flex-col gap-1.5 rounded-tile p-3 max-lg:bottom-tabbar-reserve"
     >
-      <label
-        htmlFor={inputId}
-        className="text-small font-medium text-muted-foreground"
-      >
-        {t("quickAdd.label")}
-      </label>
+      <div className="flex min-h-5 items-baseline justify-between gap-2">
+        <label
+          htmlFor={inputId}
+          className="text-small font-medium text-muted-foreground"
+        >
+          {t("quickAdd.label")}
+        </label>
+        {/* Hors du champ : région déjà montée, rien ne bouge quand le texte apparaît. */}
+        <SavingStatus pending={pending} />
+      </div>
       <div className="flex min-h-11 items-center rounded-lg border border-input bg-row has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-[input:read-only]:opacity-60">
         <label
           htmlFor={inputId}
