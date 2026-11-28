@@ -4,6 +4,7 @@
 // de `/lists`. Courses ne dépend pas du filtre d'espace : pas de pastille (comme `loading.tsx`).
 import { getTranslations } from "next-intl/server";
 
+import { QuickAddField } from "@/components/shopping/QuickAddField";
 import { ShoppingList } from "@/components/shopping/ShoppingList";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { requireSessionWithToken } from "@/lib/session";
@@ -19,7 +20,7 @@ export default async function ShoppingPage() {
   return (
     <main className="flex flex-1 flex-col gap-grid">
       <PageHeader title={t("title")} contextFilter={false} />
-      <ShoppingList aisles={list.aisles} />
+      <ShoppingList aisles={list.aisles} quickAdd={<QuickAddField />} />
     </main>
   );
 }

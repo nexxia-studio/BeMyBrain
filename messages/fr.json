@@ -470,6 +470,12 @@
     "list": {
       "empty": "Ta liste de courses est vide. Ajoute un premier article.",
       "notSaved": "Pas enregistré, réessaie."
+    },
+    "quickAdd": {
+      "label": "Ajouter un article",
+      "submit": "Ajouter",
+      "labelTooLong": "Cet article est trop long (80 caractères maximum).",
+      "listFull": "La liste est pleine (300 articles maximum)."
     }
   }
 }

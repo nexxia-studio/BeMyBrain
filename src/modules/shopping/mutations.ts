@@ -12,6 +12,7 @@ import { uuidSchema } from "@/modules/core/schemas";
 import { AISLE_KEYS, type AisleKey } from "./aisles";
 import { classifyAisle } from "./classify";
 import { ShoppingError } from "./errors";
+import { SHOPPING_LABEL_MAX } from "./limits";
 import { normalizeLabel } from "./normalize";
 import { DEFAULT_LIST_NAME, getAisleOverrides } from "./queries";
 
@@ -27,7 +28,7 @@ import { DEFAULT_LIST_NAME, getAisleOverrides } from "./queries";
 // deux 299 : l'insertion de l'autre n'est pas une ligne existante).
 
 export const MAX_ITEMS_PER_LIST = 300;
-export const MAX_LABEL_LENGTH = 80;
+export const MAX_LABEL_LENGTH = SHOPPING_LABEL_MAX;
 // Plafond applicatif (aucune contrainte en base : un COUNT n'est pas exprimable en CHECK) : corrections de
 // rayon mémorisées par (workspace, utilisateur). Compté sous lockList, qui sérialise les écrivains du workspace.
 export const MAX_AISLE_OVERRIDES = 500;

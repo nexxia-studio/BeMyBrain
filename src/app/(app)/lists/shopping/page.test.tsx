@@ -21,6 +21,9 @@ vi.mock("@/components/shell/PageHeader", () => ({
     return <h1>{props.title}</h1>;
   },
 }));
+vi.mock("@/components/shopping/QuickAddField", () => ({
+  QuickAddField: () => <div data-testid="quick-add" />,
+}));
 vi.mock("@/components/shopping/ShoppingList", () => ({
   ShoppingList: (props: unknown) => {
     listProps(props);
@@ -57,7 +60,10 @@ describe("page /lists/shopping", () => {
     expect(headerProps).toHaveBeenCalledWith(
       expect.objectContaining({ contextFilter: false }),
     );
-    expect(listProps).toHaveBeenCalledWith({ aisles });
+    expect(listProps).toHaveBeenCalledWith({
+      aisles,
+      quickAdd: expect.anything(),
+    });
   });
 
   it("ne lit rien si la session est refusée", async () => {
