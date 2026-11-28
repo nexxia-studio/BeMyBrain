@@ -109,6 +109,7 @@ describe("Server Actions des Courses", () => {
   });
 
   it("renvoie vers /login quand le jeton est refusé entre la garde et la base", async () => {
+    const tokenRefusal = new Error("jeton refusé");
     runActionWithToken.mockRejectedValue(tokenRefusal);
     redirectIfRejectedToken.mockRejectedValue(new Error("REDIRECT:/login"));
     await expect(actions.addShoppingItem("lait")).rejects.toThrow(
