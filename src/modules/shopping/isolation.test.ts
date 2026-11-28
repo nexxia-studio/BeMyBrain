@@ -26,7 +26,12 @@ import {
   uncheckItem,
 } from "./mutations";
 import { AISLE_KEYS } from "./aisles";
-import { getAisleOrder, getAisleOverrides, getShoppingList } from "./queries";
+import {
+  getAisleOrder,
+  getAisleOverrides,
+  getShoppingList,
+  getShoppingSummary,
+} from "./queries";
 
 // Isolation du module shopping (constitution 5) contre la branche Neon test : withUserDb réel en rôle
 // app_backend, un utilisateur avec le workspace d'un autre. Rien n'est lu ni écrit.
@@ -96,6 +101,23 @@ describe("lectures croisées", () => {
     const labels = list.aisles.flatMap((g) => g.items.map((i) => i.id));
     expect(labels).toContain(s.itemA);
     expect(labels).not.toContain(s.itemB);
+  });
+
+  it("userA ne lit pas le résumé du workspace B (tuile du tableau de bord)", async () => {
+    const summary = await db.asUser(f.userA, (tx) =>
+      getShoppingSummary(f.workspaceB, tx),
+    );
+
+    expect(summary).toEqual({ count: 0, first: [] });
+  });
+
+  it("le résumé de userA ne compte que ses articles non cochés", async () => {
+    const summary = await db.asUser(f.userA, (tx) =>
+      getShoppingSummary(f.workspaceA, tx),
+    );
+
+    // « pommes » à acheter ; « lait » coché et « farine » (B) hors compte.
+    expect(summary).toEqual({ count: 1, first: ["pommes"] });
   });
 
   it("userA ne lit ni les corrections ni l'ordre du workspace B", async () => {

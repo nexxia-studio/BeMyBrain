@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 
 import type { UserTx } from "@/db/client";
 import {
@@ -109,4 +109,37 @@ export async function getShoppingList(
   }));
 
   return { ...list, aisles: groupByAisle(items, order) };
+}
+
+/** Nombre d'articles montrés par la tuile du tableau de bord. */
+export const SUMMARY_ITEM_LIMIT = 3;
+
+export type ShoppingSummary = {
+  /** Articles à acheter (non cochés), tous rayons confondus. */
+  count: number;
+  /** Libellés des premiers articles à acheter, par ordre d'ajout (au plus SUMMARY_ITEM_LIMIT). */
+  first: string[];
+};
+
+/** Résumé de la liste pour la tuile du tableau de bord : lecture seule, une liste jamais créée donne 0. */
+export async function getShoppingSummary(
+  workspaceId: string,
+  tx: UserTx,
+): Promise<ShoppingSummary> {
+  const workspace = parseWorkspace(workspaceId);
+  const open = and(
+    eq(shoppingItems.workspaceId, workspace),
+    isNull(shoppingItems.checkedAt),
+  );
+  const [total] = await tx
+    .select({ value: count() })
+    .from(shoppingItems)
+    .where(open);
+  const rows = await tx
+    .select({ label: shoppingItems.label })
+    .from(shoppingItems)
+    .where(open)
+    .orderBy(asc(shoppingItems.createdAt), asc(shoppingItems.id))
+    .limit(SUMMARY_ITEM_LIMIT);
+  return { count: total?.value ?? 0, first: rows.map((r) => r.label) };
 }

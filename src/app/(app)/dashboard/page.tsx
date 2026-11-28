@@ -1,13 +1,14 @@
 // Curseurs nexxia-design (DESIGN.md § 1, tableau de bord) : VARIANCE 4 · MOTION 5 · DENSITY 5.
 // Tableau de bord bento (BRAIN-7, DESIGN.md § 5–7) : titre et filtre d'espace (mobile), tuile pleine
 // « Aujourd'hui » (to-do du jour, des deux côtés), puis les tuiles du côté actif, restreintes aux espaces
-// retenus : la To-do du côté montre ses prochaines tâches, les autres sont vides. Une tuile dont la lecture
+// retenus : la To-do du côté montre ses prochaines tâches, Courses ses articles à acheter, les autres sont vides. Une tuile dont la lecture
 // échoue affiche son erreur sans faire tomber la page (settleTile). Repli sous 768 px : une colonne, sauf la
 // paire de tuiles chiffre (BentoGrid).
 import { getTranslations } from "next-intl/server";
 
 import { BentoGrid } from "@/components/bento/BentoGrid";
 import { EmptyTile } from "@/components/bento/EmptyTile";
+import { ShoppingTile } from "@/components/bento/ShoppingTile";
 import { TodayTile } from "@/components/bento/TodayTile";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { SideTodoTile } from "@/components/tasks/SideTodoTile";
@@ -15,6 +16,7 @@ import { loadCurrentScope, loadSideSpaces } from "@/lib/context-filter";
 import { requireSessionWithToken } from "@/lib/session";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 import { buildDashboard } from "@/modules/dashboard/tiles";
+import { loadShoppingSummary } from "@/modules/shopping/load";
 import { loadDueToday, loadUpcomingTasks } from "@/modules/tasks/load";
 import {
   showContextChip,
@@ -36,7 +38,11 @@ export default async function DashboardPage() {
   const today = todayIn(getUserTimeZone(), new Date());
   const hasTodoTile = dashboard.tiles.some((tile) => tile.content === "tasks");
 
-  const [due, upcoming] = await Promise.all([
+  const hasShoppingTile = dashboard.tiles.some(
+    (tile) => tile.content === "shopping",
+  );
+
+  const [due, upcoming, shopping] = await Promise.all([
     settleTile("today", () => loadDueToday(token, session.workspaceId, today)),
     hasTodoTile
       ? settleTile("sideTodo", () =>
@@ -47,6 +53,11 @@ export default async function DashboardPage() {
           }),
         )
       : [],
+    hasShoppingTile
+      ? settleTile("shopping", () =>
+          loadShoppingSummary(token, session.workspaceId),
+        )
+      : null,
   ]);
 
   return (
@@ -67,6 +78,8 @@ export default async function DashboardPage() {
               today={today}
               showContext={showContextChip(scope)}
             />
+          ) : tile.content === "shopping" ? (
+            <ShoppingTile key={tile.id} tile={tile} summary={shopping} />
           ) : (
             <EmptyTile key={tile.id} tile={tile} />
           ),

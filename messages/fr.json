@@ -59,9 +59,13 @@
         "body": "Aucune tâche pour l'instant. Les tâches à faire et leur échéance s'afficheront ici."
       },
       "shopping": {
-        "eyebrow": "Courses",
-        "title": "Liste partagée",
-        "body": "Aucun article à acheter."
+        "eyebrow": "Listes",
+        "title": "Courses",
+        "body": "Aucun article à acheter.",
+        "toBuy": "{count, plural, one {article à acheter} other {articles à acheter}}",
+        "first": "Premiers articles à acheter",
+        "more": "+ {count} {count, plural, one {autre} other {autres}}",
+        "error": "Courses indisponibles. Recharge la page dans un instant."
       },
       "budget": {
         "eyebrow": "Budget",

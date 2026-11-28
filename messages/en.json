@@ -59,9 +59,13 @@
         "body": "No tasks yet. Tasks and their due dates will show up here."
       },
       "shopping": {
-        "eyebrow": "Groceries",
-        "title": "Shared list",
-        "body": "Nothing to buy."
+        "eyebrow": "Lists",
+        "title": "Groceries",
+        "body": "Nothing to buy.",
+        "toBuy": "{count, plural, one {item to buy} other {items to buy}}",
+        "first": "First items to buy",
+        "more": "+ {count} more",
+        "error": "Groceries unavailable. Reload the page in a moment."
       },
       "budget": {
         "eyebrow": "Budget",
