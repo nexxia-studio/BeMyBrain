@@ -6,9 +6,11 @@ const runActionWithToken = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
 const captureException = vi.hoisted(() => vi.fn());
 
+const redirectIfRejectedToken = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/session", () => ({
   requireSessionWithToken,
-  redirectIfRejectedToken: async () => {},
+  redirectIfRejectedToken,
 }));
 vi.mock("@/modules/actions/run", () => ({ runActionWithToken }));
 vi.mock("@/lib/locale-cookie", () => ({ syncLocaleCookie: vi.fn() }));
@@ -16,6 +18,7 @@ vi.mock("next/cache", () => ({ refresh }));
 vi.mock("@sentry/nextjs", () => ({ captureException }));
 
 import { ActionError } from "@/modules/actions/errors";
+import { AISLE_KEYS } from "@/modules/shopping/aisles";
 import { ShoppingError } from "@/modules/shopping/errors";
 
 import * as actions from "./actions";
@@ -29,6 +32,7 @@ const ITEM = "3c6d1f0e-8a2b-4c5d-9e7f-0a1b2c3d4e5f";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  redirectIfRejectedToken.mockResolvedValue(undefined);
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   requireSessionWithToken.mockResolvedValue({
@@ -46,11 +50,7 @@ describe("Server Actions des Courses", () => {
   it("une action par écriture d'écran, chacune vers son action du registre, origine app", async () => {
     const calls: [Promise<unknown>, string, unknown][] = [
       [actions.addShoppingItem("lait"), "shopping.addItem", { label: "lait" }],
-      [
-        actions.checkShoppingItem(ITEM),
-        "shopping.checkItem",
-        { itemId: ITEM },
-      ],
+      [actions.checkShoppingItem(ITEM), "shopping.checkItem", { itemId: ITEM }],
       [
         actions.uncheckShoppingItem(ITEM),
         "shopping.uncheckItem",
@@ -73,9 +73,9 @@ describe("Server Actions des Courses", () => {
         { itemId: ITEM, aisleKey: "bakery" },
       ],
       [
-        actions.setShoppingAisleOrder(["bakery"]),
+        actions.setShoppingAisleOrder([...AISLE_KEYS]),
         "shopping.setAisleOrder",
-        { order: ["bakery"] },
+        { order: [...AISLE_KEYS] },
       ],
     ];
     for (const [call, name, params] of calls) {
@@ -89,6 +89,7 @@ describe("Server Actions des Courses", () => {
       );
     }
     expect(runActionWithToken).toHaveBeenCalledTimes(calls.length);
+    expect(refresh).toHaveBeenCalledTimes(calls.length);
   });
 
   it("le workspaceId vient de la session, jamais des arguments", async () => {
@@ -105,6 +106,15 @@ describe("Server Actions des Courses", () => {
       "REDIRECT:/login",
     );
     expect(runActionWithToken).not.toHaveBeenCalled();
+  });
+
+  it("renvoie vers /login quand le jeton est refusé entre la garde et la base", async () => {
+    runActionWithToken.mockRejectedValue(tokenRefusal);
+    redirectIfRejectedToken.mockRejectedValue(new Error("REDIRECT:/login"));
+    await expect(actions.addShoppingItem("lait")).rejects.toThrow(
+      "REDIRECT:/login",
+    );
+    expect(redirectIfRejectedToken).toHaveBeenCalledWith(tokenRefusal);
   });
 
   it("une erreur de validation renvoie un code, pas une exception", async () => {
