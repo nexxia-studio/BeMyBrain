@@ -127,6 +127,9 @@ Numérotation des migrations : 0011 (A), 0012 et 0013 (B), 0014 (C) ; si B et C 
 ## Reprises des audits de la PR A (à traiter dans la PR B)
 - **Plafond de 300 articles** : il n'est qu'applicatif (`addItem`). Toute écriture invitée (`guest.add_item`, tâche 28) doit prendre le même verrou consultatif (`shopping.list:<id en minuscules>` via `hashtextextended(…, 0)`) avant de compter ; idéalement une fonction SQL unique `app.shopping_list_lock_key(uuid)` utilisée par l'app et l'invité, ou un trigger BEFORE INSERT. Test de concurrence app + invité ensemble.
 - **`channel_id`** : Révoquer et Régénérer le changent (spec) mais `app_backend` n'a aucun UPDATE sur cette colonne (0011) : soit `GRANT UPDATE (channel_id)` avec valeur posée par la base (`gen_random_uuid()`), soit fonction `SECURITY DEFINER` qui vérifie l'appartenance. Rien pour `app_guest` de plus.
+- **Ordre des rayons et `rev`** : `setAisleOrder` ne fait pas avancer `rev` (préférence personnelle). La spec (l.61) dit que `guest.read_list` renvoie l'ordre du propriétaire : décider en PR B soit d'avancer `rev` (sous `lockList`) quand un lien est actif, soit d'assumer le décalage jusqu'à la prochaine écriture.
+- **Plafond de corrections (500 par utilisateur, applicatif)** : au plafond, l'article change de rayon (épinglé) sans mémoriser de correction ; aucune policy DELETE sur `shopping_aisle_overrides` (0011), donc pas de ménage possible : à reprendre si l'usage s'en approche.
+- **Limite de débit** : cocher un article déjà coché fait avancer `rev` ; prévoir une limite de débit sur les Server Actions et fonctions invité de la PR B (relectures forcées via Ably).
 - **Canal assistant** : `shopping.addItem` prend `workspaceId` dans `ctx`, jamais dans `params` (tâche 9).
 
 ## Tâches
