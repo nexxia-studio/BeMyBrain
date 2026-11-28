@@ -6,6 +6,11 @@
 // seule, jamais `disabled` (le focus partirait), jamais remonté ni remplacé (même élément du début à la fin).
 // Le bouton « Ajouter » rend le focus au champ de façon synchrone dans le geste (iOS n'ouvre ou ne garde le clavier
 // que pour un focus donné dans le geste) ; `preventScroll` évite le saut de page.
+// COLLANT (décision d'Antoine 2026-11-28, spec « Ajout rapide ») : `sticky` dans le flux, au-dessus de la barre
+// d'onglets sous 1024 px (`bottom-tabbar-reserve`). Sur iOS le clavier recouvre la page sans la redimensionner :
+// `useKeyboardInset` ne pilote que le style `bottom` du même <form> (aucun changement d'arbre, de clé ni de
+// parent : le champ n'est jamais remonté). Android redimensionne la page (interactiveWidget).
+// Libellé visible au-dessus (DESIGN.md § 5, Champs), placeholder d'exemple.
 // Police `text-base` (16 px : sinon iOS zoome), zones tactiles de 44 px. Surface du champ de la charte
 // (DESIGN.md § 5, Champs : `border-input bg-row`).
 // Estompage pendant l'appel : `has-[input:read-only]`, jamais `has-read-only` (gotcha).
@@ -20,12 +25,16 @@ import {
   addShoppingItem,
   type ShoppingActionResult,
 } from "@/app/(app)/lists/shopping/actions";
+import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { settleAction } from "@/lib/settle-action";
 import { SHOPPING_LABEL_MAX } from "@/modules/shopping/limits";
 
 export function QuickAddField() {
   const t = useTranslations("shopping");
   const errorId = useId();
+  const inputId = useId();
+  // Hauteur du clavier iOS (0 ailleurs) : ne change que le `bottom` du collage, jamais l'arbre ni le champ.
+  const keyboardInset = useKeyboardInset(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [label, setLabel] = useState("");
@@ -59,27 +68,35 @@ export function QuickAddField() {
   }
 
   return (
-    <form onSubmit={add} className="flex flex-col gap-1.5">
+    <form
+      onSubmit={add}
+      style={keyboardInset > 0 ? { bottom: keyboardInset + 8 } : undefined}
+      className="glass sticky bottom-4 z-10 flex flex-col gap-1.5 rounded-tile p-3 max-lg:bottom-tabbar-reserve"
+    >
+      <label htmlFor={inputId} className="text-small font-medium text-muted-foreground">
+        {t("quickAdd.label")}
+      </label>
       <div className="flex min-h-11 items-center rounded-lg border border-input bg-row has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-[input:read-only]:opacity-60">
-        <label className="flex min-w-0 flex-1 cursor-text items-center">
-          <span className="flex size-11 shrink-0 items-center justify-center text-muted-foreground">
-            <Plus aria-hidden="true" className="size-4.5" strokeWidth={2} />
-          </span>
-          <span className="sr-only">{t("quickAdd.label")}</span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={label}
-            readOnly={pending}
-            maxLength={SHOPPING_LABEL_MAX}
-            autoComplete="off"
-            enterKeyHint="send"
-            placeholder={t("quickAdd.label")}
-            aria-describedby={error !== null ? errorId : undefined}
-            onChange={(event) => setLabel(event.target.value)}
-            className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
-          />
-        </label>
+        <span
+          aria-hidden="true"
+          className="flex size-11 shrink-0 items-center justify-center text-muted-foreground"
+        >
+          <Plus className="size-4.5" strokeWidth={2} />
+        </span>
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="text"
+          value={label}
+          readOnly={pending}
+          maxLength={SHOPPING_LABEL_MAX}
+          autoComplete="off"
+          enterKeyHint="send"
+          placeholder={t("quickAdd.placeholder")}
+          aria-describedby={error !== null ? errorId : undefined}
+          onChange={(event) => setLabel(event.target.value)}
+          className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+        />
         <button
           type="submit"
           className="min-h-11 shrink-0 rounded-lg px-4 text-body font-medium text-link outline-none focus-visible:outline-2 focus-visible:outline-ring"

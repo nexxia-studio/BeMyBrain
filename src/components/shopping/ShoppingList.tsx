@@ -12,7 +12,7 @@
 // Menu de ligne (tâche 15) : changer de rayon, renommer, supprimer. Supprimer masque l'article et laisse 5 s pour
 // « Annuler » (`useDeferredRemoval` : suppression différée côté client, envoyée aussi au démontage et à `pagehide`).
 // « Vider les cochés » : au-dessus des rayons, seulement s'il y a des cochés affichés.
-// Emplacement `quickAdd` : le champ d'ajout rapide (tâche 13), sous les rayons.
+// Emplacement `quickAdd` : le champ d'ajout rapide (tâche 13), sous les rayons, collant (le dernier rayon n'est jamais masqué : le champ reste dans le flux, `pb-4`).
 import { ShoppingBasket } from "lucide-react";
 import { useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
@@ -118,7 +118,7 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
   }
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-grid">
+    <div className="flex w-full max-w-3xl flex-col gap-grid pb-4">
       {shown.length === 0 ? (
         <section className="glass flex w-full flex-col items-start gap-3 rounded-tile p-tile">
           <span className="flex size-11 items-center justify-center rounded-lg bg-row text-link">

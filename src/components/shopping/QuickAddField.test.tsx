@@ -125,3 +125,38 @@ describe("QuickAddField", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(text);
   });
 });
+
+describe("QuickAddField collant", () => {
+  it("garde le même nœud DOM entre deux rendus et pendant un ajout", async () => {
+    addShoppingItem.mockResolvedValue({ ok: true, result: {} });
+    const view = renderField();
+    const before = field();
+    view.rerender(
+      <NextIntlClientProvider locale="fr" messages={messages}>
+        <QuickAddField />
+      </NextIntlClientProvider>,
+    );
+    expect(field()).toBe(before);
+    fireEvent.change(before, { target: { value: "Lait" } });
+    await act(async () => {
+      fireEvent.submit(before.form!);
+    });
+    expect(field()).toBe(before);
+  });
+
+  it("porte un libellé visible associé et un placeholder d'exemple", () => {
+    renderField();
+    const label = screen.getByText("Ajouter un article", { selector: "label" });
+    expect(label.className).not.toContain("sr-only");
+    expect(screen.getByLabelText("Ajouter un article")).toBe(field());
+    expect(field().placeholder).toBe("Lait, pain…");
+    expect(field().getAttribute("placeholder")).not.toBe(label.textContent);
+  });
+
+  it("est collé au-dessus de la barre d'onglets", () => {
+    const { container } = renderField();
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.classList.contains("sticky")).toBe(true);
+    expect(root.className).toContain("max-lg:bottom-tabbar-reserve");
+  });
+});

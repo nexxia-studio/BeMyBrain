@@ -487,6 +487,7 @@
     },
     "quickAdd": {
       "label": "Ajouter un article",
+      "placeholder": "Lait, pain…",
       "submit": "Ajouter",
       "labelTooLong": "Cet article est trop long (80 caractères maximum).",
       "listFull": "La liste est pleine (300 articles maximum)."

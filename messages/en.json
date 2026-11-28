@@ -487,6 +487,7 @@
     },
     "quickAdd": {
       "label": "Add an item",
+      "placeholder": "Milk, bread…",
       "submit": "Add",
       "labelTooLong": "This item is too long (80 characters maximum).",
       "listFull": "The list is full (300 items maximum)."
