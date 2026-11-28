@@ -13,7 +13,10 @@ Chaque module métier vit dans `src/modules/<module>/` et expose ses lectures et
 | --- | --- | --- | --- | --- |
 | socle | `src/app`, `src/db`, `src/modules/core` | login, workspace, contextes Privé/Pro, coque bento | Neon, auth | clos 2026-11-18 |
 | tasks | `src/modules/tasks` | to-do unifiée Privé / Trustup / Nexxia, tags | socle | tranche 1 livrée 2026-11-20 |
-| lists | `src/modules/lists` | bucket lists, liste de courses partagée par lien | socle | à spécifier |
+| shopping | `src/modules/shopping` | liste de courses par rayon, correction mémorisée, ordre des rayons, partage par lien (PR B) | socle | PR A en cours (Courses) |
+| wishlist | `src/modules/wishlist` | souhaits (lien, prix, priorité, catégorie) | socle, categories | PR C, à venir |
+| bucket | `src/modules/bucket` | bucket list (catégorie, date, faits) | socle, categories | PR C, à venir |
+| categories | `src/modules/categories` | table de catégories commune à la wishlist et à la bucket list (renommables, « Autre » fixe) | socle | PR C, à venir |
 | finance | `src/modules/finance` | budget, transactions, investissements, assurances, mobilier | socle | plus tard |
 
 Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au moment de leur spec.
@@ -27,6 +30,10 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 | `tasks` | `workspace_id` | tâches, sous-tâches (`parent_id`), côté, espace, corbeille (`deleted_at`) | pas de DELETE (RLS) ; `origin` non modifiable |
 | `tags` | `workspace_id` | étiquettes de tâches | pas de DELETE (RLS) |
 | `task_tags` | `workspace_id` | lien tâche ↔ tag | |
+| `shopping_lists` | `workspace_id` | la liste de courses du workspace (une seule) | migration 0011 ; porte `rev`, incrémenté à chaque écriture |
+| `shopping_items` | `workspace_id` | articles : libellé, rayon (`aisle_key`, CHECK), coché, auteur (`added_by_guest`) | migration 0011 ; plafonds en base (300 articles, 80 caractères) |
+| `shopping_aisle_overrides` | `workspace_id` | correction d'un rayon mémorisée par libellé normalisé complet | migration 0011 |
+| `shopping_aisle_order` | `workspace_id` | ordre des rayons choisi par l'utilisateur | migration 0011 ; ordre par défaut en code (`aisles.ts`) |
 
 ## Flux critiques
 1. Connexion : écran login → auth → session serveur → `workspaceId` résolu → coque. Session expirée pendant une action → `/login?next=<chemin interne>` → retour sur la page.
@@ -35,6 +42,8 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 4. Chargement du tableau de bord et des listes : `loading.tsx` affiche le givre (CSS pur, `FrostTile`, `src/components/loading/`) aux tailles réelles de la grille ou de la liste, puis le contenu remplace le givre sans décalage.
 5. Hauteurs des tuiles : après affichage, `TileHeightRecorder` (`src/components/bento/`) écrit le cookie `bmb-dashboard-tiles` (`Path=/dashboard`, 30 jours). `dashboard/loading.tsx` le lit ; `src/modules/dashboard/tile-heights.ts` valide la valeur (taille bornée, identifiants connus, 1 024 caractères au plus).
 6. Reflet : une fois par session, à la fin de la révélation de la grille, un calque par tuile de verre balaie (GSAP, `transform` seul) ; rendu par `TileSurface`, animé par `bento-reveal.tsx`.
+
+7. Courses : page serveur `/lists/shopping` → `queries.ts` du module `shopping` ; chaque écriture passe par une action du registre `shopping.*` (`src/modules/shopping/actions.ts`, ADR-009) → `mutations.ts`, qui range l'article (corrections mémorisées, puis dictionnaire de mots, sinon « Divers ») et incrémente `rev` de la liste. `rev` sert de signal de changement (temps réel de la PR B, ADR-011) ; la tuile Courses du tableau de bord lit `loadShoppingSummary`.
 
 ## Intégrations externes
 | Service | Usage | Clé / config |

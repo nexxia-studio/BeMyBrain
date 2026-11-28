@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import fr from "../messages/fr.json";
 import { signIn } from "./session";
-import { uniqueTitle } from "./todo";
+import { switchSide, uniqueTitle } from "./todo";
 
 // Courses, ajout rapide enchaîné (spec listes, « Ajout rapide »). Quatre articles saisis à la suite, sans
 // quitter le champ : Entrée ajoute, vide et garde le focus. Jouable seulement sur une base migrée (tables
@@ -238,4 +238,92 @@ test("vider les cochés demande confirmation puis ne supprime que les cochés", 
     .click();
   await expect(page.getByRole("checkbox", { name: done })).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: kept })).toBeVisible();
+});
+
+// Scénario 1 : courses au supermarché. Quatre articles à la suite sans quitter le champ (le clavier ne se ferme
+// pas : seul un iPhone le prouve), rangés seuls ; trois cochés descendent barrés ; « Vider les cochés » les
+// supprime après confirmation.
+// raccourci: libellés nus (« lait », « déo »…), car le classement lit le mot et un suffixe unique le dégraderait —
+// le nettoyage de fin de test supprime toutes les lignes de même libellé du compte e2e, sans autre donnée réelle.
+test("courses au supermarché : ajout enchaîné, rangement, cochés en bas, vider", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto("/lists/shopping");
+  const unknown = uniqueTitle("Truc inconnu");
+  const labels = ["lait", "2 yaourts", "déo", unknown];
+  created.push(...labels);
+
+  const input = field(page);
+  await input.click();
+  for (const label of labels) {
+    await page.keyboard.type(label);
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("checkbox", { name: label }).first(),
+    ).toBeVisible();
+    await expect(input).toHaveValue("");
+    await expect(input).toBeFocused();
+  }
+
+  const inAisle = (key: keyof typeof fr.shopping.aisles, label: string) =>
+    aisleSection(page, key).getByRole("checkbox", { name: label }).first();
+  await expect(inAisle("dairyEggs", "lait")).toBeVisible();
+  await expect(inAisle("dairyEggs", "2 yaourts")).toBeVisible();
+  await expect(inAisle("hygiene", "déo")).toBeVisible();
+  await expect(inAisle("other", unknown)).toBeVisible();
+
+  // Trois cochés : barrés, et descendus sous les non cochés de leur rayon.
+  const dairy = aisleSection(page, "dairyEggs");
+  await dairy.getByRole("checkbox", { name: "lait" }).first().click();
+  await dairy.getByRole("checkbox", { name: "2 yaourts" }).first().click();
+  await aisleSection(page, "hygiene")
+    .getByRole("checkbox", { name: "déo" })
+    .first()
+    .click();
+  for (const [key, label] of [
+    ["dairyEggs", "lait"],
+    ["dairyEggs", "2 yaourts"],
+    ["hygiene", "déo"],
+  ] as const) {
+    const row = inAisle(key, label);
+    await expect(row).toHaveAttribute("aria-checked", "true");
+    await expect(row).toHaveCSS("text-decoration-line", /line-through/);
+  }
+  await expect(inAisle("other", unknown)).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
+
+  await page.getByRole("button", { name: /^Vider les cochés/ }).click();
+  await page
+    .getByRole("dialog", { name: fr.shopping.clearChecked.title })
+    .getByRole("button", { name: fr.shopping.clearChecked.confirm })
+    .click();
+  for (const label of ["lait", "2 yaourts", "déo"]) {
+    await expect(page.getByRole("checkbox", { name: label })).toHaveCount(0);
+  }
+  await expect(inAisle("other", unknown)).toBeVisible();
+});
+
+// Scénario 12 : côté Pro, l'onglet « Listes » disparaît et la tuile Courses n'est pas affichée. Le côté est une
+// préférence du compte e2e : remis en Privé à la fin, même après un échec.
+test("côté Pro : pas d'onglet Listes ni de tuile Courses", async ({ page }) => {
+  try {
+    await signIn(page);
+    await page.goto("/dashboard");
+    const nav = page.getByRole("navigation", { name: fr.shell.navigation });
+    await expect(nav.getByRole("link", { name: fr.shell.lists })).toBeVisible();
+    await expect(page.getByTestId("tile-shopping")).toBeVisible();
+
+    await switchSide(page, "pro");
+    await page.reload();
+    await expect(nav.getByRole("link", { name: fr.shell.lists })).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("tile-shopping")).toHaveCount(0);
+  } finally {
+    await page.goto("/dashboard");
+    await switchSide(page, "private");
+  }
 });
