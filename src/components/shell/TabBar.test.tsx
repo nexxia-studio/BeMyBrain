@@ -11,11 +11,11 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 import { OpenQuickAddContext } from "../quick-add/quick-add-context";
 import { TabBar } from "./TabBar";
 
-function renderTabBar(openQuickAdd = vi.fn()) {
+function renderTabBar(openQuickAdd = vi.fn(), side: "private" | "pro" = "private") {
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
       <OpenQuickAddContext value={openQuickAdd}>
-        <TabBar />
+        <TabBar side={side} />
       </OpenQuickAddContext>
     </NextIntlClientProvider>,
   );
@@ -70,5 +70,15 @@ describe("barre d'onglets mobile", () => {
 
     expect((add as HTMLButtonElement).disabled).toBe(false);
     expect(openQuickAdd).toHaveBeenCalledOnce();
+  });
+
+  it("Listes : onglet côté Privé, absent côté Pro", () => {
+    pathname.current = "/dashboard";
+    const { unmount } = renderTabBar(vi.fn(), "private");
+    expect(screen.getByRole("link", { name: messages.shell.lists })).toBeTruthy();
+    unmount();
+
+    renderTabBar(vi.fn(), "pro");
+    expect(screen.queryByRole("link", { name: messages.shell.lists })).toBeNull();
   });
 });

@@ -129,6 +129,7 @@
     "openPalette": "Open command palette",
     "preferenceError": "Choice not saved. Try again.",
     "tasks": "To-do",
+    "lists": "Lists",
     "settings": "Settings"
   },
   "settings": {
@@ -445,6 +446,13 @@
     "collapse": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, collapse"
   },
   "shopping": {
+    "title": "Shopping",
+    "loading": "Loading shopping list",
+    "error": {
+      "title": "Shopping unavailable",
+      "body": "The shopping list could not be loaded. Your items are safe.",
+      "retry": "Try again"
+    },
     "aisles": {
       "produce": "Fruit and vegetables",
       "bakery": "Bakery and pastries",

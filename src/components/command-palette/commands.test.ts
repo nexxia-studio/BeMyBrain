@@ -66,12 +66,24 @@ function group(groups: ReturnType<typeof paletteGroups>, value: string) {
 }
 
 describe("commandes de la palette", () => {
-  it("propose chaque section de la navigation en raccourci, hors registre, sauf la To-do", () => {
-    const navigation = group(commandsFor(), "navigation");
+  it("propose chaque section de la navigation du côté actif en raccourci, hors registre, sauf la To-do", () => {
+    const navigation = group(
+      commandsFor("", { ...SCOPE, side: "private" }),
+      "navigation",
+    );
 
     expect(navigation.map((c) => c.kind === "navigate" && c.href)).toEqual(
       NAV_ITEMS.map((i) => i.href).filter((href) => href !== "/tasks"),
     );
+  });
+
+  it("n'y propose pas Listes côté Pro", () => {
+    const navigation = group(commandsFor(), "navigation");
+
+    expect(navigation.map((c) => c.kind === "navigate" && c.href)).toEqual([
+      "/dashboard",
+      "/settings",
+    ]);
   });
 
   it("la To-do n'apparaît qu'une fois dans la palette, par Ouvrir la to-do", () => {

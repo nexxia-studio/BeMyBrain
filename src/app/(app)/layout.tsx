@@ -61,7 +61,7 @@ export default async function AppLayout({
               </div>
             </div>
           </div>
-          <TabBar className="lg:hidden" />
+          <TabBar side={side} className="lg:hidden" />
         </div>
       </ShellScopeProvider>
     </MotionRoot>

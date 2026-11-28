@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { Side } from "@/modules/core/schemas";
 
 import { NavLink } from "./NavLink";
-import { isActivePath, NAV_ITEMS } from "./nav-items";
+import { isActivePath, navItemsFor } from "./nav-items";
 
 type SidebarProps = {
   side: Side;
@@ -40,7 +40,7 @@ export function Sidebar({ side, filter, footer, className }: SidebarProps) {
         {t(`sideTitle.${side}`)}
       </p>
       {filter ? <div className="pb-2">{filter}</div> : null}
-      {NAV_ITEMS.map(({ href, labelKey, icon: Icon }) => {
+      {navItemsFor(side).map(({ href, labelKey, icon: Icon }) => {
         const active = isActivePath(pathname, href);
         return (
           <NavLink

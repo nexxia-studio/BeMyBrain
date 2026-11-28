@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 
 import {
-  NAV_ITEMS,
   type NavItem,
+  navItemsFor,
   TASKS_PATH,
   TRASH_PATH,
 } from "@/components/shell/nav-items";
@@ -159,7 +159,9 @@ export function paletteGroups(
     {
       value: "navigation",
       // Sans la To-do : « Ouvrir la to-do » du groupe Tâches y mène déjà (pas de doublon).
-      commands: NAV_ITEMS.filter(({ href }) => href !== TASKS_PATH).map(
+      commands: navItemsFor(scope.side)
+        .filter(({ href }) => href !== TASKS_PATH)
+        .map(
         ({ href, labelKey, icon }) => ({
           kind: "navigate",
           id: `navigate:${href}`,
