@@ -165,6 +165,17 @@
       "addRelation": "Relier deux tâches du même côté : bloque, bloquée par ou liée à",
       "removeRelation": "Retirer une relation entre deux tâches",
       "listBoard": "Afficher le tableau d'un côté : les tâches par statut, colonne par colonne"
+    },
+    "shopping": {
+      "listItems": "Afficher la liste de courses, rangée par rayon, avec les articles cochés en bas de chaque rayon",
+      "addItem": "Ajouter un article à la liste de courses ; il est rangé dans son rayon automatiquement",
+      "checkItem": "Cocher un article de la liste de courses",
+      "uncheckItem": "Décocher un article de la liste de courses",
+      "renameItem": "Renommer un article de la liste de courses",
+      "removeItem": "Supprimer un article de la liste de courses",
+      "clearChecked": "Supprimer tous les articles cochés de la liste de courses",
+      "moveItemToAisle": "Ranger un article dans un autre rayon, et mémoriser ce choix pour les prochains ajouts",
+      "setAisleOrder": "Changer l'ordre d'affichage des rayons de la liste de courses"
     }
   },
   "palette": {
