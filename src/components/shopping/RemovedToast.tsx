@@ -3,7 +3,7 @@
 // Curseurs nexxia-design (spec listes, UI) : VARIANCE 3 · MOTION 2 · DENSITY 6.
 // Bulle « Article supprimé · Annuler » (DESIGN.md § 5, « Bulle d'échec du tableau » : même bulle opaque
 // `popover rounded-lg shadow-glass`, fixe au-dessus de la barre d'onglets sur mobile, en bas à droite à partir
-// de 1024 px, `z-(--z-toast)`). Le nom saisi est dans le texte, jamais traduit. « Annuler » : bouton discret
+// de 1024 px, `z-(--z-toast)`), relevée au-dessus du champ d'ajout collant (`--toast-above-field`, globals.css). Le nom saisi est dans le texte, jamais traduit. « Annuler » : bouton discret
 // `text-link`, 44 px. Entrée et sortie : aucune animation (la bulle apparaît et disparaît d'un coup, 5 s).
 import { useTranslations } from "next-intl";
 
@@ -17,7 +17,7 @@ type RemovedToastProps = {
 export function RemovedToast({ item, onUndo }: RemovedToastProps) {
   const t = useTranslations("shopping.removed");
   return (
-    <div className="pointer-events-none fixed inset-x-page bottom-tabbar-reserve z-(--z-toast) flex justify-center lg:inset-x-auto lg:right-page lg:bottom-page">
+    <div className="pointer-events-none fixed inset-x-page bottom-toast-above-field z-(--z-toast) flex justify-center lg:inset-x-auto lg:right-page lg:bottom-toast-above-field-lg">
       {/* Région `status` toujours montée : seul son contenu change, pour que le lecteur d'écran l'annonce. */}
       <div role="status">
         {item !== null && (

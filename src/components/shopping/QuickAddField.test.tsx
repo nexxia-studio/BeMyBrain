@@ -22,8 +22,39 @@ const field = () =>
     name: "Ajouter un article",
   }) as HTMLInputElement;
 
+type Listener = () => void;
+
+/** Faux `visualViewport` (modèle de `use-keyboard-inset.test.ts`). */
+function fakeVisualViewport(height: number) {
+  const listeners = new Map<string, Set<Listener>>();
+  const viewport = {
+    height,
+    offsetTop: 0,
+    addEventListener(type: string, l: Listener) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type)?.add(l);
+    },
+    removeEventListener(type: string, l: Listener) {
+      listeners.get(type)?.delete(l);
+    },
+    emit(type: string) {
+      for (const l of listeners.get(type) ?? []) l();
+    },
+  };
+  Object.defineProperty(window, "visualViewport", {
+    configurable: true,
+    value: viewport,
+  });
+  return viewport;
+}
+
 afterEach(() => {
   addShoppingItem.mockReset();
+  Object.defineProperty(window, "visualViewport", {
+    configurable: true,
+    value: undefined,
+  });
+  vi.unstubAllGlobals();
 });
 
 describe("QuickAddField", () => {
@@ -158,5 +189,87 @@ describe("QuickAddField collant", () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.classList.contains("sticky")).toBe(true);
     expect(root.className).toContain("max-lg:bottom-tabbar-reserve");
+  });
+});
+
+describe("QuickAddField et clavier", () => {
+  it("clavier ouvert puis fermé : même nœud, focus, saisie gardée, bottom suivi", () => {
+    const viewport = fakeVisualViewport(window.innerHeight);
+    const { container } = renderField();
+    const before = field();
+    const form = container.querySelector("form") as HTMLFormElement;
+    act(() => before.focus());
+    fireEvent.change(before, { target: { value: "Lai" } });
+    expect(form.style.bottom).toBe("");
+
+    act(() => {
+      viewport.height = window.innerHeight - 300;
+      viewport.emit("resize");
+    });
+    act(() => viewport.emit("scroll"));
+    expect(form.style.bottom).toBe("calc(300px + var(--space-grid))");
+    expect(field()).toBe(before);
+    expect(document.activeElement).toBe(before);
+    expect(field().value).toBe("Lai");
+
+    act(() => {
+      viewport.height = window.innerHeight;
+      viewport.emit("resize");
+    });
+    expect(form.style.bottom).toBe("");
+    expect(field()).toBe(before);
+    expect(document.activeElement).toBe(before);
+    expect(field().value).toBe("Lai");
+  });
+
+  it("sans focus, aucune mesure : le bottom reste celui de la barre d'onglets", () => {
+    const viewport = fakeVisualViewport(window.innerHeight);
+    const { container } = renderField();
+    act(() => {
+      viewport.height = window.innerHeight - 300;
+      viewport.emit("resize");
+    });
+    expect((container.querySelector("form") as HTMLElement).style.bottom).toBe(
+      "",
+    );
+  });
+
+  it("sur ordinateur (>= 1024 px), un faux clavier est ignoré même focalisé", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    const viewport = fakeVisualViewport(window.innerHeight);
+    const { container } = renderField();
+    act(() => field().focus());
+    act(() => {
+      viewport.height = window.innerHeight - 300;
+      viewport.emit("resize");
+    });
+    expect((container.querySelector("form") as HTMLElement).style.bottom).toBe(
+      "",
+    );
+  });
+
+  it("toucher l'icône « + » est relayé au champ (label associé)", () => {
+    const { container } = renderField();
+    const icon = container.querySelector("label[aria-hidden='true']")!;
+    expect(icon.getAttribute("for")).toBe(field().id);
+    expect(icon.className).toContain("cursor-text");
+    // jsdom relaie le clic d'un <label> au champ mais ne le focalise pas (le navigateur, si) : on prouve le relais.
+    const onClick = vi.fn();
+    field().addEventListener("click", onClick);
+    fireEvent.click(icon);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("est en bas d'écran (mt-auto) sur un calque nommé", () => {
+    const { container } = renderField();
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.classList.contains("mt-auto")).toBe(true);
+    expect(root.className).toContain("z-(--z-sticky)");
+    expect(root.className).not.toMatch(/\bz-10\b/);
   });
 });

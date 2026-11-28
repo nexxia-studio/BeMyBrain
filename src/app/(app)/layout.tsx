@@ -56,7 +56,7 @@ export default async function AppLayout({
                 }
                 className="hidden lg:flex"
               />
-              <div className="flex min-w-0 flex-1 flex-col gap-grid">
+              <div className="flex min-w-0 flex-1 flex-col gap-grid self-stretch">
                 {children}
               </div>
             </div>

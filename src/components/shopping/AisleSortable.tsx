@@ -229,7 +229,7 @@ function SortableAisle({
       }}
       className={cn(
         "relative rounded-tile",
-        isDragging && "z-10 shadow-glass",
+        isDragging && "z-(--z-lifted) shadow-glass",
       )}
     >
       {render(

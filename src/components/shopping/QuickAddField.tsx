@@ -10,6 +10,8 @@
 // d'onglets sous 1024 px (`bottom-tabbar-reserve`). Sur iOS le clavier recouvre la page sans la redimensionner :
 // `useKeyboardInset` ne pilote que le style `bottom` du même <form> (aucun changement d'arbre, de clé ni de
 // parent : le champ n'est jamais remonté). Android redimensionne la page (interactiveWidget).
+// L'icône « + » est un <label htmlFor> : la toucher focalise le champ (et ouvre le clavier d'iOS).
+// En bas d'écran même liste vide (`mt-auto`, conteneur `flex-1` de ShoppingList). Calque `--z-sticky`.
 // Libellé visible au-dessus (DESIGN.md § 5, Champs), placeholder d'exemple.
 // Police `text-base` (16 px : sinon iOS zoome), zones tactiles de 44 px. Surface du champ de la charte
 // (DESIGN.md § 5, Champs : `border-input bg-row`).
@@ -25,16 +27,22 @@ import {
   addShoppingItem,
   type ShoppingActionResult,
 } from "@/app/(app)/lists/shopping/actions";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { settleAction } from "@/lib/settle-action";
 import { SHOPPING_LABEL_MAX } from "@/modules/shopping/limits";
+
+const DESKTOP = "(min-width: 1024px)";
 
 export function QuickAddField() {
   const t = useTranslations("shopping");
   const errorId = useId();
   const inputId = useId();
+  const desktop = useMediaQuery(DESKTOP);
+  const [focused, setFocused] = useState(false);
   // Hauteur du clavier iOS (0 ailleurs) : ne change que le `bottom` du collage, jamais l'arbre ni le champ.
-  const keyboardInset = useKeyboardInset(true);
+  // Mesurée seulement sous 1024 px et le champ focalisé : sur ordinateur, un zoom pincé ferait un faux positif.
+  const keyboardInset = useKeyboardInset(!desktop && focused);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [label, setLabel] = useState("");
@@ -70,19 +78,26 @@ export function QuickAddField() {
   return (
     <form
       onSubmit={add}
-      style={keyboardInset > 0 ? { bottom: keyboardInset + 8 } : undefined}
-      className="glass sticky bottom-4 z-10 flex flex-col gap-1.5 rounded-tile p-3 max-lg:bottom-tabbar-reserve"
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={
+        keyboardInset > 0
+          ? { bottom: `calc(${keyboardInset}px + var(--space-grid))` }
+          : undefined
+      }
+      className="glass sticky bottom-page z-(--z-sticky) mt-auto flex flex-col gap-1.5 rounded-tile p-3 max-lg:bottom-tabbar-reserve"
     >
       <label htmlFor={inputId} className="text-small font-medium text-muted-foreground">
         {t("quickAdd.label")}
       </label>
       <div className="flex min-h-11 items-center rounded-lg border border-input bg-row has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-[input:read-only]:opacity-60">
-        <span
+        <label
+          htmlFor={inputId}
           aria-hidden="true"
-          className="flex size-11 shrink-0 items-center justify-center text-muted-foreground"
+          className="flex size-11 shrink-0 cursor-text items-center justify-center text-muted-foreground"
         >
           <Plus className="size-4.5" strokeWidth={2} />
-        </span>
+        </label>
         <input
           id={inputId}
           ref={inputRef}

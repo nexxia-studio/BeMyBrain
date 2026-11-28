@@ -295,7 +295,7 @@ FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un lib
 
 **Fond** : brume `--mist` + halos en dégradés radiaux fixes (`body::before`, aucune image) ; mobile : bleu en haut à gauche, lilas à droite ; ordinateur : + aqua en bas. Le texte secondaire ne se pose jamais directement sur le cœur d'un halo (voir contrastes).
 
-**Calques** (`z-(--z-…)`) : `--z-halo` −1 · `--z-content` 1 · `--z-header` 10 · `--z-tabbar` 20 · `--z-overlay` 40 · `--z-dialog` 50 · `--z-toast` 60. Le voile `scrim` est posé à `--z-overlay`, sous la fenêtre (`--z-dialog`).
+**Calques** (`z-(--z-…)`) : `--z-halo` −1 · `--z-content` 1 · `--z-sticky` 5 (champ collant des Courses) · `--z-lifted` 8 (rayon glissé, au-dessus du champ) · `--z-header` 10 · `--z-tabbar` 20 · `--z-overlay` 40 · `--z-dialog` 50 · `--z-toast` 60. Le voile `scrim` est posé à `--z-overlay`, sous la fenêtre (`--z-dialog`).
 
 **Espacements** (base Tailwind 4 px, plus) : `gap-grid` 14 / 16 / 20 px (mobile / tablette / ordinateur) · `p-tile` 18 / 24 px · `p-today` 22 / 28 px · `px-page` 16 / 24 px / `clamp(14px, 2.4vw, 36px)` · largeur max du contenu 1400 px.
 
