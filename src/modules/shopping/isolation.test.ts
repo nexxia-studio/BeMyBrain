@@ -15,7 +15,14 @@ import {
   newShoppingFixture,
 } from "../../../tests/factories/shopping";
 
-import { addItem } from "./mutations";
+import {
+  addItem,
+  checkItem,
+  clearChecked,
+  removeItem,
+  renameItem,
+  uncheckItem,
+} from "./mutations";
 import { getAisleOrder, getAisleOverrides, getShoppingList } from "./queries";
 
 // Isolation du module shopping (constitution 5) contre la branche Neon test : withUserDb réel en rôle
@@ -127,5 +134,71 @@ describe("écritures croisées", () => {
     await db.asUser(f.userA, (tx) => addItem(f.workspaceA, "citron", tx));
 
     expect(await stateOf(f.workspaceB)).toEqual(beforeB);
+  });
+});
+
+describe("écritures croisées sur les articles", () => {
+  it("userA ne coche, ne décoche, ne renomme ni ne supprime l'article de B, via B ou via A", async () => {
+    const before = await stateOf(f.workspaceB);
+    const row = async () =>
+      (
+        await owner.query(
+          "select label, checked_at from shopping_items where id = $1",
+          [s.itemB],
+        )
+      ).rows[0];
+    const itemBefore = await row();
+
+    const codes = [
+      // workspace de B : la liste de B est invisible pour userA
+      await codeOf(
+        db.asUser(f.userA, (tx) => checkItem(f.workspaceB, s.itemB, tx)),
+      ),
+      await codeOf(
+        db.asUser(f.userA, (tx) => uncheckItem(f.workspaceB, s.itemB, tx)),
+      ),
+      await codeOf(
+        db.asUser(f.userA, (tx) =>
+          renameItem(f.workspaceB, s.itemB, "pirate", tx),
+        ),
+      ),
+      await codeOf(
+        db.asUser(f.userA, (tx) => removeItem(f.workspaceB, s.itemB, tx)),
+      ),
+      await codeOf(db.asUser(f.userA, (tx) => clearChecked(f.workspaceB, tx))),
+      // workspace de A, id de l'article de B
+      await codeOf(
+        db.asUser(f.userA, (tx) => checkItem(f.workspaceA, s.itemB, tx)),
+      ),
+      await codeOf(
+        db.asUser(f.userA, (tx) =>
+          renameItem(f.workspaceA, s.itemB, "pirate", tx),
+        ),
+      ),
+      await codeOf(
+        db.asUser(f.userA, (tx) => removeItem(f.workspaceA, s.itemB, tx)),
+      ),
+    ];
+
+    expect(codes.every((c) => c !== "ok")).toBe(true);
+    expect(await stateOf(f.workspaceB)).toEqual(before);
+    expect(await row()).toEqual(itemBefore);
+  });
+
+  it("vider les cochés de A ne supprime rien dans B", async () => {
+    await owner.query(
+      "update shopping_items set checked_at = now() where id = $1",
+      [s.itemB],
+    );
+    const before = await stateOf(f.workspaceB);
+
+    await db.asUser(f.userA, (tx) => clearChecked(f.workspaceA, tx));
+
+    expect(await stateOf(f.workspaceB)).toEqual(before);
+    const { rows } = await owner.query(
+      "select 1 from shopping_items where id = $1",
+      [s.itemB],
+    );
+    expect(rows).toHaveLength(1);
   });
 });

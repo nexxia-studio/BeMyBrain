@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 
 import type { UserTx } from "@/db/client";
 import { shoppingItems, shoppingLists } from "@/db/schema/shopping";
@@ -132,4 +132,179 @@ export async function addItem(
     returning id`);
   const rev = await bumpRev(workspace, list.id, tx);
   return { id: result.rows[0]!.id, label: clean, aisleKey: aisle, rev };
+}
+
+function parseItemId(itemId: unknown): string {
+  const result = uuidSchema.safeParse(itemId);
+  if (!result.success) throw new ShoppingError("invalid_params");
+  return result.data;
+}
+
+/** Id de la liste du workspace, lue sans la créer (une écriture sur un article suppose une liste existante). */
+async function findListId(workspace: string, tx: UserTx): Promise<string> {
+  const [list] = await tx
+    .select({ id: shoppingLists.id })
+    .from(shoppingLists)
+    .where(eq(shoppingLists.workspaceId, workspace));
+  if (!list) throw new ShoppingError("invalid_params");
+  return list.id;
+}
+
+/** `rev` de la liste, lu sous lockList. */
+async function readRev(
+  workspace: string,
+  listId: string,
+  tx: UserTx,
+): Promise<number> {
+  const [row] = await tx
+    .select({ rev: shoppingLists.rev })
+    .from(shoppingLists)
+    .where(
+      and(
+        eq(shoppingLists.workspaceId, workspace),
+        eq(shoppingLists.id, listId),
+      ),
+    );
+  if (!row) throw new ShoppingError("invalid_params");
+  return row.rev;
+}
+
+const itemScope = (workspace: string, listId: string, itemId: string) =>
+  and(
+    eq(shoppingItems.workspaceId, workspace),
+    eq(shoppingItems.listId, listId),
+    eq(shoppingItems.id, itemId),
+  );
+
+/**
+ * Coche un article (date de cochage posée ; déjà coché : date conservée, son rang ne bouge pas).
+ * Article inconnu ou d'un autre workspace → invalid_params. Renvoie le `rev` de la liste.
+ */
+export async function checkItem(
+  workspaceId: string,
+  itemId: string,
+  tx: UserTx,
+): Promise<{ rev: number }> {
+  const workspace = parseWorkspace(workspaceId);
+  const id = parseItemId(itemId);
+  const listId = await findListId(workspace, tx);
+
+  await lockList(listId, tx);
+  const rows = await tx
+    .update(shoppingItems)
+    .set({ checkedAt: sql`coalesce(${shoppingItems.checkedAt}, now())` })
+    .where(itemScope(workspace, listId, id))
+    .returning({ id: shoppingItems.id });
+  if (rows.length === 0) throw new ShoppingError("invalid_params");
+  return { rev: await bumpRev(workspace, listId, tx) };
+}
+
+/** Décoche un article (il remonte dans son rayon). Même refus et même retour que checkItem. */
+export async function uncheckItem(
+  workspaceId: string,
+  itemId: string,
+  tx: UserTx,
+): Promise<{ rev: number }> {
+  const workspace = parseWorkspace(workspaceId);
+  const id = parseItemId(itemId);
+  const listId = await findListId(workspace, tx);
+
+  await lockList(listId, tx);
+  const rows = await tx
+    .update(shoppingItems)
+    .set({ checkedAt: null })
+    .where(itemScope(workspace, listId, id))
+    .returning({ id: shoppingItems.id });
+  if (rows.length === 0) throw new ShoppingError("invalid_params");
+  return { rev: await bumpRev(workspace, listId, tx) };
+}
+
+export type RenamedItem = {
+  id: string;
+  label: string;
+  aisleKey: AisleKey;
+  rev: number;
+};
+
+/** Renomme un article ; reclassé par classifyAisle seulement si son rayon n'a pas été choisi à la main. */
+export async function renameItem(
+  workspaceId: string,
+  itemId: string,
+  label: string,
+  tx: UserTx,
+): Promise<RenamedItem> {
+  const workspace = parseWorkspace(workspaceId);
+  const id = parseItemId(itemId);
+  const clean = cleanLabel(label);
+  const listId = await findListId(workspace, tx);
+
+  await lockList(listId, tx);
+  const [current] = await tx
+    .select({
+      aislePinned: shoppingItems.aislePinned,
+      aisleKey: shoppingItems.aisleKey,
+    })
+    .from(shoppingItems)
+    .where(itemScope(workspace, listId, id))
+    .for("update");
+  if (!current) throw new ShoppingError("invalid_params");
+
+  let aisleKey = current.aisleKey as AisleKey;
+  if (!current.aislePinned) {
+    const overrides = await getAisleOverrides(workspace, tx);
+    aisleKey = classifyAisle(clean, { overrides }).aisle;
+  }
+  await tx
+    .update(shoppingItems)
+    .set({ label: clean, aisleKey })
+    .where(itemScope(workspace, listId, id));
+  const rev = await bumpRev(workspace, listId, tx);
+  return { id, label: clean, aisleKey, rev };
+}
+
+/** Supprime un article. Inconnu ou d'un autre workspace → invalid_params. */
+export async function removeItem(
+  workspaceId: string,
+  itemId: string,
+  tx: UserTx,
+): Promise<{ rev: number }> {
+  const workspace = parseWorkspace(workspaceId);
+  const id = parseItemId(itemId);
+  const listId = await findListId(workspace, tx);
+
+  await lockList(listId, tx);
+  const rows = await tx
+    .delete(shoppingItems)
+    .where(itemScope(workspace, listId, id))
+    .returning({ id: shoppingItems.id });
+  if (rows.length === 0) throw new ShoppingError("invalid_params");
+  return { rev: await bumpRev(workspace, listId, tx) };
+}
+
+/** Supprime les articles cochés et eux seuls. Rien à supprimer : aucune écriture, `rev` inchangé. */
+export async function clearChecked(
+  workspaceId: string,
+  tx: UserTx,
+): Promise<{ removed: number; rev: number }> {
+  const workspace = parseWorkspace(workspaceId);
+  const listId = await findListId(workspace, tx);
+
+  await lockList(listId, tx);
+  const rows = await tx
+    .delete(shoppingItems)
+    .where(
+      and(
+        eq(shoppingItems.workspaceId, workspace),
+        eq(shoppingItems.listId, listId),
+        isNotNull(shoppingItems.checkedAt),
+      ),
+    )
+    .returning({ id: shoppingItems.id });
+  if (rows.length === 0) {
+    return { removed: 0, rev: await readRev(workspace, listId, tx) };
+  }
+  return {
+    removed: rows.length,
+    rev: await bumpRev(workspace, listId, tx),
+  };
 }
