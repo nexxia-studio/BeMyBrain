@@ -862,11 +862,16 @@ describe("registre d'actions : isolation des actions shopping.*", () => {
   it("A sur son workspace avec l'article de B : check, uncheck, rename, remove, move → invalid_params, B inchangé", async () => {
     const before = await shoppingStateOf(f.workspaceB);
 
+    const itemWrites = [
+      "shopping.checkItem",
+      "shopping.uncheckItem",
+      "shopping.renameItem",
+      "shopping.removeItem",
+      "shopping.moveItemToAisle",
+    ];
     for (const [name, params] of SHOPPING_WRITES.filter(([n]) =>
-      /check|uncheck|rename|remove|move/i.test(n),
+      itemWrites.includes(n),
     )) {
-      if (name === "shopping.clearChecked" || name === "shopping.setAisleOrder")
-        continue;
       const code = await run(
         f.userA,
         f.workspaceA,
@@ -885,6 +890,12 @@ describe("registre d'actions : isolation des actions shopping.*", () => {
 
   it("shopping.clearChecked de A ne supprime que ses articles cochés", async () => {
     const beforeB = await shoppingStateOf(f.workspaceB);
+    const witness = await owner.query(
+      "select checked_at from shopping_items where id = $1 and workspace_id = $2",
+      [sh.checkedItemA, f.workspaceA],
+    );
+    expect(witness.rows).toHaveLength(1);
+    expect(witness.rows[0].checked_at).not.toBeNull();
 
     await run(f.userA, f.workspaceA, "shopping.clearChecked", {});
 
