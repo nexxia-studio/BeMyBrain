@@ -100,6 +100,7 @@ export function QuickAddField() {
           ? { bottom: `calc(${keyboardInset}px + var(--space-grid))` }
           : undefined
       }
+      data-quick-add=""
       className="glass sticky bottom-page z-(--z-sticky) mt-auto flex flex-col gap-1.5 rounded-tile p-3 max-lg:bottom-tabbar-reserve"
     >
       <label

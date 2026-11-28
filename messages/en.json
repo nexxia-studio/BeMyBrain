@@ -473,6 +473,9 @@
     },
     "list": {
       "empty": "Your shopping list is empty. Add a first item.",
+      "progress": "{remaining} left of {total}",
+      "allChecked": "Everything is checked.",
+      "aisleToBuy": "{count} to buy",
       "notSaved": "Not saved, try again."
     },
     "aisleSort": {

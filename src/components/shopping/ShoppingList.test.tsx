@@ -78,6 +78,7 @@ function pendingCall(mock: ReturnType<typeof vi.fn>) {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await act(async () => {
     for (const resolve of open.splice(0)) resolve();
   });
@@ -97,7 +98,8 @@ describe("ShoppingList", () => {
     expect(screen.queryByText("Surgelés")).toBeNull();
   });
 
-  it("un tap coche (barré, grisé) et l'article descend en bas du rayon, avant tout await", () => {
+  it("un tap coche sur place (barré), le réordonnancement attend 600 ms sans nouveau tap", () => {
+    vi.useFakeTimers();
     pendingCall(checkShoppingItem);
     renderList();
     const section = screen.getByRole("region", { name: /Fruits et légumes/ });
@@ -105,12 +107,82 @@ describe("ShoppingList", () => {
 
     fireEvent.click(within(section).getByRole("checkbox", { name: "Pommes" }));
 
-    // Aucun await : l'état optimiste est déjà là.
+    // Aucun await : coché tout de suite, ordre inchangé.
     expect(checkShoppingItem).toHaveBeenCalledWith("p1");
-    expect(rowLabels(section)).toEqual(["Carottes", "Poires", "Pommes"]);
     const pommes = within(section).getByRole("checkbox", { name: "Pommes" });
     expect(pommes.getAttribute("aria-checked")).toBe("true");
     expect(pommes.classList.contains("line-through")).toBe(true);
+    expect(rowLabels(section)).toEqual(["Pommes", "Carottes", "Poires"]);
+
+    act(() => {
+      vi.advanceTimersByTime(599);
+    });
+    expect(rowLabels(section)).toEqual(["Pommes", "Carottes", "Poires"]);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(rowLabels(section)).toEqual(["Carottes", "Poires", "Pommes"]);
+    vi.useRealTimers();
+  });
+
+  it("une rafale de taps ne bouge rien tant que l'utilisateur enchaîne", () => {
+    vi.useFakeTimers();
+    pendingCall(checkShoppingItem);
+    renderList([
+      {
+        aisleKey: "produce",
+        items: [
+          item("p1", "Pommes"),
+          item("p2", "Carottes"),
+          item("p4", "Kiwis"),
+        ],
+      },
+    ]);
+    const section = screen.getByRole("region", { name: /Fruits et légumes/ });
+
+    fireEvent.click(within(section).getByRole("checkbox", { name: "Pommes" }));
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    fireEvent.click(
+      within(section).getByRole("checkbox", { name: "Carottes" }),
+    );
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(rowLabels(section)).toEqual(["Pommes", "Carottes", "Kiwis"]);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(rowLabels(section)).toEqual(["Kiwis", "Pommes", "Carottes"]);
+    vi.useRealTimers();
+  });
+
+  it("la progression affiche les restants sur le total, et les compteurs de rayon sont lisibles", () => {
+    renderList();
+    expect(screen.getByText("3 restants sur 4")).toBeTruthy();
+    const section = screen.getByRole("region", { name: /Fruits et légumes/ });
+    expect(within(section).getByText("2 à acheter")).toBeTruthy();
+  });
+
+  it("un rayon entièrement coché est replié, dépliable d'un tap (aria-expanded)", () => {
+    renderList([
+      {
+        aisleKey: "produce",
+        items: [
+          item("p1", "Pommes", { checkedAt: new Date("2026-11-20T10:00:00Z") }),
+        ],
+      },
+    ]);
+    expect(screen.queryByRole("checkbox", { name: "Pommes" })).toBeNull();
+    const toggle = screen.getByRole("button", { name: /Fruits et légumes/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.classList.contains("min-h-11")).toBe(true);
+
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("checkbox", { name: "Pommes" })).toBeTruthy();
   });
 
   it("un tap sur un article coché le décoche", () => {

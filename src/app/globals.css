@@ -307,6 +307,8 @@
   --field-clearance: calc(8.8rem + var(--space-grid));
   --toast-above-field: calc(var(--tabbar-reserve) + var(--field-clearance));
   --toast-above-field-lg: calc(var(--space-page) + var(--field-clearance));
+  /* Le défilement est celui de la page (`html`) : la page des Courses réserve la hauteur du champ collant (+ barre
+     d'onglets sous 1024 px) pour qu'un focus clavier ne passe pas derrière lui (WCAG 2.4.11). Posé plus bas, `html:has`. */
 
   /* Calques. */
   --z-halo: -1;
@@ -494,6 +496,15 @@ html:has(.frost) {
 
   @media (prefers-reduced-motion: reduce) {
     display: none;
+  }
+}
+
+/* Page à champ d'ajout collant (QuickAddField, `data-quick-add`) : zone de défilement réservée sous le focus. */
+html:has([data-quick-add]) {
+  scroll-padding-bottom: var(--toast-above-field);
+
+  @media (min-width: 1024px) {
+    scroll-padding-bottom: var(--toast-above-field-lg);
   }
 }
 
