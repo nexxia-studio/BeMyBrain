@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { UserTx } from "@/db/client";
 
@@ -62,6 +62,39 @@ describe("setAisleOrder : un ordre qui n'est pas une permutation des rayons est 
     expect(await codeOf(setAisleOrder("x", [...AISLE_KEYS], untouchedTx))).toBe(
       "invalid_params",
     );
+  });
+});
+
+describe("setAisleOrder : lecture unique et non-membre", () => {
+  const fakeTx = (member: boolean) => {
+    const execute = vi.fn().mockResolvedValue({ rows: [{ member }] });
+    return { tx: { execute } as unknown as UserTx, execute };
+  };
+
+  it("lit le tableau une seule fois et écrit les clés validées", async () => {
+    let reads = 0;
+    const order = [...AISLE_KEYS];
+    const native = order[Symbol.iterator].bind(order);
+    order[Symbol.iterator] = function* () {
+      reads += 1;
+      yield* native();
+    };
+    const { tx, execute } = fakeTx(true);
+
+    const saved = await setAisleOrder(WORKSPACE, order, tx);
+
+    expect(reads).toBe(1);
+    expect(saved).toEqual([...AISLE_KEYS]);
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuse un non-membre en invalid_params sans écrire", async () => {
+    const { tx, execute } = fakeTx(false);
+
+    expect(await codeOf(setAisleOrder(WORKSPACE, [...AISLE_KEYS], tx))).toBe(
+      "invalid_params",
+    );
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 });
 

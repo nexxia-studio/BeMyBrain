@@ -420,16 +420,24 @@ export async function setAisleOrder(
   tx: UserTx,
 ): Promise<AisleKey[]> {
   const workspace = parseWorkspace(workspaceId);
+  if (!Array.isArray(order)) throw new ShoppingError("invalid_params");
+  // Une seule lecture du tableau (Array.from parcourt par indices : un trou devient undefined et est refusé),
+  // validée puis écrite telle quelle : un objet à lecture changeante ne peut pas passer la validation.
+  const keys = Array.from(order as readonly unknown[]);
   if (
-    !Array.isArray(order) ||
-    order.length !== AISLE_KEYS.length ||
-    // Array.from parcourt par indices : un trou devient undefined et est refusé (every les sauterait).
-    !Array.from(order).every(isAisleKey) ||
-    new Set(Array.from(order)).size !== AISLE_KEYS.length
+    keys.length !== AISLE_KEYS.length ||
+    !keys.every(isAisleKey) ||
+    new Set(keys).size !== AISLE_KEYS.length
   ) {
     throw new ShoppingError("invalid_params");
   }
-  const keys = order as AisleKey[];
+  // Non-membre : refus propre plutôt qu'un 42501 de la RLS (la politique reste le verrou).
+  const membership = await tx.execute(
+    sql`select app.is_workspace_member(${workspace}) as member`,
+  );
+  if (membership.rows[0]?.member !== true) {
+    throw new ShoppingError("invalid_params");
+  }
   await tx.execute(sql`
     insert into ${shoppingAisleOrder} (workspace_id, aisle_keys)
     values (${workspace}, array[${sql.join(

@@ -252,14 +252,14 @@ describe("écritures croisées sur les rayons (tâche 8)", () => {
     expect(await snapshot()).toEqual(before);
   });
 
-  it("userA n'enregistre pas d'ordre dans le workspace B (42501), rien ne change", async () => {
+  it("userA n'enregistre pas d'ordre dans le workspace B (invalid_params), rien ne change", async () => {
     const before = await snapshot();
 
     const code = await codeOf(
       db.asUser(f.userA, (tx) => setAisleOrder(f.workspaceB, order, tx)),
     );
 
-    expect(code).toBe("42501");
+    expect(code).toBe("invalid_params");
     expect(await snapshot()).toEqual(before);
   });
 
