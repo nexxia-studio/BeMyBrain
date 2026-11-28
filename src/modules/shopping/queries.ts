@@ -30,6 +30,8 @@ export type ShoppingList = {
   id: string | null;
   name: string;
   rev: number;
+  /** Ordre complet des 12 rayons de l'utilisateur, masqués compris. */
+  order: AisleKey[];
   /** Rayons non vides, dans l'ordre de l'utilisateur ; cochés en bas de leur rayon. */
   aisles: AisleGroup[];
 };
@@ -84,7 +86,7 @@ export async function getShoppingList(
     .where(eq(shoppingLists.workspaceId, workspace));
   const order = await getAisleOrder(workspace, tx);
   if (!list) {
-    return { id: null, name: DEFAULT_LIST_NAME, rev: 0, aisles: [] };
+    return { id: null, name: DEFAULT_LIST_NAME, rev: 0, order, aisles: [] };
   }
 
   const rows = await tx
@@ -108,7 +110,7 @@ export async function getShoppingList(
     aisleKey: r.aisleKey as AisleKey,
   }));
 
-  return { ...list, aisles: groupByAisle(items, order) };
+  return { ...list, order, aisles: groupByAisle(items, order) };
 }
 
 /** Nombre d'articles montrés par la tuile du tableau de bord. */

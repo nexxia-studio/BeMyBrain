@@ -11,7 +11,7 @@
 // Aucun composant d'animation (Motion) dans un rayon déplaçable : les voisins glissent par la transition CSS de
 // dnd-kit, coupée en mouvement réduit. Pas de `DragOverlay` : le rayon saisi suit le pointeur en place (axe
 // vertical seulement), soulevé par une ombre.
-// Les rayons vides ne sont pas affichés : l'ordre enregistré est complété par `mergeAisleOrder` (12 clés).
+// Les rayons vides ne sont pas affichés : les rayons masqués gardent leur place dans l'ordre complet lu (`applyVisibleOrder`, 12 clés).
 // Au dépôt, l'ordre est posé tout de suite (`useOptimistic`, dans une transition) puis enregistré par
 // `setShoppingAisleOrder` (`settleAction`) ; refus ou panne : retour à l'ordre d'avant et message.
 import {
@@ -52,8 +52,8 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import type { AisleKey } from "@/modules/shopping/aisles";
 import type { AisleGroup } from "@/modules/shopping/list-view";
+import { applyVisibleOrder } from "@/modules/shopping/visible-order";
 
-import { mergeAisleOrder } from "./merge-aisle-order";
 
 const ACTIVATION_DELAY_MS = 250;
 const TOUCH_TOLERANCE_PX = 6;
@@ -62,6 +62,8 @@ const MOUSE_DISTANCE_PX = 4;
 type AisleSortableProps = {
   /** Rayons non vides, dans l'ordre affiché. */
   aisles: readonly AisleGroup[];
+  /** Ordre complet des 12 rayons (masqués compris), tel que lu. */
+  order: readonly AisleKey[];
   /** Un rayon ; `handle` est la poignée à poser dans son en-tête (absente s'il n'y a qu'un rayon). */
   renderAisle: (aisle: AisleGroup, handle: ReactNode) => ReactNode;
 };
@@ -75,7 +77,11 @@ function reorder(
   );
 }
 
-export function AisleSortable({ aisles, renderAisle }: AisleSortableProps) {
+export function AisleSortable({
+  aisles,
+  order,
+  renderAisle,
+}: AisleSortableProps) {
   const t = useTranslations("shopping.aisleSort");
   const tAisles = useTranslations("shopping.aisles");
   const contextId = useId();
@@ -138,7 +144,7 @@ export function AisleSortable({ aisles, renderAisle }: AisleSortableProps) {
     startTransition(async () => {
       applyOrder(visible);
       const outcome = await settleAction(() =>
-        setShoppingAisleOrder(mergeAisleOrder(visible)),
+        setShoppingAisleOrder(applyVisibleOrder(order, visible)),
       );
       if (outcome.ok && outcome.value.ok) return;
       // Après un `await`, une mise à jour sort de la transition : remise dedans (gotchas).

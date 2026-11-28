@@ -31,7 +31,7 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 | `tags` | `workspace_id` | étiquettes de tâches | pas de DELETE (RLS) |
 | `task_tags` | `workspace_id` | lien tâche ↔ tag | |
 | `shopping_lists` | `workspace_id` | la liste de courses du workspace (une seule) | migration 0011 ; porte `rev`, incrémenté à chaque écriture |
-| `shopping_items` | `workspace_id` | articles : libellé, rayon (`aisle_key`, CHECK), coché, auteur (`added_by_guest`) | migration 0011 ; plafonds en base (300 articles, 80 caractères) |
+| `shopping_items` | `workspace_id` | articles : libellé, rayon (`aisle_key`, CHECK), coché, auteur (`added_by_guest`) | migration 0011 ; 80 caractères en base (CHECK) ; 300 articles applicatif |
 | `shopping_aisle_overrides` | `workspace_id` | correction d'un rayon mémorisée par libellé normalisé complet | migration 0011 |
 | `shopping_aisle_order` | `workspace_id` | ordre des rayons choisi par l'utilisateur | migration 0011 ; ordre par défaut en code (`aisles.ts`) |
 
@@ -42,7 +42,6 @@ Les autres modules sont listés dans `docs/roadmap.md` et n'entrent ici qu'au mo
 4. Chargement du tableau de bord et des listes : `loading.tsx` affiche le givre (CSS pur, `FrostTile`, `src/components/loading/`) aux tailles réelles de la grille ou de la liste, puis le contenu remplace le givre sans décalage.
 5. Hauteurs des tuiles : après affichage, `TileHeightRecorder` (`src/components/bento/`) écrit le cookie `bmb-dashboard-tiles` (`Path=/dashboard`, 30 jours). `dashboard/loading.tsx` le lit ; `src/modules/dashboard/tile-heights.ts` valide la valeur (taille bornée, identifiants connus, 1 024 caractères au plus).
 6. Reflet : une fois par session, à la fin de la révélation de la grille, un calque par tuile de verre balaie (GSAP, `transform` seul) ; rendu par `TileSurface`, animé par `bento-reveal.tsx`.
-
 7. Courses : page serveur `/lists/shopping` → `queries.ts` du module `shopping` ; chaque écriture passe par une action du registre `shopping.*` (`src/modules/shopping/actions.ts`, ADR-009) → `mutations.ts`, qui range l'article (corrections mémorisées, puis dictionnaire de mots, sinon « Divers ») et incrémente `rev` de la liste. `rev` sert de signal de changement (temps réel de la PR B, ADR-011) ; la tuile Courses du tableau de bord lit `loadShoppingSummary`.
 
 ## Intégrations externes

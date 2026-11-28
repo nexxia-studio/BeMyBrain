@@ -42,6 +42,7 @@ afterEach(() => {
 describe("page /lists/shopping", () => {
   it("lit la liste avec le jeton et le workspace de la session, sans filtre d'espace", async () => {
     const aisles = [{ aisleKey: "produce", items: [] }];
+    const order = ["produce", "drinks"];
     requireSessionWithToken.mockResolvedValue({
       session: SESSION,
       token: "jeton",
@@ -50,6 +51,7 @@ describe("page /lists/shopping", () => {
       id: null,
       name: "Courses",
       rev: 0,
+      order,
       aisles,
     });
 
@@ -62,6 +64,7 @@ describe("page /lists/shopping", () => {
     );
     expect(listProps).toHaveBeenCalledWith({
       aisles,
+      order,
       quickAdd: expect.anything(),
     });
   });

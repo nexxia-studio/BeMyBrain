@@ -20,7 +20,11 @@ export default async function ShoppingPage() {
   return (
     <main className="flex flex-1 flex-col gap-grid">
       <PageHeader title={t("title")} contextFilter={false} />
-      <ShoppingList aisles={list.aisles} quickAdd={<QuickAddField />} />
+      <ShoppingList
+        aisles={list.aisles}
+        order={list.order}
+        quickAdd={<QuickAddField />}
+      />
     </main>
   );
 }

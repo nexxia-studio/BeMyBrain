@@ -13,9 +13,10 @@ type Slot = { item: ShoppingItem; timer: ReturnType<typeof setTimeout> };
  * serveur de plus, `[security]`). `schedule` masque l'article tout de suite et arme un délai de 5 s ; `undo`
  * le rend sans qu'aucun appel serveur n'ait eu lieu ; à l'échéance, `send` supprime pour de bon.
  * Rien ne se perd en silence : le délai est vidé (envoi immédiat) quand l'écran est démonté (navigation) ou à
- * `pagehide` (fermeture de l'onglet, retour arrière, mise en veille d'iOS) ; un second article supprimé envoie
+ * `pagehide` (fermeture de l'onglet, navigation hors de la page) ; un second article supprimé envoie
  * le premier tout de suite (un seul « Annuler » à la fois). Reste un cas : le navigateur qui coupe la requête
- * à la fermeture de l'onglet — l'article réapparaît alors à la réouverture, il n'est jamais perdu à tort.
+ * à la fermeture de l'onglet — l'article réapparaît alors à la réouverture, il n'est jamais perdu à tort. `pagehide` n'est pas garanti
+ * partout (ex. app iOS tuée en arrière-plan sans événement) : même issue, l'article reste.
  * `send` rend `true` si le serveur a supprimé ; sinon l'article est rendu à l'écran et `onFailed` prévenu.
  */
 export function useDeferredRemoval(

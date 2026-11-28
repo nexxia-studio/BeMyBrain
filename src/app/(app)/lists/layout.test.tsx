@@ -2,14 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const readSide = vi.hoisted(() => vi.fn());
-const notFound = vi.hoisted(() =>
+const redirect = vi.hoisted(() =>
   vi.fn(() => {
-    throw new Error("NEXT_NOT_FOUND");
+    throw new Error("NEXT_REDIRECT");
   }),
 );
 
 vi.mock("@/lib/preferences", () => ({ readSide }));
-vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/navigation", () => ({ redirect }));
 
 import ListsLayout from "./layout";
 
@@ -22,15 +22,15 @@ describe("layout de /lists", () => {
     render(await ListsLayout({ children: <p>courses</p> }));
 
     expect(screen.getByText("courses")).toBeTruthy();
-    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 
-  it("côté Pro : 404 avant tout rendu, aucune donnée de liste", async () => {
+  it("côté Pro : renvoi vers l'accueil avant tout rendu, aucune donnée de liste", async () => {
     readSide.mockResolvedValue("pro");
 
     await expect(ListsLayout({ children: <p>courses</p> })).rejects.toThrow(
-      "NEXT_NOT_FOUND",
+      "NEXT_REDIRECT",
     );
-    expect(notFound).toHaveBeenCalledOnce();
+    expect(redirect).toHaveBeenCalledWith("/dashboard");
   });
 });

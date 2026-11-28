@@ -13,6 +13,7 @@ import {
   insertShoppingFixture,
   newShoppingFixture,
 } from "../../../tests/factories/shopping";
+import { AISLE_KEYS, DEFAULT_AISLE_ORDER } from "./aisles";
 import { getAisleOrder, getAisleOverrides, getShoppingList } from "./queries";
 
 // Délai propre aux tests base de ce fichier : un `it` enchaîne plusieurs allers-retours Neon séquentiels
@@ -97,6 +98,7 @@ describe("getShoppingList", () => {
 
     expect(list.rev).toBe(0);
     expect(list.name).toBe("Courses");
+    expect([...list.order].sort()).toEqual([...AISLE_KEYS].sort());
   });
 
   it("n'écrit rien : un workspace sans liste rend une liste vide sans id", async () => {
@@ -110,7 +112,13 @@ describe("getShoppingList", () => {
       [f.workspaceA],
     );
 
-    expect(list).toEqual({ id: null, name: "Courses", rev: 0, aisles: [] });
+    expect(list).toEqual({
+      id: null,
+      name: "Courses",
+      rev: 0,
+      order: [...DEFAULT_AISLE_ORDER],
+      aisles: [],
+    });
     expect(rows).toHaveLength(0);
     await insertShoppingFixture(owner, f, s);
   });

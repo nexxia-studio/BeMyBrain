@@ -9,6 +9,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AISLE_KEYS } from "@/modules/shopping/aisles";
 import type { AisleGroup, ShoppingItem } from "@/modules/shopping/list-view";
 
 import messages from "../../../messages/fr.json";
@@ -252,7 +253,7 @@ const AISLES: AisleGroup[] = [
 ];
 
 function renderList() {
-  return render(wrap(<ShoppingList aisles={AISLES} />));
+  return render(wrap(<ShoppingList aisles={AISLES} order={[...AISLE_KEYS]} />));
 }
 
 /** Ouvre le menu de la ligne en temps réel, puis passe en faux temps pour le clic sur Supprimer. */

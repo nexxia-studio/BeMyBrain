@@ -24,14 +24,19 @@ test.afterEach(async ({ page }) => {
   await page.goto("/lists/shopping");
   for (const label of labels) {
     // Un même libellé peut exister deux fois (scénario 2) : on supprime toutes les lignes.
-    while ((await page.getByRole("checkbox", { name: label }).count()) > 0) {
+    while (
+      (await page.getByRole("checkbox", { name: label, exact: true }).count()) >
+      0
+    ) {
       await removeRow(page, label);
     }
   }
   await expect(removedToast(page)).toBeHidden({ timeout: 10_000 });
   await page.reload();
   for (const label of labels) {
-    await expect(page.getByRole("checkbox", { name: label })).toHaveCount(0);
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toHaveCount(0);
   }
 });
 
@@ -47,7 +52,7 @@ async function openItemMenu(page: Page, label: string) {
 }
 
 async function removeRow(page: Page, label: string) {
-  const rows = page.getByRole("checkbox", { name: label });
+  const rows = page.getByRole("checkbox", { name: label, exact: true });
   const before = await rows.count();
   await openItemMenu(page, label);
   await page
@@ -70,7 +75,9 @@ test("ajout enchaîné de quatre articles, focus gardé", async ({ page }) => {
     created.push(label);
     await page.keyboard.type(label);
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("checkbox", { name: label })).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toBeVisible();
     await expect(input).toHaveValue("");
     await expect(input).toBeFocused();
     await expect(input).not.toHaveJSProperty("readOnly", true);
@@ -78,7 +85,9 @@ test("ajout enchaîné de quatre articles, focus gardé", async ({ page }) => {
 
   await page.reload();
   for (const label of created) {
-    await expect(page.getByRole("checkbox", { name: label })).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toBeVisible();
   }
 });
 
@@ -142,7 +151,9 @@ test("l'ordre des rayons glissé est gardé après rechargement", async ({
     await field(page).click();
     await page.keyboard.type(label);
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("checkbox", { name: label })).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toBeVisible();
   }
   const frozen = fr.shopping.aisles.frozen;
   const names = async () => aisleHeadings(page).allTextContents();
@@ -179,7 +190,10 @@ test("changer un article de rayon mémorise la correction", async ({ page }) => 
 
   await add();
   await expect(
-    aisleSection(page, "other").getByRole("checkbox", { name: label }),
+    aisleSection(page, "other").getByRole("checkbox", {
+      name: label,
+      exact: true,
+    }),
   ).toBeVisible();
 
   await openItemMenu(page, label);
@@ -192,16 +206,25 @@ test("changer un article de rayon mémorise la correction", async ({ page }) => 
     .click();
   await expect(sheet).toBeHidden();
   await expect(
-    aisleSection(page, "pantrySavory").getByRole("checkbox", { name: label }),
+    aisleSection(page, "pantrySavory").getByRole("checkbox", {
+      name: label,
+      exact: true,
+    }),
   ).toBeVisible();
 
   // Retapé à l'identique : même rayon, sans nouvelle correction.
   await add();
   await expect(
-    aisleSection(page, "pantrySavory").getByRole("checkbox", { name: label }),
+    aisleSection(page, "pantrySavory").getByRole("checkbox", {
+      name: label,
+      exact: true,
+    }),
   ).toHaveCount(2);
   await expect(
-    aisleSection(page, "other").getByRole("checkbox", { name: label }),
+    aisleSection(page, "other").getByRole("checkbox", {
+      name: label,
+      exact: true,
+    }),
   ).toHaveCount(0);
 });
 
@@ -218,26 +241,33 @@ test("vider les cochés demande confirmation puis ne supprime que les cochés", 
     await field(page).click();
     await page.keyboard.type(label);
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("checkbox", { name: label })).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toBeVisible();
   }
-  await page.getByRole("checkbox", { name: done }).click();
-  await expect(page.getByRole("checkbox", { name: done })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
+  await page.getByRole("checkbox", { name: done, exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: done, exact: true }),
+  ).toHaveAttribute("aria-checked", "true");
 
   await page.getByRole("button", { name: /^Vider les cochés/ }).click();
   const dialog = page.getByRole("dialog", {
     name: fr.shopping.clearChecked.title,
   });
   await expect(dialog).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: done })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: done, exact: true }),
+  ).toBeVisible();
 
   await dialog
     .getByRole("button", { name: fr.shopping.clearChecked.confirm })
     .click();
-  await expect(page.getByRole("checkbox", { name: done })).toHaveCount(0);
-  await expect(page.getByRole("checkbox", { name: kept })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: done, exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("checkbox", { name: kept, exact: true }),
+  ).toBeVisible();
 });
 
 // Scénario 1 : courses au supermarché. Quatre articles à la suite sans quitter le champ (le clavier ne se ferme
@@ -260,14 +290,16 @@ test("courses au supermarché : ajout enchaîné, rangement, cochés en bas, vid
     await page.keyboard.type(label);
     await page.keyboard.press("Enter");
     await expect(
-      page.getByRole("checkbox", { name: label }).first(),
+      page.getByRole("checkbox", { name: label, exact: true }).first(),
     ).toBeVisible();
     await expect(input).toHaveValue("");
     await expect(input).toBeFocused();
   }
 
   const inAisle = (key: keyof typeof fr.shopping.aisles, label: string) =>
-    aisleSection(page, key).getByRole("checkbox", { name: label }).first();
+    aisleSection(page, key)
+      .getByRole("checkbox", { name: label, exact: true })
+      .first();
   await expect(inAisle("dairyEggs", "lait")).toBeVisible();
   await expect(inAisle("dairyEggs", "2 yaourts")).toBeVisible();
   await expect(inAisle("hygiene", "déo")).toBeVisible();
@@ -275,10 +307,16 @@ test("courses au supermarché : ajout enchaîné, rangement, cochés en bas, vid
 
   // Trois cochés : barrés, et descendus sous les non cochés de leur rayon.
   const dairy = aisleSection(page, "dairyEggs");
-  await dairy.getByRole("checkbox", { name: "lait" }).first().click();
-  await dairy.getByRole("checkbox", { name: "2 yaourts" }).first().click();
+  await dairy
+    .getByRole("checkbox", { name: "lait", exact: true })
+    .first()
+    .click();
+  await dairy
+    .getByRole("checkbox", { name: "2 yaourts", exact: true })
+    .first()
+    .click();
   await aisleSection(page, "hygiene")
-    .getByRole("checkbox", { name: "déo" })
+    .getByRole("checkbox", { name: "déo", exact: true })
     .first()
     .click();
   for (const [key, label] of [
@@ -301,7 +339,9 @@ test("courses au supermarché : ajout enchaîné, rangement, cochés en bas, vid
     .getByRole("button", { name: fr.shopping.clearChecked.confirm })
     .click();
   for (const label of ["lait", "2 yaourts", "déo"]) {
-    await expect(page.getByRole("checkbox", { name: label })).toHaveCount(0);
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toHaveCount(0);
   }
   await expect(inAisle("other", unknown)).toBeVisible();
 });

@@ -9,6 +9,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AISLE_KEYS } from "@/modules/shopping/aisles";
 import type { AisleGroup, ShoppingItem } from "@/modules/shopping/list-view";
 
 import messages from "../../../messages/fr.json";
@@ -52,7 +53,11 @@ const AISLES: AisleGroup[] = [
 function renderList(aisles: AisleGroup[] = AISLES, quickAdd?: React.ReactNode) {
   return render(
     <NextIntlClientProvider locale="fr" messages={messages}>
-      <ShoppingList aisles={aisles} quickAdd={quickAdd} />
+      <ShoppingList
+        aisles={aisles}
+        order={[...AISLE_KEYS]}
+        quickAdd={quickAdd}
+      />
     </NextIntlClientProvider>,
   );
 }

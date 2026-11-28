@@ -25,7 +25,7 @@ test.afterEach(async ({ page, context }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
   await page.goto("/lists/shopping");
   for (const label of created.splice(0)) {
-    const rows = page.getByRole("checkbox", { name: label });
+    const rows = page.getByRole("checkbox", { name: label, exact: true });
     while ((await rows.count()) > 0) {
       const before = await rows.count();
       await page
@@ -55,7 +55,9 @@ test("en anglais, l'écran Courses est en anglais, l'article saisi reste tel que
   await page.getByRole("textbox", { name: fr.shopping.quickAdd.label }).click();
   await page.keyboard.type(label);
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("checkbox", { name: label })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: label, exact: true }),
+  ).toBeVisible();
 
   await page.goto("/settings");
   await page
@@ -75,7 +77,9 @@ test("en anglais, l'écran Courses est en anglais, l'article saisi reste tel que
   await expect(
     page.getByRole("region", { name: en.shopping.aisles.dairyEggs }),
   ).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: label })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: label, exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("region", { name: fr.shopping.aisles.dairyEggs }),
   ).toHaveCount(0);

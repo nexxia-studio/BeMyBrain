@@ -23,6 +23,7 @@ import {
   uncheckShoppingItem,
 } from "@/app/(app)/lists/shopping/actions";
 import { settleAction } from "@/lib/settle-action";
+import type { AisleKey } from "@/modules/shopping/aisles";
 import type { AisleGroup, ShoppingItem } from "@/modules/shopping/list-view";
 
 import { AisleSection } from "./AisleSection";
@@ -62,11 +63,13 @@ function applyToggle(
 
 type ShoppingListProps = {
   aisles: AisleGroup[];
+  /** Ordre complet des 12 rayons (masqués compris). */
+  order: AisleKey[];
   /** Champ d'ajout rapide (tâche 13). */
   quickAdd?: React.ReactNode;
 };
 
-export function ShoppingList({ aisles, quickAdd }: ShoppingListProps) {
+export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
   const t = useTranslations("shopping.list");
   const [toggled, applyOptimistic] = useOptimistic(aisles, applyToggle);
   const [, startTransition] = useTransition();
@@ -132,6 +135,7 @@ export function ShoppingList({ aisles, quickAdd }: ShoppingListProps) {
           <ClearCheckedButton count={checkedCount} />
           <AisleSortable
             aisles={shown}
+            order={order}
             renderAisle={(aisle, handle) => (
               <AisleSection
                 aisle={aisle}
@@ -145,9 +149,7 @@ export function ShoppingList({ aisles, quickAdd }: ShoppingListProps) {
         </>
       )}
       {quickAdd}
-      {removal.undoable !== null && (
-        <RemovedToast item={removal.undoable} onUndo={removal.undo} />
-      )}
+      <RemovedToast item={removal.undoable} onUndo={removal.undo} />
     </div>
   );
 }

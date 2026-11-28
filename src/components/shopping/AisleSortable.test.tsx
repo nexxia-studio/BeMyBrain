@@ -21,6 +21,7 @@ function renderSortable(keys: AisleKey[]) {
     <NextIntlClientProvider locale="fr" messages={fr}>
       <AisleSortable
         aisles={keys.map(group)}
+        order={[...AISLE_KEYS]}
         renderAisle={(aisle, handle) => (
           <section data-testid={`aisle-${aisle.aisleKey}`}>
             {handle}
