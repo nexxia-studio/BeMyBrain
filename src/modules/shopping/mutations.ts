@@ -178,6 +178,8 @@ const itemScope = (workspace: string, listId: string, itemId: string) =>
 
 /**
  * Coche un article (date de cochage posée ; déjà coché : date conservée, son rang ne bouge pas).
+ * Un article déjà coché incrémente quand même `rev` (relecture inutile chez les autres appareils, sans danger) :
+ * le trigger n'accepte que rev + 1, et un test « rien n'a changé » coûterait une lecture de plus sous le verrou.
  * Article inconnu ou d'un autre workspace → invalid_params. Renvoie le `rev` de la liste.
  */
 export async function checkItem(

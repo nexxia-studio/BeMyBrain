@@ -1,5 +1,14 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sql } from "drizzle-orm";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { createTestUserDb } from "../../../tests/factories/as-user";
 import {
@@ -8,6 +17,7 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../../../tests/factories/core";
+import { waitForLockWait } from "../../../tests/factories/lock-wait";
 import { deleteShoppingFixture } from "../../../tests/factories/shopping";
 
 import {
@@ -105,17 +115,22 @@ describe("cocher et décocher", () => {
   it("cocher un article déjà coché garde sa date de cochage", async () => {
     const item = await add("kiwi");
     await db.asUser(f.userA, (tx) => checkItem(f.workspaceA, item.id, tx));
+    const r0 = await rev(f.workspaceA);
     const { rows: before } = await owner.query<{ t: string }>(
       "select checked_at::text as t from shopping_items where id = $1",
       [item.id],
     );
-    await db.asUser(f.userA, (tx) => checkItem(f.workspaceA, item.id, tx));
+    const again = await db.asUser(f.userA, (tx) =>
+      checkItem(f.workspaceA, item.id, tx),
+    );
     const { rows: after } = await owner.query<{ t: string }>(
       "select checked_at::text as t from shopping_items where id = $1",
       [item.id],
     );
 
     expect(after[0]!.t).toBe(before[0]!.t);
+    // rev bouge quand même (choix documenté dans mutations.ts)
+    expect(again.rev).toBe(r0 + 1);
   });
 
   it("chaque écriture incrémente rev de 1 et renvoie la nouvelle valeur", async () => {
@@ -195,6 +210,13 @@ describe("supprimer", () => {
 });
 
 describe("vider les cochés", () => {
+  // Liste propre : le test ne dépend ni de l'ordre ni des articles des tests précédents.
+  beforeEach(async () => {
+    await owner.query("delete from shopping_items where workspace_id = $1", [
+      f.workspaceA,
+    ]);
+  });
+
   it("supprime les cochés et eux seuls, rev + 1 une seule fois", async () => {
     const keep = await add("navet");
     const gone1 = await add("endive");
@@ -207,7 +229,7 @@ describe("vider les cochés", () => {
       clearChecked(f.workspaceA, tx),
     );
 
-    expect(result.removed).toBeGreaterThanOrEqual(2);
+    expect(result.removed).toBe(2);
     expect(result.rev).toBe(r0 + 1);
     expect(await itemRow(keep.id)).not.toBeNull();
     expect(await itemRow(gone1.id)).toBeNull();
@@ -220,6 +242,7 @@ describe("vider les cochés", () => {
   });
 
   it("rien de coché : rien supprimé, rev inchangé", async () => {
+    await add("persil");
     const r0 = await rev(f.workspaceA);
 
     const result = await db.asUser(f.userA, (tx) =>
@@ -227,5 +250,79 @@ describe("vider les cochés", () => {
     );
 
     expect(result).toEqual({ removed: 0, rev: r0 });
+  });
+});
+
+describe("concurrence : les écritures attendent le verrou de la liste", () => {
+  /**
+   * `holder` écrit (donc tient le verrou consultatif de la liste) et reste ouverte ; `op` est lancée ensuite
+   * sur une autre connexion. Dit si `op` patiente sur un verrou consultatif, puis rend son code une fois
+   * `holder` validée.
+   */
+  async function waitsOnListLock(
+    op: (
+      tx: Parameters<Parameters<typeof db.asUser>[1]>[0],
+    ) => Promise<unknown>,
+  ) {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let held = () => {};
+    const holding = new Promise<void>((resolve) => (held = resolve));
+    const holder = codeOf(
+      db.asUser(f.userA, async (tx) => {
+        await addItem(f.workspaceA, "tenu", tx);
+        held();
+        await gate;
+      }),
+    );
+    let setPid: (pid: number) => void = () => {};
+    const pid = new Promise<number>((resolve) => (setPid = resolve));
+    let blocked = false;
+    let waiter: Promise<string> | null = null;
+    try {
+      await Promise.race([holding, holder]);
+      waiter = codeOf(
+        db.asUser(f.userA2, async (tx) => {
+          const { rows } = await tx.execute<{ pid: number }>(
+            sql`select pg_backend_pid() as pid`,
+          );
+          setPid(rows[0]!.pid);
+          await op(tx);
+        }),
+      );
+      void waiter.then(() => setPid(-1));
+      blocked = await waitForLockWait(owner, await pid, "advisory");
+    } finally {
+      release();
+    }
+    return { blocked, codes: [await holder, await waiter!] };
+  }
+
+  it("cocher puis vider les cochés attendent un verrou consultatif", async () => {
+    const item = await add("lait");
+
+    const checking = await waitsOnListLock((tx) =>
+      checkItem(f.workspaceA, item.id, tx),
+    );
+    const clearing = await waitsOnListLock((tx) =>
+      clearChecked(f.workspaceA, tx),
+    );
+
+    expect(checking).toEqual({ blocked: true, codes: ["ok", "ok"] });
+    expect(clearing).toEqual({ blocked: true, codes: ["ok", "ok"] });
+  });
+
+  it("renommer puis supprimer attendent un verrou consultatif", async () => {
+    const item = await add("beurre");
+
+    const renaming = await waitsOnListLock((tx) =>
+      renameItem(f.workspaceA, item.id, "beurre doux", tx),
+    );
+    const removing = await waitsOnListLock((tx) =>
+      removeItem(f.workspaceA, item.id, tx),
+    );
+
+    expect(renaming).toEqual({ blocked: true, codes: ["ok", "ok"] });
+    expect(removing).toEqual({ blocked: true, codes: ["ok", "ok"] });
   });
 });

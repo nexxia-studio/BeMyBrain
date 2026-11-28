@@ -171,6 +171,9 @@ describe("écritures croisées sur les articles", () => {
         db.asUser(f.userA, (tx) => checkItem(f.workspaceA, s.itemB, tx)),
       ),
       await codeOf(
+        db.asUser(f.userA, (tx) => uncheckItem(f.workspaceA, s.itemB, tx)),
+      ),
+      await codeOf(
         db.asUser(f.userA, (tx) =>
           renameItem(f.workspaceA, s.itemB, "pirate", tx),
         ),
@@ -180,7 +183,9 @@ describe("écritures croisées sur les articles", () => {
       ),
     ];
 
-    expect(codes.every((c) => c !== "ok")).toBe(true);
+    // clearChecked via B ne vise aucune ligne de A : refus de liste (invalid_params) comme les autres.
+    expect(codes).toEqual(Array(codes.length).fill("invalid_params"));
+    expect(codes).toHaveLength(9);
     expect(await stateOf(f.workspaceB)).toEqual(before);
     expect(await row()).toEqual(itemBefore);
   });
