@@ -42,15 +42,25 @@ function parseWorkspace(workspaceId: unknown): string {
 
 /**
  * Normalisé en NFC, espaces internes réduits, bords retirés. Refus (invalid_params) : caractère de contrôle
- * (\p{Cc}), caractère de format invisible (\p{Cf} : U+200B, inversions U+202E, isolats U+2066-2069…),
+ * (\p{Cc}), caractère de format invisible (\p{Cf} : U+200B, inversions U+202E, isolats U+2066-2069…) sauf U+200D entre
+ * deux pictogrammes (emoji composé) ; U+00AD est retiré sans refus ;
  * libellé sans aucun caractère visible (lettre, chiffre, ponctuation ou symbole), vide ; trop long →
  * label_too_long. Longueur en caractères NFC (comme char_length côté base, qui reçoit la forme NFC).
  */
 export function cleanLabel(label: unknown): string {
   if (typeof label !== "string") throw new ShoppingError("invalid_params");
-  const clean = label.normalize("NFC").replace(/\s+/gu, " ").trim();
+  const clean = label
+    .normalize("NFC")
+    .replace(/\u00AD/gu, "")
+    // ZWJ entre deux pictogrammes (emoji composés) : conservé ; ailleurs il reste refusé (\p{Cf}).
+    .replace(/\s+/gu, " ")
+    .trim();
   // Les blancs (tabulation, saut de ligne) sont déjà devenus des espaces ; reste NUL, cloche, DEL, etc.
-  if (/[\p{Cc}\p{Cf}]/u.test(clean)) throw new ShoppingError("invalid_params");
+  const withoutZwj = clean.replace(
+    /(?<=\p{Extended_Pictographic}[\u{FE0F}\u{1F3FB}-\u{1F3FF}]*)\u200D(?=\p{Extended_Pictographic})/gu,
+    "",
+  );
+  if (/[\p{Cc}\p{Cf}]/u.test(withoutZwj)) throw new ShoppingError("invalid_params");
   if (!/[\p{L}\p{N}\p{P}\p{S}]/u.test(clean)) {
     throw new ShoppingError("invalid_params");
   }
@@ -338,7 +348,8 @@ export type MovedItem = { id: string; aisleKey: AisleKey; rev: number };
  * `user_id` posé par la base). Seule écriture de `aisle_key` hors classifyAisle (liste blanche du test
  * d'architecture). Libellé sans forme normalisée exploitable (vide, ou plus de 80 caractères une fois
  * normalisé) : l'article bouge, rien n'est mémorisé. Nouvelle correction au-delà de MAX_AISLE_OVERRIDES →
- * aisle_overrides_full, rien n'est écrit ; modifier une correction existante reste permis.
+ * rien n'est mémorisé non plus (décision : le plafond ne bloque jamais le déplacement, il n'y a pas d'erreur) ;
+ * modifier une correction existante reste permis.
  * Article inconnu, d'un autre workspace, ou rayon inconnu → invalid_params. Un `rev` de plus.
  */
 export async function moveItemToAisle(
@@ -372,20 +383,22 @@ export async function moveItemToAisle(
           eq(shoppingAisleOverrides.keyword, normalized),
         ),
       );
+    let remember = true;
     if (!known) {
       const [{ count }] = await tx
         .select({ count: sql<number>`count(*)::int` })
         .from(shoppingAisleOverrides)
         .where(eq(shoppingAisleOverrides.workspaceId, workspace));
-      if (count >= MAX_AISLE_OVERRIDES) {
-        throw new ShoppingError("aisle_overrides_full");
-      }
+      // Au plafond : l'article bouge, la nouvelle correction n'est pas mémorisée (sans erreur).
+      remember = count < MAX_AISLE_OVERRIDES;
     }
-    await tx.execute(sql`
-      insert into ${shoppingAisleOverrides} (workspace_id, keyword, aisle_key)
-      values (${workspace}, ${normalized}, ${aisleKey})
-      on conflict (workspace_id, user_id, keyword)
-      do update set aisle_key = excluded.aisle_key`);
+    if (remember) {
+      await tx.execute(sql`
+        insert into ${shoppingAisleOverrides} (workspace_id, keyword, aisle_key)
+        values (${workspace}, ${normalized}, ${aisleKey})
+        on conflict (workspace_id, user_id, keyword)
+        do update set aisle_key = excluded.aisle_key`);
+    }
   }
 
   await tx
@@ -410,8 +423,9 @@ export async function setAisleOrder(
   if (
     !Array.isArray(order) ||
     order.length !== AISLE_KEYS.length ||
-    !order.every(isAisleKey) ||
-    new Set(order).size !== AISLE_KEYS.length
+    // Array.from parcourt par indices : un trou devient undefined et est refusé (every les sauterait).
+    !Array.from(order).every(isAisleKey) ||
+    new Set(Array.from(order)).size !== AISLE_KEYS.length
   ) {
     throw new ShoppingError("invalid_params");
   }

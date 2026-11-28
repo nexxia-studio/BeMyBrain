@@ -222,19 +222,24 @@ describe("moveItemToAisle : plafond de corrections par utilisateur", () => {
     );
   }
 
-  it("refuse une nouvelle correction au plafond, sans déplacer l'article", async () => {
+  it("au plafond, l'article bouge mais la nouvelle correction n'est pas mémorisée", async () => {
     const item = await addAs(f.userA, "bidule");
     await fillOverrides(f.userA, MAX_AISLE_OVERRIDES);
     const before = await rev();
 
     const code = await codeOf(moveAs(f.userA, item.id, "drinks"));
 
-    expect(code).toBe("aisle_overrides_full");
+    expect(code).toBe("ok");
     expect(await itemRow(item.id)).toEqual({
-      aisle_key: "other",
-      pinned: false,
+      aisle_key: "drinks",
+      pinned: true,
     });
-    expect(await rev()).toBe(before);
+    expect(await rev()).toBe(before + 1);
+    const { rows } = await owner.query(
+      `select 1 from shopping_aisle_overrides where user_id = $1 and keyword = 'bidule'`,
+      [f.userA],
+    );
+    expect(rows).toHaveLength(0);
   });
 
   it("au plafond, modifier une correction existante reste permis", async () => {

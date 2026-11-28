@@ -6,9 +6,7 @@ export type ShoppingErrorCode =
   /** Libellé de plus de 80 caractères après nettoyage. */
   | "label_too_long"
   /** La liste a déjà 300 articles. */
-  | "list_full"
-  /** L'utilisateur a déjà 500 corrections de rayon mémorisées (plafond applicatif). */
-  | "aisle_overrides_full";
+  | "list_full";
 
 export class ShoppingError extends DomainError {
   declare readonly code: ShoppingErrorCode;
@@ -24,6 +22,4 @@ export const SHOPPING_ERROR_MESSAGES: Record<ShoppingErrorCode, string> = {
   invalid_params: INVALID_PARAMS_MESSAGE,
   label_too_long: "The item label is limited to 80 characters.",
   list_full: "The shopping list is full (300 items maximum).",
-  aisle_overrides_full:
-    "Too many remembered aisle corrections (500 maximum per user).",
 };

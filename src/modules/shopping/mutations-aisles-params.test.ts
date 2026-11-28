@@ -29,6 +29,10 @@ describe("setAisleOrder : un ordre qui n'est pas une permutation des rayons est 
 
   it.each([
     ["tableau vide", []],
+    [
+      "tableau à trou (douze cases, une vide)",
+      [first, , ...rest.slice(1)],
+    ],
     ["rayon manquant", rest],
     [
       "doublon (douze entrées, une clé répétée)",

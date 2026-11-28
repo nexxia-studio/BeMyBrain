@@ -60,6 +60,21 @@ describe("addItem : caractères de contrôle du libellé", () => {
 });
 
 describe("cleanLabel : forme normalisée", () => {
+  it("garde U+200D entre deux pictogrammes (emoji composé)", () => {
+    const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}";
+    expect(cleanLabel(`lait ${family}`)).toBe(`lait ${family}`);
+  });
+
+  it("refuse U+200D hors pictogrammes", () => {
+    expect(() => cleanLabel("pa\u200Din")).toThrow(
+      expect.objectContaining({ code: "invalid_params" }),
+    );
+  });
+
+  it("retire U+00AD sans refuser", () => {
+    expect(cleanLabel("cho\u00ADcolat")).toBe("chocolat");
+  });
+
   it("normalise en NFC", () => {
     expect(cleanLabel("cafe\u0301")).toBe("caf\u00e9");
   });
