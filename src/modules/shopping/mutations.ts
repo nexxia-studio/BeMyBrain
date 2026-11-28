@@ -22,8 +22,10 @@ import { DEFAULT_LIST_NAME, getAisleOverrides } from "./queries";
 // INSERT en SQL écrit : app_backend n'a le droit INSERT que sur certaines colonnes (GRANT par colonne).
 // Ordre des verrous, le même dans toutes les écritures : 1. lockList (verrou consultatif de la liste),
 // 2. lignes (articles, puis la liste par la mise à jour de `rev`). Jamais lockList après un verrou de ligne.
-// Seule exception apparente : au tout premier ajout, l'INSERT d'ensureList précède lockList ; sans
-// interblocage possible, aucun autre écrivain ne connaît encore l'id de la liste.
+// Exception apparente : ensureList précède lockList. Elle lit la liste sans verrou ; l'INSERT ... ON CONFLICT
+// n'a lieu qu'au tout premier ajout (liste absente) : sans interblocage possible, aucun autre écrivain ne
+// connaît encore l'id de la liste. Jamais d'INSERT ... ON CONFLICT à chaque ajout : le contrôle d'unicité
+// attend la transaction qui a mis `rev` à jour (verrou de ligne pris avant lockList).
 // Pourquoi : un verrou de ligne ne sérialise pas un comptage (deux ajouts à 299 articles verraient tous
 // deux 299 : l'insertion de l'autre n'est pas une ligne existante).
 
@@ -104,18 +106,24 @@ export async function ensureList(
   tx: UserTx,
 ): Promise<ListRef> {
   const workspace = parseWorkspace(workspaceId);
+  const read = async () => {
+    const [list] = await tx
+      .select({
+        id: shoppingLists.id,
+        name: shoppingLists.name,
+        rev: shoppingLists.rev,
+      })
+      .from(shoppingLists)
+      .where(eq(shoppingLists.workspaceId, workspace));
+    return list;
+  };
+  const existing = await read();
+  if (existing) return existing;
   await tx.execute(sql`
     insert into ${shoppingLists} (workspace_id, name)
     values (${workspace}, ${DEFAULT_LIST_NAME})
     on conflict (workspace_id) do nothing`);
-  const [list] = await tx
-    .select({
-      id: shoppingLists.id,
-      name: shoppingLists.name,
-      rev: shoppingLists.rev,
-    })
-    .from(shoppingLists)
-    .where(eq(shoppingLists.workspaceId, workspace));
+  const list = await read();
   if (!list) throw new ShoppingError("invalid_params");
   return list;
 }

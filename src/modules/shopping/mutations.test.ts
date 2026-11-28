@@ -249,6 +249,7 @@ describe("addItem : plafond de 300 articles", () => {
     let setPid: (pid: number) => void = () => {};
     const pid = new Promise<number>((resolve) => (setPid = resolve));
     let blocked = false;
+    let waitsOnRow = true;
     let two: Promise<string> | null = null;
     try {
       await Promise.race([written, one]);
@@ -262,11 +263,20 @@ describe("addItem : plafond de 300 articles", () => {
         }),
       );
       void two.then(() => setPid(-1));
-      blocked = await waitForLockWait(owner, await pid, "advisory");
+      const secondPid = await pid;
+      blocked = await waitForLockWait(owner, secondPid, "advisory");
+      // Une seule lecture de pg_locks : à ce moment, la connexion attend le verrou consultatif et pas une ligne
+      // tenue par la première transaction (l'INSERT ... ON CONFLICT d'ensureList attendrait `transactionid`).
+      const { rows } = await owner.query<{ waiting: number }>(
+        `select count(*)::int as waiting from pg_locks
+         where pid = $1 and locktype = 'transactionid' and not granted`,
+        [secondPid],
+      );
+      waitsOnRow = rows[0]!.waiting > 0;
     } finally {
       commitFirst();
     }
-    return { blocked, codes: [await one, await two!] };
+    return { blocked, waitsOnRow, codes: [await one, await two!] };
   }
 
   // Un seul scénario pour les deux preuves (attente sur le verrou consultatif, puis un seul des deux ajouts
@@ -274,9 +284,10 @@ describe("addItem : plafond de 300 articles", () => {
   it("à 299 articles, le second ajout attend le verrou de la liste puis seul un des deux passe", async () => {
     await fillTo(MAX_ITEMS_PER_LIST - 1);
 
-    const { blocked, codes } = await secondAddWaitsOnListLock();
+    const { blocked, waitsOnRow, codes } = await secondAddWaitsOnListLock();
 
     expect(blocked).toBe(true);
+    expect(waitsOnRow).toBe(false);
     expect(codes).toEqual(["ok", "list_full"]);
     expect((await listState(f.workspaceA)).items).toBe(MAX_ITEMS_PER_LIST);
   });
