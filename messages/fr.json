@@ -486,6 +486,38 @@
       "submit": "Ajouter",
       "labelTooLong": "Cet article est trop long (80 caractères maximum).",
       "listFull": "La liste est pleine (300 articles maximum)."
+    },
+    "itemMenu": {
+      "trigger": "Actions pour « {label} »",
+      "moveAisle": "Changer de rayon",
+      "rename": "Renommer",
+      "remove": "Supprimer"
+    },
+    "moveAisle": {
+      "title": "Changer de rayon",
+      "description": "« {label} » ira dans ce rayon, et les prochains ajouts du même article aussi.",
+      "current": "Rayon actuel"
+    },
+    "sheet": {
+      "close": "Fermer"
+    },
+    "renameItem": {
+      "title": "Renommer l'article",
+      "label": "Nom de l'article",
+      "submit": "Enregistrer",
+      "cancel": "Annuler",
+      "labelTooLong": "Ce nom est trop long (80 caractères maximum)."
+    },
+    "removed": {
+      "message": "« {label} » supprimé.",
+      "undo": "Annuler"
+    },
+    "clearChecked": {
+      "button": "Vider les cochés ({count})",
+      "title": "Vider les cochés ?",
+      "description": "{count, plural, =1 {Cet article coché sera supprimé définitivement.} other {Ces # articles cochés seront supprimés définitivement.}}",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
     }
   }
 }

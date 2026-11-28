@@ -486,6 +486,38 @@
       "submit": "Add",
       "labelTooLong": "This item is too long (80 characters maximum).",
       "listFull": "The list is full (300 items maximum)."
+    },
+    "itemMenu": {
+      "trigger": "Actions for \u201c{label}\u201d",
+      "moveAisle": "Change aisle",
+      "rename": "Rename",
+      "remove": "Delete"
+    },
+    "moveAisle": {
+      "title": "Change aisle",
+      "description": "\u201c{label}\u201d will go to this aisle, and so will future additions of the same item.",
+      "current": "Current aisle"
+    },
+    "sheet": {
+      "close": "Close"
+    },
+    "renameItem": {
+      "title": "Rename item",
+      "label": "Item name",
+      "submit": "Save",
+      "cancel": "Cancel",
+      "labelTooLong": "This name is too long (80 characters maximum)."
+    },
+    "removed": {
+      "message": "\u201c{label}\u201d deleted.",
+      "undo": "Undo"
+    },
+    "clearChecked": {
+      "button": "Clear checked ({count})",
+      "title": "Clear checked items?",
+      "description": "{count, plural, =1 {This checked item will be permanently deleted.} other {These # checked items will be permanently deleted.}}",
+      "confirm": "Delete",
+      "cancel": "Cancel"
     }
   }
 }

@@ -14,6 +14,7 @@ import {
   TASK_SECTION_HEADER_CLASSES,
   TASK_SECTION_HEADING_TEXT,
 } from "../tasks/task-list-layout";
+import { ItemMenu } from "./ItemMenu";
 import { ShoppingItemRow } from "./ShoppingItemRow";
 
 type AisleSectionProps = {
@@ -21,6 +22,8 @@ type AisleSectionProps = {
   /** Identifiants des articles dont le dernier tap n'a pas été enregistré. */
   failedIds: ReadonlySet<string>;
   onToggle: (item: ShoppingItem) => void;
+  /** Suppression demandée depuis le menu de la ligne (« Annuler » 5 s, géré par l'écran). */
+  onRemove: (item: ShoppingItem) => void;
   /** Poignée de glisser du rayon (`AisleSortable`), à droite de l'en-tête ; absente s'il n'y a qu'un rayon. */
   handle?: React.ReactNode;
 };
@@ -29,6 +32,7 @@ export function AisleSection({
   aisle,
   failedIds,
   onToggle,
+  onRemove,
   handle,
 }: AisleSectionProps) {
   const t = useTranslations("shopping.aisles");
@@ -59,6 +63,7 @@ export function AisleSection({
               item={item}
               failed={failedIds.has(item.id)}
               onToggle={onToggle}
+              actions={<ItemMenu item={item} onRemove={onRemove} />}
             />
           </li>
         ))}

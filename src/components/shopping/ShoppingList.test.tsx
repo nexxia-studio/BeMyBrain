@@ -16,6 +16,7 @@ import messages from "../../../messages/fr.json";
 const checkShoppingItem = vi.hoisted(() => vi.fn());
 const uncheckShoppingItem = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/lists/shopping/actions", () => ({
+  removeShoppingItem: vi.fn(),
   checkShoppingItem,
   uncheckShoppingItem,
 }));
@@ -169,6 +170,25 @@ describe("ShoppingList", () => {
     for (const row of screen.getAllByRole("checkbox")) {
       expect(row.classList.contains("min-h-11")).toBe(true);
     }
+  });
+
+  it("« Vider les cochés » n'apparaît que s'il y a des cochés, avec leur nombre", () => {
+    const { unmount } = renderList();
+    expect(
+      screen.getByRole("button", { name: "Vider les cochés (1)" }),
+    ).toBeTruthy();
+    unmount();
+    renderList([{ aisleKey: "produce", items: [item("p1", "Pommes")] }]);
+    expect(
+      screen.queryByRole("button", { name: /Vider les cochés/ }),
+    ).toBeNull();
+  });
+
+  it("chaque ligne a son menu de 44 px", () => {
+    renderList();
+    expect(
+      screen.getAllByRole("button", { name: /^Actions pour/ }),
+    ).toHaveLength(4);
   });
 
   it("état vide : une phrase, aucun rayon, et le champ d'ajout reste là", () => {

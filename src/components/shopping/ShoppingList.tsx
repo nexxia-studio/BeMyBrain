@@ -9,13 +9,17 @@
 // (`refresh()` de l'action) apporte l'état enregistré. Échec (refus, panne, pare-feu : `settleAction`) : retour
 // à l'état d'avant et « Pas enregistré, réessaie » sous la ligne. Un article n'a jamais deux appels en vol.
 // Ordre des rayons : `AisleSortable` (tâche 14), poignée dans l'en-tête de chaque rayon.
+// Menu de ligne (tâche 15) : changer de rayon, renommer, supprimer. Supprimer masque l'article et laisse 5 s pour
+// « Annuler » (`useDeferredRemoval` : suppression différée côté client, envoyée aussi au démontage et à `pagehide`).
+// « Vider les cochés » : au-dessus des rayons, seulement s'il y a des cochés affichés.
 // Emplacement `quickAdd` : le champ d'ajout rapide (tâche 13), sous les rayons.
 import { ShoppingBasket } from "lucide-react";
-import { useOptimistic, useRef, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 
 import {
   checkShoppingItem,
+  removeShoppingItem,
   uncheckShoppingItem,
 } from "@/app/(app)/lists/shopping/actions";
 import { settleAction } from "@/lib/settle-action";
@@ -23,6 +27,9 @@ import type { AisleGroup, ShoppingItem } from "@/modules/shopping/list-view";
 
 import { AisleSection } from "./AisleSection";
 import { AisleSortable } from "./AisleSortable";
+import { ClearCheckedButton } from "./ClearCheckedButton";
+import { RemovedToast } from "./RemovedToast";
+import { useDeferredRemoval } from "./use-deferred-removal";
 
 type Toggle = { itemId: string; checked: boolean };
 
@@ -61,10 +68,34 @@ type ShoppingListProps = {
 
 export function ShoppingList({ aisles, quickAdd }: ShoppingListProps) {
   const t = useTranslations("shopping.list");
-  const [shown, applyOptimistic] = useOptimistic(aisles, applyToggle);
+  const [toggled, applyOptimistic] = useOptimistic(aisles, applyToggle);
   const [, startTransition] = useTransition();
   const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(new Set());
   const inFlight = useRef(new Set<string>());
+  const removal = useDeferredRemoval(
+    async (item) => {
+      const outcome = await settleAction(() => removeShoppingItem(item.id));
+      return outcome.ok && outcome.value.ok;
+    },
+    (item) => setFailedIds((ids) => new Set(ids).add(item.id)),
+  );
+  // Articles en attente de suppression masqués ; un rayon vidé disparaît.
+  const shown = useMemo(
+    () =>
+      removal.hidden.size === 0
+        ? toggled
+        : toggled
+            .map((a) => ({
+              ...a,
+              items: a.items.filter((i) => !removal.hidden.has(i.id)),
+            }))
+            .filter((a) => a.items.length > 0),
+    [toggled, removal.hidden],
+  );
+  const checkedCount = shown.reduce(
+    (n, a) => n + a.items.filter((i) => i.checkedAt !== null).length,
+    0,
+  );
 
   function toggle(item: ShoppingItem) {
     if (inFlight.current.has(item.id)) return;
@@ -97,19 +128,26 @@ export function ShoppingList({ aisles, quickAdd }: ShoppingListProps) {
           <p className="max-w-prose text-body text-foreground">{t("empty")}</p>
         </section>
       ) : (
-        <AisleSortable
-          aisles={shown}
-          renderAisle={(aisle, handle) => (
-            <AisleSection
-              aisle={aisle}
-              failedIds={failedIds}
-              onToggle={toggle}
-              handle={handle}
-            />
-          )}
-        />
+        <>
+          <ClearCheckedButton count={checkedCount} />
+          <AisleSortable
+            aisles={shown}
+            renderAisle={(aisle, handle) => (
+              <AisleSection
+                aisle={aisle}
+                failedIds={failedIds}
+                onToggle={toggle}
+                onRemove={removal.schedule}
+                handle={handle}
+              />
+            )}
+          />
+        </>
       )}
       {quickAdd}
+      {removal.undoable !== null && (
+        <RemovedToast item={removal.undoable} onUndo={removal.undo} />
+      )}
     </div>
   );
 }
