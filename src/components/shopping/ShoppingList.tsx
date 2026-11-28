@@ -167,12 +167,12 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
         checked ? checkShoppingItem(item.id) : uncheckShoppingItem(item.id),
       );
       inFlight.current.delete(item.id);
-      // Après un `await`, une mise à jour sort de la transition : remise dedans (gotchas).
-      startTransition(() => {
-        setSavingIds((ids) => without(ids, item.id));
-        if (!(outcome.ok && outcome.value.ok))
-          setFailedIds((ids) => new Set(ids).add(item.id));
-      });
+      // `savingIds` et `failedIds` ne sont pas des états optimistes : mises à jour urgentes, hors transition. Dans une
+      // transition, React regroupe celles lancées pendant une action asynchrone : la ligne A resterait « en cours »
+      // (et son échec invisible) jusqu'à la fin d'une ligne B plus lente.
+      setSavingIds((ids) => without(ids, item.id));
+      if (!(outcome.ok && outcome.value.ok))
+        setFailedIds((ids) => new Set(ids).add(item.id));
     });
   }
 

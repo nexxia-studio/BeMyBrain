@@ -71,10 +71,11 @@ export function ShoppingItemRow({
           {/* Contenu saisi : jamais traduit. */}
           <span className="min-w-0">{item.label}</span>
         </button>
-        {/* Superposé, sans décaler la ligne ; juste avant le menu (44 px). */}
+        {/* Dans le flux, entre le libellé et le menu : jamais par-dessus le libellé. Vide (largeur nulle) tant que
+            l'écriture dure moins d'une seconde ; le libellé ne se resserre qu'au-delà (écriture lente). Le menu garde ses 44 px. */}
         <SavingStatus
           pending={saving}
-          className="pointer-events-none absolute right-11 bottom-0.5 rounded bg-row px-1.5"
+          className="pointer-events-none shrink-0 px-1.5"
         />
         {actions}
       </div>

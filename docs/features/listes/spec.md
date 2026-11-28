@@ -83,6 +83,7 @@ Dictionnaire : `src/modules/shopping/aisles/dictionary.ts`, FR et EN, avec synon
 ### Synchro instantanée (ADR-011)
 - Après toute écriture de la liste (app ou invité), le serveur publie `{ rev }` sur `shopping:<channel_id>`. `rev` est un compteur de la liste, incrémenté dans la transaction de l'écriture.
 - À la réception d'un `rev` plus récent que celui affiché, le client relit la liste. Les modifications du porteur de l'écran sont **optimistes** (même technique que le kanban : affichage immédiat, retour animé + message si l'écriture échoue).
+- **Écriture lente** : au-delà d'environ 1 s, « Enregistrement… » / « Saving… » apparaît sur la ligne, le champ ou la feuille concernés, et nulle part ailleurs ; rien en dessous de 1 s, texte retiré dès la réponse (succès ou échec, l'échec gardant son message). Le hors ligne (écriture jamais partie) est BRAIN-74.
 - **Rattrapage** (obligatoire) : relecture à l'ouverture, à la reconnexion du canal, au retour au premier plan et au retour du réseau. Une écriture échouée hors ligne n'est pas rejouée en silence : message « pas enregistré, réessayer ».
 - Jetons Ably : propriétaire sur session valide, invité sur lien valide ; `subscribe` sur son seul canal ; 10 min, renouvelés tant que l'accès existe.
 - Conflits : dernier écrit gagne sur `checked_at` ; un article supprimé pendant qu'un invité le coche renvoie « article retiré » côté invité, sans erreur bloquante.
@@ -137,6 +138,7 @@ Courses
 - [ ] Glisser un rayon change l'ordre et le mémorise après rechargement, pour cet utilisateur seulement.
 - [ ] Un article coché est barré sur place, puis passe en bas de son rayon après 600 ms sans nouveau tap ; décoché, il remonte de même ; ligne « N restants sur M », compteur « N à acheter » par rayon, rayon tout coché replié à l'ouverture (dépliable) et jamais replié par un tap (critique Impeccable du 2026-11-28) ; « Vider les cochés » demande confirmation puis supprime tous les cochés et eux seuls.
 - [ ] 300 articles maximum par liste, 80 caractères maximum par article, refus côté serveur avec message clair.
+- [ ] Écriture lente : une coche, un ajout, un renommage ou un changement de rayon qui dépasse environ 1 s affiche « Enregistrement… » (« Saving… » en anglais) sur la ligne, le champ ou la feuille concernés seulement ; rien à 999 ms ; texte retiré dès la réponse, un échec gardant « Pas enregistré, réessaie. » (tests avec minuteurs simulés ; le hors ligne est BRAIN-74).
 - [ ] Deux workspaces : aucune lecture ni écriture croisée sur les quatre tables (test d'isolation au niveau base) ; deux utilisateurs d'un même workspace : ni les corrections ni l'ordre des rayons de l'un ne sont lisibles ou modifiables par l'autre.
 Partage et temps réel
 - [ ] Le jeton fait 32 octets aléatoires et n'est jamais stocké en clair (test sur la base : ni `token_hash` ni `token_ciphertext` ne contiennent le jeton) ; il peut être réaffiché à tout moment par le propriétaire, avec QR code et partage natif.

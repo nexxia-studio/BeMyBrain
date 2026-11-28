@@ -17,12 +17,18 @@ import messages from "../../../messages/fr.json";
 
 const checkShoppingItem = vi.hoisted(() => vi.fn());
 const uncheckShoppingItem = vi.hoisted(() => vi.fn());
+const renameShoppingItem = vi.hoisted(() => vi.fn());
+const moveShoppingItemToAisle = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/lists/shopping/actions", () => ({
   removeShoppingItem: vi.fn(),
   checkShoppingItem,
   uncheckShoppingItem,
+  renameShoppingItem,
+  moveShoppingItemToAisle,
 }));
 
+import { MoveAisleSheet } from "./MoveAisleSheet";
+import { RenameItemSheet } from "./RenameItemSheet";
 import { ShoppingList } from "./ShoppingList";
 
 function item(id: string, label: string, over: Partial<ShoppingItem> = {}) {
@@ -397,5 +403,170 @@ describe("ShoppingList", () => {
     expect(screen.getByText(messages.shopping.list.empty)).toBeTruthy();
     expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0);
     expect(screen.getByLabelText("Ajouter")).toBeTruthy();
+  });
+
+  describe("indicateur « Enregistrement… »", () => {
+    function deferred() {
+      let resolve: (value: unknown) => void = () => {};
+      const promise = new Promise((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    }
+    const statusOf = (row: HTMLElement) =>
+      within(row).queryByTestId("saving-status");
+    const rowOf = (name: string) =>
+      screen.getByRole("checkbox", { name }).parentElement!.parentElement!;
+    const advance = (ms: number) =>
+      act(() => {
+        vi.advanceTimersByTime(ms);
+      });
+
+    it("coche lente : rien à 999 ms, « Enregistrement… » à 1 s dans la seule ligne tapée, vide après la réponse (même nœud)", async () => {
+      vi.useFakeTimers();
+      const call = deferred();
+      checkShoppingItem.mockReturnValue(call.promise);
+      renderList();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Pommes" }));
+      const region = statusOf(rowOf("Pommes"))!;
+      advance(999);
+      expect(region.textContent).toBe("");
+      advance(1);
+      expect(region.textContent).toBe("Enregistrement…");
+      expect(statusOf(rowOf("Carottes"))!.textContent).toBe("");
+      expect(screen.getAllByText("Enregistrement…")).toHaveLength(1);
+      await act(async () => {
+        call.resolve({ ok: true, result: null });
+      });
+      expect(region.textContent).toBe("");
+      expect(statusOf(rowOf("Pommes"))).toBe(region);
+    });
+
+    it("après un échec : région vide et « Pas enregistré, réessaie. »", async () => {
+      vi.useFakeTimers();
+      const call = deferred();
+      checkShoppingItem.mockReturnValue(call.promise);
+      renderList();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Pommes" }));
+      advance(1000);
+      await act(async () => {
+        call.resolve({ ok: false });
+      });
+      expect(statusOf(rowOf("Pommes"))!.textContent).toBe("");
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Pas enregistré, réessaie.",
+      );
+    });
+
+    it("ligne A rapide, ligne B lente : aucun texte sur A à 1 s", async () => {
+      vi.useFakeTimers();
+      const a = deferred();
+      const b = deferred();
+      checkShoppingItem.mockImplementation((id: string) =>
+        id === "p1" ? a.promise : b.promise,
+      );
+      renderList();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Pommes" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "Carottes" }));
+      advance(200);
+      await act(async () => {
+        a.resolve({ ok: true, result: null });
+      });
+      advance(1000);
+      expect(statusOf(rowOf("Pommes"))!.textContent).toBe("");
+      expect(statusOf(rowOf("Carottes"))!.textContent).toBe("Enregistrement…");
+      await act(async () => {
+        b.resolve({ ok: true, result: null });
+      });
+    });
+
+    it("ligne A en échec rapide, ligne B lente : le message d'échec de A s'affiche sans attendre B", async () => {
+      vi.useFakeTimers();
+      const a = deferred();
+      const b = deferred();
+      checkShoppingItem.mockImplementation((id: string) =>
+        id === "p1" ? a.promise : b.promise,
+      );
+      renderList();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Pommes" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "Carottes" }));
+      await act(async () => {
+        a.resolve({ ok: false });
+      });
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Pas enregistré, réessaie.",
+      );
+      await act(async () => {
+        b.resolve({ ok: true, result: null });
+      });
+    });
+
+    const sheetItem = item("p1", "Pommes");
+    const renderSheet = (node: React.ReactNode) =>
+      render(
+        <NextIntlClientProvider locale="fr" messages={messages}>
+          {node}
+        </NextIntlClientProvider>,
+      );
+
+    it("feuille Renommer : rien à 999 ms, texte à 1 s, vide après la réponse ; après un échec, message d'erreur", async () => {
+      vi.useFakeTimers();
+      const call = deferred();
+      renameShoppingItem.mockReturnValue(call.promise);
+      renderSheet(
+        <RenameItemSheet
+          item={sheetItem}
+          open
+          onOpenChange={vi.fn()}
+          returnFocusRef={{ current: null }}
+        />,
+      );
+      const input = screen.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "Poires" } });
+      fireEvent.submit(input.closest("form")!);
+      const region = screen.getByTestId("saving-status");
+      advance(999);
+      expect(region.textContent).toBe("");
+      advance(1);
+      expect(region.textContent).toBe("Enregistrement…");
+      await act(async () => {
+        call.resolve({ ok: false });
+      });
+      advance(50);
+      expect(screen.getByTestId("saving-status")).toBe(region);
+      expect(region.textContent).toBe("");
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Pas enregistré, réessaie.",
+      );
+    });
+
+    it("feuille Changer de rayon : rien à 999 ms, texte à 1 s, vide après la réponse ; après un échec, message d'erreur", async () => {
+      vi.useFakeTimers();
+      const call = deferred();
+      moveShoppingItemToAisle.mockReturnValue(call.promise);
+      renderSheet(
+        <MoveAisleSheet
+          item={sheetItem}
+          open
+          onOpenChange={vi.fn()}
+          returnFocusRef={{ current: null }}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Boissons/ }));
+      const region = screen.getByTestId("saving-status");
+      advance(999);
+      expect(region.textContent).toBe("");
+      advance(1);
+      expect(region.textContent).toBe("Enregistrement…");
+      await act(async () => {
+        call.resolve({ ok: false });
+      });
+      advance(50);
+      expect(screen.getByTestId("saving-status")).toBe(region);
+      expect(region.textContent).toBe("");
+      expect(screen.getByRole("alert").textContent).toBe(
+        "Pas enregistré, réessaie.",
+      );
+    });
   });
 });
