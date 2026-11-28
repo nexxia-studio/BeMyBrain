@@ -10,12 +10,12 @@ export function useSlowPending(
 ): boolean {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
-    if (!pending) {
-      setSlow(false);
-      return;
-    }
+    if (!pending) return;
     const timer = setTimeout(() => setSlow(true), delayMs);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      setSlow(false);
+    };
   }, [pending, delayMs]);
   return pending && slow;
 }
