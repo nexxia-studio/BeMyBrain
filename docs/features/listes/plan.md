@@ -124,6 +124,11 @@ Numérotation des migrations : 0011 (A), 0012 et 0013 (B), 0014 (C) ; si B et C 
 
 # PR B — Partage par lien et temps réel
 
+## Reprises des audits de la PR A (à traiter dans la PR B)
+- **Plafond de 300 articles** : il n'est qu'applicatif (`addItem`). Toute écriture invitée (`guest.add_item`, tâche 28) doit prendre le même verrou consultatif (`shopping.list:<id en minuscules>` via `hashtextextended(…, 0)`) avant de compter ; idéalement une fonction SQL unique `app.shopping_list_lock_key(uuid)` utilisée par l'app et l'invité, ou un trigger BEFORE INSERT. Test de concurrence app + invité ensemble.
+- **`channel_id`** : Révoquer et Régénérer le changent (spec) mais `app_backend` n'a aucun UPDATE sur cette colonne (0011) : soit `GRANT UPDATE (channel_id)` avec valeur posée par la base (`gen_random_uuid()`), soit fonction `SECURITY DEFINER` qui vérifie l'appartenance. Rien pour `app_guest` de plus.
+- **Canal assistant** : `shopping.addItem` prend `workspaceId` dans `ctx`, jamais dans `params` (tâche 9).
+
 ## Tâches
 - [ ] **18. Gestes d'Antoine (voir « Gestes d'Antoine »)** — compte Ably et deux applications (production ; previews et local), une `ABLY_API_KEY` par environnement Vercel, `SHARE_TOKEN_KEY` en production, autorisation de `DATABASE_GUEST_URL`
   - Fini quand : Antoine confirme les trois gestes ; aucune valeur n'a été affichée ni écrite dans le dépôt
