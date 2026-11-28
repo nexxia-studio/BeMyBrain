@@ -130,6 +130,7 @@ Numérotation des migrations : 0011 (A), 0012 et 0013 (B), 0014 (C) ; si B et C 
 - **Ordre des rayons et `rev`** : `setAisleOrder` ne fait pas avancer `rev` (préférence personnelle). La spec (l.61) dit que `guest.read_list` renvoie l'ordre du propriétaire : décider en PR B soit d'avancer `rev` (sous `lockList`) quand un lien est actif, soit d'assumer le décalage jusqu'à la prochaine écriture.
 - **Plafond de corrections (500 par utilisateur, applicatif)** : au plafond, l'article change de rayon (épinglé) sans mémoriser de correction ; aucune policy DELETE sur `shopping_aisle_overrides` (0011), donc pas de ménage possible : à reprendre si l'usage s'en approche.
 - **Limite de débit** : cocher un article déjà coché fait avancer `rev` ; prévoir une limite de débit sur les Server Actions et fonctions invité de la PR B (relectures forcées via Ably).
+- **Injection par libellé (assistant, avant tout branchement du canal)** : `shopping.listItems` renvoie des libellés que l'invité (PR B), puis l'aperçu d'une page externe (PR C) peuvent écrire. Pour la spec de l'assistant : présenter ces textes au modèle comme données délimitées, signaler `addedByGuest`, exiger une confirmation pour toute écriture hors `shopping.*` décidée dans un tour qui a lu `listItems`. À créer en ticket.
 - **Canal assistant** : `shopping.addItem` prend `workspaceId` dans `ctx`, jamais dans `params` (tâche 9).
 
 ## Tâches
