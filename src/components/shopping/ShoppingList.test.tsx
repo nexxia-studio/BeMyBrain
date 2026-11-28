@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AISLE_KEYS } from "@/modules/shopping/aisles";
 import type { AisleGroup, ShoppingItem } from "@/modules/shopping/list-view";
 
+import messagesEn from "../../../messages/en.json";
 import messages from "../../../messages/fr.json";
 
 const checkShoppingItem = vi.hoisted(() => vi.fn());
@@ -125,6 +126,108 @@ describe("ShoppingList", () => {
     vi.useRealTimers();
   });
 
+  it("un décoché reste sur place puis remonte au-dessus des cochés après 600 ms", () => {
+    vi.useFakeTimers();
+    pendingCall(uncheckShoppingItem);
+    renderList([
+      {
+        aisleKey: "produce",
+        items: [
+          item("p1", "Pommes"),
+          item("p3", "Poires", { checkedAt: new Date("2026-11-20T10:00:00Z") }),
+          item("p2", "Carottes", {
+            checkedAt: new Date("2026-11-20T11:00:00Z"),
+          }),
+        ],
+      },
+    ]);
+    const section = screen.getByRole("region", { name: /Fruits et légumes/ });
+    fireEvent.click(
+      within(section).getByRole("checkbox", { name: "Carottes" }),
+    );
+    expect(rowLabels(section)).toEqual(["Pommes", "Poires", "Carottes"]);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(rowLabels(section)).toEqual(["Pommes", "Carottes", "Poires"]);
+    vi.useRealTimers();
+  });
+
+  it("un échec après le réordonnancement rend la ligne à son état (aria-checked)", async () => {
+    vi.useFakeTimers();
+    let fail: (value: { ok: false }) => void = () => {};
+    checkShoppingItem.mockReturnValue(
+      new Promise((resolve) => {
+        fail = resolve;
+      }),
+    );
+    renderList();
+    const section = screen.getByRole("region", { name: /Fruits et légumes/ });
+    fireEvent.click(within(section).getByRole("checkbox", { name: "Pommes" }));
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(rowLabels(section)).toEqual(["Carottes", "Poires", "Pommes"]);
+    await act(async () => {
+      fail({ ok: false });
+    });
+    expect(
+      within(section)
+        .getByRole("checkbox", { name: "Pommes" })
+        .getAttribute("aria-checked"),
+    ).toBe("false");
+    expect(rowLabels(section)).toEqual(["Pommes", "Carottes", "Poires"]);
+    vi.useRealTimers();
+  });
+
+  it("cocher le dernier article d'un rayon ne le replie jamais", () => {
+    vi.useFakeTimers();
+    pendingCall(checkShoppingItem);
+    renderList([{ aisleKey: "produce", items: [item("p1", "Pommes")] }]);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Pommes" }));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Pommes" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      screen.queryByRole("button", { name: /Fruits et légumes/ }),
+    ).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("un rayon replié à l'ouverture reste inchangé pendant une rafale dans un autre rayon", () => {
+    vi.useFakeTimers();
+    pendingCall(checkShoppingItem);
+    renderList([
+      {
+        aisleKey: "drinks",
+        items: [item("b1", "Eau", { aisleKey: "drinks" })],
+      },
+      {
+        aisleKey: "produce",
+        items: [
+          item("p3", "Poires", { checkedAt: new Date("2026-11-20T10:00:00Z") }),
+        ],
+      },
+    ]);
+    const fold = screen.getByRole("button", { name: /^Fruits et légumes/ });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Eau" }));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(fold.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("checkbox", { name: "Poires" })).toBeNull();
+    // aria-controls reste valide : le <ul> est dans le DOM, masqué.
+    expect(
+      document.getElementById(fold.getAttribute("aria-controls")!)?.hidden,
+    ).toBe(true);
+    vi.useRealTimers();
+  });
+
   it("une rafale de taps ne bouge rien tant que l'utilisateur enchaîne", () => {
     vi.useFakeTimers();
     pendingCall(checkShoppingItem);
@@ -163,6 +266,28 @@ describe("ShoppingList", () => {
     expect(screen.getByText("3 restants sur 4")).toBeTruthy();
     const section = screen.getByRole("region", { name: /Fruits et légumes/ });
     expect(within(section).getByText("2 à acheter")).toBeTruthy();
+  });
+
+  it("rayon replié : « Tout coché » à la place du compteur, en français et en anglais", () => {
+    const all = [
+      {
+        aisleKey: "produce" as const,
+        items: [
+          item("p1", "Pommes", { checkedAt: new Date("2026-11-20T10:00:00Z") }),
+        ],
+      },
+    ];
+    const { unmount } = renderList(all);
+    const section = screen.getByRole("region", { name: /Fruits et légumes/ });
+    expect(within(section).getByText("Tout coché")).toBeTruthy();
+    expect(within(section).queryByText(/à acheter/)).toBeNull();
+    unmount();
+    render(
+      <NextIntlClientProvider locale="en" messages={messagesEn}>
+        <ShoppingList aisles={all} order={[...AISLE_KEYS]} />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText("All checked")).toBeTruthy();
   });
 
   it("un rayon entièrement coché est replié, dépliable d'un tap (aria-expanded)", () => {
@@ -209,13 +334,12 @@ describe("ShoppingList", () => {
       );
     });
     await waitFor(() =>
-      expect(rowLabels(section)).toEqual(["Pommes", "Carottes", "Poires"]),
+      expect(
+        within(section)
+          .getByRole("checkbox", { name: "Pommes" })
+          .getAttribute("aria-checked"),
+      ).toBe("false"),
     );
-    expect(
-      within(section)
-        .getByRole("checkbox", { name: "Pommes" })
-        .getAttribute("aria-checked"),
-    ).toBe("false");
     expect((await screen.findByRole("alert")).textContent).toMatch(
       /Pas enregistré/,
     );

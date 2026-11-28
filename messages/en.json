@@ -476,6 +476,7 @@
       "progress": "{remaining} left of {total}",
       "allChecked": "Everything is checked.",
       "aisleToBuy": "{count} to buy",
+      "aisleAllChecked": "All checked",
       "notSaved": "Not saved, try again."
     },
     "aisleSort": {

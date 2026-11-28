@@ -18,6 +18,9 @@ Au § 5 de `nexxia-design` : GSAP sert ici à des moments signature, pas seuleme
 ## Exception : survol des cartes déplaçables (2026-11-27)
 Le survol d'une carte du tableau des tâches (contour `input`, `shadow-glass`, translation de 2 px) est écrit en CSS (`:hover`), sans Motion. Cause : `whileHover` de Motion se termine avant le `mouseup` de dnd-kit et laisse la carte montée de 2 px après un glisser à la souris. Règle : aucun composant d'animation Motion ou GSAP dans une carte déplaçable. Décision d'Antoine après l'essai iPhone du tableau réel (BRAIN-46).
 
+## Exception : glissement des lignes des Courses (2026-11-28)
+Au réordonnancement différé des Courses (cochés en bas, décochés qui remontent), chaque ligne glisse à sa nouvelle place : technique FLIP en Web Animations (`element.animate`) sur le `<li>`, `transform` seulement, 250 ms, courbe `--ease-out-expo` (`src/components/shopping/use-flip-list.ts`). Coupé en JavaScript sous `prefers-reduced-motion` : le filet CSS global de `globals.css` ne couvre pas WAAPI. Pourquoi pas Motion : `layout` de Motion dans un rayon déplaçable irait contre l'exception du 2026-11-27 (aucun composant d'animation dans un élément déplaçable) ; aucune dépendance ajoutée. Décision issue de la critique Impeccable des Courses.
+
 ## Alternatives écartées
 - GSAP seul : lourd pour les micro-interactions React, et en contradiction avec `nexxia-design`.
 - Motion seul : moins de contrôle sur des séquences chorégraphiées.

@@ -137,14 +137,15 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
             .filter((a) => a.items.length > 0),
     [ordered, removal.hidden],
   );
-  const checkedCount = shown.reduce(
-    (n, a) => n + a.items.filter((i) => i.checkedAt !== null).length,
-    0,
+  const { checkedCount, total } = shown.reduce(
+    (n, a) => ({
+      checkedCount:
+        n.checkedCount + a.items.filter((i) => i.checkedAt !== null).length,
+      total: n.total + a.items.length,
+    }),
+    { checkedCount: 0, total: 0 },
   );
-
-  const remaining =
-    shown.reduce((n, a) => n + a.items.length, 0) - checkedCount;
-  const total = checkedCount + remaining;
+  const remaining = total - checkedCount;
 
   function toggle(item: ShoppingItem) {
     if (inFlight.current.has(item.id)) return;
@@ -201,7 +202,6 @@ export function ShoppingList({ aisles, order, quickAdd }: ShoppingListProps) {
                 onToggle={toggle}
                 onRemove={removal.schedule}
                 handle={handle}
-                settling={frozen !== null}
               />
             )}
           />

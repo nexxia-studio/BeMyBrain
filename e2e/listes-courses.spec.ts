@@ -305,7 +305,8 @@ test("courses au supermarché : ajout enchaîné, rangement, cochés en bas, vid
   await expect(inAisle("hygiene", "déo")).toBeVisible();
   await expect(inAisle("other", unknown)).toBeVisible();
 
-  // Trois cochés : barrés, et descendus sous les non cochés de leur rayon.
+  // Trois cochés : barrés sur place au tap ; l'ordre ne change qu'après 600 ms sans nouveau tap ; aucun rayon ne se
+  // replie de lui-même (le rayon « Hygiène » est tout coché, ses lignes restent visibles).
   const dairy = aisleSection(page, "dairyEggs");
   await dairy
     .getByRole("checkbox", { name: "lait", exact: true })
@@ -332,6 +333,14 @@ test("courses au supermarché : ajout enchaîné, rangement, cochés en bas, vid
     "aria-checked",
     "false",
   );
+  // Après le délai, les cochés sont toujours là (pas de repli automatique) ; le bouton de repli est absent.
+  await page.waitForTimeout(800);
+  await expect(inAisle("hygiene", "déo")).toBeVisible();
+  await expect(
+    aisleSection(page, "hygiene").getByRole("button", {
+      name: new RegExp(fr.shopping.aisles.hygiene),
+    }),
+  ).toHaveCount(0);
 
   await page.getByRole("button", { name: /^Vider les cochés/ }).click();
   await page

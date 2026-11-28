@@ -372,6 +372,7 @@ Reflet (BRAIN-33) : même marqueur de session que la révélation, jamais rejou�
 - Catégorie de la barre latérale : chevron 0 → 90°, 0,2 s `ease-out-expo` ; sous-liste en `opacity` + `y` −4 → 0, 0,2 s (pas d'animation de hauteur).
 - Palette (⌘K) : `opacity` + `scale` 0,98 → 1, 0,2 s `ease-out-expo` ; fermeture 0,15 s. Voile `scrim` : `opacity` seule, mêmes durées et même courbe.
 - Apparition / retrait d'un élément de liste : `opacity` + `y` 8, ressort `bounce: 0`, 0,3 s ; tiroir mobile : ressort `bounce: 0.2`, 0,3 s.
+- Courses, réordonnancement différé (600 ms après le dernier tap) : la ligne glisse à sa place, `transform` 250 ms `--ease-out-expo`, Web Animations sur le `<li>`, coupé en `prefers-reduced-motion` (exception d'ADR-006 du 2026-11-28).
 - Easing CSS commun : `--ease-out-expo` `cubic-bezier(0.16, 1, 0.3, 1)`.
 
 Chaque module peut proposer ses propres moments signature, validés à sa spec, dans les mêmes règles.

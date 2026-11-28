@@ -30,8 +30,6 @@ type AisleSectionProps = {
   onRemove: (item: ShoppingItem) => void;
   /** Poignée de glisser du rayon (`AisleSortable`), à droite de l'en-tête ; absente s'il n'y a qu'un rayon. */
   handle?: React.ReactNode;
-  /** Une rafale de taps est en cours : un rayon tout juste coché ne se replie pas encore. */
-  settling?: boolean;
 };
 
 export function AisleSection({
@@ -40,19 +38,18 @@ export function AisleSection({
   onToggle,
   onRemove,
   handle,
-  settling = false,
 }: AisleSectionProps) {
   const t = useTranslations("shopping.aisles");
   const tList = useTranslations("shopping.list");
-  const [expanded, setExpanded] = useState(false);
+  // Replié au premier rendu si tout est déjà coché (donnée du rendu serveur) ; ensuite, le tap seul décide.
+  const [foldable] = useState(() => aisle.items.every((i) => i.checkedAt));
+  const [folded, setFolded] = useState(foldable);
   const rows = useRef<HTMLUListElement>(null);
-  useFlipList(rows, aisle.items.map((i) => i.id).join());
   const headingId = `shopping-aisle-${aisle.aisleKey}`;
   const toBuy = aisle.items.filter((i) => i.checkedAt === null).length;
-
-  // Rayon entièrement coché : replié sous son en-tête, dépliable d'un tap (une ligne de 44 px).
-  const collapsible = toBuy === 0;
-  const collapsed = collapsible && !settling && !expanded;
+  // Un article ajouté dans un rayon replié le déplie (il ne reste pas caché).
+  const collapsed = folded && toBuy === 0;
+  useFlipList(rows);
   const rowsId = `${headingId}-rows`;
   const name = t(aisle.aisleKey);
   const headingClasses = `${TASK_SECTION_HEADING_TEXT} text-foreground uppercase`;
@@ -61,12 +58,12 @@ export function AisleSection({
     <section aria-labelledby={headingId} className={TASK_SECTION_CLASSES}>
       <div className={TASK_SECTION_HEADER_CLASSES}>
         <h2 id={headingId} className={`${headingClasses} min-w-0 flex-1`}>
-          {collapsible ? (
+          {foldable ? (
             <button
               type="button"
               aria-expanded={!collapsed}
               aria-controls={rowsId}
-              onClick={() => setExpanded((open) => !open)}
+              onClick={() => setFolded(!collapsed)}
               className="flex min-h-11 w-full cursor-pointer items-center gap-2 text-left uppercase"
             >
               {name}
@@ -80,24 +77,29 @@ export function AisleSection({
           )}
         </h2>
         <span className={`${TASK_SECTION_HEADING_TEXT} text-foreground`}>
-          {tList("aisleToBuy", { count: toBuy })}
+          {collapsed
+            ? tList("aisleAllChecked")
+            : tList("aisleToBuy", { count: toBuy })}
         </span>
         {handle}
       </div>
-      {!collapsed && (
-        <ul id={rowsId} ref={rows} className={TASK_ROWS_CLASSES}>
-          {aisle.items.map((item) => (
-            <li key={item.id} data-flip-id={item.id}>
-              <ShoppingItemRow
-                item={item}
-                failed={failedIds.has(item.id)}
-                onToggle={onToggle}
-                actions={<ItemMenu item={item} onRemove={onRemove} />}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul
+        id={rowsId}
+        ref={rows}
+        hidden={collapsed}
+        className={collapsed ? "hidden" : TASK_ROWS_CLASSES}
+      >
+        {aisle.items.map((item) => (
+          <li key={item.id} data-flip-id={item.id}>
+            <ShoppingItemRow
+              item={item}
+              failed={failedIds.has(item.id)}
+              onToggle={onToggle}
+              actions={<ItemMenu item={item} onRemove={onRemove} />}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

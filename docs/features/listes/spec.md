@@ -39,7 +39,7 @@ Ordre A → B → C. Si le compte Ably n'est pas prêt, B et C se permutent sans
 - **Classement automatique** par rayon à l'ajout (§ Classement). L'article apparaît tout de suite dans son rayon.
 - **Rayons** (fixes, Q1) : 11 rayons + « Divers ». Chaque rayon a une clé stable en code (`produce`, `bakery`, …) et un libellé par langue. Un rayon sans article n'est pas affiché.
 - **Ordre des rayons** : l'utilisateur les glisse (appui long puis glisser, même comportement et même bibliothèque que le tableau kanban, `@dnd-kit` déjà installé) ; l'ordre est mémorisé **par utilisateur**. Par défaut : ordre de la liste de Q1. « Divers » reste réordonnable comme les autres.
-- **Cocher** : un tap sur la ligne coche (barré, grisé) et l'article descend en bas de son rayon (cochés triés par date de cochage). Redécocher le remonte à sa place d'ajout.
+- **Cocher** : un tap sur la ligne coche sur place (barré, grisé) ; le réordonnancement (cochés en bas de leur rayon, triés par date de cochage ; un décoché remonte) se fait après 600 ms sans nouveau tap, les lignes glissent à leur place. Écran : ligne de progression « N restants sur M » et compteur de rayon « N à acheter ». Un rayon tout coché à l'ouverture de la page est replié (dépliable d'un tap, « Tout coché ») ; cocher le dernier article ne le replie jamais. Décisions : critique Impeccable du 2026-11-28.
 - **Vider les cochés** : bouton visible seulement s'il existe des cochés, avec confirmation ; supprime définitivement tous les cochés de la liste. Réservé au propriétaire.
 - **Changer un article de rayon** : menu de la ligne « Changer de rayon » (pas de glisser d'article entre rayons : trop fragile au doigt sur une liste dense). Effet : l'article change de rayon **et** la correction est mémorisée.
 - **Supprimer** un article : propriétaire seulement, depuis le menu de la ligne, définitif.
@@ -135,7 +135,7 @@ Courses
 - [ ] Ordre de décision : une correction mémorisée l'emporte sur le dictionnaire, qui l'emporte sur Divers (test unitaire direct de `classifyAisle`, qui est le seul chemin de classement : un test d'architecture vérifie qu'aucune autre fonction n'écrit `aisle_key` sans passer par lui, hors déplacement manuel).
 - [ ] Entrée ajoute l'article, vide le champ et conserve le focus ; vérifié sur iPhone (les tests automatiques ne voient pas le clavier : gotcha clavier iOS).
 - [ ] Glisser un rayon change l'ordre et le mémorise après rechargement, pour cet utilisateur seulement.
-- [ ] Un article coché est barré et passe en bas de son rayon ; décoché, il remonte ; « Vider les cochés » demande confirmation puis supprime tous les cochés et eux seuls.
+- [ ] Un article coché est barré sur place, puis passe en bas de son rayon après 600 ms sans nouveau tap ; décoché, il remonte de même ; ligne « N restants sur M », compteur « N à acheter » par rayon, rayon tout coché replié à l'ouverture (dépliable) et jamais replié par un tap (critique Impeccable du 2026-11-28) ; « Vider les cochés » demande confirmation puis supprime tous les cochés et eux seuls.
 - [ ] 300 articles maximum par liste, 80 caractères maximum par article, refus côté serveur avec message clair.
 - [ ] Deux workspaces : aucune lecture ni écriture croisée sur les quatre tables (test d'isolation au niveau base) ; deux utilisateurs d'un même workspace : ni les corrections ni l'ordre des rayons de l'un ne sont lisibles ou modifiables par l'autre.
 Partage et temps réel

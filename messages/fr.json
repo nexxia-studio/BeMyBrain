@@ -476,6 +476,7 @@
       "progress": "{remaining, plural, one {# restant} other {# restants}} sur {total}",
       "allChecked": "Tout est coché.",
       "aisleToBuy": "{count} à acheter",
+      "aisleAllChecked": "Tout coché",
       "notSaved": "Pas enregistré, réessaie."
     },
     "aisleSort": {
