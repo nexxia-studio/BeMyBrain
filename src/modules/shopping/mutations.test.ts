@@ -269,19 +269,14 @@ describe("addItem : plafond de 300 articles", () => {
     return { blocked, codes: [await one, await two!] };
   }
 
-  it("le second ajout attend le verrou de la liste tenu par le premier", async () => {
+  // Un seul scénario pour les deux preuves (attente sur le verrou consultatif, puis un seul des deux ajouts
+  // passe) : remplir 299 articles et ouvrir deux transactions croisées coûte cher sur la base éphémère de la CI.
+  it("à 299 articles, le second ajout attend le verrou de la liste puis seul un des deux passe", async () => {
     await fillTo(MAX_ITEMS_PER_LIST - 1);
 
-    const { blocked } = await secondAddWaitsOnListLock();
+    const { blocked, codes } = await secondAddWaitsOnListLock();
 
     expect(blocked).toBe(true);
-  });
-
-  it("une fois le verrou relâché, un seul des deux ajouts à 299 articles passe", async () => {
-    await fillTo(MAX_ITEMS_PER_LIST - 1);
-
-    const { codes } = await secondAddWaitsOnListLock();
-
     expect(codes).toEqual(["ok", "list_full"]);
     expect((await listState(f.workspaceA)).items).toBe(MAX_ITEMS_PER_LIST);
   });

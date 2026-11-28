@@ -90,7 +90,13 @@ describe("lectures croisées", () => {
       getShoppingList(f.workspaceB, tx),
     );
 
-    expect(list).toEqual({ id: null, name: "Courses", rev: 0, aisles: [] });
+    expect(list).toEqual({
+      id: null,
+      name: "Courses",
+      rev: 0,
+      order: [...AISLE_KEYS],
+      aisles: [],
+    });
   });
 
   it("userA lit sa liste sans aucun article de B", async () => {
@@ -238,12 +244,14 @@ describe("écritures croisées sur les rayons (tâche 8)", () => {
   const snapshot = async () => ({
     overrides: (
       await owner.query(
-        "select workspace_id, user_id, keyword, aisle_key from shopping_aisle_overrides order by id",
+        "select workspace_id, user_id, keyword, aisle_key from shopping_aisle_overrides where workspace_id = any($1) order by id",
+        [[f.workspaceA, f.workspaceB]],
       )
     ).rows,
     orders: (
       await owner.query(
-        "select workspace_id, user_id, aisle_keys from shopping_aisle_order order by id",
+        "select workspace_id, user_id, aisle_keys from shopping_aisle_order where workspace_id = any($1) order by id",
+        [[f.workspaceA, f.workspaceB]],
       )
     ).rows,
     item: (

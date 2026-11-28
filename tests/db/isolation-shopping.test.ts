@@ -712,8 +712,12 @@ describe("shopping_aisle_order : par utilisateur", () => {
   });
 
   it("un utilisateur n'a qu'un ordre par workspace, et user_id vaut l'utilisateur connecté", async () => {
-    const dup = asUser(f.userA, (db) =>
-      db.query(INSERT_ORDER, [f.workspaceA, ["produce"]]),
+    // `outcome` est branché tout de suite : sans cela, le rejet de `dup` (23505) précède son await et
+    // vitest le signale comme erreur non gérée.
+    const dupOutcome = outcome(
+      asUser(f.userA, (db) =>
+        db.query(INSERT_ORDER, [f.workspaceA, ["produce"]]),
+      ),
     );
     const mine = await asUser(f.userA2, async (db) => {
       const result = await db.query(`${INSERT_ORDER} returning user_id`, [
@@ -723,7 +727,7 @@ describe("shopping_aisle_order : par utilisateur", () => {
       return result.rows;
     });
 
-    expect(await outcome(dup)).toBe(UNIQUE_VIOLATION);
+    expect(await dupOutcome).toBe(UNIQUE_VIOLATION);
     expect(mine).toEqual([{ user_id: f.userA2 }]);
   });
 

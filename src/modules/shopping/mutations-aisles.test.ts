@@ -261,7 +261,7 @@ describe("moveItemToAisle : plafond de corrections par utilisateur", () => {
     expect(code).toBe("ok");
   });
 
-  it("deux corrections simultanées à 499 : une seule passe (verrou de la liste)", async () => {
+  it("deux corrections simultanées à 499 : les deux réussissent, une seule est mémorisée (verrou de la liste)", async () => {
     const one = await addAs(f.userA, "premier");
     const two = await addAs(f.userA, "second");
     await fillOverrides(f.userA, MAX_AISLE_OVERRIDES - 1);
@@ -299,10 +299,8 @@ describe("moveItemToAisle : plafond de corrections par utilisateur", () => {
     }
 
     expect(blocked).toBe(true);
-    expect([await first, await second!]).toEqual([
-      "ok",
-      "aisle_overrides_full",
-    ]);
+    // Au plafond, le déplacement n'échoue jamais : les deux articles bougent, une seule correction s'ajoute.
+    expect([await first, await second!]).toEqual(["ok", "ok"]);
     const { rows } = await owner.query<{ n: number }>(
       "select count(*)::int as n from shopping_aisle_overrides where workspace_id = $1 and user_id = $2",
       [f.workspaceA, f.userA],

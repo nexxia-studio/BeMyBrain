@@ -211,7 +211,7 @@ describe("migration 0011 : le catalogue Postgres", () => {
       {
         proname: "guard_shopping_rev",
         prosecdef: false,
-        proconfig: ["search_path="],
+        proconfig: ['search_path=""'],
         nspname: "app",
         before_row: true,
         on_update: true,
