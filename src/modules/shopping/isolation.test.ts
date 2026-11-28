@@ -19,10 +19,13 @@ import {
   addItem,
   checkItem,
   clearChecked,
+  moveItemToAisle,
   removeItem,
   renameItem,
+  setAisleOrder,
   uncheckItem,
 } from "./mutations";
+import { AISLE_KEYS } from "./aisles";
 import { getAisleOrder, getAisleOverrides, getShoppingList } from "./queries";
 
 // Isolation du module shopping (constitution 5) contre la branche Neon test : withUserDb réel en rôle
@@ -205,5 +208,99 @@ describe("écritures croisées sur les articles", () => {
       [s.itemB],
     );
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("écritures croisées sur les rayons (tâche 8)", () => {
+  const order = [...AISLE_KEYS].reverse();
+  const snapshot = async () => ({
+    overrides: (
+      await owner.query(
+        "select workspace_id, user_id, keyword, aisle_key from shopping_aisle_overrides order by id",
+      )
+    ).rows,
+    orders: (
+      await owner.query(
+        "select workspace_id, user_id, aisle_keys from shopping_aisle_order order by id",
+      )
+    ).rows,
+    item: (
+      await owner.query(
+        "select aisle_key, aisle_pinned from shopping_items where id = $1",
+        [s.itemB],
+      )
+    ).rows,
+  });
+
+  it("userA ne déplace pas l'article de B, via B ou via A", async () => {
+    const before = await snapshot();
+
+    const codes = [
+      await codeOf(
+        db.asUser(f.userA, (tx) =>
+          moveItemToAisle(f.workspaceB, s.itemB, "drinks", tx),
+        ),
+      ),
+      await codeOf(
+        db.asUser(f.userA, (tx) =>
+          moveItemToAisle(f.workspaceA, s.itemB, "drinks", tx),
+        ),
+      ),
+    ];
+
+    expect(codes).toEqual(["invalid_params", "invalid_params"]);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("userA n'enregistre pas d'ordre dans le workspace B (42501), rien ne change", async () => {
+    const before = await snapshot();
+
+    const code = await codeOf(
+      db.asUser(f.userA, (tx) => setAisleOrder(f.workspaceB, order, tx)),
+    );
+
+    expect(code).toBe("42501");
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("userA enregistre son ordre chez A sans toucher l'ordre de userB chez B", async () => {
+    const before = (await snapshot()).orders.filter(
+      (r) => r.workspace_id === f.workspaceB,
+    );
+
+    await db.asUser(f.userA, (tx) => setAisleOrder(f.workspaceA, order, tx));
+
+    const after = (await snapshot()).orders.filter(
+      (r) => r.workspace_id === f.workspaceB,
+    );
+    expect(after).toEqual(before);
+    expect(
+      await db.asUser(f.userA, (tx) => getAisleOrder(f.workspaceA, tx)),
+    ).toEqual(order);
+  });
+
+  it("userA2, membre de A, ne lit ni ne modifie l'ordre et les corrections de userA", async () => {
+    await db.asUser(f.userA, (tx) => setAisleOrder(f.workspaceA, order, tx));
+    const before = await snapshot();
+
+    const seen = await db.asUser(f.userA2, async (tx) => ({
+      order: await getAisleOrder(f.workspaceA, tx),
+      overrides: await getAisleOverrides(f.workspaceA, tx),
+    }));
+    // sa propre ligne s'ajoute, celle de userA reste intacte
+    await db.asUser(f.userA2, (tx) =>
+      setAisleOrder(f.workspaceA, [...AISLE_KEYS], tx),
+    );
+
+    expect(seen.order).toEqual([...AISLE_KEYS]);
+    expect(seen.overrides.size).toBe(0);
+    const mine = (await snapshot()).orders.filter(
+      (r) => r.workspace_id === f.workspaceA && r.user_id === f.userA,
+    );
+    expect(mine).toEqual(
+      before.orders.filter(
+        (r) => r.workspace_id === f.workspaceA && r.user_id === f.userA,
+      ),
+    );
   });
 });

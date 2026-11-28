@@ -1,12 +1,18 @@
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 
 import type { UserTx } from "@/db/client";
-import { shoppingItems, shoppingLists } from "@/db/schema/shopping";
+import {
+  shoppingAisleOrder,
+  shoppingAisleOverrides,
+  shoppingItems,
+  shoppingLists,
+} from "@/db/schema/shopping";
 import { uuidSchema } from "@/modules/core/schemas";
 
-import type { AisleKey } from "./aisles";
+import { AISLE_KEYS, type AisleKey } from "./aisles";
 import { classifyAisle } from "./classify";
 import { ShoppingError } from "./errors";
+import { normalizeLabel } from "./normalize";
 import { DEFAULT_LIST_NAME, getAisleOverrides } from "./queries";
 
 // Écritures du module shopping (ADR-002) : workspaceId en premier, transaction de withUserDb en dernier,
@@ -22,6 +28,9 @@ import { DEFAULT_LIST_NAME, getAisleOverrides } from "./queries";
 
 export const MAX_ITEMS_PER_LIST = 300;
 export const MAX_LABEL_LENGTH = 80;
+// Plafond applicatif (aucune contrainte en base : un COUNT n'est pas exprimable en CHECK) : corrections de
+// rayon mémorisées par (workspace, utilisateur). Compté sous lockList, qui sérialise les écrivains du workspace.
+export const MAX_AISLE_OVERRIDES = 500;
 
 export type ListRef = { id: string; name: string; rev: number };
 
@@ -316,4 +325,104 @@ export async function clearChecked(
     removed: rows.length,
     rev: await bumpRev(workspace, listId, tx),
   };
+}
+
+const isAisleKey = (key: unknown): key is AisleKey =>
+  typeof key === "string" && (AISLE_KEYS as readonly string[]).includes(key);
+
+export type MovedItem = { id: string; aisleKey: AisleKey; rev: number };
+
+/**
+ * Change un article de rayon à la main : `aisle_key` posé, `aisle_pinned = true` (un renommage ne le reclasse
+ * plus), et la correction est mémorisée pour l'utilisateur connecté, par libellé normalisé complet (upsert ;
+ * `user_id` posé par la base). Seule écriture de `aisle_key` hors classifyAisle (liste blanche du test
+ * d'architecture). Libellé sans forme normalisée exploitable (vide, ou plus de 80 caractères une fois
+ * normalisé) : l'article bouge, rien n'est mémorisé. Nouvelle correction au-delà de MAX_AISLE_OVERRIDES →
+ * aisle_overrides_full, rien n'est écrit ; modifier une correction existante reste permis.
+ * Article inconnu, d'un autre workspace, ou rayon inconnu → invalid_params. Un `rev` de plus.
+ */
+export async function moveItemToAisle(
+  workspaceId: string,
+  itemId: string,
+  aisleKey: string,
+  tx: UserTx,
+): Promise<MovedItem> {
+  const workspace = parseWorkspace(workspaceId);
+  const id = parseItemId(itemId);
+  if (!isAisleKey(aisleKey)) throw new ShoppingError("invalid_params");
+  const listId = await findListId(workspace, tx);
+
+  await lockList(listId, tx);
+  const [current] = await tx
+    .select({ label: shoppingItems.label })
+    .from(shoppingItems)
+    .where(itemScope(workspace, listId, id))
+    .for("update");
+  if (!current) throw new ShoppingError("invalid_params");
+
+  const { normalized } = normalizeLabel(current.label);
+  if (normalized.length > 0 && [...normalized].length <= MAX_LABEL_LENGTH) {
+    // La RLS limite ces deux lectures aux lignes de l'utilisateur connecté.
+    const [known] = await tx
+      .select({ id: shoppingAisleOverrides.id })
+      .from(shoppingAisleOverrides)
+      .where(
+        and(
+          eq(shoppingAisleOverrides.workspaceId, workspace),
+          eq(shoppingAisleOverrides.keyword, normalized),
+        ),
+      );
+    if (!known) {
+      const [{ count }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(shoppingAisleOverrides)
+        .where(eq(shoppingAisleOverrides.workspaceId, workspace));
+      if (count >= MAX_AISLE_OVERRIDES) {
+        throw new ShoppingError("aisle_overrides_full");
+      }
+    }
+    await tx.execute(sql`
+      insert into ${shoppingAisleOverrides} (workspace_id, keyword, aisle_key)
+      values (${workspace}, ${normalized}, ${aisleKey})
+      on conflict (workspace_id, user_id, keyword)
+      do update set aisle_key = excluded.aisle_key`);
+  }
+
+  await tx
+    .update(shoppingItems)
+    .set({ aisleKey, aislePinned: true })
+    .where(itemScope(workspace, listId, id));
+  return { id, aisleKey, rev: await bumpRev(workspace, listId, tx) };
+}
+
+/**
+ * Mémorise l'ordre des rayons de l'utilisateur connecté : permutation exacte des 12 clés (ni doublon, ni clé
+ * inconnue ou manquante) sinon invalid_params. Un seul upsert atomique par (workspace, utilisateur) : ni
+ * lockList (aucune donnée de la liste ne change) ni `rev` (préférence personnelle, les autres membres ne
+ * voient pas l'ordre de celui-ci). Renvoie l'ordre enregistré.
+ */
+export async function setAisleOrder(
+  workspaceId: string,
+  order: readonly string[],
+  tx: UserTx,
+): Promise<AisleKey[]> {
+  const workspace = parseWorkspace(workspaceId);
+  if (
+    !Array.isArray(order) ||
+    order.length !== AISLE_KEYS.length ||
+    !order.every(isAisleKey) ||
+    new Set(order).size !== AISLE_KEYS.length
+  ) {
+    throw new ShoppingError("invalid_params");
+  }
+  const keys = order as AisleKey[];
+  await tx.execute(sql`
+    insert into ${shoppingAisleOrder} (workspace_id, aisle_keys)
+    values (${workspace}, array[${sql.join(
+      keys.map((k) => sql`${k}`),
+      sql`, `,
+    )}]::text[])
+    on conflict (workspace_id, user_id)
+    do update set aisle_keys = excluded.aisle_keys`);
+  return keys;
 }
