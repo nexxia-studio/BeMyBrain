@@ -35,6 +35,7 @@ Ordre A → B → C. Si le compte Ably n'est pas prêt, B et C se permutent sans
 ### Courses
 - Une seule liste « Courses » par workspace, créée au premier accès (au premier ajout ou à la première ouverture de la page).
 - **Ajout rapide** : un champ en bas d'écran ; Entrée ajoute l'article, vide le champ et **garde le focus** (le clavier iPhone reste ouvert) pour enchaîner. Libellé : 1 à 80 caractères après trim, espaces internes réduits. Vide : ignoré.
+- **Champ collant** (décision d'Antoine du 2026-11-28) : le champ reste collé en bas, au-dessus de la barre d'onglets et du clavier iOS, avec le libellé visible « Ajouter un article » / « Add an item » et le placeholder « Lait, pain… » / « Milk, bread… ». Critère d'acceptation : à 390×844, liste vide ou courte, le bas du champ touche la réserve de la barre d'onglets ; la bulle « Article supprimé » ne le recouvre jamais, erreur affichée comprise.
 - **Classement automatique** par rayon à l'ajout (§ Classement). L'article apparaît tout de suite dans son rayon.
 - **Rayons** (fixes, Q1) : 11 rayons + « Divers ». Chaque rayon a une clé stable en code (`produce`, `bakery`, …) et un libellé par langue. Un rayon sans article n'est pas affiché.
 - **Ordre des rayons** : l'utilisateur les glisse (appui long puis glisser, même comportement et même bibliothèque que le tableau kanban, `@dnd-kit` déjà installé) ; l'ordre est mémorisé **par utilisateur**. Par défaut : ordre de la liste de Q1. « Divers » reste réordonnable comme les autres.

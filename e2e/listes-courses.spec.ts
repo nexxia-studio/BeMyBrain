@@ -367,3 +367,69 @@ test("côté Pro : pas d'onglet Listes ni de tuile Courses", async ({ page }) =>
     await switchSide(page, "private");
   }
 });
+
+// Champ collant (décision du 2026-11-28) : liste vide ou courte, le champ est en bas, juste au-dessus de la barre
+// d'onglets (390 px) ou du bas de page (1280 px) ; la bulle « Article supprimé » ne le recouvre jamais, avec ou
+// sans ligne d'erreur. Réserve de la barre d'onglets : 74 + 26 + 16 px (`--tabbar-reserve`, globals.css).
+const TABBAR_RESERVE = 116;
+const PAGE_MARGIN = 24;
+
+const stickyForm = (page: Page) =>
+  page.locator("form").filter({ has: field(page) });
+
+async function expectFieldAtBottom(page: Page, gap: number) {
+  const box = await stickyForm(page).boundingBox();
+  const height = page.viewportSize()?.height ?? 0;
+  expect(box).not.toBeNull();
+  if (box)
+    expect(Math.abs(box.y + box.height - (height - gap))).toBeLessThan(6);
+}
+
+for (const { name, width, height, gap } of [
+  { name: "390 px", width: 390, height: 844, gap: TABBAR_RESERVE },
+  { name: "1280 px", width: 1280, height: 800, gap: PAGE_MARGIN },
+]) {
+  test(`champ collant en bas et bulle au-dessus, erreur comprise (${name})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await signIn(page);
+    await page.goto("/lists/shopping");
+    await expectFieldAtBottom(page, gap);
+
+    const label = uniqueTitle("Sel");
+    created.push(label);
+    await field(page).click();
+    await page.keyboard.type(label);
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("checkbox", { name: label, exact: true }),
+    ).toBeVisible();
+    await expectFieldAtBottom(page, gap);
+
+    await openItemMenu(page, label);
+    await page
+      .getByRole("menuitem", { name: fr.shopping.itemMenu.remove })
+      .click();
+    await expect(removedToast(page)).toBeVisible();
+
+    // Une ligne d'erreur : l'envoi échoue (réseau coupé), la saisie est gardée.
+    await page.route("**/lists/shopping", (route) =>
+      route.request().method() === "POST" ? route.abort() : route.continue(),
+    );
+    await field(page).click();
+    await page.keyboard.type(uniqueTitle("Poivre"));
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("alert").filter({ hasText: fr.shopping.list.notSaved }),
+    ).toBeVisible();
+
+    const toast = await removedToast(page).boundingBox();
+    const form = await stickyForm(page).boundingBox();
+    expect(toast).not.toBeNull();
+    expect(form).not.toBeNull();
+    if (toast && form)
+      expect(toast.y + toast.height).toBeLessThanOrEqual(form.y);
+    await page.unroute("**/lists/shopping");
+  });
+}

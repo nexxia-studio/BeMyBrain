@@ -168,3 +168,32 @@ describe("coque : déconnexion", () => {
     ).toHaveLength(1);
   });
 });
+
+/** Élément dont les enfants sont exactement `child` (le conteneur de contenu de la coque). */
+function parentOf(node: unknown, child: unknown): Element | undefined {
+  if (!node || typeof node !== "object") return undefined;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = parentOf(item, child);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  const element = node as Element;
+  const kids = element.props?.children;
+  if (kids === child || (Array.isArray(kids) && kids.includes(child)))
+    return element;
+  return parentOf(kids, child);
+}
+
+describe("coque : conteneur de contenu", () => {
+  it("garde self-stretch : le champ collant des listes descend au bas de l'écran", async () => {
+    const sentinel = { type: "main", props: {} };
+
+    const element = await AppLayout({ children: sentinel as never });
+
+    const className = parentOf(element, sentinel)?.props.className;
+    expect(className).toEqual(expect.stringContaining("self-stretch"));
+    expect(className).toEqual(expect.stringContaining("flex-1"));
+  });
+});

@@ -7,7 +7,7 @@ import messages from "../../../messages/fr.json";
 const addShoppingItem = vi.hoisted(() => vi.fn());
 vi.mock("@/app/(app)/lists/shopping/actions", () => ({ addShoppingItem }));
 
-import { QuickAddField } from "./QuickAddField";
+import { leavesForm, QuickAddField } from "./QuickAddField";
 
 function renderField() {
   return render(
@@ -271,5 +271,23 @@ describe("QuickAddField et clavier", () => {
     expect(root.classList.contains("mt-auto")).toBe(true);
     expect(root.className).toContain("z-(--z-sticky)");
     expect(root.className).not.toMatch(/\bz-10\b/);
+  });
+});
+
+describe("leavesForm", () => {
+  it("ignore un focus qui reste dans le formulaire (tap sur « Ajouter »)", () => {
+    const form = document.createElement("form");
+    const button = document.createElement("button");
+    form.append(button);
+
+    expect(leavesForm(form, button)).toBe(false);
+  });
+
+  it("quitte le formulaire pour un élément extérieur ou sans cible", () => {
+    const form = document.createElement("form");
+    const outside = document.createElement("button");
+
+    expect(leavesForm(form, outside)).toBe(true);
+    expect(leavesForm(form, null)).toBe(true);
   });
 });

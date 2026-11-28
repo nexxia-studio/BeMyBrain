@@ -12,7 +12,8 @@
 // parent : le champ n'est jamais remonté). Android redimensionne la page (interactiveWidget).
 // L'icône « + » est un <label htmlFor> : la toucher focalise le champ (et ouvre le clavier d'iOS).
 // En bas d'écran même liste vide (`mt-auto`, conteneur `flex-1` de ShoppingList). Calque `--z-sticky`.
-// Libellé visible au-dessus (DESIGN.md § 5, Champs), placeholder d'exemple.
+// Libellé visible au-dessus (DESIGN.md § 5, Champs), placeholder d'exemple. `onBlur` ignore un focus qui reste dans
+// le formulaire (`leavesForm`) : la mesure du clavier continue quand on touche « Ajouter ».
 // Police `text-base` (16 px : sinon iOS zoome), zones tactiles de 44 px. Surface du champ de la charte
 // (DESIGN.md § 5, Champs : `border-input bg-row`).
 // Estompage pendant l'appel : `has-[input:read-only]`, jamais `has-read-only` (gotcha).
@@ -33,6 +34,17 @@ import { settleAction } from "@/lib/settle-action";
 import { SHOPPING_LABEL_MAX } from "@/modules/shopping/limits";
 
 const DESKTOP = "(min-width: 1024px)";
+
+/**
+ * Le focus quitte-t-il le formulaire ? Faux quand il passe à un autre élément du formulaire (tap sur « Ajouter »
+ * sur iPhone) : la mesure du clavier ne doit pas s'arrêter. `relatedTarget` nul (tap hors champ) : il le quitte.
+ */
+export function leavesForm(
+  form: Pick<Node, "contains">,
+  relatedTarget: EventTarget | null,
+): boolean {
+  return !(relatedTarget instanceof Node && form.contains(relatedTarget));
+}
 
 export function QuickAddField() {
   const t = useTranslations("shopping");
@@ -79,7 +91,10 @@ export function QuickAddField() {
     <form
       onSubmit={add}
       onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onBlur={(event) => {
+        if (leavesForm(event.currentTarget, event.relatedTarget))
+          setFocused(false);
+      }}
       style={
         keyboardInset > 0
           ? { bottom: `calc(${keyboardInset}px + var(--space-grid))` }
@@ -87,7 +102,10 @@ export function QuickAddField() {
       }
       className="glass sticky bottom-page z-(--z-sticky) mt-auto flex flex-col gap-1.5 rounded-tile p-3 max-lg:bottom-tabbar-reserve"
     >
-      <label htmlFor={inputId} className="text-small font-medium text-muted-foreground">
+      <label
+        htmlFor={inputId}
+        className="text-small font-medium text-muted-foreground"
+      >
         {t("quickAdd.label")}
       </label>
       <div className="flex min-h-11 items-center rounded-lg border border-input bg-row has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring has-[input:read-only]:opacity-60">

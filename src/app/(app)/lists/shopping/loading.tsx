@@ -29,6 +29,10 @@ export default async function ShoppingLoading() {
           <FrostTile key={i} index={i} className="h-32" />
         ))}
       </div>
+      {/* Place du champ d'ajout collant (une tuile givrée, `mt-auto`) : pas de saut à l'arrivée du contenu. */}
+      <div aria-hidden="true" className="mt-auto w-full max-w-3xl">
+        <FrostTile index={4} className="h-24" />
+      </div>
     </main>
   );
 }

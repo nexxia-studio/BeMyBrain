@@ -1,10 +1,10 @@
 "use client";
 
 // Curseurs nexxia-design (spec listes, UI) : VARIANCE 3 · MOTION 2 · DENSITY 6.
-// Bulle « Article supprimé · Annuler » (DESIGN.md § 5, « Bulle d'échec du tableau » : même bulle opaque
-// `popover rounded-lg shadow-glass`, fixe au-dessus de la barre d'onglets sur mobile, en bas à droite à partir
-// de 1024 px, `z-(--z-toast)`), relevée au-dessus du champ d'ajout collant (`--toast-above-field`, globals.css). Le nom saisi est dans le texte, jamais traduit. « Annuler » : bouton discret
-// `text-link`, 44 px. Entrée et sortie : aucune animation (la bulle apparaît et disparaît d'un coup, 5 s).
+// Bulle « Article supprimé · Annuler » (DESIGN.md § 5, « Bulle d'échec du tableau » : même bulle opaque, fixe au-dessus
+// de la barre d'onglets sur mobile, en bas à droite dès 1024 px), relevée au-dessus du champ d'ajout collant
+// (`--toast-above-field`, globals.css). Le nom saisi est dans le texte, jamais traduit. « Annuler » : `text-link`,
+// 44 px. Aucune animation (elle apparaît et disparaît d'un coup, 5 s).
 import { useTranslations } from "next-intl";
 
 import type { ShoppingItem } from "@/modules/shopping/list-view";
