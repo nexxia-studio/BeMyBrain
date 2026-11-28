@@ -156,6 +156,8 @@
   --spacing-tabbar-reserve: var(--tabbar-reserve);
   --spacing-detail-top: var(--detail-top);
   --spacing-detail-right: var(--detail-right);
+  --spacing-toast-above-field: var(--toast-above-field);
+  --spacing-toast-above-field-lg: var(--toast-above-field-lg);
   --color-pill-active: var(--pill-active);
 }
 
@@ -298,9 +300,21 @@
     max(0px, (100% - var(--container-content)) / 2) + var(--space-page)
   );
 
+  /* Champ d'ajout collant des Courses (QuickAddField) : hauteur mesurée 98,3 px sans erreur, 122,5 px avec une
+     ligne d'erreur ; 8,8rem (140,8 px) couvrent aussi une erreur sur deux lignes à 320 px, + un espace de grille.
+     La bulle « Article supprimé » se pose au-dessus : un seul écart, partagé, pour qu'elle ne recouvre jamais
+     le champ, erreur affichée comprise. */
+  --field-clearance: calc(8.8rem + var(--space-grid));
+  --toast-above-field: calc(var(--tabbar-reserve) + var(--field-clearance));
+  --toast-above-field-lg: calc(var(--space-page) + var(--field-clearance));
+  /* Le défilement est celui de la page (`html`) : la page des Courses réserve la hauteur du champ collant (+ barre
+     d'onglets sous 1024 px) pour qu'un focus clavier ne passe pas derrière lui (WCAG 2.4.11). Posé plus bas, `html:has`. */
+
   /* Calques. */
   --z-halo: -1;
   --z-content: 1;
+  --z-sticky: 5;
+  --z-lifted: 8;
   --z-header: 10;
   --z-tabbar: 20;
   --z-overlay: 40;
@@ -482,6 +496,15 @@ html:has(.frost) {
 
   @media (prefers-reduced-motion: reduce) {
     display: none;
+  }
+}
+
+/* Page à champ d'ajout collant (QuickAddField, `data-quick-add`) : zone de défilement réservée sous le focus. */
+html:has([data-quick-add]) {
+  scroll-padding-bottom: var(--toast-above-field);
+
+  @media (min-width: 1024px) {
+    scroll-padding-bottom: var(--toast-above-field-lg);
   }
 }
 

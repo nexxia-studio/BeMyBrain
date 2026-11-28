@@ -9,23 +9,27 @@ import { useTranslations } from "next-intl";
 
 import { QuickAddTrigger } from "@/components/quick-add/QuickAddTrigger";
 import { cn } from "@/lib/utils";
+import type { Side } from "@/modules/core/sides";
 
 import { NavLink } from "./NavLink";
-import { isActivePath, NAV_ITEMS } from "./nav-items";
-
-const half = Math.ceil(NAV_ITEMS.length / 2);
-const GROUPS = [NAV_ITEMS.slice(0, half), NAV_ITEMS.slice(half)];
+import { isActivePath, navItemsFor } from "./nav-items";
 
 type TabBarProps = {
+  /** Côté actif (lu par le layout) : Listes n'existe que côté Privé. */
+  side: Side;
   className?: string;
 };
 
-export function TabBar({ className }: TabBarProps) {
+export function TabBar({ side, className }: TabBarProps) {
   const t = useTranslations("shell");
   const tQuickAdd = useTranslations("quickAdd");
   const pathname = usePathname();
 
-  const [before, after] = GROUPS.map((items, index) => (
+  const items = navItemsFor(side);
+  const half = Math.ceil(items.length / 2);
+  const groups = [items.slice(0, half), items.slice(half)];
+
+  const [before, after] = groups.map((items, index) => (
     <div key={index} className="flex flex-1 items-center gap-0.5">
       {items.map(({ href, labelKey, icon: Icon }) => {
         const active = isActivePath(pathname, href);

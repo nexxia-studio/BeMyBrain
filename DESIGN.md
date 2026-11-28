@@ -295,7 +295,7 @@ FR et EN : le français est 15 à 30 % plus long. Aucune largeur fixe sur un lib
 
 **Fond** : brume `--mist` + halos en dégradés radiaux fixes (`body::before`, aucune image) ; mobile : bleu en haut à gauche, lilas à droite ; ordinateur : + aqua en bas. Le texte secondaire ne se pose jamais directement sur le cœur d'un halo (voir contrastes).
 
-**Calques** (`z-(--z-…)`) : `--z-halo` −1 · `--z-content` 1 · `--z-header` 10 · `--z-tabbar` 20 · `--z-overlay` 40 · `--z-dialog` 50 · `--z-toast` 60. Le voile `scrim` est posé à `--z-overlay`, sous la fenêtre (`--z-dialog`).
+**Calques** (`z-(--z-…)`) : `--z-halo` −1 · `--z-content` 1 · `--z-sticky` 5 (champ collant des Courses) · `--z-lifted` 8 (rayon glissé, au-dessus du champ) · `--z-header` 10 · `--z-tabbar` 20 · `--z-overlay` 40 · `--z-dialog` 50 · `--z-toast` 60. Le voile `scrim` est posé à `--z-overlay`, sous la fenêtre (`--z-dialog`).
 
 **Espacements** (base Tailwind 4 px, plus) : `gap-grid` 14 / 16 / 20 px (mobile / tablette / ordinateur) · `p-tile` 18 / 24 px · `p-today` 22 / 28 px · `px-page` 16 / 24 px / `clamp(14px, 2.4vw, 36px)` · largeur max du contenu 1400 px.
 
@@ -314,6 +314,7 @@ Sourcing : primitives shadcn/ui (base-nova) réalignées sur ces tokens, sinon c
 - **Barre d'onglets (mobile)** : verre, flottante, `rounded-bar`, `px-2.5 py-2`, à 16 px des bords, `bottom: max(26px, env(safe-area-inset-bottom) + 8px)`, `z-(--z-tabbar)`. Quatre onglets (`min-h-13`, icône 22 px au-dessus d'un `text-tab`) : actif `text-link`, inactifs `text-muted-foreground`, `aria-current="page"` sur l'actif. Au centre, bouton d'ajout rond 56 px, `bg-primary`, `shadow-fab`, icône + 24 px trait 2,4, qui ouvre l'ajout rapide. Le contenu réserve sa hauteur en bas (≈ 68 px + décalage + 16 px).
 - **Boutons** : principal `bg-primary text-primary-foreground hover:bg-primary-hover` ; secondaire `bg-secondary border border-border text-secondary-foreground` ; discret (lien d'action) `text-link`. Hauteur ≥ 44 px, `text-body font-semibold`, `rounded-full` dans la coque (comme la référence), `rounded-lg` pour un bouton pleine largeur de formulaire. Pendant un appel : désactivé, libellé d'attente. Exception, limitée aux préférences d'affichage (bascule Privé / Pro, filtre d'espace ; 2026-11-13) : le contrôle reste cliquable et change tout de suite, `aria-busy` pendant l'enregistrement ; en cas d'échec, retour à l'état enregistré avec un message visible (bulle opaque `popover` sous le contrôle, `text-destructive`, `role="status"`, effacée au geste suivant ou après 5 s). Données métier : tranché à la spec de chaque module.
 - **Champs** : libellé visible au-dessus (`text-small font-medium`), jamais le placeholder comme libellé. `min-h-11 rounded-lg border border-input bg-row px-3 text-base`. Erreur sous le champ, `text-destructive`, reliée par `aria-describedby`. Exception, limitée à la ligne « Ajouter une sous-tâche » du détail (D8 de la démo todo-kanban, 2026-11-24 ; validée le 2026-11-25) : sous le titre de section « Sous-tâches », le libellé reste dans le DOM en `sr-only`, le texte d'invite lui est identique et une icône « + » le précède.
+- **Champ collant en verre** (Courses, décision d'Antoine du 2026-11-28) : formulaire `glass rounded-tile p-3`, `sticky` en bas de page, au-dessus de la barre d'onglets (`bottom-tabbar-reserve`) et du clavier iOS ; libellé visible `text-small font-medium` au-dessus de la ligne. La bulle (« Article supprimé ») se pose au-dessus, à `--field-clearance` du bas, sans jamais le recouvrir.
 - **Cases à cocher** : 18 px, `accent-color: primary`, ligne entière cliquable (`label` `min-h-11`).
 - **Barres de progression** : piste `bg-track h-2.5 rounded-full`, remplissage `bg-primary` ; elles portent une donnée, jamais décoratives.
 - **Pastilles d'espace** : `rounded-full px-2.5 py-0.5 text-chip`, couleur `chip-*` choisie par `contexts.color` (`neutral`, `warm`, `indigo`).
@@ -371,6 +372,7 @@ Reflet (BRAIN-33) : même marqueur de session que la révélation, jamais rejou�
 - Catégorie de la barre latérale : chevron 0 → 90°, 0,2 s `ease-out-expo` ; sous-liste en `opacity` + `y` −4 → 0, 0,2 s (pas d'animation de hauteur).
 - Palette (⌘K) : `opacity` + `scale` 0,98 → 1, 0,2 s `ease-out-expo` ; fermeture 0,15 s. Voile `scrim` : `opacity` seule, mêmes durées et même courbe.
 - Apparition / retrait d'un élément de liste : `opacity` + `y` 8, ressort `bounce: 0`, 0,3 s ; tiroir mobile : ressort `bounce: 0.2`, 0,3 s.
+- Courses, réordonnancement différé (600 ms après le dernier tap) : la ligne glisse à sa place, `transform` 250 ms `--ease-out-expo`, Web Animations sur le `<li>`, coupé en `prefers-reduced-motion` (exception d'ADR-006 du 2026-11-28).
 - Easing CSS commun : `--ease-out-expo` `cubic-bezier(0.16, 1, 0.3, 1)`.
 
 Chaque module peut proposer ses propres moments signature, validés à sa spec, dans les mêmes règles.

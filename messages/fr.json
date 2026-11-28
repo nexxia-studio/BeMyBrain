@@ -59,9 +59,13 @@
         "body": "Aucune tâche pour l'instant. Les tâches à faire et leur échéance s'afficheront ici."
       },
       "shopping": {
-        "eyebrow": "Courses",
-        "title": "Liste partagée",
-        "body": "Aucun article à acheter."
+        "eyebrow": "Listes",
+        "title": "Courses",
+        "body": "Aucun article à acheter.",
+        "toBuy": "{count, plural, one {article à acheter} other {articles à acheter}}",
+        "first": "Premiers articles à acheter",
+        "more": "+ {count} {count, plural, one {autre} other {autres}}",
+        "error": "Courses indisponibles. Recharge la page dans un instant."
       },
       "budget": {
         "eyebrow": "Budget",
@@ -129,6 +133,7 @@
     "openPalette": "Ouvrir la palette de commandes",
     "preferenceError": "Choix non enregistré. Réessaie.",
     "tasks": "To-do",
+    "lists": "Listes",
     "settings": "Réglages"
   },
   "settings": {
@@ -165,6 +170,17 @@
       "addRelation": "Relier deux tâches du même côté : bloque, bloquée par ou liée à",
       "removeRelation": "Retirer une relation entre deux tâches",
       "listBoard": "Afficher le tableau d'un côté : les tâches par statut, colonne par colonne"
+    },
+    "shopping": {
+      "listItems": "Afficher la liste de courses, rangée par rayon, avec les articles cochés en bas de chaque rayon",
+      "addItem": "Ajouter un article à la liste de courses ; il est rangé dans son rayon automatiquement",
+      "checkItem": "Cocher un article de la liste de courses",
+      "uncheckItem": "Décocher un article de la liste de courses",
+      "renameItem": "Renommer un article de la liste de courses",
+      "removeItem": "Supprimer un article de la liste de courses",
+      "clearChecked": "Supprimer tous les articles cochés de la liste de courses",
+      "moveItemToAisle": "Ranger un article dans un autre rayon, et mémoriser ce choix pour les prochains ajouts",
+      "setAisleOrder": "Changer l'ordre d'affichage des rayons de la liste de courses"
     }
   },
   "palette": {
@@ -432,5 +448,86 @@
     "cancelled": "Déplacement de « {item} » annulé.",
     "expand": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, déplier",
     "collapse": "{column}, {count, plural, =0 {aucune carte} one {# carte} other {# cartes}}, replier"
+  },
+  "shopping": {
+    "title": "Courses",
+    "loading": "Chargement des courses",
+    "error": {
+      "title": "Courses indisponibles",
+      "body": "La liste de courses n'a pas pu être chargée. Tes articles sont en sécurité.",
+      "retry": "Réessayer"
+    },
+    "aisles": {
+      "produce": "Fruits et légumes",
+      "bakery": "Boulangerie et pâtisserie",
+      "butcherFish": "Boucherie, poissonnerie et charcuterie",
+      "dairyEggs": "Crèmerie et œufs",
+      "pantrySavory": "Épicerie salée",
+      "pantrySweet": "Épicerie sucrée et petit-déjeuner",
+      "drinks": "Boissons",
+      "household": "Entretien et maison",
+      "hygiene": "Hygiène et soins",
+      "babyPets": "Bébé et animaux",
+      "frozen": "Surgelés",
+      "other": "Divers"
+    },
+    "list": {
+      "empty": "Ta liste de courses est vide. Ajoute un premier article.",
+      "progress": "{remaining, plural, one {# restant} other {# restants}} sur {total}",
+      "allChecked": "Tout est coché.",
+      "aisleToBuy": "{count} à acheter",
+      "aisleAllChecked": "Tout coché",
+      "notSaved": "Pas enregistré, réessaie."
+    },
+    "saving": "Enregistrement…",
+    "aisleSort": {
+      "roleDescription": "rayon déplaçable",
+      "handle": "Déplacer le rayon « {aisle} »",
+      "instructions": "Pour saisir un rayon, appuie sur Espace ou Entrée. Déplace-le avec les flèches haut et bas, dépose-le avec Espace ou Entrée, ou annule avec Échap.",
+      "picked": "Rayon « {aisle} » saisi, position {position} sur {count}.",
+      "over": "Rayon « {aisle} » au-dessus de la position {position} sur {count}.",
+      "dropped": "Rayon « {aisle} » déposé, position {position} sur {count}.",
+      "cancelled": "Déplacement du rayon « {aisle} » annulé.",
+      "notSaved": "Ordre des rayons pas enregistré, réessaie."
+    },
+    "quickAdd": {
+      "label": "Ajouter un article",
+      "placeholder": "Lait, pain…",
+      "submit": "Ajouter",
+      "labelTooLong": "Cet article est trop long (80 caractères maximum).",
+      "listFull": "La liste est pleine (300 articles maximum)."
+    },
+    "itemMenu": {
+      "trigger": "Actions pour « {label} »",
+      "moveAisle": "Changer de rayon",
+      "rename": "Renommer",
+      "remove": "Supprimer"
+    },
+    "moveAisle": {
+      "title": "Changer de rayon",
+      "description": "« {label} » ira dans ce rayon, et les prochains ajouts du même article aussi.",
+      "current": "Rayon actuel"
+    },
+    "sheet": {
+      "close": "Fermer"
+    },
+    "renameItem": {
+      "title": "Renommer l'article",
+      "label": "Nom de l'article",
+      "submit": "Enregistrer",
+      "cancel": "Annuler",
+      "labelTooLong": "Ce nom est trop long (80 caractères maximum)."
+    },
+    "removed": {
+      "message": "« {label} » supprimé.",
+      "undo": "Annuler"
+    },
+    "clearChecked": {
+      "button": "Vider les cochés ({count})",
+      "title": "Vider les cochés ?",
+      "description": "{count, plural, =1 {Cet article coché sera supprimé définitivement.} other {Ces # articles cochés seront supprimés définitivement.}}",
+      "confirm": "Supprimer",
+      "cancel": "Annuler"
+    }
   }
 }

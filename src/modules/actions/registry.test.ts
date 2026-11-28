@@ -9,6 +9,7 @@ import fr from "../../../messages/fr.json";
 import en from "../../../messages/en.json";
 import { defineAction } from "./define";
 import { CORE_ERROR_MESSAGES } from "@/modules/core/errors";
+import { AISLE_KEYS } from "@/modules/shopping/aisles";
 import { TASK_ERROR_MESSAGES } from "@/modules/tasks/errors";
 
 import { ACTION_ERROR_MESSAGES, ActionError } from "./errors";
@@ -97,6 +98,15 @@ const VALID_PARAMS: Record<string, Record<string, unknown>> = {
     kind: "related",
     otherTaskId: OTHER_TASK,
   },
+  "shopping.listItems": {},
+  "shopping.addItem": { label: "Lait demi-écrémé" },
+  "shopping.checkItem": { itemId: TASK },
+  "shopping.uncheckItem": { itemId: TASK },
+  "shopping.renameItem": { itemId: TASK, label: "Lait entier" },
+  "shopping.removeItem": { itemId: TASK },
+  "shopping.clearChecked": {},
+  "shopping.moveItemToAisle": { itemId: TASK, aisleKey: "dairyEggs" },
+  "shopping.setAisleOrder": { order: [...AISLE_KEYS].reverse() },
   "tasks.listBoard": {
     side: "pro",
     contextId: THIRD_TASK,
@@ -114,6 +124,8 @@ const VALID_PARAMS: Record<string, Record<string, unknown>> = {
  */
 const ASSISTANT_WRITE_ACTIONS = [
   "core.setLocale",
+  "shopping.addItem",
+  "shopping.checkItem",
   "tasks.addRelation",
   "tasks.complete",
   "tasks.create",
@@ -129,6 +141,15 @@ const ASSISTANT_WRITE_ACTIONS = [
 const REGISTRY_ACCESS = {
   "core.listContexts": "read",
   "core.setLocale": "write",
+  "shopping.listItems": "read",
+  "shopping.addItem": "write",
+  "shopping.checkItem": "write",
+  "shopping.uncheckItem": "write",
+  "shopping.renameItem": "write",
+  "shopping.removeItem": "write",
+  "shopping.clearChecked": "write",
+  "shopping.moveItemToAisle": "write",
+  "shopping.setAisleOrder": "write",
   "tasks.list": "read",
   "tasks.get": "read",
   "tasks.listDueToday": "read",
@@ -247,6 +268,28 @@ describe("registre d'actions : déclaration", () => {
       .sort();
 
     expect(writes).toEqual(ASSISTANT_WRITE_ACTIONS);
+  });
+
+  it("le canal assistant ne contient, côté shopping, que listItems, addItem et checkItem", () => {
+    const names = [...registry.values()]
+      .filter(
+        (a) =>
+          a.name.startsWith("shopping.") && a.channels.includes("assistant"),
+      )
+      .map((a) => a.name)
+      .sort();
+
+    expect(names).toEqual([
+      "shopping.addItem",
+      "shopping.checkItem",
+      "shopping.listItems",
+    ]);
+    expect(
+      toToolDefinitions("assistant")
+        .map((t) => t.name)
+        .filter((n) => n.startsWith("shopping."))
+        .sort(),
+    ).toEqual(names);
   });
 
   it("deux actions ne partagent pas un name", () => {

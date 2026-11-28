@@ -15,6 +15,13 @@ import {
   insertTasksFixture,
   newTasksFixture,
 } from "../../../tests/factories/tasks";
+import { errorTag } from "../../../tests/factories/error-tag";
+import {
+  deleteShoppingFixture,
+  insertShoppingFixture,
+  newShoppingFixture,
+} from "../../../tests/factories/shopping";
+import { AISLE_KEYS } from "@/modules/shopping/aisles";
 import { getUserTimeZone, todayIn } from "@/modules/core/time-zone";
 import { keyBetween } from "@/modules/tasks/sort-key";
 
@@ -40,6 +47,7 @@ const owner = createOwnerPool(ownerUrl);
 const db = createTestUserDb(backendUrl);
 const f = newCoreFixture();
 const t = newTasksFixture();
+const sh = newShoppingFixture();
 // En plus de la fixture partagée (laissée telle quelle pour les autres tests) : de quoi rendre non vides
 // les lectures du jour et de la corbeille, des deux côtés.
 const today = todayIn(getUserTimeZone(), new Date());
@@ -66,6 +74,7 @@ const keyA2 = keyBetween(keyA1, null);
 beforeAll(async () => {
   await insertCoreFixture(owner, f);
   await insertTasksFixture(owner, f, t);
+  await insertShoppingFixture(owner, f, sh);
   [extra.dueTodayA] = await insertTasks(owner, f.workspaceA, f.userA, [
     { side: "private", title: "Due aujourd'hui A", dueDate: today },
   ]);
@@ -121,6 +130,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
+    await deleteShoppingFixture(owner, f);
     await deleteCoreFixture(owner, f);
   } finally {
     await Promise.all([owner.end(), db.end()]);
@@ -762,5 +772,138 @@ describe("registre d'actions : tableau, parente et relations, session de B sur s
     expect(spaceOfA).toEqual(EMPTY_BOARD);
     expect(proSpaceOfA).toEqual(EMPTY_BOARD);
     expect(unknownSpace).toEqual(EMPTY_BOARD);
+  });
+});
+
+/** Listes, articles et ordres d'un workspace, lus en propriétaire (hors RLS) : témoin « rien de changé ». */
+async function shoppingStateOf(workspaceId: string) {
+  const lists = await owner.query(
+    "select id, rev::text from shopping_lists where workspace_id = $1 order by id",
+    [workspaceId],
+  );
+  const items = await owner.query(
+    "select id, label, aisle_key, aisle_pinned, checked_at from shopping_items where workspace_id = $1 order by id",
+    [workspaceId],
+  );
+  const orders = await owner.query(
+    "select user_id, aisle_keys from shopping_aisle_order where workspace_id = $1 order by user_id",
+    [workspaceId],
+  );
+  const overrides = await owner.query(
+    "select id, keyword, aisle_key from shopping_aisle_overrides where workspace_id = $1 order by id",
+    [workspaceId],
+  );
+  return {
+    lists: lists.rows,
+    items: items.rows,
+    orders: orders.rows,
+    overrides: overrides.rows,
+  };
+}
+
+const SHOPPING_WRITES: [string, (item: string) => Record<string, unknown>][] = [
+  ["shopping.addItem", () => ({ label: "intrus" })],
+  ["shopping.checkItem", (item) => ({ itemId: item })],
+  ["shopping.uncheckItem", (item) => ({ itemId: item })],
+  ["shopping.renameItem", (item) => ({ itemId: item, label: "piraté" })],
+  ["shopping.removeItem", (item) => ({ itemId: item })],
+  ["shopping.clearChecked", () => ({})],
+  [
+    "shopping.moveItemToAisle",
+    (item) => ({ itemId: item, aisleKey: "drinks" }),
+  ],
+  ["shopping.setAisleOrder", () => ({ order: [...AISLE_KEYS].reverse() })],
+];
+
+describe("registre d'actions : isolation des actions shopping.*", () => {
+  it("shopping.listItems : A voit son article (témoin), jamais celui de B ; A sur le workspace de B ne voit rien", async () => {
+    const own = (await run(
+      f.userA,
+      f.workspaceA,
+      "shopping.listItems",
+      {},
+    )) as {
+      aisles: { items: { id: string }[] }[];
+    };
+    const crossed = (await run(
+      f.userA,
+      f.workspaceB,
+      "shopping.listItems",
+      {},
+    )) as { id: string | null; aisles: unknown[] };
+
+    const seen = own.aisles.flatMap((a) => a.items.map((i) => i.id));
+    expect(seen).toContain(sh.itemA);
+    expect(seen).not.toContain(sh.itemB);
+    expect(crossed.id).toBeNull();
+    expect(crossed.aisles).toEqual([]);
+  });
+
+  it("chaque écriture de A sur le workspace de B est refusée (invalid_params ou 42501), B inchangé", async () => {
+    const before = await shoppingStateOf(f.workspaceB);
+
+    for (const [name, params] of SHOPPING_WRITES) {
+      const code = await run(
+        f.userA,
+        f.workspaceB,
+        name,
+        params(sh.itemB),
+      ).then(
+        () => "ok",
+        (e: unknown) => errorTag(e),
+      );
+
+      expect(["invalid_params", "42501"], `${name} : ${code}`).toContain(code);
+    }
+
+    expect(await shoppingStateOf(f.workspaceB)).toEqual(before);
+  });
+
+  it("A sur son workspace avec l'article de B : check, uncheck, rename, remove, move → invalid_params, B inchangé", async () => {
+    const before = await shoppingStateOf(f.workspaceB);
+
+    const itemWrites = [
+      "shopping.checkItem",
+      "shopping.uncheckItem",
+      "shopping.renameItem",
+      "shopping.removeItem",
+      "shopping.moveItemToAisle",
+    ];
+    for (const [name, params] of SHOPPING_WRITES.filter(([n]) =>
+      itemWrites.includes(n),
+    )) {
+      const code = await run(
+        f.userA,
+        f.workspaceA,
+        name,
+        params(sh.itemB),
+      ).then(
+        () => "ok",
+        (e: unknown) => errorTag(e),
+      );
+
+      expect(code, name).toBe("invalid_params");
+    }
+
+    expect(await shoppingStateOf(f.workspaceB)).toEqual(before);
+  });
+
+  it("shopping.clearChecked de A ne supprime que ses articles cochés", async () => {
+    const beforeB = await shoppingStateOf(f.workspaceB);
+    const witness = await owner.query(
+      "select checked_at from shopping_items where id = $1 and workspace_id = $2",
+      [sh.checkedItemA, f.workspaceA],
+    );
+    expect(witness.rows).toHaveLength(1);
+    expect(witness.rows[0].checked_at).not.toBeNull();
+
+    await run(f.userA, f.workspaceA, "shopping.clearChecked", {});
+
+    const { rows } = await owner.query(
+      "select id from shopping_items where workspace_id = $1",
+      [f.workspaceA],
+    );
+    expect(rows.map((r) => r.id)).toEqual([sh.itemA]);
+    expect(await shoppingStateOf(f.workspaceB)).toEqual(beforeB);
   });
 });

@@ -7,7 +7,7 @@ import { unstable_rethrow } from "next/navigation";
 import { redirectIfRejectedToken } from "@/lib/session";
 
 /** Tuiles qui lisent des données : nom technique seul, envoyé en tag à Sentry. */
-export type DataTile = "today" | "sideTodo";
+export type DataTile = "today" | "sideTodo" | "shopping";
 
 /**
  * Lit les données d'une tuile sans faire tomber le tableau de bord : une panne donne null (la tuile affiche son

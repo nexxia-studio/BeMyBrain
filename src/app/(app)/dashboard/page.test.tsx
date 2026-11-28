@@ -12,6 +12,7 @@ const loadSideSpaces = vi.hoisted(() => vi.fn());
 const loadCurrentScope = vi.hoisted(() => vi.fn());
 const loadDueToday = vi.hoisted(() => vi.fn());
 const loadUpcomingTasks = vi.hoisted(() => vi.fn());
+const loadShoppingSummary = vi.hoisted(() => vi.fn());
 const captureException = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/lib/session", () => ({
 }));
 vi.mock("@/lib/context-filter", () => ({ loadSideSpaces, loadCurrentScope }));
 vi.mock("@/modules/tasks/load", () => ({ loadDueToday, loadUpcomingTasks }));
+vi.mock("@/modules/shopping/load", () => ({ loadShoppingSummary }));
 vi.mock("@sentry/nextjs", () => ({ captureException }));
 vi.mock("@/app/(app)/tasks/actions", () => ({ runAppAction: vi.fn() }));
 vi.mock("next-intl/server", () => ({
@@ -119,6 +121,7 @@ beforeEach(() => {
   useSide(PRIVATE_SIDE);
   loadDueToday.mockResolvedValue([]);
   loadUpcomingTasks.mockResolvedValue([]);
+  loadShoppingSummary.mockResolvedValue({ count: 0, first: [] });
 });
 
 /** Côté et filtre d'espace courants, comme les rend context-filter (lecture partagée). */
@@ -154,6 +157,26 @@ describe("tableau de bord", () => {
     expect(
       screen.queryByText(messages.dashboard.tiles.shopping.title),
     ).toBeNull();
+  });
+
+  it("côté Privé, la tuile Courses lit le résumé du workspace de la session ; côté Pro, aucune lecture", async () => {
+    loadShoppingSummary.mockResolvedValue({
+      count: 2,
+      first: ["pommes", "lait"],
+    });
+
+    await renderPage();
+
+    expect(loadShoppingSummary).toHaveBeenCalledWith(
+      "jeton",
+      SESSION.workspaceId,
+    );
+    expect(screen.getByTestId("shopping-count").textContent).toBe("2");
+
+    loadShoppingSummary.mockClear();
+    useSide(PRO_SIDE);
+    await renderPage();
+    expect(loadShoppingSummary).not.toHaveBeenCalled();
   });
 
   it("côté Privé, aucune tuile Pro n'est rendue", async () => {

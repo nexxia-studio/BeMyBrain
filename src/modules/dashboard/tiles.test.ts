@@ -147,7 +147,7 @@ describe("tuiles du tableau de bord", () => {
     expect(dashboard.spaces).toEqual(["Trustup", "Nexxia"]);
   });
 
-  it("les tuiles To-do montrent les tâches du côté, les autres restent vides", () => {
+  it("les tuiles To-do montrent les tâches du côté, Courses les articles, les autres restent vides", () => {
     for (const side of ["private", "pro"] as const) {
       const dashboard = buildDashboard({
         side,
@@ -162,8 +162,12 @@ describe("tuiles du tableau de bord", () => {
       expect(
         dashboard.tiles
           .filter((tile) => tile.content !== "tasks")
+          .filter((tile) => tile.id !== "shopping")
           .every((tile) => tile.content === "empty"),
       ).toBe(true);
+      expect(
+        dashboard.tiles.find((tile) => tile.id === "shopping")?.content,
+      ).toBe(side === "private" ? "shopping" : undefined);
     }
   });
 

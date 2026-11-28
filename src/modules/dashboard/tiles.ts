@@ -12,8 +12,11 @@ import type { Side } from "@/modules/core/schemas";
 /** Base de largeur dans la grille bento (DESIGN.md § 6) : large, standard ou chiffre. */
 export type TileSize = "wide" | "standard" | "figure";
 
-/** Contenu d'une tuile : les tâches du côté (module tasks), ou vide tant que son module n'existe pas. */
-export type TileContent = "tasks" | "empty";
+/**
+ * Contenu d'une tuile : les tâches du côté (module tasks), les articles à acheter (module shopping), ou vide
+ * tant que son module n'existe pas.
+ */
+export type TileContent = "tasks" | "shopping" | "empty";
 
 // `mixesSpaces` : la tuile mêle les éléments de plusieurs espaces (la To-do, une pastille par ligne dans
 // la référence) ; elle les nomme quand le côté en a plusieurs. Les autres se lisent par le filtre seul.
@@ -31,7 +34,7 @@ const CATALOG = [
     side: "private",
     size: "figure",
     mixesSpaces: false,
-    content: "empty",
+    content: "shopping",
   },
   {
     id: "budget",

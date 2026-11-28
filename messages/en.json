@@ -59,9 +59,13 @@
         "body": "No tasks yet. Tasks and their due dates will show up here."
       },
       "shopping": {
-        "eyebrow": "Groceries",
-        "title": "Shared list",
-        "body": "Nothing to buy."
+        "eyebrow": "Lists",
+        "title": "Groceries",
+        "body": "Nothing to buy.",
+        "toBuy": "{count, plural, one {item to buy} other {items to buy}}",
+        "first": "First items to buy",
+        "more": "+ {count} more",
+        "error": "Groceries unavailable. Reload the page in a moment."
       },
       "budget": {
         "eyebrow": "Budget",
@@ -129,6 +133,7 @@
     "openPalette": "Open command palette",
     "preferenceError": "Choice not saved. Try again.",
     "tasks": "To-do",
+    "lists": "Lists",
     "settings": "Settings"
   },
   "settings": {
@@ -165,6 +170,17 @@
       "addRelation": "Link two active tasks on the same side (private or pro), subtasks included. Use it to record that a task blocks another or that two tasks are related: kind is read from taskId to otherTaskId, so blocks means taskId blocks otherTaskId, blocked_by means taskId is blocked by otherTaskId, and related is symmetric. Returns the task taskId with its relations, unchanged and without error when the relation already exists, or the error not_found when one of the two tasks does not exist or is in the trash; refused when otherTaskId equals taskId (invalid_params), when the two tasks are on different sides (cross_side_relation) or when the opposite blocking relation already exists (relation_conflict).",
       "removeRelation": "Remove a relation between two active tasks, described like in tasks.addRelation (blocked_by from A to B removes B blocks A). Use it when a task no longer blocks another or is no longer related to it. Returns the task taskId with its remaining relations, or the error not_found when the relation does not exist or when one of the two tasks is in the trash: restore that task with tasks.restore first, then remove the relation.",
       "listBoard": "Get the board of one side (private or pro): one column per status category, in board order (backlog, unstarted, started, completed, canceled). Use it to see tasks by status or to find the neighbouring cards before tasks.move; a subtask is a card of its own unless includeSubtasks is false, and hideCompletedSubtasks leaves completed subtasks out. Returns each column with its tasks in display order, its total and truncated: true when it holds more tasks than returned; open columns return up to 200 cards in manual order, completed and canceled the 20 most recently closed unless completedLimit or canceledLimit says otherwise."
+    },
+    "shopping": {
+      "listItems": "Get the shopping list grouped by aisle, checked items last in each aisle. Use it to see what is on the list and to get item ids before checking or changing an item. Returns the list id (null if the list was never created), its name, its rev and the non-empty aisles with their items (id, label, aisleKey, checkedAt, addedByGuest).",
+      "addItem": "Add an item to the shopping list; it is filed in its aisle automatically. Use it when the user asks to add something to the shopping list. Returns the new item (id, label, aisleKey) and the list rev, or the errors list_full at 300 items, label_too_long, or invalid_params (empty label or control characters).",
+      "checkItem": "Check an item of the shopping list (bought). Use it when the user says an item is bought or in the cart; get the item id from the list first. Returns the list rev, or the error invalid_params when the item does not exist.",
+      "uncheckItem": "Uncheck an item of the shopping list. Use it when a checked item is needed again. Returns the list rev, or the error invalid_params when the item does not exist.",
+      "renameItem": "Rename an item of the shopping list. Use it to fix an item label. Returns the item (id, label, aisleKey) and the list rev, or the error invalid_params when the item does not exist.",
+      "removeItem": "Delete an item of the shopping list. Use it when an item must leave the list. Returns the list rev, or the error invalid_params when the item does not exist.",
+      "clearChecked": "Delete every checked item of the shopping list. Use it to tidy the list after shopping. Returns the number of removed items and the list rev.",
+      "moveItemToAisle": "Move an item to another aisle and remember that choice for the next additions. Use it when an item is filed in the wrong aisle. Returns the item id, its aisleKey and the list rev, or the error invalid_params when the item does not exist.",
+      "setAisleOrder": "Set the display order of the 12 aisles for the current user. Use it when the user wants the aisles in the order of their store. Returns the saved order."
     }
   },
   "palette": {
@@ -432,5 +448,86 @@
     "cancelled": "Moving “{item}” was cancelled.",
     "expand": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, expand",
     "collapse": "{column}, {count, plural, =0 {no cards} one {# card} other {# cards}}, collapse"
+  },
+  "shopping": {
+    "title": "Groceries",
+    "loading": "Loading groceries",
+    "error": {
+      "title": "Groceries unavailable",
+      "body": "The shopping list could not be loaded. Your items are safe.",
+      "retry": "Try again"
+    },
+    "aisles": {
+      "produce": "Fruit and vegetables",
+      "bakery": "Bakery and pastries",
+      "butcherFish": "Butcher, fishmonger and deli",
+      "dairyEggs": "Dairy and eggs",
+      "pantrySavory": "Savory pantry",
+      "pantrySweet": "Sweet pantry and breakfast",
+      "drinks": "Drinks",
+      "household": "Household and cleaning",
+      "hygiene": "Hygiene and personal care",
+      "babyPets": "Baby and pets",
+      "frozen": "Frozen",
+      "other": "Other"
+    },
+    "list": {
+      "empty": "Your shopping list is empty. Add a first item.",
+      "progress": "{remaining} left of {total}",
+      "allChecked": "Everything is checked.",
+      "aisleToBuy": "{count} to buy",
+      "aisleAllChecked": "All checked",
+      "notSaved": "Not saved, try again."
+    },
+    "saving": "Saving…",
+    "aisleSort": {
+      "roleDescription": "movable aisle",
+      "handle": "Move the \u201c{aisle}\u201d aisle",
+      "instructions": "To pick up an aisle, press Space or Enter. Move it with the up and down arrows, drop it with Space or Enter, or cancel with Escape.",
+      "picked": "Picked up aisle \u201c{aisle}\u201d, position {position} of {count}.",
+      "over": "Aisle \u201c{aisle}\u201d is over position {position} of {count}.",
+      "dropped": "Dropped aisle \u201c{aisle}\u201d, position {position} of {count}.",
+      "cancelled": "Move of aisle \u201c{aisle}\u201d cancelled.",
+      "notSaved": "Aisle order not saved, try again."
+    },
+    "quickAdd": {
+      "label": "Add an item",
+      "placeholder": "Milk, bread…",
+      "submit": "Add",
+      "labelTooLong": "This item is too long (80 characters maximum).",
+      "listFull": "The list is full (300 items maximum)."
+    },
+    "itemMenu": {
+      "trigger": "Actions for \u201c{label}\u201d",
+      "moveAisle": "Change aisle",
+      "rename": "Rename",
+      "remove": "Delete"
+    },
+    "moveAisle": {
+      "title": "Change aisle",
+      "description": "\u201c{label}\u201d will go to this aisle, and so will future additions of the same item.",
+      "current": "Current aisle"
+    },
+    "sheet": {
+      "close": "Close"
+    },
+    "renameItem": {
+      "title": "Rename item",
+      "label": "Item name",
+      "submit": "Save",
+      "cancel": "Cancel",
+      "labelTooLong": "This name is too long (80 characters maximum)."
+    },
+    "removed": {
+      "message": "\u201c{label}\u201d deleted.",
+      "undo": "Undo"
+    },
+    "clearChecked": {
+      "button": "Clear checked ({count})",
+      "title": "Clear checked items?",
+      "description": "{count, plural, =1 {This checked item will be permanently deleted.} other {These # checked items will be permanently deleted.}}",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
   }
 }

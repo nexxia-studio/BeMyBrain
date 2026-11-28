@@ -56,12 +56,14 @@ export default async function AppLayout({
                 }
                 className="hidden lg:flex"
               />
-              <div className="flex min-w-0 flex-1 flex-col gap-grid">
+              {/* `self-stretch` est vital : sans lui (`items-start`), le contenu ne remplit pas la hauteur et le champ
+                  collant des listes (`mt-auto`) ne descend pas au bas de l'écran. Verrouillé par layout.test.tsx. */}
+              <div className="flex min-w-0 flex-1 flex-col gap-grid self-stretch">
                 {children}
               </div>
             </div>
           </div>
-          <TabBar className="lg:hidden" />
+          <TabBar side={side} className="lg:hidden" />
         </div>
       </ShellScopeProvider>
     </MotionRoot>

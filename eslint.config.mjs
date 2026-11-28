@@ -49,7 +49,7 @@ const processImports = [
   { name: "node:process", message: processImportMessage },
 ];
 
-// Glisser-déposer (démo kanban, BRAIN-46) : dnd-kit n'entre que par SortableBoard.tsx, tests compris.
+// Glisser-déposer (démo kanban, BRAIN-46) : dnd-kit n'entre que par SortableBoard.tsx et AisleSortable.tsx (listes, tâche 14), tests compris.
 // Imports statiques (dndKitImports) et chemins détournés (dndKitSyntax : import(), require, typeof import(),
 // vi.mock & co). Posé sur tout le dépôt (dndKitEverywhere), repris par chaque config de src qui pose la règle
 // (socles importSocle et syntaxSocle + dnd-kit), levé pour ce seul fichier en dernier (sortableBoardBoundaries).
@@ -57,8 +57,9 @@ const processImports = [
 // dans tests/, e2e/, scripts/ et src/db/ (ailleurs dans src/, commonSyntax refuse déjà toute source non
 // littérale) ; `vi` renommé (`const v = vi; v.mock(...)`) ou importé sous un autre nom.
 const SORTABLE_BOARD = "src/components/kanban/SortableBoard.tsx";
+const AISLE_SORTABLE = "src/components/shopping/AisleSortable.tsx";
 const dndKitMessage =
-  "dnd-kit est réservé à src/components/kanban/SortableBoard.tsx : passer par ce composant.";
+  "dnd-kit est réservé à src/components/kanban/SortableBoard.tsx et src/components/shopping/AisleSortable.tsx : passer par ces composants.";
 const dndKitImports = {
   group: ["@dnd-kit", "@dnd-kit/*"],
   message: dndKitMessage,
@@ -268,10 +269,10 @@ const dndKitEverywhere = {
   },
 };
 
-// Seule exception : mêmes socles que src/components (srcBoundaries, uiBoundaries), sans dnd-kit.
+// Seules exceptions (le tableau kanban, l'ordre des rayons de Courses) : mêmes socles que src/components (srcBoundaries, uiBoundaries), sans dnd-kit.
 // Placé en dernier (la dernière config l'emporte).
 const sortableBoardBoundaries = {
-  files: [SORTABLE_BOARD],
+  files: [SORTABLE_BOARD, AISLE_SORTABLE],
   rules: {
     "no-restricted-imports": restrictedImportsOver(importSocle)(...uiPatterns),
     "no-restricted-syntax": ["error", ...syntaxSocle],
