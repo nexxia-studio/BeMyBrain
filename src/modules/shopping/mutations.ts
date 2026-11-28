@@ -31,14 +31,21 @@ function parseWorkspace(workspaceId: unknown): string {
   return result.data;
 }
 
-/** Espaces internes réduits, bords retirés ; caractère de contrôle, vide ou trop long → refus. Longueur en caractères (comme char_length). */
-function cleanLabel(label: unknown): string {
+/**
+ * Normalisé en NFC, espaces internes réduits, bords retirés. Refus (invalid_params) : caractère de contrôle
+ * (\p{Cc}), caractère de format invisible (\p{Cf} : U+200B, inversions U+202E, isolats U+2066-2069…),
+ * libellé sans aucun caractère visible (lettre, chiffre, ponctuation ou symbole), vide ; trop long →
+ * label_too_long. Longueur en caractères NFC (comme char_length côté base, qui reçoit la forme NFC).
+ */
+export function cleanLabel(label: unknown): string {
   if (typeof label !== "string") throw new ShoppingError("invalid_params");
-  const clean = label.replace(/\s+/gu, " ").trim();
+  const clean = label.normalize("NFC").replace(/\s+/gu, " ").trim();
   // Les blancs (tabulation, saut de ligne) sont déjà devenus des espaces ; reste NUL, cloche, DEL, etc.
-  if (/\p{Cc}/u.test(clean)) throw new ShoppingError("invalid_params");
+  if (/[\p{Cc}\p{Cf}]/u.test(clean)) throw new ShoppingError("invalid_params");
+  if (!/[\p{L}\p{N}\p{P}\p{S}]/u.test(clean)) {
+    throw new ShoppingError("invalid_params");
+  }
   const length = [...clean].length;
-  if (length === 0) throw new ShoppingError("invalid_params");
   if (length > MAX_LABEL_LENGTH) throw new ShoppingError("label_too_long");
   return clean;
 }
