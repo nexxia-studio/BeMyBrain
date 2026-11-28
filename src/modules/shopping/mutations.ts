@@ -15,6 +15,8 @@ import { DEFAULT_LIST_NAME, getAisleOverrides } from "./queries";
 // INSERT en SQL écrit : app_backend n'a le droit INSERT que sur certaines colonnes (GRANT par colonne).
 // Ordre des verrous, le même dans toutes les écritures : 1. lockList (verrou consultatif de la liste),
 // 2. lignes (articles, puis la liste par la mise à jour de `rev`). Jamais lockList après un verrou de ligne.
+// Seule exception apparente : au tout premier ajout, l'INSERT d'ensureList précède lockList ; sans
+// interblocage possible, aucun autre écrivain ne connaît encore l'id de la liste.
 // Pourquoi : un verrou de ligne ne sérialise pas un comptage (deux ajouts à 299 articles verraient tous
 // deux 299 : l'insertion de l'autre n'est pas une ligne existante).
 
@@ -29,10 +31,12 @@ function parseWorkspace(workspaceId: unknown): string {
   return result.data;
 }
 
-/** Espaces internes réduits, bords retirés ; vide ou trop long → refus. Longueur en caractères (comme char_length). */
+/** Espaces internes réduits, bords retirés ; caractère de contrôle, vide ou trop long → refus. Longueur en caractères (comme char_length). */
 function cleanLabel(label: unknown): string {
   if (typeof label !== "string") throw new ShoppingError("invalid_params");
   const clean = label.replace(/\s+/gu, " ").trim();
+  // Les blancs (tabulation, saut de ligne) sont déjà devenus des espaces ; reste NUL, cloche, DEL, etc.
+  if (/\p{Cc}/u.test(clean)) throw new ShoppingError("invalid_params");
   const length = [...clean].length;
   if (length === 0) throw new ShoppingError("invalid_params");
   if (length > MAX_LABEL_LENGTH) throw new ShoppingError("label_too_long");

@@ -115,7 +115,9 @@ describe("écritures croisées", () => {
       db.asUser(f.userA, (tx) => addItem(f.workspaceB, "intrus", tx)),
     );
 
-    expect(code).not.toBe("ok");
+    // ensureList insère d'abord la liste de B : la WITH CHECK de shopping_lists_insert refuse (42501),
+    // avant tout contrôle de conflit.
+    expect(code).toBe("42501");
     expect(await stateOf(f.workspaceB)).toEqual(before);
   });
 

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createTestUserDb } from "../../../tests/factories/as-user";
@@ -8,6 +9,7 @@ import {
   insertCoreFixture,
   newCoreFixture,
 } from "../../../tests/factories/core";
+import { waitForLockWait } from "../../../tests/factories/lock-wait";
 import { deleteShoppingFixture } from "../../../tests/factories/shopping";
 
 import { addItem, ensureList, MAX_ITEMS_PER_LIST } from "./mutations";
@@ -228,17 +230,59 @@ describe("addItem : plafond de 300 articles", () => {
     expect(code).toBe("ok");
   });
 
-  it("deux ajouts simultanés à 299 articles ne dépassent pas 300", async () => {
+  /**
+   * `first` ajoute puis reste ouverte ; `second` est lancée ensuite. Dit si `second` attend un verrou
+   * consultatif (lockList avant tout verrou de ligne), puis rend les deux résultats une fois `first` validée.
+   */
+  async function secondAddWaitsOnListLock() {
+    let commitFirst = () => {};
+    const gate = new Promise<void>((resolve) => (commitFirst = resolve));
+    let firstWritten = () => {};
+    const written = new Promise<void>((resolve) => (firstWritten = resolve));
+    const one = codeOf(
+      db.asUser(f.userA, async (tx) => {
+        await addItem(f.workspaceA, "course 1", tx);
+        firstWritten();
+        await gate;
+      }),
+    );
+    let setPid: (pid: number) => void = () => {};
+    const pid = new Promise<number>((resolve) => (setPid = resolve));
+    let blocked = false;
+    let two: Promise<string> | null = null;
+    try {
+      await Promise.race([written, one]);
+      two = codeOf(
+        db.asUser(f.userA2, async (tx) => {
+          const { rows } = await tx.execute<{ pid: number }>(
+            sql`select pg_backend_pid() as pid`,
+          );
+          setPid(rows[0]!.pid);
+          await addItem(f.workspaceA, "course 2", tx);
+        }),
+      );
+      void two.then(() => setPid(-1));
+      blocked = await waitForLockWait(owner, await pid, "advisory");
+    } finally {
+      commitFirst();
+    }
+    return { blocked, codes: [await one, await two!] };
+  }
+
+  it("le second ajout attend le verrou de la liste tenu par le premier", async () => {
     await fillTo(MAX_ITEMS_PER_LIST - 1);
 
-    const codes = await Promise.all([
-      codeOf(db.asUser(f.userA, (tx) => addItem(f.workspaceA, "course 1", tx))),
-      codeOf(
-        db.asUser(f.userA2, (tx) => addItem(f.workspaceA, "course 2", tx)),
-      ),
-    ]);
+    const { blocked } = await secondAddWaitsOnListLock();
 
-    expect(codes.sort()).toEqual(["list_full", "ok"]);
+    expect(blocked).toBe(true);
+  });
+
+  it("une fois le verrou relâché, un seul des deux ajouts à 299 articles passe", async () => {
+    await fillTo(MAX_ITEMS_PER_LIST - 1);
+
+    const { codes } = await secondAddWaitsOnListLock();
+
+    expect(codes).toEqual(["ok", "list_full"]);
     expect((await listState(f.workspaceA)).items).toBe(MAX_ITEMS_PER_LIST);
   });
 });
